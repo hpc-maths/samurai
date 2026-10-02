@@ -4,6 +4,7 @@
 #include "../field.hpp"
 #include "../io/hdf5.hpp"
 
+#include <limits>
 #include <stdexcept>
 
 namespace samurai
@@ -15,21 +16,23 @@ namespace samurai
         {
             std::size_t cell_index;
             std::size_t level;
-            std::vector<int> possible_owners;
             int owner_rank;
+            int rule; ///< which ownership rule decided, here
 
             std::size_t cell_index_on_neighbour;
             int owner_rank_on_neighbour;
+            int rule_on_neighbour;
 
             template <class Archive>
             void serialize(Archive& ar, const unsigned int /*version*/)
             {
                 ar & cell_index;
                 ar & level;
-                ar & possible_owners;
                 ar & owner_rank;
+                ar & rule;
                 ar & cell_index_on_neighbour;
                 ar & owner_rank_on_neighbour;
+                ar & rule_on_neighbour;
             }
         };
 
@@ -58,6 +61,53 @@ namespace samurai
             std::cout << "PETSc numbering saved to 'petsc_indices.xdmf'." << std::endl;
         }
 
+        /**
+         * Decide, for every cell this rank holds, which rank owns its unknown.
+         *
+         * The unknowns of the petsc system are the cells of the reference mesh of every rank, and
+         * a cell held by several ranks must have exactly one owner: the rank that assembles its
+         * row and in whose index range it lives. The exchange that gives a ghost its global index
+         * is positional, so every rank holding a cell has to reach the **same** owner **without
+         * asking anyone**: the rule below is a function of data every holder has, and it is
+         * evaluated identically everywhere. A single check pass then verifies that neighbours
+         * agree, and a disagreement is an error, not something to negotiate - it means two ranks
+         * hold a common cell without being registered as neighbours, which is the one situation
+         * in which they cannot have the same data.
+         *
+         * The rules, in increasing order of precedence. The principle behind them: a row is
+         * assembled by the rank that *classifies* the cell - as a real cell, a projection ghost,
+         * a prediction ghost or a boundary ghost - in its **own** mesh, because that
+         * classification is what the assembly visits (`for_each_projection_ghost`,
+         * `for_each_prediction_ghost`, the boundary stencils of the real boundary cells) and
+         * what guarantees that the rank holds every cell the row reads. So the owner has to be
+         * one of the ranks that classify the cell, and among them the lowest rank.
+         *
+         *   4. **Any other cell** - one no rank's real cells give a meaning to, such as a coarse
+         *      prediction margin far from every cell, or an outer corner - gets an identity row
+         *      from its owner, so any consistent choice does: the holder whose subdomain's
+         *      gravity centre is the closest, the tie going to the lowest rank. The holders are
+         *      this rank and every neighbour whose reference mesh contains the cell.
+         *   3. **A projection ghost** - a scheme ghost of some rank whose children are real cells
+         *      of that rank - is owned by the lowest such rank; **a prediction ghost** - a scheme
+         *      ghost of some rank whose parent is a real cell of that rank - likewise. The two
+         *      cannot overlap: a cell with a real parent has no real children.
+         *   2. **A real cell** is owned by the rank it belongs to.
+         *   1. **An outer ghost the boundary conditions fill** - a cell outside the domain within
+         *      @c ghost_width of a real boundary cell, in one Cartesian direction - is owned by the
+         *      lowest rank owning such a boundary cell. The boundary-condition row of such a
+         *      ghost is assembled while visiting the real boundary cells of the owning rank, so
+         *      any other owner would leave the row empty and the condition silently dropped.
+         *
+         * Every input to these rules - the neighbours' cells, scheme ghosts, domain and gravity
+         * centre - travels with the neighbourhood exchange, so every holder evaluates the same
+         * function on the same data. What was here before decided ownership from local
+         * heuristics - "the minimum rank of the children *this rank* holds", "the closer of the
+         * two gravity centres, pairwise" - whose answers differ from rank to rank, and then
+         * tried to repair the disagreements over a bounded number of correction passes. Pairwise
+         * closeness is not transitive, so three ranks sharing a coarse cell could each name a
+         * different owner and the passes never converged; the failure appeared as soon as the
+         * coarse levels carried a wider prediction margin and more cells were shared.
+         */
         template <class Mesh>
         void compute_cell_ownership(Mesh& mesh)
         {
@@ -77,316 +127,275 @@ namespace samurai
             std::vector<int>& owner_rank   = ownership.owner_rank;
             std::vector<int>& cell_indices = ownership.cell_indices;
 
-            using mesh_id_t  = typename Mesh::mesh_id_t;
-            using lca_t      = typename Mesh::lca_type;
-            using interval_t = typename Mesh::interval_t;
-            using index_t    = xt::xtensor_fixed<typename interval_t::value_t, xt::xshape<Mesh::dim - 1>>;
+            using mesh_id_t = typename Mesh::mesh_id_t;
 
             mpi::communicator world;
-            int rank = world.rank();
+            const int rank = world.rank();
 
-            std::size_t min_level = mesh[mesh_id_t::reference].min_level();
-            std::size_t max_level = mesh[mesh_id_t::reference].max_level();
+            const std::size_t min_level = mesh[mesh_id_t::reference].min_level();
+            const std::size_t max_level = mesh[mesh_id_t::reference].max_level();
 
             constexpr int UNSET = std::numeric_limits<int>::max();
 
-            // Stores the owner rank of each cell
-            owner_rank.resize(n_local_cells);
-            std::fill(owner_rank.begin(), owner_rank.end(), UNSET);
+            auto squared_distance = [](const auto& cell, const auto& centre)
+            {
+                auto diff = cell.center() - centre;
+                return samurai::math::sum(diff * diff);
+            };
 
-            // Local cells are locally owned.
-            for_each_cell(mesh,
-                          [&](auto& cell)
+            //---------------------------------------------------------//
+            // Rule 4: the closest gravity centre among the holders    //
+            //---------------------------------------------------------//
+            // Evaluated first, on every cell, so that the other rules can simply overwrite it.
+            // The comparison is a total order on (distance, rank), so the answer does not depend
+            // on the order in which the holders are visited.
+
+            owner_rank.assign(n_local_cells, rank);
+            std::vector<int> rule(n_local_cells, 4); // the rule that decided each cell, for the mismatch report
+            std::vector<double> best_distance(n_local_cells, std::numeric_limits<double>::infinity());
+
+            for_each_cell(mesh[mesh_id_t::reference],
+                          [&](const auto& cell)
                           {
-                              owner_rank[static_cast<std::size_t>(cell.index)] = rank;
+                              best_distance[static_cast<std::size_t>(cell.index)] = squared_distance(cell, mesh.gravity_center());
                           });
 
             for (std::size_t level = min_level; level <= max_level; ++level)
             {
-                // All the boundary ghosts of locally owned boundary cells are also locally owned.
-                auto domain_bdry_outer_layer = domain_boundary_outer_layer(mesh, level, mesh.ghost_width());
-                auto boundary_ghosts         = intersection(domain_bdry_outer_layer, mesh[mesh_id_t::reference][level]);
-                for_each_cell(mesh,
-                              boundary_ghosts,
-                              [&](auto& ghost)
-                              {
-                                  owner_rank[static_cast<std::size_t>(ghost.index)] = rank;
-                              });
-
-                for (auto& neighbour : mesh.mpi_neighbourhood())
+                for (const auto& neighbour : mesh.mpi_neighbourhood())
                 {
-                    // Ghosts that corresponds to neighbour's cells are owned by that neighbour.
+                    auto shared = intersection(mesh[mesh_id_t::reference][level], neighbour.mesh[mesh_id_t::reference][level]);
+                    for_each_cell(mesh,
+                                  shared,
+                                  [&](const auto& cell)
+                                  {
+                                      const auto cell_index = static_cast<std::size_t>(cell.index);
+                                      const double distance = squared_distance(cell, neighbour.mesh.gravity_center());
+                                      if (distance < best_distance[cell_index]
+                                          || (distance == best_distance[cell_index] && neighbour.rank < owner_rank[cell_index]))
+                                      {
+                                          best_distance[cell_index] = distance;
+                                          owner_rank[cell_index]    = neighbour.rank;
+                                      }
+                                  });
+                }
+            }
+
+            //-----------------------------------------------------------------//
+            // Rule 3: projection and prediction ghosts follow the rank that   //
+            // classifies them, the lowest one when several do                 //
+            //-----------------------------------------------------------------//
+
+            std::vector<int> classifier(n_local_cells, UNSET);
+
+            auto claim_classified_ghosts = [&](const auto& holder_mesh, int holder_rank)
+            {
+                const auto& holder_cells  = holder_mesh[mesh_id_t::cells];
+                const auto& holder_ghosts = holder_mesh[mesh_id_t::cells_and_ghosts];
+
+                auto claim = [&](auto&& set)
+                {
+                    for_each_cell(mesh,
+                                  set,
+                                  [&](const auto& ghost)
+                                  {
+                                      auto& owner = classifier[static_cast<std::size_t>(ghost.index)];
+                                      owner       = std::min(owner, holder_rank);
+                                  });
+                };
+
+                for (std::size_t level = min_level; level <= max_level; ++level)
+                {
+                    if (level < max_level)
+                    {
+                        auto projection_ghosts = intersection(mesh[mesh_id_t::reference][level], holder_ghosts[level], holder_cells[level + 1])
+                                                     .on(level);
+                        claim(projection_ghosts);
+                    }
+                    if (level > min_level)
+                    {
+                        auto prediction_ghosts = intersection(mesh[mesh_id_t::reference][level], holder_ghosts[level], holder_cells[level - 1])
+                                                     .on(level);
+                        claim(prediction_ghosts);
+                    }
+                }
+            };
+
+            claim_classified_ghosts(mesh, rank);
+            for (const auto& neighbour : mesh.mpi_neighbourhood())
+            {
+                claim_classified_ghosts(neighbour.mesh, neighbour.rank);
+            }
+
+            for (std::size_t cell_index = 0; cell_index < n_local_cells; ++cell_index)
+            {
+                if (classifier[cell_index] != UNSET)
+                {
+                    owner_rank[cell_index] = classifier[cell_index];
+                    rule[cell_index]       = 3;
+                }
+            }
+
+            //--------------------//
+            // Rule 2: real cells //
+            //--------------------//
+
+            for_each_cell(mesh,
+                          [&](const auto& cell)
+                          {
+                              owner_rank[static_cast<std::size_t>(cell.index)] = rank;
+                              rule[static_cast<std::size_t>(cell.index)]       = 2;
+                          });
+
+            for (std::size_t level = min_level; level <= max_level; ++level)
+            {
+                for (const auto& neighbour : mesh.mpi_neighbourhood())
+                {
                     auto neighbour_cells = intersection(neighbour.mesh[mesh_id_t::cells][level], mesh[mesh_id_t::reference][level]);
                     for_each_cell(mesh,
                                   neighbour_cells,
-                                  [&](auto& cell)
+                                  [&](const auto& cell)
                                   {
                                       owner_rank[static_cast<std::size_t>(cell.index)] = neighbour.rank;
+                                      rule[static_cast<std::size_t>(cell.index)]       = 2;
                                   });
+                }
+            }
 
-                    // Boundary ghosts associated with neighbour's boundary cells are also owned by that neighbour
-                    auto nghb_domain_bdry_outer_layer = domain_boundary_outer_layer(neighbour.mesh, level, neighbour.mesh.ghost_width());
-                    auto nghb_boundary_ghosts         = intersection(nghb_domain_bdry_outer_layer, mesh[mesh_id_t::reference][level]);
+            //--------------------------------------------------------------//
+            // Rule 1: the outer ghosts of a real boundary cell follow it   //
+            //--------------------------------------------------------------//
+
+            std::vector<int> boundary_owner(n_local_cells, UNSET);
+
+            auto claim_boundary_ghosts = [&](const auto& holder_mesh, int holder_rank)
+            {
+                for (std::size_t level = min_level; level <= max_level; ++level)
+                {
+                    auto outer_layer     = domain_boundary_outer_layer(holder_mesh, level, holder_mesh.ghost_width());
+                    auto boundary_ghosts = intersection(outer_layer, mesh[mesh_id_t::reference][level]);
                     for_each_cell(mesh,
-                                  nghb_boundary_ghosts,
-                                  [&](auto& ghost)
+                                  boundary_ghosts,
+                                  [&](const auto& ghost)
                                   {
-                                      owner_rank[static_cast<std::size_t>(ghost.index)] = neighbour.rank;
+                                      auto& owner = boundary_owner[static_cast<std::size_t>(ghost.index)];
+                                      owner       = std::min(owner, holder_rank);
                                   });
                 }
-            }
+            };
 
-            // Boundary ghosts at lower levels might still be unset (if they have no children in this rank).
-            // This can happen if a coarse ghost is outside the boundary owned by another subdomain.
-            // I think this can't happen unless the resolution is sufficiently small, so that coarse ghosts of one subdomain
-            // goes all the way to the domain boundary of the other subdomain without having its boundary cells as ghosts.
-            for (std::size_t level = min_level; level <= max_level - 1; ++level)
+            claim_boundary_ghosts(mesh, rank);
+            for (const auto& neighbour : mesh.mpi_neighbourhood())
             {
-                for (auto& neighbour : mesh.mpi_neighbourhood())
-                {
-                    auto nghb_domain_bdry_outer_layer = domain_boundary_outer_layer(neighbour.mesh, level + 1, neighbour.mesh.ghost_width());
-                    auto nghb_domain_bdry_outer_layer_no_children = difference(nghb_domain_bdry_outer_layer,
-                                                                               mesh[mesh_id_t::reference][level + 1]);
-                    auto nghb_boundary_ghosts = intersection(nghb_domain_bdry_outer_layer_no_children, mesh[mesh_id_t::reference][level])
-                                                    .on(level);
-                    for_each_cell(mesh,
-                                  nghb_boundary_ghosts,
-                                  [&](auto& ghost)
-                                  {
-                                      assert(owner_rank[static_cast<std::size_t>(ghost.index)] == UNSET);
-                                      if (owner_rank[static_cast<std::size_t>(ghost.index)] == UNSET)
-                                      {
-                                          owner_rank[static_cast<std::size_t>(ghost.index)] = neighbour.rank;
-                                      }
-                                  });
-                }
+                claim_boundary_ghosts(neighbour.mesh, neighbour.rank);
             }
-
-            // The projection ghosts are owned by the minimum rank of their children
-            for (std::size_t level = max_level - 1; level >= min_level; --level)
-            {
-                lca_t proj_ghost_lca(level, mesh.origin_point(), mesh.scaling_factor());
-                index_t index_ghost;
-
-                auto projection_ghosts = intersection(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::reference][level + 1]).on(level);
-                for_each_cell(mesh,
-                              projection_ghosts,
-                              [&](auto& ghost)
-                              {
-                                  assert(static_cast<std::size_t>(ghost.index) < owner_rank.size());
-                                  auto& ghost_owner_rank = owner_rank[static_cast<std::size_t>(ghost.index)];
-                                  if (ghost_owner_rank == UNSET)
-                                  {
-                                      index_ghost = xt::view(ghost.indices, xt::range(1, Mesh::dim));
-                                      proj_ghost_lca.add_point_back(ghost.indices[0], index_ghost);
-                                      auto children = intersection(self(proj_ghost_lca).on(level + 1), mesh[mesh_id_t::reference][level + 1]);
-                                      for_each_cell(mesh,
-                                                    children,
-                                                    [&](auto& child)
-                                                    {
-                                                        ghost_owner_rank = std::min(ghost_owner_rank,
-                                                                                    owner_rank[static_cast<std::size_t>(child.index)]);
-                                                    });
-                                      proj_ghost_lca.clear();
-                                  }
-                              });
-
-                // For the projection ghosts that have no children in this rank, we look for children in neighbour ranks
-                for (auto& neighbour : mesh.mpi_neighbourhood())
-                {
-                    auto projection_ghosts_nghb = intersection(mesh[mesh_id_t::reference][level],
-                                                               difference(neighbour.mesh[mesh_id_t::reference][level + 1],
-                                                                          mesh[mesh_id_t::reference][level + 1]))
-                                                      .on(level);
-                    for_each_cell(mesh,
-                                  projection_ghosts_nghb,
-                                  [&](auto& ghost)
-                                  {
-                                      auto& ghost_owner_rank = owner_rank[static_cast<std::size_t>(ghost.index)];
-                                      if (ghost_owner_rank == UNSET)
-                                      {
-                                          ghost_owner_rank = neighbour.rank;
-                                      }
-                                  });
-                }
-
-                if (level == 0)
-                {
-                    break;
-                }
-            }
-
-            // The prediction ghosts are owned by the rank of their parent
-            for (std::size_t level = min_level + 1; level <= max_level; ++level)
-            {
-                lca_t pred_ghost_lca(level, mesh.origin_point(), mesh.scaling_factor());
-                index_t index_ghost;
-
-                auto prediction_ghosts = intersection(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::reference][level - 1]).on(level);
-                for_each_cell(
-                    mesh,
-                    prediction_ghosts,
-                    [&](auto& ghost)
-                    {
-                        auto& ghost_owner_rank = owner_rank[static_cast<std::size_t>(ghost.index)];
-                        if (ghost_owner_rank == UNSET)
-                        {
-                            index_ghost = xt::view(ghost.indices, xt::range(1, Mesh::dim));
-                            pred_ghost_lca.add_point_back(ghost.indices[0], index_ghost);
-                            auto parent_set = intersection(self(pred_ghost_lca).on(level - 1), mesh[mesh_id_t::reference][level - 1]);
-                            for_each_cell(mesh,
-                                          parent_set,
-                                          [&](auto& parent)
-                                          {
-                                              assert(ghost_owner_rank == UNSET && "there must be only one parent");
-                                              ghost_owner_rank = owner_rank[static_cast<std::size_t>(parent.index)];
-                                          });
-                            pred_ghost_lca.clear();
-                        }
-                    });
-            }
-
-            // The remaining shared ghosts are owned by the rank whose subdomain's gravity center is the closest.
-            // It can typpically handle the outer corners and other remaining boundary ghosts.
-            for (std::size_t level = min_level; level <= max_level; ++level)
-            {
-                for (auto& neighbour : mesh.mpi_neighbourhood())
-                {
-                    auto intersecting_cells_and_ghosts = intersection(mesh[mesh_id_t::reference][level],
-                                                                      neighbour.mesh[mesh_id_t::reference][level]);
-                    for_each_cell(mesh,
-                                  intersecting_cells_and_ghosts,
-                                  [&](auto& cell)
-                                  {
-                                      if (owner_rank[static_cast<std::size_t>(cell.index)] == UNSET)
-                                      {
-                                          auto diff     = cell.center() - mesh.gravity_center();
-                                          auto distance = std::sqrt(samurai::math::sum(diff * diff));
-
-                                          auto nghb_diff     = cell.center() - neighbour.mesh.gravity_center();
-                                          auto nghb_distance = std::sqrt(samurai::math::sum(nghb_diff * nghb_diff));
-
-                                          owner_rank[static_cast<std::size_t>(cell.index)] = distance < nghb_distance ? rank : neighbour.rank;
-                                      }
-                                  });
-                }
-            }
-
-            // Finally, the ghosts that are not owned by any rank at this point are owned by the current rank.
-            for (std::size_t cell_index = 0; cell_index < n_local_cells; ++cell_index)
-            {
-                if (owner_rank[cell_index] == UNSET)
-                {
-                    owner_rank[cell_index] = rank;
-                }
-            }
-
-            //--------------------------------------------//
-            // Look for owner mismatches and correct them //
-            //--------------------------------------------//
-            // An owner mismatch is when two neighbouring ranks disagree on the owner of a cell.
-            // Mismatches can happen when two neighbouring ranks have intersecting ghosts although they are not registered in the
-            // neighbourhood of each other.
-
-            // We register, for all cells, the possible owners (neighbour ranks that also have this cell).
-            // This will be used to choose another owner in case of mismatch.
-            std::vector<std::vector<int>> possible_owners(n_local_cells);
 
             for (std::size_t cell_index = 0; cell_index < n_local_cells; ++cell_index)
             {
-                possible_owners[cell_index].push_back(rank);
-            }
-            for (std::size_t level = min_level; level <= max_level; ++level)
-            {
-                for (auto& neighbour : mesh.mpi_neighbourhood())
+                if (boundary_owner[cell_index] != UNSET)
                 {
-                    auto intersecting_cells_and_ghosts = intersection(mesh[mesh_id_t::reference][level],
-                                                                      neighbour.mesh[mesh_id_t::reference][level]);
-                    for_each_cell(mesh,
-                                  intersecting_cells_and_ghosts,
-                                  [&](auto& cell)
-                                  {
-                                      possible_owners[static_cast<std::size_t>(cell.index)].push_back(neighbour.rank);
-                                  });
+                    owner_rank[cell_index] = boundary_owner[cell_index];
+                    rule[cell_index]       = 1;
                 }
             }
 
-            // The process of checking for mismatches and correcting them is repeated until no mismatch is found.
-            int n_mismatch_checks         = 0;
-            const int max_mismatch_checks = world.size() + 2; // arbitrary limit
-            bool owner_mismatch           = false;
+            //-----------------------------------//
+            // Check that the neighbours agree   //
+            //-----------------------------------//
+            // The exchange is positional, so both sides must walk the same cells in the same
+            // order: the same levels, and the intersection built with its operands in the same
+            // order - derived from the rank numbers, not from which side is sending.
+
+            auto shared_cells = [&](const auto& neighbour, std::size_t level)
+            {
+                const auto& mine  = mesh[mesh_id_t::reference][level];
+                const auto& other = neighbour.mesh[mesh_id_t::reference][level];
+                return rank < neighbour.rank ? intersection(mine, other) : intersection(other, mine);
+            };
+
+            // The level range comes from both meshes, not from this rank's: a rank whose
+            // reference mesh starts at a coarser level than its neighbour's would otherwise
+            // walk more levels than the neighbour does and read the values off by a level.
+            auto shared_max_level = [&](const auto& neighbour)
+            {
+                return std::max(max_level, neighbour.mesh[mesh_id_t::reference].max_level());
+            };
+
             std::vector<std::vector<MismatchInfo>> mismatches(mesh.mpi_neighbourhood().size());
-            bool unsolvable_mismatch_found = false;
+            bool owner_mismatch = false;
 
-            while (n_mismatch_checks < max_mismatch_checks && !unsolvable_mismatch_found)
             {
-                for (auto& m : mismatches)
-                {
-                    m.clear();
-                }
-                owner_mismatch = false;
-                n_mismatch_checks++;
-
-                // SEND
                 std::vector<mpi::request> req;
                 std::vector<std::vector<PetscInt>> to_send_by_neighbour(mesh.mpi_neighbourhood().size());
-                std::size_t i_neigh = 0;
-                for (auto& neighbour : mesh.mpi_neighbourhood())
+                std::size_t i_neighbour = 0;
+                for (const auto& neighbour : mesh.mpi_neighbourhood())
                 {
-                    auto& to_send = to_send_by_neighbour[i_neigh];
-
-                    for (std::size_t level = min_level; level <= max_level; ++level)
+                    auto& to_send = to_send_by_neighbour[i_neighbour];
+                    for (std::size_t level = 0; level <= shared_max_level(neighbour); ++level)
                     {
-                        auto intersecting_cells_and_ghosts = intersection(mesh[mesh_id_t::reference][level],
-                                                                          neighbour.mesh[mesh_id_t::reference][level]);
+                        auto shared = shared_cells(neighbour, level);
                         for_each_cell(mesh,
-                                      intersecting_cells_and_ghosts,
-                                      [&](auto& cell)
+                                      shared,
+                                      [&](const auto& cell)
                                       {
                                           to_send.push_back(owner_rank[static_cast<std::size_t>(cell.index)]);
                                           to_send.push_back(static_cast<PetscInt>(cell.index));
+                                          to_send.push_back(rule[static_cast<std::size_t>(cell.index)]);
+                                          for (std::size_t d = 0; d < Mesh::dim; ++d)
+                                          {
+                                              to_send.push_back(static_cast<PetscInt>(cell.indices[d]));
+                                          }
                                       });
                     }
                     req.push_back(world.isend(neighbour.rank /* dest */, neighbour.rank /* tag */, to_send));
-                    i_neigh++;
+                    i_neighbour++;
                 }
 
-                // RECEIVE
-                std::size_t i_neighbour = 0;
-                for (auto& neighbour : mesh.mpi_neighbourhood())
+                i_neighbour = 0;
+                for (const auto& neighbour : mesh.mpi_neighbourhood())
                 {
                     std::vector<PetscInt> to_recv;
                     std::size_t read = 0;
                     world.recv(neighbour.rank /* source */, rank /* tag */, to_recv);
-                    for (std::size_t level = 0; level <= max_level; ++level)
+                    for (std::size_t level = 0; level <= shared_max_level(neighbour); ++level)
                     {
-                        auto intersecting_cells_and_ghosts = intersection(neighbour.mesh[mesh_id_t::reference][level],
-                                                                          mesh[mesh_id_t::reference][level]);
+                        auto shared = shared_cells(neighbour, level);
                         for_each_cell(mesh,
-                                      intersecting_cells_and_ghosts,
-                                      [&](auto& cell)
+                                      shared,
+                                      [&](const auto& cell)
                                       {
-                                          auto neighbour_owner_rank    = to_recv[read++];
-                                          auto cell_index_on_neighbour = to_recv[read++];
-                                          // MISMATCH DETECTED!!!
-                                          if (owner_rank[static_cast<std::size_t>(cell.index)] != neighbour_owner_rank)
+                                          const auto neighbour_owner_rank    = static_cast<int>(to_recv[read++]);
+                                          const auto cell_index_on_neighbour = static_cast<std::size_t>(to_recv[read++]);
+                                          const auto rule_on_neighbour       = static_cast<int>(to_recv[read++]);
+                                          const auto cell_index              = static_cast<std::size_t>(cell.index);
+                                          for (std::size_t d = 0; d < Mesh::dim; ++d)
+                                          {
+                                              const auto coord = to_recv[read++];
+                                              if (coord != static_cast<PetscInt>(cell.indices[d]))
+                                              {
+                                                  throw std::runtime_error(fmt::format(
+                                                      "[{}] compute_cell_ownership: the ownership exchange with rank {} is misaligned at "
+                                                      "level {}: this rank walks the cell at ({}) where the neighbour sent its cell {} at "
+                                                      "coordinate {} = {}. The two ranks do not walk the same shared cells.",
+                                                      rank,
+                                                      neighbour.rank,
+                                                      level,
+                                                      fmt::join(cell.indices, ", "),
+                                                      cell_index_on_neighbour,
+                                                      d,
+                                                      coord));
+                                              }
+                                          }
+                                          if (owner_rank[cell_index] != neighbour_owner_rank)
                                           {
                                               owner_mismatch = true;
-                                              mismatches[i_neighbour].emplace_back(static_cast<std::size_t>(cell.index),
-                                                                                   level,
-                                                                                   possible_owners[static_cast<std::size_t>(cell.index)],
-                                                                                   owner_rank[static_cast<std::size_t>(cell.index)],
-                                                                                   cell_index_on_neighbour,
-                                                                                   neighbour_owner_rank);
-
-                                              // std::cout << fmt::format(
-                                              //     "[{}] Error: owner mismatch in cell {} on level {} (owned here by {} != {} on [{}] with
-                                              //     cell_index {})\n", rank, cell.index, level,
-                                              //     owner_rank[static_cast<std::size_t>(cell.index)],
-                                              //     neighbour_owner_rank,
-                                              //     neighbour.rank,
-                                              //     cell_index_on_neighbour);
-                                              // owner_rank[static_cast<std::size_t>(cell.index)] = world.size() * 2; // mark error
+                                              mismatches[i_neighbour].push_back({cell_index,
+                                                                                 level,
+                                                                                 owner_rank[cell_index],
+                                                                                 rule[cell_index],
+                                                                                 cell_index_on_neighbour,
+                                                                                 neighbour_owner_rank,
+                                                                                 rule_on_neighbour});
                                           }
                                       });
                     }
@@ -394,124 +403,37 @@ namespace samurai
                 }
 
                 mpi::wait_all(req.begin(), req.end());
-
-                owner_mismatch = mpi::all_reduce(world, owner_mismatch, std::logical_or());
-                if (!owner_mismatch)
-                {
-                    // No more mismatches, get out
-                    break;
-                }
-                // else // export for analysis
-                // {
-                //     auto owner_rank_field = make_scalar_field<int>("owner_rank", mesh);
-                //     for (std::size_t cell_index = 0; cell_index < mesh.nb_cells(); ++cell_index)
-                //     {
-                //         owner_rank_field[cell_index] = owner_rank[cell_index];
-                //     }
-                //     auto samurai_cell_indices_field = make_scalar_field<std::size_t>("samurai_cell_index", mesh);
-                //     for (std::size_t cell_index = 0; cell_index < mesh.nb_cells(); ++cell_index)
-                //     {
-                //         samurai_cell_indices_field[cell_index] = static_cast<std::size_t>(cell_index);
-                //     }
-                //     save(fs::current_path(), "owner_mismatch", {true, true}, mesh, owner_rank_field, samurai_cell_indices_field);
-
-                //     std::cerr << "Cell ownership mismatch detected. Exiting." << std::endl;
-                //     exit(EXIT_FAILURE);
-                // }
-
-                // Send mismatches to neighbours
-                req.clear();
-                i_neighbour = 0;
-                for (auto& neighbour : mesh.mpi_neighbourhood())
-                {
-                    req.push_back(world.isend(neighbour.rank /* dest */, neighbour.rank /* tag */, mismatches[i_neighbour]));
-                    i_neighbour++;
-                }
-
-                // Receive mismatches from neighbours and change owner ranks if needed
-                i_neighbour = 0;
-                for (auto& neighbour : mesh.mpi_neighbourhood())
-                {
-                    std::vector<MismatchInfo> neighbour_mismatches;
-                    world.recv(neighbour.rank /* source */, rank /* tag */, neighbour_mismatches);
-                    for (auto& neighbour_mismatch : neighbour_mismatches)
-                    {
-                        // If the owner_rank I have chosen is not in the possible_owners of the neighbour, we must choose another one that
-                        // is possible for both.
-                        auto& my_cell_index = neighbour_mismatch.cell_index_on_neighbour;
-                        if (std::find(neighbour_mismatch.possible_owners.begin(),
-                                      neighbour_mismatch.possible_owners.end(),
-                                      owner_rank[my_cell_index])
-                            == neighbour_mismatch.possible_owners.end())
-                        {
-                            // Find the intersection between the neighbour's possible_owners and my possible_owners
-                            std::vector<int> intersection;
-                            for (auto& neighbour_possible_owner : neighbour_mismatch.possible_owners)
-                            {
-                                if (std::find(possible_owners[my_cell_index].begin(),
-                                              possible_owners[my_cell_index].end(),
-                                              neighbour_possible_owner)
-                                    != possible_owners[my_cell_index].end())
-                                {
-                                    intersection.push_back(neighbour_possible_owner);
-                                }
-                            }
-                            if (intersection.empty())
-                            {
-                                std::cerr << fmt::format(
-                                    "[{}] Error: cannot resolve ownership mismatch for cell {} (cell_index {} in rank [{}]). ",
-                                    rank,
-                                    my_cell_index,
-                                    neighbour_mismatch.cell_index,
-                                    neighbour.rank);
-                                std::cerr << fmt::format("[{}] Possible owners: [{}] --> ({}), [{}] --> ({}).\n",
-                                                         rank,
-                                                         rank,
-                                                         fmt::join(possible_owners[my_cell_index], ", "),
-                                                         neighbour.rank,
-                                                         fmt::join(neighbour_mismatch.possible_owners, ", "));
-                                unsolvable_mismatch_found = true;
-                                break;
-                            }
-                            // Update possible_owners to the intersection
-                            possible_owners[my_cell_index] = intersection;
-                            // Choose the minimum rank in the intersection as the new owner
-                            owner_rank[my_cell_index] = *std::min_element(possible_owners[my_cell_index].begin(),
-                                                                          possible_owners[my_cell_index].end());
-                        }
-                        // else, the owner rank is acceptable for both ranks, we don't change it
-                    }
-                    neighbour_mismatches.clear();
-                    i_neighbour++;
-                }
-                mpi::wait_all(req.begin(), req.end());
             }
 
-            // Print the mismatches
-            if ((n_mismatch_checks == max_mismatch_checks || unsolvable_mismatch_found) && owner_mismatch)
+            owner_mismatch = mpi::all_reduce(world, owner_mismatch, std::logical_or());
+
+            if (owner_mismatch)
             {
                 auto owner_rank_field = make_scalar_field<int>("owner_rank", mesh);
                 for (std::size_t cell_index = 0; cell_index < mesh.nb_cells(); ++cell_index)
                 {
                     owner_rank_field[cell_index] = owner_rank[cell_index];
                 }
-                std::size_t i_neigh = 0;
-                for (auto& neighbour : mesh.mpi_neighbourhood())
+                std::size_t i_neighbour = 0;
+                for (const auto& neighbour : mesh.mpi_neighbourhood())
                 {
-                    for (auto& mismatch : mismatches[i_neigh])
+                    for (const auto& mismatch : mismatches[i_neighbour])
                     {
-                        std::cout << fmt::format(
-                            "[{}] Mismatch for cell {} at level {} (owned here by {} and owned by {} on [{}] with cell_index {})\n",
+                        std::cerr << fmt::format(
+                            "[{}] Mismatch for cell {} at level {} (owned here by {} by rule {}, and owned by {} by rule {} "
+                            "on [{}] with cell_index {})\n",
                             rank,
                             mismatch.cell_index,
                             mismatch.level,
-                            owner_rank[mismatch.cell_index],
+                            mismatch.owner_rank,
+                            mismatch.rule,
                             mismatch.owner_rank_on_neighbour,
+                            mismatch.rule_on_neighbour,
                             neighbour.rank,
                             mismatch.cell_index_on_neighbour);
                         owner_rank_field[mismatch.cell_index] = 2 * world.size(); // mark error
                     }
-                    i_neigh++;
+                    i_neighbour++;
                 }
 
                 auto samurai_cell_indices_field = make_scalar_field<std::size_t>("samurai_cell_index", mesh);
@@ -520,15 +442,13 @@ namespace samurai
                     samurai_cell_indices_field[cell_index] = static_cast<std::size_t>(cell_index);
                 }
                 save(fs::current_path(), "owner_mismatch", {true, true}, mesh, owner_rank_field, samurai_cell_indices_field);
-                std::cerr << fmt::format("[{}] Error: cell ownership mismatch detected. ", rank);
-                if (!unsolvable_mismatch_found)
-                {
-                    std::cerr << fmt::format("Maximum number of correction passes reached ({}). ", max_mismatch_checks);
-                }
-                std::cerr << fmt::format("See 'owner_mismatch.xdmf' for details.\n", rank);
-                std::cerr << fmt::format(
-                    "[{}] This usually happens when low level ghosts are shared between subdomains that are not in each other's direct neighbourhood. To solve this issue, try increasing the min level.\n",
-                    rank);
+                std::cout.flush();
+                std::cerr << fmt::format("[{}] Error: cell ownership mismatch detected. See 'owner_mismatch.xdmf' for details.\n", rank);
+                std::cerr << fmt::format("[{}] The ownership rule is the same on every rank, so two ranks can only disagree when they hold "
+                                         "a common cell without being registered as neighbours of each other. This usually happens when "
+                                         "low level ghosts are shared between subdomains that are not in each other's direct "
+                                         "neighbourhood. To solve this issue, try increasing the min level.\n",
+                                         rank);
                 throw std::runtime_error(fmt::format("[{}] Cell ownership mismatch detected. See 'owner_mismatch.xdmf' for details.", rank));
             }
 
@@ -563,11 +483,11 @@ namespace samurai
             if (args::print_petsc_numbering)
             {
                 sleep(static_cast<unsigned int>(rank));
-                std::cout << fmt::format("[{}]: Cell ownership: owned: {}, total: {}\n", world.rank(), n_owned_cells, n_local_cells);
+                std::cerr << fmt::format("[{}]: Cell ownership: owned: {}, total: {}\n", world.rank(), n_owned_cells, n_local_cells);
                 for_each_cell(mesh[mesh_id_t::reference],
                               [&](auto& cell)
                               {
-                                  std::cout << fmt::format("[{}]:          cell_index {} level {} (owned by {}): CI{}\n",
+                                  std::cerr << fmt::format("[{}]:          cell_index {} level {} (owned by {}): CI{}\n",
                                                            world.rank(),
                                                            cell.index,
                                                            cell.level,

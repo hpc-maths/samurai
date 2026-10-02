@@ -1182,8 +1182,10 @@ namespace samurai
                 //                           1+4=5 in 2D
                 static constexpr std::size_t proj_stencil_size = 1 + (1 << dim);
 #ifdef SAMURAI_WITH_MPI
-                // assume that half the stencil can be on other processes
-                PetscInt o_nnz_value = mpi::communicator().size() == 1 ? 0 : proj_stencil_size / 2;
+                // The owner of a projection ghost is the lowest rank holding one of its children as
+                // a real cell (compute_cell_ownership), so every other child may be on another
+                // process: allocate for all of them.
+                PetscInt o_nnz_value = mpi::communicator().size() == 1 ? 0 : (1 << dim);
 #endif
 
                 for_each_projection_ghost(mesh(),
