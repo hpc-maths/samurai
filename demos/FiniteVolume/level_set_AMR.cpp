@@ -253,7 +253,7 @@ int main(int argc, char* argv[])
             phihat.resize();
             phihat = phi - dt_fict * H_wrap(phi, phi_0, mesh.max_level());
             samurai::update_ghost(phihat);
-            phinp1 = .5 * phi_0 + .5 * (phihat - dt_fict * H_wrap(phihat, phi_0, mesh.max_level()));
+            phinp1 = .5 * phi + .5 * (phihat - dt_fict * H_wrap(phihat, phi_0, mesh.max_level()));
 
             std::swap(phi.array(), phinp1.array());
         }

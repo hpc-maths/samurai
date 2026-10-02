@@ -604,7 +604,7 @@ int main(int argc, char* argv[])
             samurai::make_bc<samurai::Neumann<1>>(phihat, 0.);
             phihat = phi - dt_fict * H_wrap(phi, phi_0, mesh.max_level());
             update_ghosts(phihat, u);
-            phinp1 = .5 * phi_0 + .5 * (phihat - dt_fict * H_wrap(phihat, phi_0, mesh.max_level()));
+            phinp1 = .5 * phi + .5 * (phihat - dt_fict * H_wrap(phihat, phi_0, mesh.max_level()));
             std::swap(phi.array(), phinp1.array());
         }
 
