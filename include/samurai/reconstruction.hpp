@@ -588,10 +588,12 @@ namespace samurai
         using mesh_id_t = typename mesh_t::mesh_id_t;
         using ca_type   = typename mesh_t::ca_type;
 
-        if (field.mesh().max_stencil_radius() < 2)
+        // 2r: the composed prediction map reaches 2r coarse cells, and a stencil clamped at a
+        // boundary reaches 2r inward.
+        if (field.mesh().max_stencil_radius() < 2 * static_cast<int>(mesh_t::config_t::prediction_stencil_radius))
         {
-            throw std::runtime_error("The reconstruction function requires at least 2 ghosts on the boundary.\nTo fix this issue, remove "
-                                     "mesh_config.disable_minimal_ghost_width().");
+            throw std::runtime_error("The reconstruction function requires at least 2 * prediction_stencil_radius ghosts on the "
+                                     "boundary.\nTo fix this issue, remove mesh_config.disable_minimal_ghost_width().");
         }
 
         update_ghost_mr_if_needed(field);
@@ -975,10 +977,11 @@ namespace samurai
         auto& mesh_src                   = field_src.mesh();
         auto& mesh_dst                   = field_dst.mesh();
 
-        if (field_src.mesh().max_stencil_radius() < 2)
+        if (field_src.mesh().max_stencil_radius()
+            < 2 * static_cast<int>(std::decay_t<decltype(mesh_src)>::config_t::prediction_stencil_radius))
         {
-            throw std::runtime_error("The transfer function requires at least 2 ghosts on the boundary.\nTo fix this issue, remove "
-                                     "mesh_config.disable_minimal_ghost_width().");
+            throw std::runtime_error("The transfer function requires at least 2 * prediction_stencil_radius ghosts on the boundary.\nTo "
+                                     "fix this issue, remove mesh_config.disable_minimal_ghost_width().");
         }
 
         update_ghost_mr_if_needed(field_src);

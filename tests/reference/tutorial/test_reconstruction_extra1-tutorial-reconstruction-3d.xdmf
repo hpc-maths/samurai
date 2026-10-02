@@ -2,17 +2,17 @@
 <Xdmf>
     <Domain>
         <Grid Name="mesh">
-            <Topology TopologyType="Hexahedron" NumberOfElements="9248">
-                <DataItem Dimensions="73984" Format="HDF">test_reconstruction_extra1-tutorial-reconstruction-3d.h5:/mesh/connectivity</DataItem>
+            <Topology TopologyType="Hexahedron" NumberOfElements="9752">
+                <DataItem Dimensions="78016" Format="HDF">test_reconstruction_extra1-tutorial-reconstruction-3d.h5:/mesh/connectivity</DataItem>
             </Topology>
             <Geometry GeometryType="XYZ">
-                <DataItem Dimensions="33579" Format="HDF">test_reconstruction_extra1-tutorial-reconstruction-3d.h5:/mesh/points</DataItem>
+                <DataItem Dimensions="35541" Format="HDF">test_reconstruction_extra1-tutorial-reconstruction-3d.h5:/mesh/points</DataItem>
             </Geometry>
             <Attribute Name="u" Center="Cell">
-                <DataItem Dimensions="9248" Format="HDF" Precision="8">test_reconstruction_extra1-tutorial-reconstruction-3d.h5:/mesh/fields/u</DataItem>
+                <DataItem Dimensions="9752" Format="HDF" Precision="8">test_reconstruction_extra1-tutorial-reconstruction-3d.h5:/mesh/fields/u</DataItem>
             </Attribute>
             <Attribute Name="level" Center="Cell">
-                <DataItem Dimensions="9248" Format="HDF" Precision="8">test_reconstruction_extra1-tutorial-reconstruction-3d.h5:/mesh/fields/level</DataItem>
+                <DataItem Dimensions="9752" Format="HDF" Precision="8">test_reconstruction_extra1-tutorial-reconstruction-3d.h5:/mesh/fields/level</DataItem>
             </Attribute>
         </Grid>
     </Domain>
