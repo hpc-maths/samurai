@@ -15,7 +15,8 @@ namespace samurai
     template <class Field>
     auto make_convection_upwind(const VelocityVector<Field::dim>& velocity)
     {
-        static constexpr std::size_t dim = Field::dim;
+        static constexpr std::size_t dim    = Field::dim;
+        static constexpr std::size_t n_comp = Field::n_comp;
 
         static constexpr std::size_t stencil_size = 2;
         using input_field_t                       = Field;
@@ -51,7 +52,7 @@ namespace samurai
                             // diagonal of the (n_comp x n_comp) coefficient matrix.
                             coeffs[left].fill(0);
                             coeffs[right].fill(0);
-                            for (std::size_t i = 0; i < Field::n_comp; ++i)
+                            for (std::size_t i = 0; i < n_comp; ++i)
                             {
                                 coeffs[left](i, i) = velocity(d);
                             }
@@ -74,7 +75,7 @@ namespace samurai
                             // diagonal of the (n_comp x n_comp) coefficient matrix.
                             coeffs[left].fill(0);
                             coeffs[right].fill(0);
-                            for (std::size_t i = 0; i < Field::n_comp; ++i)
+                            for (std::size_t i = 0; i < n_comp; ++i)
                             {
                                 coeffs[right](i, i) = velocity(d);
                             }
@@ -229,7 +230,7 @@ namespace samurai
                             // diagonal of the (n_comp x n_comp) coefficient matrix.
                             coeffs[left].fill(0);
                             coeffs[right].fill(0);
-                            for (std::size_t i = 0; i < Field::n_comp; ++i)
+                            for (std::size_t i = 0; i < n_comp; ++i)
                             {
                                 coeffs[left](i, i) = velocity(d);
                             }
@@ -249,7 +250,7 @@ namespace samurai
                             // diagonal of the (n_comp x n_comp) coefficient matrix.
                             coeffs[left].fill(0);
                             coeffs[right].fill(0);
-                            for (std::size_t i = 0; i < Field::n_comp; ++i)
+                            for (std::size_t i = 0; i < n_comp; ++i)
                             {
                                 coeffs[right](i, i) = velocity(d);
                             }
@@ -327,6 +328,7 @@ namespace samurai
     auto make_convection_smooth_rusanov_incompressible(VelocityField& velocity_field)
     {
         static constexpr std::size_t dim          = Field::dim;
+        static constexpr std::size_t n_comp       = Field::n_comp;
         static constexpr std::size_t stencil_size = 2;
 
         constexpr std::size_t left  = 0;
@@ -385,7 +387,7 @@ namespace samurai
                     {
                         jac[left].fill(0);
                         jac[right].fill(0);
-                        for (std::size_t i = 0; i < Field::n_comp; ++i)
+                        for (std::size_t i = 0; i < n_comp; ++i)
                         {
                             jac[left](i, i)  = 0.5 * (vL + lambda);
                             jac[right](i, i) = 0.5 * (vR - lambda);

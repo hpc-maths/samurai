@@ -2,6 +2,7 @@ add_subdirectory(AMR_1D_Burgers)
 
 # List of tutorial demos with their corresponding executable names
 set(TUTORIAL_DEMOS
+    getting_started.cpp:tutorial-getting-started
     2D_mesh.cpp:tutorial-2d-mesh
     interval.cpp:tutorial-interval
     set_operator.cpp:tutorial-set-operator
