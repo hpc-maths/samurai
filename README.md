@@ -187,7 +187,7 @@ The following steps describe how to solve this problem with samurai. It is impor
 
     `samurai::save` writes the solution to `advection_2d.h5` and `advection_2d.xdmf`, which you can open with [ParaView](https://www.paraview.org/).
 
-The whole example can be found [here](./demos/FiniteVolume/advection_2d.cpp).
+The whole example is in [demos/FiniteVolume/advection_2d.cpp](./demos/FiniteVolume/advection_2d.cpp).
 It differs from the steps above: it adds command line options for the simulation parameters, saves the solution at several times, can restart from a saved file, reduces the number of ghost cells with `disable_minimal_ghost_width()`, adjusts the last time step to end exactly at `Tf`, and runs the simulation twice with two prediction stencils.
 
 ### The projection operator
@@ -224,7 +224,7 @@ set([&](const auto& i, const auto index)
 });
 ```
 
-The multi dimensional projection operator can be found [here](./include/samurai/numeric/projection.hpp).
+The multidimensional projection operator is in [include/samurai/numeric/projection.hpp](./include/samurai/numeric/projection.hpp).
 
 ### There's more
 
