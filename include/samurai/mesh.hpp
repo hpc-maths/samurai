@@ -356,9 +356,9 @@ namespace samurai
         : m_config(config)
     {
         lca_type domain_ref(m_config.start_level(), b, m_config.approx_box_tol(), m_config.scaling_factor());
-        ca_type domain_pyramid;
-        build_pyramid(domain_pyramid, domain_ref);
-        set_domain(std::move(domain_pyramid));
+        ca_type new_domain;
+        build_pyramid(new_domain, domain_ref);
+        set_domain(std::move(new_domain));
 
 #ifdef SAMURAI_WITH_MPI
         partition_mesh(m_config.start_level(), b);
@@ -1255,9 +1255,9 @@ namespace samurai
                                   });
             }
 
-            ca_type domain_pyramid;
-            build_pyramid(domain_pyramid, lca_type{lcl});
-            set_domain(std::move(domain_pyramid));
+            ca_type new_domain;
+            build_pyramid(new_domain, lca_type{lcl});
+            set_domain(std::move(new_domain));
             return;
         }
 #endif
