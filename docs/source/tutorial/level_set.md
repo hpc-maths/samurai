@@ -283,7 +283,7 @@ In this code, `dxp` is $D_x^- \phi$ and `dxm` is $D_x^+ \phi$.
 ## Adapt the mesh
 
 Before each time step, we adapt the mesh to the contour.
-The criterion follows {ref}`Min and Gibou <ref-min-gibou>`, {ref}`Gibou, Fedkiw and Osher <ref-gibou-2018>`, {ref}`Theillard et al. <ref-theillard>` and {ref}`Bellotti <ref-bellotti>`: a cell must be at the finest level when it is close to the contour,
+The criterion follows {ref}`Min and Gibou <ref-min-gibou>`, {ref}`Gibou, Fedkiw and Osher <ref-gibou-2018>`, {ref}`Theillard et al. <ref-theillard>` and {ref}`Bellotti and Theillard <ref-bellotti>`: a cell must be at the finest level when it is close to the contour,
 
 $$
 \left| \phi_{j, k, h} \right| < \text{Lip}(\phi) \, M \sqrt{2} \, \Delta x_{\overline{J}},
@@ -389,14 +389,18 @@ A review of level-set methods and some recent applications.
 C. Min and F. Gibou.
 A second order accurate level set method on non-graded adaptive Cartesian grids.
 *Journal of Computational Physics*, 225(1):300-321, 2007.
-TODO: check the volume and pages, and add the DOI.
+[doi:10.1016/j.jcp.2006.11.034](https://doi.org/10.1016/j.jcp.2006.11.034)
 
 (ref-theillard)=
 
-M. Theillard et al., 2019.
-TODO: give the full reference and its DOI.
+M. Theillard, F. Gibou and D. Saintillan.
+Sharp numerical simulation of incompressible two-phase flows.
+*Journal of Computational Physics*, 391:91-118, 2019.
+[doi:10.1016/j.jcp.2019.04.024](https://doi.org/10.1016/j.jcp.2019.04.024)
 
 (ref-bellotti)=
 
-T. Bellotti, 2019.
-TODO: give the full reference and its DOI.
+T. Bellotti and M. Theillard.
+A coupled level-set and reference map method for interface representation with applications to two-phase flows simulation.
+*Journal of Computational Physics*, 392:266-290, 2019.
+[doi:10.1016/j.jcp.2019.05.003](https://doi.org/10.1016/j.jcp.2019.05.003)
