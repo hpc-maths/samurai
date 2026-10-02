@@ -252,7 +252,7 @@ namespace samurai
         void construct_domain();
         void build_pyramid(ca_type& pyramid, const lca_type& reference);
         void construct_union();
-        void construct_corners();
+        std::vector<lca_type> construct_corners(const lca_type& domain_lca) const;
         void update_sub_mesh();
         void renumbering();
         void find_neighbourhood();
@@ -262,7 +262,7 @@ namespace samurai
         // Common tail shared by every non-default constructor.
         // exchange_neighbour_meshes() wraps the MPI neighbour exchange, and
         // finalize_mesh() performs the post-construction steps (sub-mesh update,
-        // corners, renumbering, origin/scaling propagation, ghost exchange and,
+        // renumbering, origin/scaling propagation, ghost exchange and,
         // under MPI+PETSc, the gravity-center computation).
         void exchange_neighbour_meshes();
         void finalize_mesh(const coords_t& origin_point, double scaling_factor);
@@ -277,18 +277,27 @@ namespace samurai
                                      std::set<int>& candidates) const;
 #endif
 
-        ca_type m_domain;
-        // Bounds of the domain at its finest level, kept with m_domain (see
-        // update_domain_bounds): computing them scans every interval of the global
-        // domain, whose size grows with the number of ranks, and they are read at
-        // every level of every interface loop and periodic exchange.
-        std::array<value_t, dim> m_domain_min_indices{};
-        std::array<value_t, dim> m_domain_max_indices{};
-        void update_domain_bounds();
+        // The domain does not change during a simulation. It is built once, with what
+        // derives from it alone (its bounds at the finest level and its corners), where
+        // the domain is created: construction from a box, a domain builder or a cell
+        // array (which includes a restart). Every mesh built from a reference mesh and
+        // every neighbour mesh copies it instead of recomputing it at each adaptation
+        // step; the bounds alone scan every interval of the global domain, whose size
+        // grows with the number of ranks.
+        struct domain_type
+        {
+            ca_type pyramid;
+            std::array<value_t, dim> min_indices{};
+            std::array<value_t, dim> max_indices{};
+            std::vector<lca_type> corners;
+        };
+
+        void set_domain(ca_type&& pyramid);
+
+        domain_type m_domain;
         ca_type m_subdomain;
         mesh_t m_cells;
         ca_type m_union;
-        std::vector<lca_type> m_corners;
         std::vector<mpi_subdomain_t> m_mpi_neighbourhood;
         coords_t m_gravity_center;
 
@@ -305,7 +314,8 @@ namespace samurai
                 ar& m_cells[id];
             }
 
-            ar & m_domain;
+            // The domain is not sent: it is the same on every rank, and the
+            // receiver of a neighbour mesh gives it its own (update_neighbour_subdomain).
             ar & m_subdomain;
             ar & m_union;
             ar & m_config;
@@ -346,13 +356,14 @@ namespace samurai
         : m_config(config)
     {
         lca_type domain_ref(m_config.start_level(), b, m_config.approx_box_tol(), m_config.scaling_factor());
-        build_pyramid(m_domain, domain_ref);
-        update_domain_bounds();
+        ca_type domain_pyramid;
+        build_pyramid(domain_pyramid, domain_ref);
+        set_domain(std::move(domain_pyramid));
 
 #ifdef SAMURAI_WITH_MPI
         partition_mesh(m_config.start_level(), b);
 #else
-        this->m_cells[mesh_id_t::cells][m_config.start_level()] = m_domain[m_config.start_level()];
+        this->m_cells[mesh_id_t::cells][m_config.start_level()] = domain(m_config.start_level());
 #endif
 
         construct_subdomain();
@@ -391,8 +402,7 @@ namespace samurai
 #endif
 
         construct_subdomain();
-        m_domain = m_subdomain;
-        update_domain_bounds();
+        set_domain(ca_type{m_subdomain});
         exchange_neighbour_meshes();
         finalize_mesh(domain_builder.origin_point(), m_config.scaling_factor());
     }
@@ -418,9 +428,6 @@ namespace samurai
     template <class D, class Config>
     SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const ca_type& ca, const self_type& ref_mesh)
         : m_domain(ref_mesh.m_domain)
-        , m_domain_min_indices(ref_mesh.m_domain_min_indices)
-        , m_domain_max_indices(ref_mesh.m_domain_max_indices)
-        , m_mpi_neighbourhood(ref_mesh.m_mpi_neighbourhood)
         , m_config(ref_mesh.m_config)
     {
         m_cells[mesh_id_t::cells] = ca;
@@ -452,7 +459,6 @@ namespace samurai
         construct_union();
         update_meshid_neighbour(mesh_id_t::cells);
         update_sub_mesh();
-        construct_corners();
         renumbering();
         set_origin_point(origin_point);
         set_scaling_factor(scaling_factor);
@@ -677,13 +683,13 @@ namespace samurai
     template <class D, class Config>
     SAMURAI_INLINE auto& Mesh_base<D, Config>::origin_point() const
     {
-        return m_domain.origin_point();
+        return m_domain.pyramid.origin_point();
     }
 
     template <class D, class Config>
     SAMURAI_INLINE void Mesh_base<D, Config>::set_origin_point(const coords_t& origin_point)
     {
-        m_domain.set_origin_point(origin_point);
+        m_domain.pyramid.set_origin_point(origin_point);
         m_subdomain.set_origin_point(origin_point);
         m_union.set_origin_point(origin_point);
         for (std::size_t i = 0; i < static_cast<std::size_t>(mesh_id_t::count); ++i)
@@ -695,13 +701,13 @@ namespace samurai
     template <class D, class Config>
     SAMURAI_INLINE double Mesh_base<D, Config>::scaling_factor() const
     {
-        return m_domain.scaling_factor();
+        return m_domain.pyramid.scaling_factor();
     }
 
     template <class D, class Config>
     SAMURAI_INLINE void Mesh_base<D, Config>::set_scaling_factor(double scaling_factor)
     {
-        m_domain.set_scaling_factor(scaling_factor);
+        m_domain.pyramid.set_scaling_factor(scaling_factor);
         m_subdomain.set_scaling_factor(scaling_factor);
         m_union.set_scaling_factor(scaling_factor);
         for (std::size_t i = 0; i < static_cast<std::size_t>(mesh_id_t::count); ++i)
@@ -731,49 +737,55 @@ namespace samurai
     template <class D, class Config>
     SAMURAI_INLINE auto Mesh_base<D, Config>::domain() const -> const lca_type&
     {
-        return m_domain[max_level()];
+        return m_domain.pyramid[max_level()];
     }
 
     template <class D, class Config>
     SAMURAI_INLINE auto Mesh_base<D, Config>::domain(std::size_t level) const -> const lca_type&
     {
-        return m_domain[level];
+        return m_domain.pyramid[level];
     }
 
-    // Whole-domain pyramid: the domain represented at every level (m_domain[level]
+    // Whole-domain pyramid: the domain represented at every level (pyramid[level]
     // is precomputed for all levels). Exposed so that consumers needing the domain
     // at several levels - e.g. make_graduation - can index domain[level] directly
     // instead of projecting the finest-level domain with self(domain).on(level).
     template <class D, class Config>
     SAMURAI_INLINE auto Mesh_base<D, Config>::domain_pyramid() const -> const ca_type&
     {
-        return m_domain;
+        return m_domain.pyramid;
     }
 
+    // Sets the domain from its pyramid (see build_pyramid) and computes, once, what
+    // derives from it alone: its bounds and its corners.
     template <class D, class Config>
-    SAMURAI_INLINE void Mesh_base<D, Config>::update_domain_bounds()
+    SAMURAI_INLINE void Mesh_base<D, Config>::set_domain(ca_type&& pyramid)
     {
-        const auto& finest = m_domain[max_level()];
+        m_domain.pyramid   = std::move(pyramid);
+        const auto& finest = m_domain.pyramid[max_level()];
         if (finest.empty())
         {
-            m_domain_min_indices.fill(0);
-            m_domain_max_indices.fill(0);
-            return;
+            m_domain.min_indices.fill(0);
+            m_domain.max_indices.fill(0);
         }
-        m_domain_min_indices = finest.min_indices();
-        m_domain_max_indices = finest.max_indices();
+        else
+        {
+            m_domain.min_indices = finest.min_indices();
+            m_domain.max_indices = finest.max_indices();
+        }
+        m_domain.corners = construct_corners(finest);
     }
 
     template <class D, class Config>
     SAMURAI_INLINE auto Mesh_base<D, Config>::domain_min_indices() const -> const std::array<value_t, dim>&
     {
-        return m_domain_min_indices;
+        return m_domain.min_indices;
     }
 
     template <class D, class Config>
     SAMURAI_INLINE auto Mesh_base<D, Config>::domain_max_indices() const -> const std::array<value_t, dim>&
     {
-        return m_domain_max_indices;
+        return m_domain.max_indices;
     }
 
     // Shift, at `level`, between a cell and its periodic image across direction d:
@@ -783,7 +795,7 @@ namespace samurai
     {
         xt::xtensor_fixed<value_t, xt::xshape<dim>> shift;
         shift.fill(0);
-        shift[d] = (m_domain_max_indices[d] - m_domain_min_indices[d]) >> (max_level() - level);
+        shift[d] = (m_domain.max_indices[d] - m_domain.min_indices[d]) >> (max_level() - level);
         return shift;
     }
 
@@ -804,7 +816,7 @@ namespace samurai
     {
         for (std::size_t level = min_level(); level <= max_level(); ++level)
         {
-            m_domain[level].box_like();
+            m_domain.pyramid[level].box_like();
         }
     }
 
@@ -949,8 +961,6 @@ namespace samurai
         using std::swap;
         swap(m_cells, mesh.m_cells);
         swap(m_domain, mesh.m_domain);
-        swap(m_domain_min_indices, mesh.m_domain_min_indices);
-        swap(m_domain_max_indices, mesh.m_domain_max_indices);
         swap(m_subdomain, mesh.m_subdomain);
         swap(m_mpi_neighbourhood, mesh.m_mpi_neighbourhood);
         swap(m_union, mesh.m_union);
@@ -985,12 +995,13 @@ namespace samurai
     }
 
     template <class D, class Config>
-    SAMURAI_INLINE void Mesh_base<D, Config>::construct_corners()
+    SAMURAI_INLINE auto Mesh_base<D, Config>::construct_corners(const lca_type& domain_lca) const -> std::vector<lca_type>
     {
         static_assert(
             dim <= 6,
             "Corner construction is currently only implemented up to 6D due to the combinatorial number of cases. Please implement the general ND version if you need higher dimensions.");
         ScopedTimer timer("construct_corners");
+        std::vector<lca_type> corners;
         if constexpr (dim > 1)
         {
             using direction_t = DirectionVector<dim>;
@@ -1001,8 +1012,6 @@ namespace samurai
             // translate(domain, 0) = domain, making the union contain the domain itself
             // and the difference empty. This is the correct formula for both true corner
             // directions (all components ±1) and edge directions in 3D (one zero component).
-            m_corners.clear();
-            const auto& domain_lca = m_domain[max_level()];
             for_each_diagonal_direction<dim>(
                 [&](const auto& direction)
                 {
@@ -1025,50 +1034,51 @@ namespace samurai
                     // TODO: make a ND version
                     if (n == 2)
                     {
-                        m_corners.push_back(
+                        corners.push_back(
                             difference(domain_lca, union_(translate(domain_lca, nonzero_shifts[0]), translate(domain_lca, nonzero_shifts[1])))
                                 .to_lca());
                     }
                     else if (n == 3)
                     {
-                        m_corners.push_back(difference(domain_lca,
-                                                       union_(translate(domain_lca, nonzero_shifts[0]),
-                                                              translate(domain_lca, nonzero_shifts[1]),
-                                                              translate(domain_lca, nonzero_shifts[2])))
-                                                .to_lca());
+                        corners.push_back(difference(domain_lca,
+                                                     union_(translate(domain_lca, nonzero_shifts[0]),
+                                                            translate(domain_lca, nonzero_shifts[1]),
+                                                            translate(domain_lca, nonzero_shifts[2])))
+                                              .to_lca());
                     }
                     else if (n == 4)
                     {
-                        m_corners.push_back(difference(domain_lca,
-                                                       union_(translate(domain_lca, nonzero_shifts[0]),
-                                                              translate(domain_lca, nonzero_shifts[1]),
-                                                              translate(domain_lca, nonzero_shifts[2]),
-                                                              translate(domain_lca, nonzero_shifts[3])))
-                                                .to_lca());
+                        corners.push_back(difference(domain_lca,
+                                                     union_(translate(domain_lca, nonzero_shifts[0]),
+                                                            translate(domain_lca, nonzero_shifts[1]),
+                                                            translate(domain_lca, nonzero_shifts[2]),
+                                                            translate(domain_lca, nonzero_shifts[3])))
+                                              .to_lca());
                     }
                     else if (n == 5)
                     {
-                        m_corners.push_back(difference(domain_lca,
-                                                       union_(translate(domain_lca, nonzero_shifts[0]),
-                                                              translate(domain_lca, nonzero_shifts[1]),
-                                                              translate(domain_lca, nonzero_shifts[2]),
-                                                              translate(domain_lca, nonzero_shifts[3]),
-                                                              translate(domain_lca, nonzero_shifts[4])))
-                                                .to_lca());
+                        corners.push_back(difference(domain_lca,
+                                                     union_(translate(domain_lca, nonzero_shifts[0]),
+                                                            translate(domain_lca, nonzero_shifts[1]),
+                                                            translate(domain_lca, nonzero_shifts[2]),
+                                                            translate(domain_lca, nonzero_shifts[3]),
+                                                            translate(domain_lca, nonzero_shifts[4])))
+                                              .to_lca());
                     }
                     else if (n == 6)
                     {
-                        m_corners.push_back(difference(domain_lca,
-                                                       union_(translate(domain_lca, nonzero_shifts[0]),
-                                                              translate(domain_lca, nonzero_shifts[1]),
-                                                              translate(domain_lca, nonzero_shifts[2]),
-                                                              translate(domain_lca, nonzero_shifts[3]),
-                                                              translate(domain_lca, nonzero_shifts[4]),
-                                                              translate(domain_lca, nonzero_shifts[5])))
-                                                .to_lca());
+                        corners.push_back(difference(domain_lca,
+                                                     union_(translate(domain_lca, nonzero_shifts[0]),
+                                                            translate(domain_lca, nonzero_shifts[1]),
+                                                            translate(domain_lca, nonzero_shifts[2]),
+                                                            translate(domain_lca, nonzero_shifts[3]),
+                                                            translate(domain_lca, nonzero_shifts[4]),
+                                                            translate(domain_lca, nonzero_shifts[5])))
+                                              .to_lca());
                     }
                 });
         }
+        return corners;
     }
 
     template <class D, class Config>
@@ -1086,7 +1096,7 @@ namespace samurai
                 ++i;
             });
 
-        return m_corners[i_direction];
+        return m_domain.corners[i_direction];
     }
 
 #ifdef SAMURAI_WITH_PETSC
@@ -1132,8 +1142,9 @@ namespace samurai
 
         for (auto& neighbour : m_mpi_neighbourhood)
         {
+            // The domain is not part of the archive: the neighbour mesh keeps the
+            // copy of ours given by update_neighbour_subdomain.
             world.recv(neighbour.rank, world.rank(), neighbour.mesh);
-            neighbour.mesh.update_domain_bounds();
         }
 
         mpi::wait_all(req.begin(), req.end());
@@ -1178,9 +1189,7 @@ namespace samurai
         for (auto& neighbour : m_mpi_neighbourhood)
         {
             world.recv(neighbour.rank, world.rank(), neighbour.mesh.m_subdomain);
-            neighbour.mesh.m_domain             = m_domain;
-            neighbour.mesh.m_domain_min_indices = m_domain_min_indices;
-            neighbour.mesh.m_domain_max_indices = m_domain_max_indices;
+            neighbour.mesh.m_domain = m_domain;
 #ifdef SAMURAI_WITH_PETSC
             neighbour.mesh.compute_gravity_center();
 #endif
@@ -1246,13 +1255,13 @@ namespace samurai
                                   });
             }
 
-            build_pyramid(m_domain, lca_type{lcl});
-            update_domain_bounds();
+            ca_type domain_pyramid;
+            build_pyramid(domain_pyramid, lca_type{lcl});
+            set_domain(std::move(domain_pyramid));
             return;
         }
 #endif
-        m_domain = m_subdomain;
-        update_domain_bounds();
+        set_domain(ca_type{m_subdomain});
     }
 
     template <class D, class Config>
@@ -1261,15 +1270,15 @@ namespace samurai
         ScopedTimer timer("construct_subdomain");
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
-        if (world.size() > 1 || m_domain.empty())
+        if (world.size() > 1 || m_domain.pyramid.empty())
         {
 #else
-        if (m_domain.empty())
+        if (m_domain.pyramid.empty())
         {
 #endif
             // TODO: Don't build subdomain when we are in serial or in parallel with only one rank. This is a waste of memory and time.
             // Just use the domain as subdomain in this case.
-            lcl_type lcl = {max_level(), m_domain.origin_point(), m_domain.scaling_factor()};
+            lcl_type lcl = {max_level(), origin_point(), scaling_factor()};
 
             for_each_interval(m_cells[mesh_id_t::cells],
                               [&](std::size_t level, const auto& i, const auto& index)
@@ -1290,7 +1299,7 @@ namespace samurai
         }
         else
         {
-            m_subdomain = m_domain;
+            m_subdomain = m_domain.pyramid;
         }
     }
 
@@ -1421,12 +1430,11 @@ namespace samurai
 
         mpi::wait_all(requests.begin(), requests.end());
 
-        auto directions     = detail::get_periodic_directions(m_config.periodic());
-        auto minmax_indices = m_domain[max_level()].minmax_indices();
+        auto directions = detail::get_periodic_directions(m_config.periodic());
         xt::xtensor_fixed<value_t, xt::xshape<dim>> domain_size;
         for (std::size_t d = 0; d < dim; ++d)
         {
-            domain_size[d] = minmax_indices[d].second - minmax_indices[d].first;
+            domain_size[d] = m_domain.max_indices[d] - m_domain.min_indices[d];
         }
 
         // Verify candidates with precise interval algebra
@@ -1482,7 +1490,7 @@ namespace samurai
         // when wrapped around the periodic boundaries
         auto directions = detail::get_periodic_directions(m_config.periodic());
 
-        auto domain_size = xt::eval(m_domain[max_level()].max_corner() - m_domain[max_level()].min_corner());
+        auto domain_size = xt::eval(domain().max_corner() - domain().min_corner());
 
         for (const auto& other_bbox : all_bboxes)
         {
@@ -1516,11 +1524,11 @@ namespace samurai
         auto rank = world.rank();
         auto size = world.size();
 
-        const auto& domain_at_start_level = m_domain[start_level];
+        const auto& domain_at_start_level = domain(start_level);
 
         std::size_t subdomain_start = 0;
         std::size_t subdomain_end   = 0;
-        lcl_type subdomain_cells(start_level, m_domain.origin_point(), m_domain.scaling_factor());
+        lcl_type subdomain_cells(start_level, origin_point(), scaling_factor());
         // in 1D MPI, we need a specific partitioning
         if (dim == 1)
         {
