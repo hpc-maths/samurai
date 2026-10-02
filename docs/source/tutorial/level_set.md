@@ -2,7 +2,7 @@
 
 In this tutorial, we follow a circle that a vortex flow stretches into a spiral.
 The circle is the zero level of a level-set function, which we transport with a finite volume scheme on an adaptive mesh refinement (AMR) mesh between levels 4 and 8.
-After each time step, we reinitialize the level-set function and adapt the mesh around the contour.
+At each time step, we adapt the mesh around the contour, transport the level-set function, then reinitialize it.
 
 The code shown on this page comes from the demo [`demos/FiniteVolume/level_set_AMR.cpp`](https://github.com/hpc-maths/samurai/blob/main/demos/FiniteVolume/level_set_AMR.cpp) and its operators in [`demos/FiniteVolume/stencil_field.hpp`](https://github.com/hpc-maths/samurai/blob/main/demos/FiniteVolume/stencil_field.hpp).
 
@@ -37,7 +37,7 @@ $$
 $$ (eq-level-set-contour)
 
 We take $\phi < 0$ inside the contour and $\phi > 0$ outside.
-The outward normal vector $\mathbf{n}$ and the mean curvature $\kappa$ of the contour follow from derivatives of $\phi$ (see {ref}`Osher and Fedkiw <ref-osher-fedkiw>`):
+The outward normal vector $\mathbf{n}$ and the mean curvature $\kappa$ of the contour follow from derivatives of $\phi$ (see {ref}`Osher and Fedkiw <ref-osher-fedkiw>`, and {ref}`Gibou, Fedkiw and Osher <ref-gibou-2018>` for a review of level-set methods):
 
 $$
 \mathbf{n} = \dfrac{\nabla \phi}{\left| \nabla \phi \right|}, \qquad \kappa = \nabla \cdot \mathbf{n} = \nabla \cdot \left( \dfrac{\nabla \phi}{\left| \nabla \phi \right|} \right).
@@ -67,6 +67,7 @@ For a real number $a$, we write $a^+ = \max(0, a)$ and $a^- = \min(0, a)$.
 
 ## The test case
 
+The test case is the vortex of Bell, Colella and Glaz, as used in section 7.3 of {ref}`Min and Gibou <ref-min-gibou>` and section 4.3 of {ref}`Bellotti and Theillard <ref-bellotti>`.
 The domain is $\Omega = [0, 1]^2$ and the velocity field is the steady vortex
 
 $$
@@ -78,6 +79,9 @@ The initial contour is the circle of radius $3/20$ centered at $(1/2, 3/4)$, giv
 $$
 \phi(0, x, y) = \sqrt{(x - 1/2)^2 + (y - 3/4)^2} - 3/20.
 $$
+
+The two papers reverse the velocity at mid-time, so that the exact final contour is the initial circle.
+The demo keeps the same velocity until the final time, so only the area inside the contour, which a divergence-free flow preserves, can be checked against an exact value (see {ref}`level-set-results`).
 
 `init_level_set` sets this value at the center of each leaf and gives $\phi$ a homogeneous Neumann boundary condition:
 
@@ -115,8 +119,8 @@ The demo runs with these parameters by default:
 | Final time $T$ | 3.14 | `--Tf` |
 | CFL number | $5/8$ | `--cfl` |
 | Time step $\Delta t$ | $\text{CFL} \times \Delta x_{\overline{J}} = 5/2048$ | |
-| Fictitious time step $\Delta \tau$ | $\Delta t / 100$ | |
-| Fictitious iterations per time step | 2 | |
+| Fictitious time step $\Delta \tau_j$ on level $j$ | $\Delta x_j / 4$ | |
+| Fictitious iterations per time step | 5 | |
 | Boundary conditions | homogeneous Neumann for $\phi$ and $\mathbf{u}$ | |
 
 Since $\left| u \right| \leq 1$ and $\left| v \right| \leq 1$, the time step keeps $\left| u \right| \Delta t / \Delta x_j \leq 5/8$ at every level.
@@ -124,7 +128,8 @@ All levels advance with the same time step $\Delta t$.
 
 ## Transport the level-set function
 
-We discretize {eq}`eq-level-set-transport` with an explicit finite volume scheme.
+The papers cited on this page transport the level-set function with a semi-Lagrangian method.
+The demo discretizes {eq}`eq-level-set-transport` with an explicit finite volume scheme instead.
 On each leaf, with $F$ the numerical flux along $x$ and $G$ the numerical flux along $y$:
 
 $$
@@ -190,7 +195,7 @@ In `stencil_field.hpp`, `flux` computes {eq}`eq-level-set-flux` from the interfa
 
 ```{literalinclude} ../../../demos/FiniteVolume/stencil_field.hpp
 :language: c++
-:lines: 83-94,121-135,146-184
+:lines: 92-103,130-144,155-193
 :dedent:
 ```
 
@@ -200,7 +205,7 @@ In `stencil_field.hpp`, `flux` computes {eq}`eq-level-set-flux` from the interfa
 
 ## Reinitialize the level-set function
 
-After each time step $t^n$, we bring $\phi$ back to a signed distance function, as is customary for level-set methods (see {ref}`Gibou, Fedkiw and Osher <ref-gibou-2018>`).
+After each transport step, we bring $\phi$ back to a signed distance function with the reinitialization equation of Sussman, Smereka and Osher, discretized as in section 6 of {ref}`Min and Gibou <ref-min-gibou>`.
 Let $\phi^0$ be the level-set function right after the transport step.
 We solve the eikonal equation in a fictitious time $\tau$:
 
@@ -212,8 +217,11 @@ $$
 $$
 
 where $S(\phi^0) = 1$ if $\phi^0 \geq 0$ and $S(\phi^0) = -1$ otherwise.
-At steady state, $\left| \nabla \phi \right| = 1$, and the sign of $\phi$, hence the contour, is unchanged.
-The demo does not iterate to steady state: it makes 2 fictitious iterations with $\Delta \tau = \Delta t / 100$ per time step.
+At steady state, $\left| \nabla \phi \right| = 1$.
+The equation does not change the sign of $\phi$, hence the contour, but its discretization moves the contour slightly at each iteration.
+Min and Gibou prevent this with the correction of Russo and Smereka, which uses the position of the contour in the one-sided differences of the cells it crosses; the demo does not implement it.
+
+Only the steady state matters, so the demo does not iterate to it: it makes 5 fictitious iterations per time step, the number Min and Gibou find enough in practice (section 6.1).
 
 ### The Godunov Hamiltonian
 
@@ -228,16 +236,19 @@ H(a, b, c, d) =
 \end{cases}
 $$
 
-High-order schemes compute these one-sided differences with weighted essentially non-oscillatory (WENO) reconstructions.
-The demo uses the second-order one-sided differences
+The demo uses the second-order one-sided differences of {ref}`Min and Gibou <ref-min-gibou>` (equation 10):
 
 $$
-D_x^- \phi_{j, k, h} = \frac{3 \phi_{j, k, h} - 4 \phi_{j, k-1, h} + \phi_{j, k-2, h}}{2 \Delta x_j},
-\qquad
-D_x^+ \phi_{j, k, h} = \frac{-3 \phi_{j, k, h} + 4 \phi_{j, k+1, h} - \phi_{j, k+2, h}}{2 \Delta x_j},
+D_x^- \phi_{j, k, h} = \frac{\phi_{j, k, h} - \phi_{j, k-1, h}}{\Delta x_j} + \frac{\Delta x_j}{2} \operatorname{minmod}\left( D_{xx} \phi_{j, k, h}, D_{xx} \phi_{j, k-1, h} \right),
 $$
 
-and the same along $y$ for $D_y^-$ and $D_y^+$.
+$$
+D_x^+ \phi_{j, k, h} = \frac{\phi_{j, k+1, h} - \phi_{j, k, h}}{\Delta x_j} - \frac{\Delta x_j}{2} \operatorname{minmod}\left( D_{xx} \phi_{j, k, h}, D_{xx} \phi_{j, k+1, h} \right),
+$$
+
+where $D_{xx} \phi_{j, k, h} = \left( \phi_{j, k+1, h} - 2 \phi_{j, k, h} + \phi_{j, k-1, h} \right) / \Delta x_j^2$ and $\operatorname{minmod}(a, b)$ is the argument of smaller absolute value if $a$ and $b$ have the same sign, and $0$ otherwise.
+The minmod limiter keeps the differences stable where $\phi$ has kinks.
+$D_y^-$ and $D_y^+$ are built the same way along $y$.
 We write $H(\phi) = H\left( D_x^- \phi, D_x^+ \phi, D_y^- \phi, D_y^+ \phi \right)$.
 
 ### The TVD-RK2 time stepping
@@ -253,8 +264,10 @@ $$
 \end{aligned}
 $$
 
-$H$ is evaluated on the cells of the finest level $\overline{J}$ only, which lie close to the contour.
-On the other cells, $H$ is zero and the reinitialization leaves $\phi$ unchanged.
+The reinitialization runs on every leaf, at every level.
+Since only the steady state matters, the levels do not need to share a fictitious time step: a cell of level $j$ advances with $\Delta \tau_j = \Delta x_j / 4$, in the same way as Min and Gibou adapt the time step to each cell (section 6.1).
+On the coarse cells, the reinitialization keeps $\phi$ close to a signed distance, which the refinement criterion relies on (see {ref}`adapt-the-mesh`).
+
 In the demo, `phihat` is $\overline{\phi}$ and the ghost cells of each stage are updated before $H$ reads them:
 
 ```{literalinclude} ../../../demos/FiniteVolume/level_set_AMR.cpp
@@ -263,34 +276,34 @@ In the demo, `phihat` is $\overline{\phi}$ and the ghost cells of each stage are
 :dedent:
 ```
 
-:::{note}
-The last stage of the demo combines with `phi_0`, the level-set function before the reinitialization, instead of $\phi^{\eta}$.
-Both are equal in the first fictitious iteration and differ from the second iteration onward.
-:::
-
-`H_wrap` computes $H$ at the finest level:
+`dt_fict` is $\Delta \tau_{\overline{J}} = \Delta x_{\overline{J}} / 4$.
+`H_wrap` returns $\left( \Delta x_j / \Delta x_{\overline{J}} \right) H(\phi)$, so that `dt_fict * H_wrap(...)` is $\Delta \tau_j \, H(\phi)$ on each level:
 
 ```{literalinclude} ../../../demos/FiniteVolume/stencil_field.hpp
 :language: c++
-:lines: 10-26,34-77
+:lines: 10-80
 :dedent:
 ```
 
-In this code, `dxp` is $D_x^- \phi$ and `dxm` is $D_x^+ \phi$.
+In this code, `dxm` and `dxp` are $D_x^- \phi$ and $D_x^+ \phi$, and `dym` and `dyp` are $D_y^- \phi$ and $D_y^+ \phi$.
 
 (adapt-the-mesh)=
 
 ## Adapt the mesh
 
 Before each time step, we adapt the mesh to the contour.
-The criterion follows {ref}`Min and Gibou <ref-min-gibou>`, {ref}`Gibou, Fedkiw and Osher <ref-gibou-2018>`, {ref}`Theillard et al. <ref-theillard>` and {ref}`Bellotti and Theillard <ref-bellotti>`: a cell must be at the finest level when it is close to the contour,
+{ref}`Min and Gibou <ref-min-gibou>` (section 3) split a cell $C$ when $\min_{v} \left| \phi(v) \right| \leq \text{Lip}(\phi) \operatorname{diag}(C)$, where $v$ runs over the vertices of $C$, $\operatorname{diag}(C)$ is the length of its diagonal and $\text{Lip}(\phi)$ is the Lipschitz constant of $\phi$: the size of a cell follows its distance to the contour.
+{ref}`Theillard et al. <ref-theillard>` (equation 32) and {ref}`Bellotti and Theillard <ref-bellotti>` (equation 13) use the same criterion and note that it can be changed to keep a band of uniform width of finest cells around the contour.
+
+The demo uses such a band: a cell must be at the finest level when the value of $\phi$ at its center satisfies
 
 $$
 \left| \phi_{j, k, h} \right| < \text{Lip}(\phi) \, M \sqrt{2} \, \Delta x_{\overline{J}},
 $$ (eq-level-set-criterion)
 
-where $\text{Lip}(\phi) = 1.2$ is an estimate of the Lipschitz constant of the level-set function and $M = 5$.
-The threshold uses the size of the finest cells $\Delta x_{\overline{J}}$, whatever the level of the cell.
+with $\text{Lip}(\phi) = 1.2$ and $M = 5$, two choices of the demo.
+The threshold uses the diagonal $\sqrt{2} \, \Delta x_{\overline{J}}$ of the finest cells, whatever the level of the cell.
+Since the reinitialization keeps $\phi$ close to a signed distance, the band extends about $8.5$ finest cells on each side of the contour.
 
 `AMR_criteria` tags each leaf with a {cpp:enum}`samurai::CellFlag`:
 
@@ -330,23 +343,33 @@ A cell changes by one level at most per pass, so the loop needs several passes o
 `update_field` only moves the fields it receives.
 The demo resizes the other fields on the mesh (`tag`, `phinp1`, `phihat`) with `resize()` before it uses them.
 
+(level-set-results)=
+
 ## Results
 
-The figure shows the level of each cell (color) and the contour $\phi = 0$ (white line), at the initial time on the left and after the flow has stretched the circle on the right.
+To save the solution at $t = 1.57$ and $t = 3.14$, run the demo with two output files:
+
+```bash
+./build/demos/FiniteVolume/finite-volume-level-set-amr --nfiles 2
+```
+
+The figure shows the level of each cell (color) and the contour $\phi = 0$ (white line) in `FV_level_set_2d_AMR_ite_1.h5` ($t = 1.57$, left) and `FV_level_set_2d_AMR_ite_2.h5` ($t = 3.14$, right).
 
 ```{image} ./figures/level_set.png
-:alt: Two square plots of the AMR mesh colored by level, from 4 (gray) to 8 (dark blue). On the left, a white circle in the upper half of the domain is surrounded by a ring of level 8 cells, then bands of levels 7, 6 and 5. On the right, the circle has been stretched into a spiral, and the bands of fine cells follow it.
+:alt: Two square plots of the AMR mesh colored by level, from 4 (gray) to 8 (dark purple). On the left, at t = 1.57, the white contour is a thin curved strip that winds once around the center of the domain. On the right, at t = 3.14, the strip has wound into a longer spiral. In both plots, a band of level 8 cells follows the contour, surrounded by bands of levels 7, 6 and 5, and the rest of the domain is at level 4.
 :width: 100%
 :align: center
 ```
 
-TODO: give the time of the right picture and the command line that produced it.
+The flow stretches the circle into a thin spiral.
+The finest cells stay in a band around the contour, and the mesh stays coarse (level 4) in the rest of the domain.
 
-The finest cells stay in a narrow band around the contour, and the mesh stays coarse (level 4) in the rest of the domain.
+The velocity field is divergence-free, so the area inside the contour stays equal to $\pi (3/20)^2 \approx 0.0707$.
+At $t = 3.14$, the cells where $\phi < 0$ cover an area of $0.0699$, $1.1\,\%$ less.
 
 ## What we built
 
-We transported a level-set function with a limited Lax-Wendroff finite volume scheme on an AMR mesh, reinitialized it with a TVD-RK2 scheme on the Godunov Hamiltonian, and adapted the mesh to the contour with a user-defined criterion, {cpp:func}`samurai::graduation` and {cpp:func}`samurai::update_field`.
+We transported a level-set function with a limited Lax-Wendroff finite volume scheme on an AMR mesh, reinitialized it on every level with a TVD-RK2 scheme on the Godunov Hamiltonian, and adapted the mesh to the contour with a user-defined criterion, {cpp:func}`samurai::graduation` and {cpp:func}`samurai::update_field`.
 
 ## Next steps
 
