@@ -201,8 +201,8 @@ int main(int argc, char* argv[])
         std::swap(phi.array(), phinp1.array());
 
         // Reinitialization of the level set
-        const std::size_t fict_iteration = 2;         // Number of fictitious iterations
-        const double dt_fict             = 0.01 * dt; // Fictitious Time step
+        const std::size_t fict_iteration = 5;                             // Number of fictitious iterations
+        const double dt_fict             = 0.25 * mesh.min_cell_length(); // Fictitious time step at the finest level
 
         auto phi_0 = phi;
         for (std::size_t k = 0; k < fict_iteration; ++k)

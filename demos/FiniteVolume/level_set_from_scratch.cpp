@@ -126,6 +126,31 @@ class AMRMesh : public samurai::Mesh_base<AMRMesh<Config>, Config>
                                   });
                           });
         this->cells()[mesh_id_t::cells_and_ghosts] = {cl, false};
+
+        // Add the children of the ghost cells covered by finer cells, so that
+        // the projection can fill the ghost cells at every level
+        auto min_level = this->cells()[mesh_id_t::cells].min_level();
+        auto max_level = this->cells()[mesh_id_t::cells].max_level();
+        ca_type proj_cells;
+        proj_cells[min_level] = {min_level};
+        for (std::size_t level = min_level + 1; level <= max_level; ++level)
+        {
+            auto expr = samurai::difference(samurai::union_(samurai::intersection(this->cells()[mesh_id_t::cells_and_ghosts][level - 1],
+                                                                                  this->get_union()[level - 1]),
+                                                            proj_cells[level - 1]),
+                                            this->cells()[mesh_id_t::cells][level - 1])
+                            .on(level);
+
+            lcl_type lcl{level};
+            expr(
+                [&](const auto& interval, const auto& index_yz)
+                {
+                    lcl[index_yz].add_interval(interval);
+                    cl[level][index_yz].add_interval(interval);
+                });
+            proj_cells[level] = {lcl};
+        }
+        this->cells()[mesh_id_t::cells_and_ghosts] = {cl, false};
     }
 };
 
@@ -434,7 +459,7 @@ SAMURAI_INLINE void amr_projection(Field& field)
 
     for (std::size_t level = max_level; level >= 1; --level)
     {
-        auto expr = samurai::intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells_and_ghosts][level - 1]).on(level - 1);
+        auto expr = samurai::intersection(mesh.get_union()[level - 1], mesh[mesh_id_t::cells_and_ghosts][level - 1]).on(level - 1);
 
         expr.apply_op(projection(field));
     }
@@ -587,8 +612,8 @@ int main(int argc, char* argv[])
         std::swap(phi.array(), phinp1.array());
 
         // Reinitialization of the level set
-        const std::size_t fict_iteration = 2;         // Number of fictitious iterations
-        const double dt_fict             = 0.01 * dt; // Fictitious Time step
+        const std::size_t fict_iteration = 5;                             // Number of fictitious iterations
+        const double dt_fict             = 0.25 * mesh.min_cell_length(); // Fictitious time step at the finest level
 
         auto phi_0 = phi;
         for (std::size_t k = 0; k < fict_iteration; ++k)

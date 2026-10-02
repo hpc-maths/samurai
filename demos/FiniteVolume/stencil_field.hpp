@@ -15,57 +15,66 @@ namespace samurai
 
         INIT_OPERATOR(H_wrap_op)
 
+        // Returns (dx_level / dx_max_level) * H(phi): with a fictitious time step
+        // dt_fict proportional to the finest cell size, each level advances with
+        // a time step proportional to its own cell size (local time stepping).
         template <class Field>
         SAMURAI_INLINE auto operator()(Dim<2>, const Field& phi, const Field& phi_0, const std::size_t max_level) const
         {
             using namespace math;
             auto out = zeros_like(phi(level, i, j));
 
-            if (level == max_level)
+            const double dx_   = phi.mesh().cell_length(level);
+            const double scale = dx_ / phi.mesh().cell_length(max_level);
+
+            auto minmod = [](const auto& a, const auto& b)
             {
-                double dx_ = phi.mesh().cell_length(level);
-                // // First order one sided
-                // auto dxp = (phi(level, i + 1, j) - phi(level, i    , j))/dx;
-                // auto dxm = (phi(level, i    , j) - phi(level, i - 1, j))/dx;
+                return xt::where(a * b > 0., xt::where(xt::abs(a) < xt::abs(b), a, b), 0.);
+            };
 
-                // auto dyp = (phi(level, i, j + 1) - phi(level, i, j    ))/dx;
-                // auto dym = (phi(level, i, j    ) - phi(level, i, j - 1))/dx;
+            // Second-order one-sided differences with a minmod limiter on the second differences
+            auto dxx       = xt::eval((phi(level, i + 1, j) - 2. * phi(level, i, j) + phi(level, i - 1, j)) / (dx_ * dx_));
+            auto dxx_left  = xt::eval((phi(level, i, j) - 2. * phi(level, i - 1, j) + phi(level, i - 2, j)) / (dx_ * dx_));
+            auto dxx_right = xt::eval((phi(level, i + 2, j) - 2. * phi(level, i + 1, j) + phi(level, i, j)) / (dx_ * dx_));
+            auto dyy       = xt::eval((phi(level, i, j + 1) - 2. * phi(level, i, j) + phi(level, i, j - 1)) / (dx_ * dx_));
+            auto dyy_left  = xt::eval((phi(level, i, j) - 2. * phi(level, i, j - 1) + phi(level, i, j - 2)) / (dx_ * dx_));
+            auto dyy_right = xt::eval((phi(level, i, j + 2) - 2. * phi(level, i, j + 1) + phi(level, i, j)) / (dx_ * dx_));
 
-                // // Second-order one sided
-                auto dxp = 1. / dx_ * (.5 * phi(level, i - 2, j) - 2. * phi(level, i - 1, j) + 1.5 * phi(level, i, j));
-                auto dxm = 1. / dx_ * (-.5 * phi(level, i + 2, j) + 2. * phi(level, i + 1, j) - 1.5 * phi(level, i, j));
+            auto dxm = xt::eval((phi(level, i, j) - phi(level, i - 1, j)) / dx_ + .5 * dx_ * minmod(dxx, dxx_left));
+            auto dxp = xt::eval((phi(level, i + 1, j) - phi(level, i, j)) / dx_ - .5 * dx_ * minmod(dxx, dxx_right));
+            auto dym = xt::eval((phi(level, i, j) - phi(level, i, j - 1)) / dx_ + .5 * dx_ * minmod(dyy, dyy_left));
+            auto dyp = xt::eval((phi(level, i, j + 1) - phi(level, i, j)) / dx_ - .5 * dx_ * minmod(dyy, dyy_right));
 
-                auto dyp = 1. / dx_ * (.5 * phi(level, i, j - 2) - 2. * phi(level, i, j - 1) + 1.5 * phi(level, i, j));
-                auto dym = 1. / dx_ * (-.5 * phi(level, i, j + 2) + 2. * phi(level, i, j + 1) - 1.5 * phi(level, i, j));
+            auto pos_part = [](auto a)
+            {
+                return std::max(0., a);
+            };
 
-                auto pos_part = [](auto a)
-                {
-                    return std::max(0., a);
-                };
+            auto neg_part = [](auto a)
+            {
+                return std::min(0., a);
+            };
 
-                auto neg_part = [](auto a)
-                {
-                    return std::min(0., a);
-                };
+            auto mask = sign(phi_0(level, i, j)) >= 0.;
 
-                auto mask = sign(phi_0(level, i, j)) >= 0.;
+            apply_on_masked(mask,
+                            [&](auto ie)
+                            {
+                                out(ie) = scale
+                                        * (std::sqrt(std::max(std::pow(pos_part(dxm(ie)), 2.), std::pow(neg_part(dxp(ie)), 2.))
+                                                     + std::max(std::pow(pos_part(dym(ie)), 2.), std::pow(neg_part(dyp(ie)), 2.)))
+                                           - 1.);
+                            });
 
-                apply_on_masked(mask,
-                                [&](auto ie)
-                                {
-                                    out(ie) = std::sqrt(std::max(std::pow(pos_part(dxp(ie)), 2.), std::pow(neg_part(dxm(ie)), 2.))
-                                                        + std::max(std::pow(pos_part(dyp(ie)), 2.), std::pow(neg_part(dym(ie)), 2.)))
-                                            - 1.;
-                                });
+            apply_on_masked(!mask,
+                            [&](auto ie)
+                            {
+                                out(ie) = -scale
+                                        * (std::sqrt(std::max(std::pow(neg_part(dxm(ie)), 2.), std::pow(pos_part(dxp(ie)), 2.))
+                                                     + std::max(std::pow(neg_part(dym(ie)), 2.), std::pow(pos_part(dyp(ie)), 2.)))
+                                           - 1.);
+                            });
 
-                apply_on_masked(!mask,
-                                [&](auto ie)
-                                {
-                                    out(ie) = -(std::sqrt(std::max(std::pow(neg_part(dxp(ie)), 2.), std::pow(pos_part(dxm(ie)), 2.))
-                                                          + std::max(std::pow(neg_part(dyp(ie)), 2.), std::pow(pos_part(dym(ie)), 2.)))
-                                                - 1.);
-                                });
-            }
             return eval(out);
         }
     };
