@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <ranges>
+
 #include "../algorithm.hpp"
 #include "../bc/apply_field_bc.hpp"
 
@@ -446,7 +448,8 @@ namespace samurai
     {
         auto& mesh = field.mesh();
 
-        for (std::size_t level = mesh.max_level(); level >= (mesh.min_level() > 0 ? mesh.min_level() - 1 : 0); --level)
+        const std::size_t lowest_level = mesh.min_level() > 0 ? mesh.min_level() - 1 : 0;
+        for (const std::size_t level : std::views::iota(lowest_level, mesh.max_level() + 1) | std::views::reverse)
         {
             update_outer_ghosts(level, field);
         }
