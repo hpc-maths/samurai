@@ -197,6 +197,17 @@ namespace samurai::detail
         return copies;
     }
 
+    // Copy the values of `field` at `level` from the sources of `copies` to
+    // their destinations.
+    template <class Field>
+    void apply_periodic_copies(std::size_t level, Field& field, const periodic_copies<typename Field::mesh_t>& copies)
+    {
+        for (std::size_t k = 0; k < copies.dst.size(); ++k)
+        {
+            field(level, copies.dst.interval(k), copies.dst.index(k)) = field(level, copies.src.interval(k), copies.src.index(k));
+        }
+    }
+
 #ifdef SAMURAI_WITH_MPI
     // The periodic copies crossing the boundary between this subdomain and each
     // of its MPI neighbours: send[k] goes from this rank's cells to the ghosts
@@ -303,15 +314,8 @@ namespace samurai::detail
                     continue;
                 }
                 const auto local = make_periodic_copies(bands, own, own);
-                auto copy        = [&](auto& f)
-                {
-                    for (std::size_t k = 0; k < local.dst.size(); ++k)
-                    {
-                        f(level, local.dst.interval(k), local.dst.index(k)) = f(level, local.src.interval(k), local.src.index(k));
-                    }
-                };
-                copy(field);
-                (copy(other_fields), ...);
+                apply_periodic_copies(level, field, local);
+                (apply_periodic_copies(level, other_fields, local), ...);
 
                 exchange_periodic_ghosts(level, bands, field, other_fields...);
             }
