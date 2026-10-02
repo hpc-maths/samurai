@@ -251,7 +251,7 @@ namespace samurai
         void construct_corners();
         void update_sub_mesh();
         void renumbering();
-        void find_neighbourhood();
+        bool find_neighbourhood();
 
         void compute_gravity_center();
 
@@ -260,8 +260,26 @@ namespace samurai
         // finalize_mesh() performs the post-construction steps (sub-mesh update,
         // corners, renumbering, origin/scaling propagation, ghost exchange and,
         // under MPI+PETSc, the gravity-center computation).
-        void exchange_neighbour_meshes();
-        void finalize_mesh(const coords_t& origin_point, double scaling_factor);
+        //
+        // same_cells_as_ref is true only when the mesh is built from a
+        // reference mesh with geometrically identical cells. The returned flag
+        // (neighbours_up_to_date, forwarded to finalize_mesh) is true when every
+        // neighbour already holds this mesh's subdomain and cells: the
+        // construction exchanges then degrade to tokens (see
+        // exchange_with_neighbours). This state only lives for the duration of
+        // the construction: the public update_*_neighbour always send the full
+        // payload.
+        bool exchange_neighbour_meshes(bool same_cells_as_ref);
+        void finalize_mesh(const coords_t& origin_point, double scaling_factor, bool neighbours_up_to_date);
+
+#ifdef SAMURAI_WITH_MPI
+        void update_mesh_neighbour(bool send_full);
+        void update_neighbour_subdomain(bool send_full);
+        bool update_meshid_neighbour(const mesh_id_t& mesh_id, bool send_full);
+
+        template <class Payload, class RecvInto>
+        bool exchange_with_neighbours(const Payload& payload, bool send_full, const RecvInto& recv_into);
+#endif
 
         void partition_mesh(std::size_t start_level, const Box<double, dim>& global_box);
         std::size_t max_nb_cells(std::size_t level) const;
@@ -278,29 +296,16 @@ namespace samurai
         mesh_t m_cells;
         ca_type m_union;
         std::vector<lca_type> m_corners;
+        // Invariant once a mesh is constructed: every entry n holds in n.mesh
+        // the full final state (every mesh id, subdomain, union, config) of the
+        // mesh that rank n.rank built in the same collective construction. The
+        // token exchanges of a mesh built from a reference mesh rely on it: the
+        // reference's neighbour meshes are the receive-side cache, carried over
+        // by find_neighbourhood.
         std::vector<mpi_subdomain_t> m_mpi_neighbourhood;
         coords_t m_gravity_center;
 
         config_t m_config;
-
-#ifdef SAMURAI_WITH_MPI
-        // State of the token exchanges (see update_mesh_neighbour and friends).
-        // A sender may replace its payload by a token only when the receivers
-        // provably hold identical data from a previous exchange:
-        // - m_same_cells_as_ref: the cells of this mesh are geometrically
-        //   identical to those of the reference mesh it was built from;
-        // - m_same_neighbourhood: the neighbour rank set is the same as the
-        //   reference mesh's (set by find_neighbourhood);
-        // - m_neighbours_cells_unchanged: every neighbour sent a token in
-        //   update_meshid_neighbour(cells), i.e. the derived mesh ids (which
-        //   depend on the neighbours' cells) are unchanged too.
-        bool m_same_cells_as_ref          = false;
-        bool m_same_neighbourhood         = false;
-        bool m_neighbours_cells_unchanged = false;
-
-        template <class Payload, class RecvInto>
-        bool exchange_with_neighbours(const Payload& payload, bool send_full, RecvInto&& recv_into);
-#endif
 
 #ifdef SAMURAI_WITH_MPI
         friend class boost::serialization::access;
@@ -357,8 +362,8 @@ namespace samurai
 #endif
 
         construct_subdomain();
-        exchange_neighbour_meshes();
-        finalize_mesh(domain_ref.origin_point(), domain_ref.scaling_factor());
+        const bool neighbours_up_to_date = exchange_neighbour_meshes(false);
+        finalize_mesh(domain_ref.origin_point(), domain_ref.scaling_factor(), neighbours_up_to_date);
     }
 
     template <class D, class Config>
@@ -392,9 +397,9 @@ namespace samurai
 #endif
 
         construct_subdomain();
-        m_domain = m_subdomain;
-        exchange_neighbour_meshes();
-        finalize_mesh(domain_builder.origin_point(), m_config.scaling_factor());
+        m_domain                         = m_subdomain;
+        const bool neighbours_up_to_date = exchange_neighbour_meshes(false);
+        finalize_mesh(domain_builder.origin_point(), m_config.scaling_factor(), neighbours_up_to_date);
     }
 
     template <class D, class Config>
@@ -411,8 +416,8 @@ namespace samurai
 
         construct_subdomain();
         construct_domain();
-        exchange_neighbour_meshes();
-        finalize_mesh(ca.origin_point(), ca.scaling_factor());
+        const bool neighbours_up_to_date = exchange_neighbour_meshes(false);
+        finalize_mesh(ca.origin_point(), ca.scaling_factor(), neighbours_up_to_date);
     }
 
     template <class D, class Config>
@@ -423,16 +428,18 @@ namespace samurai
     {
         m_cells[mesh_id_t::cells] = ca;
 
-#ifdef SAMURAI_WITH_MPI
         // When the cells are identical to the reference mesh's, the neighbours
-        // already hold everything this mesh would send them: the exchanges of
-        // exchange_neighbour_meshes/finalize_mesh degrade to tokens.
-        m_same_cells_as_ref = (ref_mesh[mesh_id_t::cells] == ca);
+        // may already hold everything this mesh would send them: the exchanges
+        // of exchange_neighbour_meshes/finalize_mesh then degrade to tokens.
+#ifdef SAMURAI_WITH_MPI
+        const bool same_cells_as_ref = (ref_mesh[mesh_id_t::cells] == ca);
+#else
+        const bool same_cells_as_ref = false;
 #endif
 
         construct_subdomain();
-        exchange_neighbour_meshes();
-        finalize_mesh(ref_mesh.origin_point(), ref_mesh.scaling_factor());
+        const bool neighbours_up_to_date = exchange_neighbour_meshes(same_cells_as_ref);
+        finalize_mesh(ref_mesh.origin_point(), ref_mesh.scaling_factor(), neighbours_up_to_date);
     }
 
     template <class D, class Config>
@@ -442,26 +449,41 @@ namespace samurai
     }
 
     template <class D, class Config>
-    SAMURAI_INLINE void Mesh_base<D, Config>::exchange_neighbour_meshes()
+    SAMURAI_INLINE bool Mesh_base<D, Config>::exchange_neighbour_meshes([[maybe_unused]] bool same_cells_as_ref)
     {
         ScopedTimer timer("exchange neighbour meshes");
 #ifdef SAMURAI_WITH_MPI
-        find_neighbourhood();
-        update_neighbour_subdomain();
+        // The subdomain is a function of our cells only: the neighbours hold it
+        // when the cells and the neighbour set are those of the reference mesh.
+        const bool same_neighbourhood    = find_neighbourhood();
+        const bool neighbours_up_to_date = same_cells_as_ref && same_neighbourhood;
+        update_neighbour_subdomain(!neighbours_up_to_date);
+        return neighbours_up_to_date;
+#else
+        return false;
 #endif
     }
 
     template <class D, class Config>
-    SAMURAI_INLINE void Mesh_base<D, Config>::finalize_mesh(const coords_t& origin_point, double scaling_factor)
+    SAMURAI_INLINE void
+    Mesh_base<D, Config>::finalize_mesh(const coords_t& origin_point, double scaling_factor, [[maybe_unused]] bool neighbours_up_to_date)
     {
         construct_union();
-        update_meshid_neighbour(mesh_id_t::cells);
+#ifdef SAMURAI_WITH_MPI
+        // The neighbours hold our cells for the same reason they hold our
+        // subdomain. When, in turn, every neighbour sends a token, the derived
+        // mesh ids built from the neighbours' cells (update_sub_mesh) are
+        // unchanged too, and so is the full mesh sent by update_mesh_neighbour.
+        const bool neighbours_cells_unchanged = update_meshid_neighbour(mesh_id_t::cells, !neighbours_up_to_date);
+#endif
         update_sub_mesh();
         construct_corners();
         renumbering();
         set_origin_point(origin_point);
         set_scaling_factor(scaling_factor);
-        update_mesh_neighbour();
+#ifdef SAMURAI_WITH_MPI
+        update_mesh_neighbour(!(neighbours_up_to_date && neighbours_cells_unchanged));
+#endif
 #if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
         compute_gravity_center();
 #endif
@@ -1073,21 +1095,30 @@ namespace samurai
     /**
      * @brief Exchange @p payload with every neighbour using a token protocol.
      *
-     * A one-int header announces whether the serialized payload follows. When it
-     * does not (token), the receiver keeps its cached copy of the neighbour's
-     * data, carried over from the previous exchange by find_neighbourhood. A
-     * sender may only pass `send_full == false` when every receiver provably
-     * holds data identical to @p payload (see the m_same_* members).
+     * Each neighbour receives a single message: a packed archive whose first
+     * entry is a flag announcing whether the serialized payload follows. When it
+     * does not (token), the receiver keeps its cached copy of the sender's data,
+     * carried over from the reference mesh by find_neighbourhood.
+     *
+     * Correctness rests on the invariant documented on m_mpi_neighbourhood: the
+     * neighbour meshes of the reference mesh are the full final state of the
+     * meshes the neighbours built in the same collective construction. A sender
+     * may therefore pass `send_full == false` only when its payload is a
+     * function of data that is unchanged since that construction, for every
+     * receiver (same cells, same neighbour set, ...). Outside of a mesh
+     * construction the caller must always pass `send_full == true`.
      *
      * The exchange is collective over the (symmetric) neighbourhood: either
-     * every rank of a pair reaches it, or none does - as with the previous
-     * unconditional exchange.
+     * every rank of a pair reaches it, or none does. The decision to send a
+     * token is local to the sender: the flag tells each receiver what to read.
      *
+     * @param recv_into callable `(packed_iarchive&, mpi_subdomain_t&)` that
+     *        deserializes a full payload into the neighbour's cache.
      * @return true when every neighbour sent a token.
      */
     template <class D, class Config>
     template <class Payload, class RecvInto>
-    SAMURAI_INLINE bool Mesh_base<D, Config>::exchange_with_neighbours(const Payload& payload, bool send_full, RecvInto&& recv_into)
+    SAMURAI_INLINE bool Mesh_base<D, Config>::exchange_with_neighbours(const Payload& payload, bool send_full, const RecvInto& recv_into)
     {
         // No neighbouring subdomain (e.g. single rank): nothing to exchange.
         // Return before serializing the payload, which is otherwise pure waste.
@@ -1097,58 +1128,49 @@ namespace samurai
         }
         mpi::communicator world;
         std::vector<mpi::request> req;
-        req.reserve(2 * m_mpi_neighbourhood.size());
+        req.reserve(m_mpi_neighbourhood.size());
 
-        boost::mpi::packed_oarchive::buffer_type buffer;
+        boost::mpi::packed_oarchive oa(world);
+        oa << send_full;
         if (send_full)
         {
-            boost::mpi::packed_oarchive oa(world, buffer);
             oa << payload;
         }
-        const int flag = send_full ? 1 : 0;
 
         for (const auto& neighbour : m_mpi_neighbourhood)
         {
-            req.push_back(world.isend(neighbour.rank, neighbour.rank, flag));
-            if (send_full)
-            {
-                req.push_back(world.isend(neighbour.rank, neighbour.rank, buffer));
-            }
+            req.push_back(world.isend(neighbour.rank, neighbour.rank, oa));
         }
 
         bool all_tokens = true;
         for (auto& neighbour : m_mpi_neighbourhood)
         {
-            int neighbour_sent_full = 0;
-            world.recv(neighbour.rank, world.rank(), neighbour_sent_full);
-            if (neighbour_sent_full != 0)
+            boost::mpi::packed_iarchive ia(world);
+            world.recv(neighbour.rank, world.rank(), ia);
+
+            bool neighbour_sent_full = false;
+            ia >> neighbour_sent_full;
+            if (neighbour_sent_full)
             {
                 all_tokens = false;
-                recv_into(world, neighbour);
+                recv_into(ia, neighbour);
             }
         }
 
         mpi::wait_all(req.begin(), req.end());
         return all_tokens;
     }
-#endif
 
     template <class D, class Config>
-    SAMURAI_INLINE void Mesh_base<D, Config>::update_mesh_neighbour()
+    SAMURAI_INLINE void Mesh_base<D, Config>::update_mesh_neighbour(bool send_full)
     {
         ScopedTimer timer("update_mesh_neighbour");
-#ifdef SAMURAI_WITH_MPI
-        // send/recv the meshes of the neighbouring subdomains. The full mesh
-        // (every mesh id) is a function of our cells and of the neighbours'
-        // cells: it is unchanged - and replaced by a token - when our cells and
-        // neighbour set are those of the reference mesh AND every neighbour sent
-        // a token in update_meshid_neighbour(cells).
-        const bool send_full = !(m_same_cells_as_ref && m_same_neighbourhood && m_neighbours_cells_unchanged);
+        // send/recv the meshes of the neighbouring subdomains
         exchange_with_neighbours(derived_cast(),
                                  send_full,
-                                 [](auto& world, auto& neighbour)
+                                 [](auto& ia, auto& neighbour)
                                  {
-                                     world.recv(neighbour.rank, world.rank(), neighbour.mesh);
+                                     ia >> neighbour.mesh;
                                  });
 
 #ifdef SAMURAI_WITH_PETSC
@@ -1157,24 +1179,17 @@ namespace samurai
             neighbour.mesh.compute_gravity_center();
         }
 #endif
-#endif
     }
-
-    // TODO : find a clever way to factorize the two next functions. For new, I have to duplicate the code 2 times.
 
     // This function is to only send m_subdomain instead of the whole mesh data
     template <class D, class Config>
-    SAMURAI_INLINE void Mesh_base<D, Config>::update_neighbour_subdomain()
+    SAMURAI_INLINE void Mesh_base<D, Config>::update_neighbour_subdomain(bool send_full)
     {
-#ifdef SAMURAI_WITH_MPI
-        // The subdomain is a function of our cells only: token when the cells
-        // and the neighbour set are those of the reference mesh.
-        const bool send_full = !(m_same_cells_as_ref && m_same_neighbourhood);
         exchange_with_neighbours(derived_cast().m_subdomain,
                                  send_full,
-                                 [](auto& world, auto& neighbour)
+                                 [](auto& ia, auto& neighbour)
                                  {
-                                     world.recv(neighbour.rank, world.rank(), neighbour.mesh.m_subdomain);
+                                     ia >> neighbour.mesh.m_subdomain;
                                  });
 
         for (auto& neighbour : m_mpi_neighbourhood)
@@ -1184,34 +1199,43 @@ namespace samurai
             neighbour.mesh.compute_gravity_center();
 #endif
         }
+    }
+
+    template <class D, class Config>
+    SAMURAI_INLINE bool Mesh_base<D, Config>::update_meshid_neighbour(const mesh_id_t& mesh_id, bool send_full)
+    {
+        ScopedTimer timer("update_meshid_neighbour");
+        return exchange_with_neighbours(derived_cast()[mesh_id],
+                                        send_full,
+                                        [&mesh_id](auto& ia, auto& neighbour)
+                                        {
+                                            ia >> neighbour.mesh[mesh_id];
+                                        });
+    }
+#endif // SAMURAI_WITH_MPI
+
+    template <class D, class Config>
+    SAMURAI_INLINE void Mesh_base<D, Config>::update_mesh_neighbour()
+    {
+#ifdef SAMURAI_WITH_MPI
+        update_mesh_neighbour(true);
 #endif
     }
 
-    // Modified function definition
+    template <class D, class Config>
+    SAMURAI_INLINE void Mesh_base<D, Config>::update_neighbour_subdomain()
+    {
+#ifdef SAMURAI_WITH_MPI
+        update_neighbour_subdomain(true);
+#endif
+    }
+
     template <class D, class Config>
     SAMURAI_INLINE void Mesh_base<D, Config>::update_meshid_neighbour([[maybe_unused]] const mesh_id_t& mesh_id)
     {
-        ScopedTimer timer("update_meshid_neighbour");
 #ifdef SAMURAI_WITH_MPI
-        // Only the cells array is proven unchanged by m_same_cells_as_ref; any
-        // other mesh id is always sent in full.
-        const bool is_cells  = mesh_id == mesh_id_t::cells;
-        const bool send_full = !(is_cells && m_same_cells_as_ref && m_same_neighbourhood);
-
-        const bool all_tokens = exchange_with_neighbours(derived_cast()[mesh_id],
-                                                         send_full,
-                                                         [&mesh_id](auto& world, auto& neighbour)
-                                                         {
-                                                             world.recv(neighbour.rank, world.rank(), neighbour.mesh[mesh_id]);
-                                                         });
-        if (is_cells)
-        {
-            // Every neighbour sent a token: the derived mesh ids built from the
-            // neighbours' cells (update_sub_mesh) are unchanged too, which
-            // update_mesh_neighbour relies on.
-            m_neighbours_cells_unchanged = all_tokens;
-        }
-#endif // SAMURAI_WITH_MPI
+        update_meshid_neighbour(mesh_id, true);
+#endif
     }
 
     template <class D, class Config>
@@ -1348,8 +1372,17 @@ namespace samurai
         }
     }
 
+    /**
+     * @brief Rebuild the MPI neighbourhood from the current subdomain.
+     *
+     * The neighbour meshes of ranks that remain neighbours are carried over
+     * from the previous neighbourhood: they are the receive-side cache of the
+     * token exchanges (see exchange_with_neighbours).
+     *
+     * @return true when the neighbour rank set is unchanged.
+     */
     template <class D, class Config>
-    void Mesh_base<D, Config>::find_neighbourhood()
+    bool Mesh_base<D, Config>::find_neighbourhood()
     {
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
@@ -1429,9 +1462,8 @@ namespace samurai
             return std::max(1, static_cast<int>(std::ceil(reach / subdomain_dx)));
         };
 
-        // The previously exchanged neighbour meshes are the receive-side cache of
-        // the token exchanges (update_*_neighbour): keep them aside so the entries
-        // of ranks that remain neighbours can be carried over.
+        // Keep the previous neighbour meshes aside so the entries of ranks that
+        // remain neighbours can be carried over.
         std::vector<mpi_subdomain_t> previous_neighbourhood = std::move(m_mpi_neighbourhood);
 
         m_mpi_neighbourhood.clear();
@@ -1460,7 +1492,7 @@ namespace samurai
             }
         }
 
-        m_same_neighbourhood = previous_neighbourhood.size() == m_mpi_neighbourhood.size();
+        bool same_neighbourhood = previous_neighbourhood.size() == m_mpi_neighbourhood.size();
         for (auto& neighbour : m_mpi_neighbourhood)
         {
             auto previous = std::find_if(previous_neighbourhood.begin(),
@@ -1475,10 +1507,12 @@ namespace samurai
             }
             else
             {
-                m_same_neighbourhood = false;
+                same_neighbourhood = false;
             }
         }
-
+        return same_neighbourhood;
+#else
+        return true;
 #endif
     }
 
