@@ -36,6 +36,50 @@ namespace samurai
 
       private:
 
+        /**
+         * Number of coarse cells adjacent to the fine interval @p i at a level jump.
+         */
+        template <class Interval>
+        static std::size_t n_coarse_cells(const Interval& i)
+        {
+            return static_cast<std::size_t>(((i.end - 1) >> 1) - (i.start >> 1) + 1);
+        }
+
+        /**
+         * At a level jump, gives each coarse cell the contributions of its fine neighbours in the
+         * fine interval @p i: coarse_add(k, c) is called with c = contribution(ii) (or the sum of two
+         * of them) for the fine cells ii whose parent is the k-th coarse cell of the interval.
+         *
+         * The fine interval is not always aligned with the coarse cells: with MPI, and especially
+         * after load balancing, a subdomain may own only one of the two fine children of a coarse
+         * cell. The interval can then start on a right child (odd start) and have an odd size.
+         */
+        template <class Interval, class CoarseAdd, class Contribution>
+        SAMURAI_INLINE static void add_fine_to_coarse(const Interval& i, CoarseAdd&& coarse_add, Contribution&& contribution)
+        {
+            using offset_t = typename Interval::value_t;
+
+            const offset_t first   = i.start & 1; // 1 if the interval starts on a right child
+            const offset_t n_fine  = static_cast<offset_t>(i.size());
+            const offset_t n_pairs = (n_fine - first) / 2;
+
+            if (first != 0)
+            {
+                coarse_add(0, contribution(0));
+            }
+            // clang-format off
+            #pragma omp simd
+            for (offset_t p = 0; p < n_pairs; ++p)
+            {
+                coarse_add(first + p, contribution(first + 2*p) + contribution(first + 2*p + 1));
+            }
+            // clang-format on
+            if ((n_fine - first) % 2 != 0)
+            {
+                coarse_add(first + n_pairs, contribution(n_fine - 1));
+            }
+        }
+
         template <class InterfaceType, class StencilType, class Coeffs>
         void _apply_contribution_in_sequential_context(output_field_t& output_field,
                                                        input_field_t& input_field,
@@ -65,7 +109,7 @@ namespace samurai
                         auto right_cell_coeff = this->scheme().cell_coeff(right_cell_coeffs, c, field_i, field_j);
 
                         // clang-format off
-                        if (left_cell.level == right_cell.level || i.size() == 1) // if same level, or a jump in the x-direction (<=> i.size()=1)
+                        if (left_cell.level == right_cell.level || i.size() == 1) // same level, or a single fine cell (always the case for a jump in the x-direction)
                         {
                             #pragma omp simd
                             for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
@@ -80,16 +124,10 @@ namespace samurai
                         }
                         else if (left_cell.level < right_cell.level)
                         {
-                            // Level jump:
-                            // The fine interval is even (exept in the x-direction, handled by the preceding if).
-                            // We always have i.size() fine cells for i.size()/2 coarse cells.
-                            assert(i.size() % 2 == 0);
-                            #pragma omp simd
-                            for (index_t ii = 0; ii < static_cast<index_t>(i.size() / 2); ++ii) // iteration on the coarse cells
-                            {
-                                field_value(output_field, left_cell_index_init + ii, field_i) += left_cell_coeff * field_value(input_field, comput_index_init + 2*ii  , field_j)
-                                                                                               + left_cell_coeff * field_value(input_field, comput_index_init + 2*ii+1, field_j);
-                            }
+                            // Level jump: the left cells are the coarse ones, the interval i runs over the fine cells.
+                            add_fine_to_coarse(i,
+                                               [&](auto k, auto contrib) { field_value(output_field, left_cell_index_init + k, field_i) += contrib; },
+                                               [&](auto ii) { return left_cell_coeff * field_value(input_field, comput_index_init + ii, field_j); });
                             #pragma omp simd
                             for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii) // iteration on the fine cells
                             {
@@ -99,18 +137,14 @@ namespace samurai
                         else // if (left_cell.level > right_cell.level)
                         {
                             // Same as above, the other way around.
-                            assert(i.size() % 2 == 0);
                             #pragma omp simd
                             for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
                             {
                                 field_value(output_field, left_cell_index_init + ii, field_i) += left_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
                             }
-                            #pragma omp simd
-                            for (index_t ii = 0; ii < static_cast<index_t>(i.size() / 2); ++ii)
-                            {
-                                field_value(output_field, right_cell_index_init + ii, field_i) += right_cell_coeff * field_value(input_field, comput_index_init + 2*ii  , field_j)
-                                                                                                + right_cell_coeff * field_value(input_field, comput_index_init + 2*ii+1, field_j);
-                            }
+                            add_fine_to_coarse(i,
+                                               [&](auto k, auto contrib) { field_value(output_field, right_cell_index_init + k, field_i) += contrib; },
+                                               [&](auto ii) { return right_cell_coeff * field_value(input_field, comput_index_init + ii, field_j); });
                         }
                         // clang-format on
                     }
@@ -133,8 +167,8 @@ namespace samurai
             auto left_cell_index_init  = left_cell.index;
             auto right_cell_index_init = right_cell.index;
 
-            auto n_left_cells  = (i.size() == 1 || left_cell.level >= right_cell.level) ? i.size() : i.size() / 2;
-            auto n_right_cells = (i.size() == 1 || left_cell.level <= right_cell.level) ? i.size() : i.size() / 2;
+            auto n_left_cells  = (left_cell.level >= right_cell.level) ? i.size() : n_coarse_cells(i);
+            auto n_right_cells = (left_cell.level <= right_cell.level) ? i.size() : n_coarse_cells(i);
 
             using index_t = decltype(left_cell_index_init);
 
@@ -159,7 +193,7 @@ namespace samurai
                         auto right_cell_coeff = this->scheme().cell_coeff(right_cell_coeffs, c, field_i, field_j);
 
                         // clang-format off
-                        if (left_cell.level == right_cell.level || i.size() == 1) // if same level, or a jump in the x-direction (<=> i.size()=1)
+                        if (left_cell.level == right_cell.level || i.size() == 1) // same level, or a single fine cell (always the case for a jump in the x-direction)
                         {
                             #pragma omp simd
                             for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
@@ -174,16 +208,10 @@ namespace samurai
                         }
                         else if (left_cell.level < right_cell.level)
                         {
-                            // Level jump:
-                            // The fine interval is even (exept in the x-direction, handled by the preceding if).
-                            // We always have i.size() fine cells for i.size()/2 coarse cells.
-                            assert(i.size() % 2 == 0);
-                            #pragma omp simd
-                            for (index_t ii = 0; ii < static_cast<index_t>(i.size() / 2); ++ii) // iteration on the coarse cells
-                            {
-                                left_contributions[static_cast<std::size_t>(ii)] += left_cell_coeff * field_value(input_field, comput_index_init + 2*ii  , field_j)
-                                                                                  + left_cell_coeff * field_value(input_field, comput_index_init + 2*ii+1, field_j);
-                            }
+                            // Level jump: the left cells are the coarse ones, the interval i runs over the fine cells.
+                            add_fine_to_coarse(i,
+                                               [&](auto k, auto contrib) { left_contributions[static_cast<std::size_t>(k)] += contrib; },
+                                               [&](auto ii) { return left_cell_coeff * field_value(input_field, comput_index_init + ii, field_j); });
                             #pragma omp simd
                             for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii) // iteration on the fine cells
                             {
@@ -193,18 +221,14 @@ namespace samurai
                         else // if (left_cell.level > right_cell.level)
                         {
                             // Same as above, the other way around.
-                            assert(i.size() % 2 == 0);
                             #pragma omp simd
                             for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
                             {
                                 left_contributions[static_cast<std::size_t>(ii)] += left_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
                             }
-                            #pragma omp simd
-                            for (index_t ii = 0; ii < static_cast<index_t>(i.size() / 2); ++ii)
-                            {
-                                right_contributions[static_cast<std::size_t>(ii)] += right_cell_coeff * field_value(input_field, comput_index_init + 2*ii  , field_j)
-                                                                                   + right_cell_coeff * field_value(input_field, comput_index_init + 2*ii+1, field_j);
-                            }
+                            add_fine_to_coarse(i,
+                                               [&](auto k, auto contrib) { right_contributions[static_cast<std::size_t>(k)] += contrib; },
+                                               [&](auto ii) { return right_cell_coeff * field_value(input_field, comput_index_init + ii, field_j); });
                         }
                         // clang-format on
                     }
