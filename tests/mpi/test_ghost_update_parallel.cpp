@@ -801,9 +801,13 @@ namespace
 
         // Guard against a vacuous pass: both exchanges must have filled ghosts,
         // and the second periodic pass must have had something to bring back.
+        // A single rank has no other subdomain, hence no in-domain ghost.
         const std::size_t total_interior = mpi::all_reduce(world, checked_interior, std::plus<std::size_t>());
         const std::size_t total_periodic = mpi::all_reduce(world, checked_periodic, std::plus<std::size_t>());
-        EXPECT_GT(total_interior, 0u) << ctx << ": no in-domain ghost was checked";
+        if (world.size() > 1)
+        {
+            EXPECT_GT(total_interior, 0u) << ctx << ": no in-domain ghost was checked";
+        }
         EXPECT_GT(total_periodic, 0u) << ctx << ": no periodic ghost was checked";
         EXPECT_FALSE(flagged.empty()) << ctx << ": no real cell has a periodic copy";
     }
