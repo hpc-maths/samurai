@@ -123,4 +123,4 @@ See the [CMake how-to guide](cmake.md) to turn this option on.
 
 - [Loop over the cells of a mesh](loop.md) to compute and update field values.
 - [Save a mesh and its fields](save.md) for post-processing in ParaView.
-- [Define and use a field](../tutorial/field.rst), the tutorial on how a field stores and accesses its values.
+- {doc}`Field storage and access <../tutorial/field>`, the tutorial on how a field stores and accesses its values.
