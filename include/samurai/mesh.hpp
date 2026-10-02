@@ -1218,18 +1218,19 @@ namespace samurai
             // levels k <= l from the coarsest level up. Expanding every cell to the finest
             // level first (a level-l cell becomes 2^(max_level - l) rows there) and
             // projecting back to each level cost much more.
-            const auto& cells     = m_cells[mesh_id_t::cells];
+            const auto& my_cells  = m_cells[mesh_id_t::cells];
             const std::size_t top = max_level();
             std::vector<lca_type> from_finer(top + 1);
             for (std::size_t level = top + 1; level-- > 0;)
             {
-                from_finer[level] = (level == top) ? cells[level] : lca_type(union_(cells[level], self(from_finer[level + 1]).on(level)));
+                from_finer[level] = (level == top) ? my_cells[level]
+                                                   : lca_type(union_(my_cells[level], self(from_finer[level + 1]).on(level)));
             }
             m_subdomain.clear();
             lca_type from_coarser;
             for (std::size_t level = 0; level <= top; ++level)
             {
-                from_coarser       = (level == 0) ? cells[level] : lca_type(union_(cells[level], self(from_coarser).on(level)));
+                from_coarser       = (level == 0) ? my_cells[level] : lca_type(union_(my_cells[level], self(from_coarser).on(level)));
                 m_subdomain[level] = lca_type(union_(from_finer[level], from_coarser));
             }
             m_subdomain.set_origin_point(m_domain.origin_point());
