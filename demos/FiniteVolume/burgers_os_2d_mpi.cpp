@@ -12,6 +12,7 @@
 namespace fs = std::filesystem;
 
 #include <chrono>
+#include <cstdint>
 #include <numbers>
 #include <thread>
 #include <unistd.h>
@@ -39,47 +40,79 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
     samurai::save(path, fmt::format("{}_full{}", filename, suffix), {true, true}, mesh, u, level_);
 }
 
+// Every rank solves the same problem on its own box: in the coordinates of its
+// subdomain, every rank must hold the same cells. Each rank hashes its cells in
+// those coordinates and two all_reduce compare the hashes of all the ranks. On a
+// mismatch, rank 0 broadcasts its cells and every rank that differs lists the
+// cells it has and rank 0 has not, and conversely, before the run stops.
 void check_diff(auto& mesh)
 {
-    using mesh_id_t = typename std::decay_t<decltype(mesh)>::mesh_id_t;
+    using mesh_id_t           = typename std::decay_t<decltype(mesh)>::mesh_id_t;
+    static constexpr auto dim = std::decay_t<decltype(mesh)>::dim;
 
     mpi::communicator world;
 
-    auto my_min_indices = mesh.subdomain().min_indices();
+    const auto origin    = mesh.subdomain().min_indices();
+    const auto top_level = mesh.subdomain().level();
 
-    // Every level is checked: a difference confined to a coarse level must not be hidden by the levels after it.
-    // Each rank checks its own cells against each neighbour; the neighbourhood is symmetric, so the neighbour
-    // checks the other direction.
-    bool different = false;
-    for (const auto& neighbour : mesh.mpi_neighbourhood())
+    std::uint64_t hash = 14695981039346656037ULL; // FNV-1a
+    auto mix           = [&](std::int64_t value)
     {
-        auto neighbour_min_indices = neighbour.mesh.subdomain().min_indices();
+        hash ^= static_cast<std::uint64_t>(value);
+        hash *= 1099511628211ULL;
+    };
 
-        xt::xtensor_fixed<int, xt::xshape<2>> translation{my_min_indices[0] - neighbour_min_indices[0],
-                                                          my_min_indices[1] - neighbour_min_indices[1]};
-
-        samurai::for_each_level(mesh,
-                                [&](auto level)
+    samurai::CellList<dim> local_cl;
+    samurai::for_each_level(mesh,
+                            [&](auto level)
+                            {
+                                xt::xtensor_fixed<int, xt::xshape<dim>> shift;
+                                for (std::size_t d = 0; d < dim; ++d)
                                 {
-                                    auto set = samurai::difference(mesh[mesh_id_t::cells][level],
-                                                                   samurai::translate(neighbour.mesh[mesh_id_t::cells][level],
-                                                                                      translation >> (mesh.subdomain().level() - level)));
-                                    set(
-                                        [&](const auto& i, const auto& index)
+                                    shift[d] = -(origin[d] >> (top_level - level));
+                                }
+                                samurai::translate(mesh[mesh_id_t::cells][level], shift)(
+                                    [&](const auto& i, const auto& index)
+                                    {
+                                        mix(static_cast<std::int64_t>(level));
+                                        mix(i.start);
+                                        mix(i.end);
+                                        for (std::size_t d = 0; d < dim - 1; ++d)
                                         {
-                                            // std::cerr: std::cout is redirected to /dev/null on every rank but 0
-                                            std::cerr << "Difference found !! " << level << " " << i << " " << index << " for domain "
-                                                      << world.rank() << " with subdomain " << neighbour.rank << "\n";
-                                            different = true;
-                                        });
-                                });
+                                            mix(index[d]);
+                                        }
+                                        local_cl[level][index].add_interval(i);
+                                    });
+                            });
+
+    const auto hash_min = mpi::all_reduce(world, hash, mpi::minimum<std::uint64_t>());
+    const auto hash_max = mpi::all_reduce(world, hash, mpi::maximum<std::uint64_t>());
+    if (hash_min == hash_max)
+    {
+        return;
     }
 
-    if (mpi::all_reduce(world, different, std::logical_or<>()))
+    samurai::CellArray<dim> local{local_cl};
+    samurai::CellArray<dim> reference = local;
+    mpi::broadcast(world, reference, 0);
+    for (std::size_t level = 0; level < local.max_size; ++level)
     {
-        samurai::save("diff_mesh", mesh);
-        throw std::runtime_error("Difference found between subdomains");
+        // std::cerr: std::cout is redirected to /dev/null on every rank but 0
+        samurai::difference(local[level], reference[level])(
+            [&](const auto& i, const auto& index)
+            {
+                std::cerr << "Difference found !! level " << level << " " << i << " " << index << " on rank " << world.rank()
+                          << " but not on rank 0\n";
+            });
+        samurai::difference(reference[level], local[level])(
+            [&](const auto& i, const auto& index)
+            {
+                std::cerr << "Difference found !! level " << level << " " << i << " " << index << " on rank 0 but not on rank "
+                          << world.rank() << "\n";
+            });
     }
+    samurai::save("diff_mesh", mesh);
+    throw std::runtime_error("Difference found between subdomains");
 }
 
 auto get_box(const xt::xtensor_fixed<double, xt::xshape<2>>& min_corner, const xt::xtensor_fixed<double, xt::xshape<2>>& max_corner, int npx)
