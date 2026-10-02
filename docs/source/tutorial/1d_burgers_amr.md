@@ -169,56 +169,45 @@ With a CFL number above 1, the scheme is unstable: oscillations appear and grow.
 
 We start the `main` function by initializing {{ project }} and reading the command-line options:
 
-```c++
-auto& app = samurai::initialize("Burgers equation on a uniform 1D mesh", argc, argv);
-
-double Tf  = 1.5;  // final time, after the shock forms at T* = 1
-double cfl = 0.99; // CFL number: dt = cfl * dx, stable for cfl <= 1
-app.add_option("--Tf", Tf, "Final time")->capture_default_str();
-app.add_option("--cfl", cfl, "CFL number")->capture_default_str();
-SAMURAI_PARSE(argc, argv);
+```{literalinclude} snippet/burgers/burgers_1d.cpp
+:language: c++
+:start-after: // Read the options
+:end-before: // Build the mesh
+:dedent:
 ```
 
 {cpp:func}`samurai::initialize` returns the command-line application, to which we add the final time and the CFL number as options.
 `SAMURAI_PARSE` reads them, together with the options of {{ project }}.
 
-Next, we describe the mesh with {cpp:class}`samurai::mesh_config` and build it on the box $[-3, 3]$ with {cpp:func}`samurai::amr::make_mesh`:
+Next, we describe the mesh with {cpp:class}`samurai::mesh_config` and build it on the box $[-3, 3]$ with `samurai::mra::make_mesh`:
 
-```c++
-constexpr std::size_t dim = 1;
-const std::size_t level   = 8; // J: 2^8 = 256 cells
-
-const samurai::Box<double, dim> box({-3}, {3});
-auto config = samurai::mesh_config<dim>().min_level(level).max_level(level).start_level(level);
-auto mesh   = samurai::amr::make_mesh(box, config);
-
-std::cout << mesh << std::endl;
+```{literalinclude} snippet/burgers/burgers_1d.cpp
+:language: c++
+:start-after: // Build the mesh
+:end-before: // Set the initial condition
+:dedent:
 ```
 
-The mesh is an adaptive mesh refinement (AMR) mesh, but with the same minimum, maximum and start level it stays uniform: all cells are at level 8.
+The mesh is a multiresolution mesh, but with the same minimum and maximum level it stays uniform: all cells are at level 8.
 The level-0 cell is the whole box, so a cell at level 8 has the size $\Delta x = 6 / 2^8$.
 
 The program prints the sub-meshes of the mesh (`cells`, `cells and ghosts`, ...).
 The `cells` sub-mesh has a single interval `[0,256[` at level 8: the 256 cells $C_0, \dots, C_{255}$ of {eq}`burgers-cells`.
 
 :::{note}
-The command-line options `--min-level`, `--max-level` and `--start-level` replace the levels set in the code (see the {doc}`mesh how-to guide <../howto/mesh>`).
-To keep a uniform mesh, give the same value to all three.
+The command-line options `--min-level` and `--max-level` replace the levels set in the code (see the {doc}`mesh how-to guide <../howto/mesh>`).
+To keep a uniform mesh, give the same value to both.
 :::
 
 ## Set the initial condition
 
 We create a scalar field `u` on the mesh with {cpp:func}`samurai::make_scalar_field`, and set it to the hat function {eq}`burgers-initial-condition` at the center of each cell:
 
-```c++
-auto u = samurai::make_scalar_field<double>("u", mesh);
-
-samurai::for_each_cell(mesh,
-                       [&](auto& cell)
-                       {
-                           const double x = cell.center(0);
-                           u[cell]        = (x < -1. || x > 1.) ? 0. : 1. - std::abs(x);
-                       });
+```{literalinclude} snippet/burgers/burgers_1d.cpp
+:language: c++
+:start-after: // Set the initial condition
+:end-before: // Set the boundary condition
+:dedent:
 ```
 
 Taking the value at the center instead of the cell average is accurate to second order in $\Delta x$ where $u_0$ is smooth.
@@ -227,56 +216,47 @@ The scheme {eq}`burgers-upwind-scheme` in the first cell $C_0$ reads $\overline{
 {{ project }} stores such values in ghost cells, filled from the boundary conditions of the field.
 We attach a homogeneous Neumann condition to `u`, which copies the value of the boundary cell into the ghost cells:
 
-```c++
-samurai::make_bc<samurai::Neumann<1>>(u, 0.);
+```{literalinclude} snippet/burgers/burgers_1d.cpp
+:language: c++
+:start-after: // Set the boundary condition
+:end-before: // Define the scheme
+:dedent:
 ```
 
 The solution is zero near $x = \pm 3$ up to $T = 1.5$, so this choice does not change the result.
 The {doc}`boundary conditions reference <../reference/bc>` lists the other conditions.
 
-## Write the time loop
+## Define the scheme
 
-The scheme needs a second field for $\overline{u}^{n+1}$, and the time step from the CFL condition {eq}`burgers-cfl`:
+{{ project }} provides the upwind flux {eq}`burgers-upwind-flux` as a ready-made operator, `samurai::make_convection_upwind`.
+It computes the flux $u^2$, so we multiply it by $1/2$ to get $\varphi(u) = u^2/2$:
 
-```c++
-auto unp1 = samurai::make_scalar_field<double>("unp1", mesh);
-
-double dt      = cfl * mesh.min_cell_length(); // sup |u_0| = 1
-double t       = 0.;
-std::size_t nt = 0;
+```{literalinclude} snippet/burgers/burgers_1d.cpp
+:language: c++
+:start-after: // Define the scheme
+:end-before: // Write the time loop
+:dedent:
 ```
 
-Each iteration of the loop does four things:
+The operator is defined by its numerical fluxes at the cell faces.
+Each face gets one flux, shared by the two cells on either side, which keeps the scheme conservative, also on the faces between cells of different levels once the mesh is adapted.
+`conv(u)` returns $(F_{k+1/2}^n - F_{k-1/2}^n) / \Delta x$ for every cell $C_k$, the term of {eq}`burgers-upwind-scheme` that multiplies $\Delta t$.
+The {doc}`finite volume schemes reference <../reference/finite_volume_schemes>` describes this operator and the others.
+
+## Write the time loop
+
+The scheme needs a second field for $\overline{u}^{n+1}$, and the time step from the CFL condition {eq}`burgers-cfl`.
+Each iteration of the loop does three things:
 
 1. it advances the time, and shortens the last time step so that the loop stops exactly at `Tf`;
-2. it fills the ghost cells of `u` with {cpp:func}`samurai::update_ghost_mr`, which also applies the boundary conditions: the values of `u` change at each time step, so the ghost cells must be updated at each time step too;
-3. it applies the scheme {eq}`burgers-upwind-scheme` on each interval of cells: `u(lvl, i - 1)` is the field on the interval shifted one cell to the left, that is $\overline{u}^n_{k-1}$ for all the cells $k$ of the interval `i` at once;
-4. it exchanges the values of `u` and `unp1` with {cpp:func}`samurai::swap`, so that `u` holds the new solution for the next iteration.
+2. it computes $\overline{u}^{n+1} = \overline{u}^n - \Delta t \, \mathrm{conv}(\overline{u}^n)$; `conv(u)` first fills the ghost cells of `u` it reads, applying the boundary condition, because the values of `u` change at each time step;
+3. it exchanges the values of `u` and `unp1` with {cpp:func}`samurai::swap`, so that `u` holds the new solution for the next iteration.
 
-```c++
-while (t != Tf)
-{
-    t += dt;
-    if (t > Tf)
-    {
-        dt += Tf - t;
-        t = Tf;
-    }
-
-    samurai::update_ghost_mr(u);
-
-    samurai::for_each_interval(mesh,
-                               [&](std::size_t lvl, const auto& i, auto)
-                               {
-                                   const double dx = mesh.cell_length(lvl);
-                                   unp1(lvl, i)    = u(lvl, i)
-                                                - 0.5 * dt / dx * (u(lvl, i) * u(lvl, i) - u(lvl, i - 1) * u(lvl, i - 1));
-                               });
-
-    samurai::swap(u, unp1);
-
-    std::cout << "iteration " << ++nt << ": t = " << t << std::endl;
-}
+```{literalinclude} snippet/burgers/burgers_1d.cpp
+:language: c++
+:start-after: // Write the time loop
+:end-before: // Save the solution
+:dedent:
 ```
 
 {cpp:func}`samurai::swap` exchanges the data of the two fields, and also whether their ghost cells are up to date.
@@ -284,111 +264,19 @@ The boundary condition stays attached to `u`.
 
 After the loop, we save the mesh and the solution to `burgers_1d.h5`, in the directory the program runs from:
 
-```c++
-samurai::save("burgers_1d", mesh, u);
-
-samurai::finalize();
-return 0;
+```{literalinclude} snippet/burgers/burgers_1d.cpp
+:language: c++
+:start-after: // Save the solution
+:end-before: return 0;
+:dedent:
 ```
-
-:::{tip}
-{{ project }} also provides the upwind flux {eq}`burgers-upwind-flux` as a ready-made operator, for solutions of any sign.
-`samurai::make_convection_upwind` computes the flux $u^2$, so we multiply it by $1/2$:
-
-```c++
-auto conv = 0.5 * samurai::make_convection_upwind<decltype(u)>();
-unp1      = u - dt * conv(u);
-```
-
-The operator updates the ghost cells of `u` itself when they are out of date.
-The demo `demos/FiniteVolume/burgers_mra.cpp` uses it on a multiresolution mesh.
-The {doc}`finite volume schemes reference <../reference/finite_volume_schemes>` describes this operator and the others.
-:::
 
 ## Run the program and plot the result
 
-The complete program, with the pieces above in order:
+The complete program, with the pieces above in order, is compiled with the documentation snippets:
 
-```c++
-#include <cmath>
-#include <iostream>
-
-#include <samurai/algorithm/update.hpp>
-#include <samurai/amr/mesh.hpp>
-#include <samurai/bc.hpp>
-#include <samurai/box.hpp>
-#include <samurai/field.hpp>
-#include <samurai/io/hdf5.hpp>
-#include <samurai/samurai.hpp>
-
-int main(int argc, char* argv[])
-{
-    auto& app = samurai::initialize("Burgers equation on a uniform 1D mesh", argc, argv);
-
-    double Tf  = 1.5;  // final time, after the shock forms at T* = 1
-    double cfl = 0.99; // CFL number: dt = cfl * dx, stable for cfl <= 1
-    app.add_option("--Tf", Tf, "Final time")->capture_default_str();
-    app.add_option("--cfl", cfl, "CFL number")->capture_default_str();
-    SAMURAI_PARSE(argc, argv);
-
-    // Uniform mesh with 2^8 cells on [-3, 3]
-    constexpr std::size_t dim = 1;
-    const std::size_t level   = 8; // J: 2^8 = 256 cells
-
-    const samurai::Box<double, dim> box({-3}, {3});
-    auto config = samurai::mesh_config<dim>().min_level(level).max_level(level).start_level(level);
-    auto mesh   = samurai::amr::make_mesh(box, config);
-
-    std::cout << mesh << std::endl;
-
-    // Initial condition and boundary condition
-    auto u = samurai::make_scalar_field<double>("u", mesh);
-
-    samurai::for_each_cell(mesh,
-                           [&](auto& cell)
-                           {
-                               const double x = cell.center(0);
-                               u[cell]        = (x < -1. || x > 1.) ? 0. : 1. - std::abs(x);
-                           });
-
-    samurai::make_bc<samurai::Neumann<1>>(u, 0.);
-
-    // Time loop
-    auto unp1 = samurai::make_scalar_field<double>("unp1", mesh);
-
-    double dt      = cfl * mesh.min_cell_length(); // sup |u_0| = 1
-    double t       = 0.;
-    std::size_t nt = 0;
-
-    while (t != Tf)
-    {
-        t += dt;
-        if (t > Tf)
-        {
-            dt += Tf - t;
-            t = Tf;
-        }
-
-        samurai::update_ghost_mr(u);
-
-        samurai::for_each_interval(mesh,
-                                   [&](std::size_t lvl, const auto& i, auto)
-                                   {
-                                       const double dx = mesh.cell_length(lvl);
-                                       unp1(lvl, i)    = u(lvl, i)
-                                                    - 0.5 * dt / dx * (u(lvl, i) * u(lvl, i) - u(lvl, i - 1) * u(lvl, i - 1));
-                                   });
-
-        samurai::swap(u, unp1);
-
-        std::cout << "iteration " << ++nt << ": t = " << t << std::endl;
-    }
-
-    samurai::save("burgers_1d", mesh, u);
-
-    samurai::finalize();
-    return 0;
-}
+```{literalinclude} snippet/burgers/burgers_1d.cpp
+:language: c++
 ```
 
 1. Build the program as described in the {doc}`CMake how-to guide <../howto/cmake>`.
@@ -409,12 +297,12 @@ int main(int argc, char* argv[])
 
 The plot shows the ramp $u = (1 + x) / 2.5$ of {eq}`burgers-solution-after-shock`, from $x = -1$ up to the shock near $x \approx 1.236$, where $u$ drops from about 0.89 to 0.
 The upwind scheme spreads the shock and the corner at $x = -1$ over a few cells.
-Run the program with `--max-level 10 --min-level 10 --start-level 10` to see them sharpen: $\Delta x$ is 4 times smaller, so there are 4 times more time steps.
+Run the program with `--min-level 10 --max-level 10` to see them sharpen: $\Delta x$ is 4 times smaller, so there are 4 times more time steps.
 
 ## What we built
 
 We solved the Burgers equation {eq}`burgers-equation` past the formation of a shock.
-On the way, we built a uniform mesh from a `samurai::mesh_config`, created and initialized a scalar field, attached a boundary condition, and wrote a finite volume time loop that updates the ghost cells before each step and swaps the fields after it.
+On the way, we built a uniform mesh from a `samurai::mesh_config`, created and initialized a scalar field, attached a boundary condition, and wrote a finite volume time loop with the flux-based upwind operator, which updates the ghost cells itself, and `samurai::swap`.
 
 ## Next steps
 
