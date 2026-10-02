@@ -1,8 +1,29 @@
 #pragma once
 #include "algorithm.hpp"
+#include <tuple>
 
 namespace samurai
 {
+    namespace detail
+    {
+        /**
+         * Mesh id and level range where the projection/prediction ghosts of the PETSc assembly are looked for.
+         * With MPI, the flux loops of the assembly also use ghosts that are only in the reference mesh (ghosts needed to compute
+         * the fluxes at the interfaces with a neighbour subdomain, possibly one level below/above the local levels).
+         * They must get their projection/prediction equation too, otherwise they become empty rows.
+         */
+        template <class Mesh>
+        SAMURAI_INLINE auto proj_pred_ghost_search(const Mesh& mesh)
+        {
+            using mesh_id_t = typename Mesh::mesh_id_t;
+#ifdef SAMURAI_WITH_MPI
+            return std::make_tuple(mesh_id_t::reference, mesh[mesh_id_t::reference].min_level(), mesh[mesh_id_t::reference].max_level());
+#else
+            return std::make_tuple(mesh_id_t::cells_and_ghosts, mesh[mesh_id_t::cells].min_level(), mesh[mesh_id_t::cells].max_level());
+#endif
+        }
+    }
+
     template <class Mesh>
     SAMURAI_INLINE auto get_index_start(const Mesh& mesh, const typename Mesh::mesh_interval_t& mesh_interval)
     {
@@ -65,12 +86,11 @@ namespace samurai
                       "for_each_projection_ghost_and_children_cells() not "
                       "implemented for this dimension");
 
-        auto min_level = mesh[mesh_id_t::cells].min_level();
-        auto max_level = mesh[mesh_id_t::cells].max_level();
+        auto [ghost_mesh_id, min_level, max_level] = detail::proj_pred_ghost_search(mesh);
 
         for (std::size_t level = min_level; level < max_level; ++level)
         {
-            auto projection_ghosts = intersection(mesh[mesh_id_t::cells_and_ghosts][level], mesh[mesh_id_t::cells][level + 1]).on(level);
+            auto projection_ghosts = intersection(mesh[ghost_mesh_id][level], mesh[mesh_id_t::cells][level + 1]).on(level);
             for_each_meshinterval<mesh_interval_t>(
                 projection_ghosts,
                 [&](auto mesh_interval)
@@ -144,12 +164,11 @@ namespace samurai
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
 
-        auto min_level = mesh[mesh_id_t::cells].min_level();
-        auto max_level = mesh[mesh_id_t::cells].max_level();
+        auto [ghost_mesh_id, min_level, max_level] = detail::proj_pred_ghost_search(mesh);
 
         for (std::size_t level = min_level; level < max_level; ++level)
         {
-            auto set = intersection(mesh[mesh_id_t::cells_and_ghosts][level], mesh[mesh_id_t::cells][level + 1]).on(level);
+            auto set = intersection(mesh[ghost_mesh_id][level], mesh[mesh_id_t::cells][level + 1]).on(level);
 
             for_each_cell(mesh, set, std::forward<Func>(f));
         }
@@ -164,12 +183,11 @@ namespace samurai
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
 
-        auto min_level = mesh[mesh_id_t::cells].min_level();
-        auto max_level = mesh[mesh_id_t::cells].max_level();
+        auto [ghost_mesh_id, min_level, max_level] = detail::proj_pred_ghost_search(mesh);
 
         for (std::size_t level = min_level + 1; level <= max_level; ++level)
         {
-            auto set = intersection(mesh[mesh_id_t::cells_and_ghosts][level], mesh[mesh_id_t::cells][level - 1]).on(level);
+            auto set = intersection(mesh[ghost_mesh_id][level], mesh[mesh_id_t::cells][level - 1]).on(level);
 
             for_each_cell(mesh, set, std::forward<Func>(f));
         }

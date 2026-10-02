@@ -66,80 +66,96 @@ namespace samurai
             {
                 // std::cout << "[" << mpi::communicator().rank() << "] sparsity_pattern_scheme() of interior interfaces" << std::endl;
                 auto& flux_def = scheme().flux_definition();
+
+                // Browse the same levels as for_each_interior_interface_and_coeffs() in assemble_scheme():
+                // with MPI, a neighbour subdomain can be one level coarser or finer than the local cells.
+                using mesh_id_t = typename std::decay_t<decltype(mesh())>::mesh_id_t;
+#ifdef SAMURAI_WITH_MPI
+                const std::size_t cells_min_level = mesh()[mesh_id_t::cells].min_level();
+                std::size_t min_level             = std::max(mesh().min_level(), cells_min_level > 0 ? cells_min_level - 1 : 0);
+                std::size_t max_level             = std::min(mesh().max_level(), mesh()[mesh_id_t::cells].max_level() + 1);
+#else
+                std::size_t min_level = mesh()[mesh_id_t::cells].min_level();
+                std::size_t max_level = mesh()[mesh_id_t::cells].max_level();
+#endif
                 for (std::size_t d = 0; d < dim; ++d)
                 {
-                    for_each_interior_interface<Run::Sequential, Get::Cells, /* include_periodic = */ false>(
-                        mesh(),
-                        flux_def[d].direction,
-                        flux_def[d].stencil,
-                        [&](auto& interface_cells, auto& comput_cells)
-                        {
-#if SAMURAI_WITH_MPI
-                            bool cell_0_locally_owned = is_locally_owned(interface_cells[0]);
-                            bool cell_1_locally_owned = is_locally_owned(interface_cells[1]);
-#endif
-                            for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
+                    for (std::size_t level = min_level; level <= max_level; ++level)
+                    {
+                        for_each_interior_interface<Run::Sequential, Get::Cells, /* include_periodic = */ false>(
+                            mesh(),
+                            level,
+                            flux_def[d].direction,
+                            flux_def[d].stencil,
+                            [&](auto& interface_cells, auto& comput_cells)
                             {
-                                std::size_t row_cell_0 = static_cast<std::size_t>(local_row_index(interface_cells[0], field_i));
-                                std::size_t row_cell_1 = static_cast<std::size_t>(local_row_index(interface_cells[1], field_i));
+#if SAMURAI_WITH_MPI
+                                bool cell_0_locally_owned = is_locally_owned(interface_cells[0]);
+                                bool cell_1_locally_owned = is_locally_owned(interface_cells[1]);
+#endif
+                                for (unsigned int field_i = 0; field_i < output_n_comp; ++field_i)
+                                {
+                                    std::size_t row_cell_0 = static_cast<std::size_t>(local_row_index(interface_cells[0], field_i));
+                                    std::size_t row_cell_1 = static_cast<std::size_t>(local_row_index(interface_cells[1], field_i));
 
 #ifdef SAMURAI_WITH_MPI
-                                for (std::size_t c = 0; c < stencil_size; ++c)
-                                {
-                                    if (is_locally_owned(comput_cells[c]))
+                                    for (std::size_t c = 0; c < stencil_size; ++c)
                                     {
-                                        if (cell_0_locally_owned)
+                                        if (is_locally_owned(comput_cells[c]))
                                         {
-                                            assert(row_cell_0 < d_nnz.size());
-                                            d_nnz[row_cell_0] += static_cast<PetscInt>(input_n_comp);
+                                            if (cell_0_locally_owned)
+                                            {
+                                                assert(row_cell_0 < d_nnz.size());
+                                                d_nnz[row_cell_0] += static_cast<PetscInt>(input_n_comp);
+                                            }
+                                            if (cell_1_locally_owned)
+                                            {
+                                                assert(row_cell_1 < d_nnz.size());
+                                                d_nnz[row_cell_1] += static_cast<PetscInt>(input_n_comp);
+                                            }
                                         }
-                                        if (cell_1_locally_owned)
+                                        else
                                         {
-                                            assert(row_cell_1 < d_nnz.size());
-                                            d_nnz[row_cell_1] += static_cast<PetscInt>(input_n_comp);
+                                            if (cell_0_locally_owned)
+                                            {
+                                                assert(row_cell_0 < o_nnz.size());
+                                                o_nnz[row_cell_0] += static_cast<PetscInt>(input_n_comp);
+                                            }
+                                            if (cell_1_locally_owned)
+                                            {
+                                                assert(row_cell_1 < o_nnz.size());
+                                                o_nnz[row_cell_1] += static_cast<PetscInt>(input_n_comp);
+                                            }
+                                        }
+                                    }
+#else
+                                    if constexpr (ghost_elimination_enabled)
+                                    {
+                                        for (std::size_t c = 0; c < stencil_size; ++c)
+                                        {
+                                            auto it_ghost = this->m_ghost_recursion.find(comput_cells[c].index);
+                                            if (it_ghost == this->m_ghost_recursion.end())
+                                            {
+                                                d_nnz[row_cell_0] += static_cast<PetscInt>(input_n_comp);
+                                                d_nnz[row_cell_1] += static_cast<PetscInt>(input_n_comp);
+                                            }
+                                            else
+                                            {
+                                                auto& linear_comb = it_ghost->second;
+                                                d_nnz[row_cell_0] += static_cast<PetscInt>(linear_comb.size() * input_n_comp);
+                                                d_nnz[row_cell_1] += static_cast<PetscInt>(linear_comb.size() * input_n_comp);
+                                            }
                                         }
                                     }
                                     else
                                     {
-                                        if (cell_0_locally_owned)
-                                        {
-                                            assert(row_cell_0 < o_nnz.size());
-                                            o_nnz[row_cell_0] += static_cast<PetscInt>(input_n_comp);
-                                        }
-                                        if (cell_1_locally_owned)
-                                        {
-                                            assert(row_cell_1 < o_nnz.size());
-                                            o_nnz[row_cell_1] += static_cast<PetscInt>(input_n_comp);
-                                        }
+                                        d_nnz[row_cell_0] += static_cast<PetscInt>(stencil_size * input_n_comp);
+                                        d_nnz[row_cell_1] += static_cast<PetscInt>(stencil_size * input_n_comp);
                                     }
-                                }
-#else
-                                if constexpr (ghost_elimination_enabled)
-                                {
-                                    for (std::size_t c = 0; c < stencil_size; ++c)
-                                    {
-                                        auto it_ghost = this->m_ghost_recursion.find(comput_cells[c].index);
-                                        if (it_ghost == this->m_ghost_recursion.end())
-                                        {
-                                            d_nnz[row_cell_0] += static_cast<PetscInt>(input_n_comp);
-                                            d_nnz[row_cell_1] += static_cast<PetscInt>(input_n_comp);
-                                        }
-                                        else
-                                        {
-                                            auto& linear_comb = it_ghost->second;
-                                            d_nnz[row_cell_0] += static_cast<PetscInt>(linear_comb.size() * input_n_comp);
-                                            d_nnz[row_cell_1] += static_cast<PetscInt>(linear_comb.size() * input_n_comp);
-                                        }
-                                    }
-                                }
-                                else
-                                {
-                                    d_nnz[row_cell_0] += static_cast<PetscInt>(stencil_size * input_n_comp);
-                                    d_nnz[row_cell_1] += static_cast<PetscInt>(stencil_size * input_n_comp);
-                                }
 #endif
-                            }
-                        });
+                                }
+                            });
+                    }
 
                     if (m_include_boundary_fluxes)
                     {
