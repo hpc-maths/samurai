@@ -656,7 +656,7 @@ namespace samurai
         // boundary included, which covers the periodic images). Sending that layer only,
         // with one cell of margin at level l-1, keeps the messages and the neighbours'
         // set operations proportional to the subdomain boundary.
-        const auto boundary_layer = [&](size_t l) -> lca_t
+        const auto sent_layer = [&](size_t l) -> lca_t
         {
             // The layer is computed by expansion (a box, like the grading expansion) of the
             // exterior shell of the coverage; contract() only probes the cells at exactly
@@ -672,7 +672,7 @@ namespace samurai
         extend_boundary(max_level);
         if (has_neighbour)
         {
-            neighbour_F[max_level] = exchange_level_mpi(boundary_layer(max_level), mpi_neighbourhood, static_cast<int>(max_level));
+            neighbour_F[max_level] = exchange_level_mpi(sent_layer(max_level), mpi_neighbourhood, static_cast<int>(max_level));
         }
         for (size_t l = max_level; l-- > min_level;)
         {
@@ -708,7 +708,7 @@ namespace samurai
             extend_boundary(l);
             if (has_neighbour)
             {
-                neighbour_F[l] = exchange_level_mpi(boundary_layer(l), mpi_neighbourhood, static_cast<int>(l));
+                neighbour_F[l] = exchange_level_mpi(sent_layer(l), mpi_neighbourhood, static_cast<int>(l));
             }
         }
 
