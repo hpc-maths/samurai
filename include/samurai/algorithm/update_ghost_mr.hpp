@@ -8,7 +8,7 @@
 // Public API (namespace samurai):
 //   update_ghost_mr(field, others...)      time and run the MR ghost update
 //   update_ghost_mr(tuple / Field_tuple)   tuple dispatch
-//   update_ghost_mr_if_needed(...)         skip fields whose ghosts are current
+//   update_ghost_mr_if_needed(...)         deprecated, see update_ghost_if_needed.hpp
 //
 // Implementation (namespace samurai::detail):
 //   update_ghost_mr_aggregated(...)        the algorithm below
@@ -239,20 +239,16 @@ namespace samurai::detail
 
 namespace samurai
 {
-    template <class Field>
-    void update_ghost_mr_if_needed(Field& field)
+    // Deprecated: update_ghost_if_needed (update_ghost_if_needed.hpp) also handles AMR
+    // meshes and does the same on the others.
+    template <class Field, class... Fields>
+    [[deprecated("Use update_ghost_if_needed instead")]] void update_ghost_mr_if_needed(Field& field, Fields&... other_fields)
     {
         if (!field.ghosts_updated())
         {
             update_ghost_mr(field);
         }
-    }
-
-    template <class Field, class... Fields>
-    void update_ghost_mr_if_needed(Field& field, Fields&... other_fields)
-    {
-        update_ghost_mr_if_needed(field);
-        update_ghost_mr_if_needed(other_fields...);
+        ((other_fields.ghosts_updated() ? void() : update_ghost_mr(other_fields)), ...);
     }
 
     // Public entry point: times the update and delegates to the aggregated
