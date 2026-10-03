@@ -42,6 +42,9 @@ endforeach()
 # Graph construction test (always built with MPI; no external library needed)
 add_mpi_gtest(test_lb_graph)
 
+# Neighbour mesh cache of the token exchanges in the mesh construction
+add_mpi_gtest(test_mesh_neighbour_cache)
+
 # ParMETIS tests (only if ParMETIS is available)
 if(SAMURAI_WITH_PARMETIS)
     add_mpi_gtest(test_lb_metis)
