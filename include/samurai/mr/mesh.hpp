@@ -225,12 +225,112 @@ namespace samurai
     {
     }
 
+    namespace detail
+    {
+        // Half-open bounding box [min, max) of a set in the index space of one level.
+        // Used to skip set operations that are provably empty: it only ever proves
+        // emptiness, so skipping on it never changes a result.
+        template <std::size_t dim, class value_t>
+        struct IndexBox
+        {
+            std::array<value_t, dim> min{};
+            std::array<value_t, dim> max{};
+            bool empty = true;
+
+            template <class LCA>
+            static IndexBox of(const LCA& lca)
+            {
+                IndexBox box;
+                if (!lca.empty())
+                {
+                    box.min   = lca.min_indices();
+                    box.max   = lca.max_indices();
+                    box.empty = false;
+                }
+                return box;
+            }
+
+            template <class Shift>
+            IndexBox shifted(const Shift& shift) const
+            {
+                IndexBox box = *this;
+                for (std::size_t d = 0; d < dim; ++d)
+                {
+                    box.min[d] += static_cast<value_t>(shift[d]);
+                    box.max[d] += static_cast<value_t>(shift[d]);
+                }
+                return box;
+            }
+
+            // Box of the projection .on(level - k) of the cells of this box.
+            IndexBox coarsened(std::size_t k) const
+            {
+                IndexBox box = *this;
+                if (!empty)
+                {
+                    for (std::size_t d = 0; d < dim; ++d)
+                    {
+                        box.min[d] = min[d] >> k;
+                        box.max[d] = ((max[d] - 1) >> k) + 1;
+                    }
+                }
+                return box;
+            }
+
+            IndexBox expanded(value_t width) const
+            {
+                IndexBox box = *this;
+                for (std::size_t d = 0; d < dim; ++d)
+                {
+                    box.min[d] -= width;
+                    box.max[d] += width;
+                }
+                return box;
+            }
+
+            bool overlaps(const IndexBox& other) const
+            {
+                if (empty || other.empty)
+                {
+                    return false;
+                }
+                for (std::size_t d = 0; d < dim; ++d)
+                {
+                    if (min[d] >= other.max[d] || other.min[d] >= max[d])
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            }
+        };
+    }
+
     template <class Config>
     SAMURAI_INLINE void MRMesh<Config>::update_sub_mesh_impl()
     {
         ScopedTimer timer_mesh("update_sub_mesh");
 
         cl_type cell_list(this->origin_point(), this->scaling_factor());
+
+        // The subdomain is read at each level from its pyramid (precomputed by
+        // construct_subdomain), and the bounding boxes of the subdomain levels let the
+        // loops over the MPI neighbours and the periodic directions skip the set
+        // operations that cannot contribute: with 8 neighbours and 8 periodic
+        // directions, most of them are empty.
+        using value_t      = typename interval_t::value_t;
+        using box_t        = detail::IndexBox<dim, value_t>;
+        const auto r       = static_cast<value_t>(max_stencil_radius());
+        const auto p       = static_cast<value_t>(config_t::prediction_stencil_radius);
+        const auto sub_lca = [&](std::size_t level) -> const lca_type&
+        {
+            return this->subdomain(level);
+        };
+        std::vector<box_t> sub_box(this->max_level() + 1);
+        for (std::size_t level = 0; level <= this->max_level(); ++level)
+        {
+            sub_box[level] = box_t::of(sub_lca(level));
+        }
 
         // Construction of ghost cells
         // ===========================
@@ -269,9 +369,13 @@ namespace samurai
             for_each_level(neighbour.mesh[mesh_id_t::cells],
                            [&](std::size_t level)
                            {
+                               if (!box_t::of(neighbour.mesh[mesh_id_t::cells][level]).expanded(r).overlaps(sub_box[level].expanded(r)))
+                               {
+                                   return;
+                               }
                                lcl_type& lcl = cell_list[level];
                                auto set      = intersection(nestedExpand(neighbour.mesh[mesh_id_t::cells][level], max_stencil_radius()),
-                                                       nestedExpand(self(this->subdomain()).on(level), max_stencil_radius()));
+                                                       nestedExpand(sub_lca(level), max_stencil_radius()));
                                set(
                                    [&](const auto& interval, const auto& index)
                                    {
@@ -300,13 +404,20 @@ namespace samurai
 
         auto add_periodic_cells = [&](const auto& subset, auto level)
         {
-            lcl_type& lcl     = cell_list[level];
-            const int delta_l = int(this->domain().level() - level);
+            lcl_type& lcl           = cell_list[level];
+            const int delta_l       = int(this->domain().level() - level);
+            const box_t subset_box  = box_t::of(subset);
+            const box_t reach_of_sd = sub_box[level].expanded(r);
 
             for (const auto& d : directions)
             {
-                auto set = intersection(nestedExpand(translate(subset, d >> delta_l), this->cfg().max_stencil_radius()),
-                                        nestedExpand(self(this->subdomain()).on(level), this->cfg().max_stencil_radius()));
+                const auto shift = xt::eval(d >> delta_l);
+                if (!subset_box.shifted(shift).expanded(r).overlaps(reach_of_sd))
+                {
+                    continue;
+                }
+                auto set = intersection(nestedExpand(translate(subset, shift), this->cfg().max_stencil_radius()),
+                                        nestedExpand(sub_lca(level), this->cfg().max_stencil_radius()));
                 set(
                     [&](const auto& interval, const auto& index)
                     {
@@ -358,6 +469,22 @@ namespace samurai
                 }
             };
 
+            // The subdomain two levels below `level`; only read when level >= 2
+            // (add_prediction_ghosts does not evaluate the level-2 set otherwise).
+            const auto sub_lca_m2 = [&](std::size_t level) -> const lca_type&
+            {
+                return sub_lca(level >= 2 ? level - 2 : 0);
+            };
+
+            // Whether add_prediction_ghosts can add anything for the cells (resp.
+            // cells and ghosts) of the given boxes at `level`.
+            const auto may_add_prediction_ghosts = [&](const box_t& cells_box, const box_t& cag_box, std::size_t level)
+            {
+                const bool to_m1 = cag_box.coarsened(1).expanded(p).overlaps(sub_box[level - 1]);
+                const bool to_m2 = level >= 2 && cells_box.coarsened(2).expanded(p).overlaps(sub_box[level - 2]);
+                return to_m1 || to_m2;
+            };
+
             for_each_level(
                 this->cells()[mesh_id_t::cells],
                 [&](std::size_t level)
@@ -367,20 +494,27 @@ namespace samurai
                         nestedExpand(self(this->cells()[mesh_id_t::cells][level]).on(level - 2), config_t::prediction_stencil_radius),
                         intersection(nestedExpand(self(this->cells()[mesh_id_t::cells_and_ghosts][level]).on(level - 1),
                                                   config_t::prediction_stencil_radius),
-                                     nestedExpand(self(this->subdomain()).on(level - 1), config_t::prediction_stencil_radius)),
+                                     nestedExpand(sub_lca(level - 1), config_t::prediction_stencil_radius)),
                         level);
 
                     // periodic part
-                    const int delta_l = int(this->domain().level() - level);
+                    const int delta_l     = int(this->domain().level() - level);
+                    const box_t cells_box = box_t::of(this->cells()[mesh_id_t::cells][level]);
+                    const box_t cag_box   = box_t::of(this->cells()[mesh_id_t::cells_and_ghosts][level]);
                     for (const auto& d : directions)
                     {
+                        const auto shift = xt::eval(d >> delta_l);
+                        if (!may_add_prediction_ghosts(cells_box.shifted(shift), cag_box.shifted(shift), level))
+                        {
+                            continue;
+                        }
                         add_prediction_ghosts(
-                            intersection(nestedExpand(translate(this->cells()[mesh_id_t::cells][level], d >> delta_l).on(level - 2),
+                            intersection(nestedExpand(translate(this->cells()[mesh_id_t::cells][level], shift).on(level - 2),
                                                       config_t::prediction_stencil_radius),
-                                         self(this->subdomain()).on(level - 2)),
-                            intersection(nestedExpand(translate(this->cells()[mesh_id_t::cells_and_ghosts][level], d >> delta_l).on(level - 1),
+                                         sub_lca_m2(level)),
+                            intersection(nestedExpand(translate(this->cells()[mesh_id_t::cells_and_ghosts][level], shift).on(level - 1),
                                                       config_t::prediction_stencil_radius),
-                                         self(this->subdomain()).on(level - 1)),
+                                         sub_lca(level - 1)),
                             level);
                     }
                 });
@@ -393,27 +527,36 @@ namespace samurai
                     neighbour.mesh[mesh_id_t::cells],
                     [&](std::size_t level)
                     {
-                        add_prediction_ghosts(
-                            intersection(nestedExpand(self(neighbour.mesh[mesh_id_t::cells][level]).on(level - 2),
-                                                      config_t::prediction_stencil_radius),
-                                         self(this->subdomain()).on(level - 2)),
-                            intersection(nestedExpand(self(neighbour.mesh[mesh_id_t::cells_and_ghosts][level]).on(level - 1),
-                                                      config_t::prediction_stencil_radius),
-                                         self(this->subdomain()).on(level - 1)),
-                            level);
+                        const box_t cells_box = box_t::of(neighbour.mesh[mesh_id_t::cells][level]);
+                        const box_t cag_box   = box_t::of(neighbour.mesh[mesh_id_t::cells_and_ghosts][level]);
+                        if (may_add_prediction_ghosts(cells_box, cag_box, level))
+                        {
+                            add_prediction_ghosts(
+                                intersection(nestedExpand(self(neighbour.mesh[mesh_id_t::cells][level]).on(level - 2),
+                                                          config_t::prediction_stencil_radius),
+                                             sub_lca_m2(level)),
+                                intersection(nestedExpand(self(neighbour.mesh[mesh_id_t::cells_and_ghosts][level]).on(level - 1),
+                                                          config_t::prediction_stencil_radius),
+                                             sub_lca(level - 1)),
+                                level);
+                        }
 
                         const int delta_l = int(this->domain().level() - level);
 
                         for (const auto& d : directions)
                         {
+                            const auto shift = xt::eval(d >> delta_l);
+                            if (!may_add_prediction_ghosts(cells_box.shifted(shift), cag_box.shifted(shift), level))
+                            {
+                                continue;
+                            }
                             add_prediction_ghosts(
-                                intersection(nestedExpand(translate(neighbour.mesh[mesh_id_t::cells][level], d >> delta_l).on(level - 2),
+                                intersection(nestedExpand(translate(neighbour.mesh[mesh_id_t::cells][level], shift).on(level - 2),
                                                           config_t::prediction_stencil_radius),
-                                             self(this->subdomain()).on(level - 2)),
-                                intersection(
-                                    nestedExpand(translate(neighbour.mesh[mesh_id_t::cells_and_ghosts][level], d >> delta_l).on(level - 1),
-                                                 config_t::prediction_stencil_radius),
-                                    self(this->subdomain()).on(level - 1)),
+                                             sub_lca_m2(level)),
+                                intersection(nestedExpand(translate(neighbour.mesh[mesh_id_t::cells_and_ghosts][level], shift).on(level - 1),
+                                                          config_t::prediction_stencil_radius),
+                                             sub_lca(level - 1)),
                                 level);
                         }
                     });
