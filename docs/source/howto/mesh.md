@@ -85,7 +85,7 @@ To keep a stencil radius of 1, call `disable_minimal_ghost_width()` on the confi
 When your program calls `samurai::initialize(argc, argv)` before it creates the mesh, these command-line options replace the values set in the code:
 
 | Option | Replaces |
-|---|---|
+| --- | --- |
 | `--min-level` | `min_level` |
 | `--max-level` | `max_level` |
 | `--start-level` | `start_level` (AMR mesh) |
