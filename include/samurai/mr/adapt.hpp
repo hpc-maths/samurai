@@ -357,6 +357,28 @@ namespace samurai
         using ca_type = typename mesh_t::ca_type;
 
         ca_type new_ca = update_cell_array_from_tag(mesh[mesh_id_t::cells], m_tag);
+
+        // From the second iteration on, the current mesh is the output of the previous
+        // graduation, and the graduation is idempotent: when the tags reproduce it on
+        // every rank, it is the fixed point, without grading again. The first iteration
+        // always grades, since the mesh it starts from may not be graded.
+        if (ite > 0)
+        {
+            times::timers.start("pre-graduation fixed-point check");
+#ifdef SAMURAI_WITH_MPI
+            mpi::communicator world;
+            const bool unchanged = mpi::all_reduce(world, mesh[mesh_id_t::cells] == new_ca, std::logical_and());
+#else
+            const bool unchanged = (mesh[mesh_id_t::cells] == new_ca);
+#endif
+            times::timers.stop("pre-graduation fixed-point check");
+            if (unchanged)
+            {
+                times::timers.stop("mesh update");
+                return true;
+            }
+        }
+
         make_graduation(new_ca,
                         mesh.domain_pyramid(),
                         mesh.mpi_neighbourhood(),
