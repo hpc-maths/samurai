@@ -521,7 +521,7 @@ int main(int argc, char* argv[])
     SAMURAI_PARSE(argc, argv);
 
     const samurai::Box<double, dim> box(min_corner, max_corner);
-    auto config = samurai::mesh_config<dim>().min_level(4).max_level(8).start_level(8).max_stencil_radius(2);
+    auto config = samurai::mesh_config<dim>().min_level(4).max_level(8).max_stencil_radius(2);
     config.parse_args();
 
     using Config = decltype(config);

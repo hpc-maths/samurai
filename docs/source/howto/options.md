@@ -77,7 +77,7 @@ min level: 2, max level: 7
 | --- | --- | --- |
 | `--min-level` | integer | Minimum level of the mesh. Overrides `mesh_config::min_level`. |
 | `--max-level` | integer | Maximum level of the mesh. Overrides `mesh_config::max_level`. |
-| `--start-level` | integer | Start level of an AMR mesh. Overrides `mesh_config::start_level`. A multiresolution mesh always starts at its maximum level and ignores this option. |
+| `--start-level` | integer | Start level of an AMR mesh. Overrides `mesh_config::start_level`, which defaults to the maximum level. A multiresolution mesh always starts at its maximum level and ignores this option. |
 | `--graduation-width` | integer | Graduation width of the mesh. Overrides `mesh_config::graduation_width`. |
 | `--max-stencil-radius` | integer | Largest stencil radius of the numerical scheme. Overrides `mesh_config::max_stencil_radius`. |
 | `--load-balancing-at` | integer, default 0 | With MPI, rebalances the mesh every N multiresolution adaptations. 0 turns load balancing off. |
@@ -110,7 +110,7 @@ min level: 2, max level: 7
 
 ### Mesh options override the mesh configuration
 
-The mesh options (`--min-level`, `--max-level`, `--start-level`, `--graduation-width` and `--max-stencil-radius`) override the values of the `mesh_config` when `samurai::mra::make_mesh` or `samurai::amr::make_mesh` builds the mesh. A value you set in the code is a default that the user can change at run time. If `--max-level` ends up lower than `--min-level`, building the mesh throws `std::invalid_argument`. Uniform meshes don't read these options.
+The mesh options (`--min-level`, `--max-level`, `--start-level`, `--graduation-width` and `--max-stencil-radius`) override the values of the `mesh_config` when `samurai::mra::make_mesh` or `samurai::amr::make_mesh` builds the mesh. A value you set in the code is a default that the user can change at run time. If `--max-level` ends up lower than `--min-level`, or the start level ends up outside that range, building the mesh throws `std::invalid_argument`. Uniform meshes don't read these options.
 
 To keep the values of a `mesh_config` whatever the command line says, call `disable_args_parse()` on it:
 

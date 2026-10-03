@@ -51,6 +51,7 @@ set(SAMURAI_TESTS
     test_level_cell_list.cpp
     test_list_of_intervals.cpp
     test_load_balancing_weight.cpp
+    test_mesh_config.cpp
     test_mra.cpp
     test_periodic.cpp
     test_portion.cpp

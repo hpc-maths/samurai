@@ -8,7 +8,10 @@
 #include "samurai_config.hpp"
 
 #include <array>
+#include <limits>
 #include <stdexcept>
+
+#include <fmt/format.h>
 
 namespace samurai
 {
@@ -201,19 +204,11 @@ namespace samurai
         }
 
         /**
-         * @brief get a reference on start level
+         * @brief get the start level: the level set with start_level(level), or the max level if none was set
          */
-        auto& start_level()
+        std::size_t start_level() const
         {
-            return m_start_level;
-        }
-
-        /**
-         * @brief get a reference on start level
-         */
-        const auto& start_level() const
-        {
-            return m_start_level;
+            return m_start_level == unset_level ? m_max_level : m_start_level;
         }
 
         // m_approx_box_tol -------------------------------
@@ -353,6 +348,22 @@ namespace samurai
         }
 
         /**
+         * @brief throw std::invalid_argument unless min level <= start level <= max level
+         */
+        void check_levels() const
+        {
+            if (m_max_level < m_min_level)
+            {
+                throw std::invalid_argument("Max level must be greater than min level.");
+            }
+            if (start_level() < m_min_level || start_level() > m_max_level)
+            {
+                throw std::invalid_argument(
+                    fmt::format("Start level {} must lie between min level {} and max level {}.", start_level(), m_min_level, m_max_level));
+            }
+        }
+
+        /**
          * @brief parse arguments and set value to default samurai config value if needed
          */
         void parse_args()
@@ -379,10 +390,7 @@ namespace samurai
                 {
                     m_start_level = args::start_level;
                 }
-                if (m_max_level < m_min_level)
-                {
-                    throw std::invalid_argument("Max level must be greater than min level.");
-                }
+                check_levels();
             }
 
             if (!m_disable_minimal_ghost_width)
@@ -408,6 +416,7 @@ namespace samurai
             ar & m_ghost_width;
             ar & m_min_level;
             ar & m_max_level;
+            ar & m_start_level;
             ar & m_approx_box_tol;
             ar & m_scaling_factor;
             ar & m_disable_args_parse;
@@ -418,9 +427,11 @@ namespace samurai
         std::size_t m_graduation_width = default_config::graduation_width;
         int m_ghost_width              = default_config::ghost_width;
 
-        std::size_t m_min_level   = 0;
-        std::size_t m_max_level   = 6;
-        std::size_t m_start_level = 6;
+        std::size_t m_min_level = 0;
+        std::size_t m_max_level = 6;
+        // unset_level: start at the max level
+        static constexpr std::size_t unset_level = std::numeric_limits<std::size_t>::max();
+        std::size_t m_start_level                = unset_level;
 
         double m_approx_box_tol = 0.05;
         double m_scaling_factor = 0;
