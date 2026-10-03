@@ -52,6 +52,8 @@ Set the level the cells start at with `start_level`:
 ```
 
 This example creates a 2D AMR mesh on the box from $(0.0, 0.0)$ to $(1.0, 1.0)$ with all cells at level 4, a minimum level of 2 and a maximum level of 5.
+Without `start_level`, the cells start at the maximum level.
+The start level must lie between the minimum and the maximum level, otherwise building the mesh throws `std::invalid_argument`.
 
 ## Set the ghost cells and the graduation
 
@@ -83,7 +85,7 @@ To keep a stencil radius of 1, call `disable_minimal_ghost_width()` on the confi
 When your program calls `samurai::initialize(argc, argv)` before it creates the mesh, these command-line options replace the values set in the code:
 
 | Option | Replaces |
-|---|---|
+| --- | --- |
 | `--min-level` | `min_level` |
 | `--max-level` | `max_level` |
 | `--start-level` | `start_level` (AMR mesh) |

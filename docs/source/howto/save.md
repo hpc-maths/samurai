@@ -55,7 +55,7 @@ This writes `output_path/fields.h5` and `output_path/fields.xdmf` with the scala
 Run your program with the `--save-debug-fields` option to add three fields to every file that `save` writes:
 
 | Field | Content |
-|---|---|
+| --- | --- |
 | `indices` | the integer indices of the cell on its level, one component per dimension |
 | `coordinates` | the center of the cell |
 | `levels` | the level of the cell |
@@ -87,7 +87,7 @@ To write the sub-meshes as well, pass a `samurai::Hdf5Options` object after the 
 The arguments of `Hdf5Options` depend on the mesh type:
 
 | Mesh type | Arguments | Effect |
-|---|---|---|
+| --- | --- | --- |
 | `MRMesh`, `AMRMesh` | `{by_level, by_mesh_id}` | `by_level` writes one grid per level, named `Level <level>`, from `min_level - 2` (or 0) to `max_level`. `by_mesh_id` writes one grid per sub-mesh, named after its mesh id (`cells`, `cells and ghosts`, ...). With both set, each level holds one grid per sub-mesh. |
 | `CellArray` | `{by_level, by_mesh_id}` | `by_level` works as for `MRMesh`. `by_mesh_id` writes the cell array as one grid named `cell_array`. |
 | `UniformMesh` | `{by_mesh_id}` | `by_mesh_id` writes the `cells` and `cells and ghosts` sub-meshes as separate grids. A `UniformMesh` has one level, so there is no `by_level` argument. |

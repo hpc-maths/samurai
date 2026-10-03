@@ -335,6 +335,7 @@ namespace samurai
     SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const samurai::Box<double, dim>& b, const config_t& config)
         : m_config(config)
     {
+        m_config.check_levels();
         lca_type domain_ref(m_config.start_level(), b, m_config.approx_box_tol(), m_config.scaling_factor());
         build_pyramid(m_domain, domain_ref);
 
@@ -353,6 +354,7 @@ namespace samurai
     Mesh_base<D, Config>::Mesh_base([[maybe_unused]] const samurai::DomainBuilder<dim>& domain_builder, const config_t& config)
         : m_config(config)
     {
+        m_config.check_levels();
         if (std::any_of(config.periodic().begin(),
                         config.periodic().end(),
                         [](bool b)
