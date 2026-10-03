@@ -208,7 +208,7 @@ namespace samurai
          */
         std::size_t start_level() const
         {
-            return m_start_level == unset_level ? m_max_level : m_start_level;
+            return m_start_level == std::numeric_limits<std::size_t>::max() ? m_max_level : m_start_level;
         }
 
         // m_approx_box_tol -------------------------------
@@ -427,11 +427,9 @@ namespace samurai
         std::size_t m_graduation_width = default_config::graduation_width;
         int m_ghost_width              = default_config::ghost_width;
 
-        std::size_t m_min_level = 0;
-        std::size_t m_max_level = 6;
-        // unset_level: start at the max level
-        static constexpr std::size_t unset_level = std::numeric_limits<std::size_t>::max();
-        std::size_t m_start_level                = unset_level;
+        std::size_t m_min_level   = 0;
+        std::size_t m_max_level   = 6;
+        std::size_t m_start_level = std::numeric_limits<std::size_t>::max(); // unset: start at the max level
 
         double m_approx_box_tol = 0.05;
         double m_scaling_factor = 0;
