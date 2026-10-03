@@ -94,7 +94,7 @@ The following steps describe how to solve this problem with samurai. It is impor
     #include <samurai/mr/adapt.hpp>
     #include <samurai/mr/mesh.hpp>
     #include <samurai/samurai.hpp>
-    #include <samurai/stencil_field.hpp>
+    #include <samurai/schemes/fv.hpp>
 
     int main(int argc, char* argv[])
     {
@@ -159,7 +159,9 @@ The following steps describe how to solve this problem with samurai. It is impor
 - Time loop
 
     ```cpp
-    std::array<double, dim> a{{1, 1}};
+    samurai::VelocityVector<dim> a = {1., 1.};
+    auto conv = samurai::make_convection_upwind<decltype(u)>(a);
+
     double Tf = 0.1;
     double t  = 0.;
     double dt = 0.5 * mesh.min_cell_length();
@@ -172,19 +174,17 @@ The following steps describe how to solve this problem with samurai. It is impor
 
         t += dt;
 
-        // update the ghosts used by the upwind scheme
-        samurai::update_ghost_mr(u);
-
         // upwind scheme
         unp1.resize();
-        unp1 = u - dt * samurai::upwind(a, u);
+        unp1 = u - dt * conv(u);
 
-        std::swap(u.array(), unp1.array());
+        samurai::swap(u, unp1);
     }
 
     samurai::save("advection_2d", mesh, u);
     ```
 
+    `make_convection_upwind` defines the upwind scheme by its numerical fluxes at the cell faces, which handles the faces between cells of different levels; `conv(u)` updates the ghost cells it needs before it computes the fluxes.
     `samurai::save` writes the solution to `advection_2d.h5` and `advection_2d.xdmf`, which you can open with [ParaView](https://www.paraview.org/).
 
 The whole example is in [demos/FiniteVolume/advection_2d.cpp](./demos/FiniteVolume/advection_2d.cpp).

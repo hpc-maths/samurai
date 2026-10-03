@@ -13,7 +13,7 @@
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/samurai.hpp>
-#include <samurai/stencil_field.hpp>
+#include <samurai/schemes/fv.hpp>
 #include <samurai/subset/node.hpp>
 
 #include <filesystem>
@@ -118,6 +118,13 @@ int main_fct(bool first_run, int argc, char* argv[])
 
     auto unp1 = samurai::make_scalar_field<double>("unp1", mesh);
 
+    samurai::VelocityVector<dim> velocity;
+    for (std::size_t d = 0; d < dim; ++d)
+    {
+        velocity(d) = a[d];
+    }
+    auto conv = samurai::make_convection_upwind<decltype(u)>(velocity);
+
     auto MRadaptation = samurai::make_MRAdapt(u);
     auto mra_config   = samurai::mra_config().epsilon(2e-4);
     MRadaptation(mra_config);
@@ -139,11 +146,10 @@ int main_fct(bool first_run, int argc, char* argv[])
 
         std::cout << fmt::format("iteration {}: t = {}, dt = {}", nt++, t, dt) << std::endl;
 
-        samurai::update_ghost_mr(u);
         unp1.resize();
-        unp1 = u - dt * samurai::upwind(a, u);
+        unp1 = u - dt * conv(u);
 
-        std::swap(u.array(), unp1.array());
+        samurai::swap(u, unp1);
 
         if (t >= static_cast<double>(nsave) * dt_save || t == Tf)
         {
