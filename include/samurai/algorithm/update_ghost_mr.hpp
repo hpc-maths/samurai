@@ -139,10 +139,13 @@ namespace samurai::detail
 
         // Symmetric guard: both ranks of a pair evaluate the identical
         // predicate, so they agree on whether a message is exchanged (no
-        // deadlock, no mismatch).
+        // deadlock, no mismatch). A rank only holds the band of its
+        // neighbour's reference cells, so it tests its own band too: testing its
+        // whole reference cells would make the predicate differ between the
+        // two ranks when one band is empty at this level.
         auto active = [&](const auto& neighbour)
         {
-            return !mesh[mesh_id_t::reference][level].empty() && !neighbour.mesh[mesh_id_t::reference][level].empty();
+            return mesh.has_reference_band(level) && !neighbour.mesh[mesh_id_t::reference][level].empty();
         };
 
         // Sized up front so element addresses stay stable for the whole
