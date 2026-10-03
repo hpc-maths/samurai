@@ -1142,9 +1142,11 @@ namespace samurai
 
         for (auto& neighbour : m_mpi_neighbourhood)
         {
-            // The domain is not part of the archive: the neighbour mesh keeps the
-            // copy of ours given by update_neighbour_subdomain.
             world.recv(neighbour.rank, world.rank(), neighbour.mesh);
+            // The domain is the same on every rank and is not part of the
+            // archive: give the neighbour mesh ours, which also carries the
+            // origin point and the scaling factor its cells are placed with.
+            neighbour.mesh.m_domain = m_domain;
         }
 
         mpi::wait_all(req.begin(), req.end());
