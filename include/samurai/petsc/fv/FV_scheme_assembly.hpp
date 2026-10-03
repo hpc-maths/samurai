@@ -1182,8 +1182,8 @@ namespace samurai
                 //                           1+4=5 in 2D
                 static constexpr std::size_t proj_stencil_size = 1 + (1 << dim);
 #ifdef SAMURAI_WITH_MPI
-                // assume that half the stencil can be on other processes
-                PetscInt o_nnz_value = mpi::communicator().size() == 1 ? 0 : proj_stencil_size / 2;
+                // all the children can be on other processes
+                PetscInt o_nnz_value = mpi::communicator().size() == 1 ? 0 : proj_stencil_size - 1;
 #endif
 
                 for_each_projection_ghost(mesh(),
