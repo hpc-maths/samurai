@@ -4,7 +4,7 @@ In this tutorial, we follow a circle that a vortex flow stretches into a spiral.
 The circle is the zero level of a level-set function, which we transport with a finite volume scheme on an adaptive mesh refinement (AMR) mesh between levels 4 and 8.
 At each time step, we adapt the mesh around the contour, transport the level-set function, then reinitialize it.
 
-The code shown on this page comes from the demo [`demos/FiniteVolume/level_set_AMR.cpp`](https://github.com/hpc-maths/samurai/blob/main/demos/FiniteVolume/level_set_AMR.cpp) and its operators in [`demos/FiniteVolume/stencil_field.hpp`](https://github.com/hpc-maths/samurai/blob/main/demos/FiniteVolume/stencil_field.hpp).
+The code shown on this page comes from the demo [`demos/FiniteVolume/level_set_AMR.cpp`](https://github.com/hpc-maths/samurai/blob/main/demos/FiniteVolume/level_set_AMR.cpp) and its schemes in [`demos/FiniteVolume/level_set_schemes.hpp`](https://github.com/hpc-maths/samurai/blob/main/demos/FiniteVolume/level_set_schemes.hpp).
 
 ## Before you start
 
@@ -130,32 +130,26 @@ All levels advance with the same time step $\Delta t$.
 
 The papers cited on this page transport the level-set function with a semi-Lagrangian method.
 The demo discretizes {eq}`eq-level-set-transport` with an explicit finite volume scheme instead.
+Since $\mathbf{u}$ is divergence-free, {eq}`eq-level-set-transport` is also the conservation law $\partial_t \phi + \nabla \cdot (\phi \mathbf{u}) = 0$.
 On each leaf, with $F$ the numerical flux along $x$ and $G$ the numerical flux along $y$:
 
 $$
 \phi_{j, k, h}^{n+1} = \phi_{j, k, h}^{n} - \frac{\Delta t}{\Delta x_j} \left( F_{j, k+1/2, h}^n - F_{j, k-1/2, h}^n + G_{j, k, h+1/2}^n - G_{j, k, h-1/2}^n \right).
 $$ (eq-level-set-fv)
 
-In the demo, this reads:
-
-```{literalinclude} ../../../demos/FiniteVolume/level_set_AMR.cpp
-:language: c++
-:lines: 233-238
-:dedent:
-```
-
-`samurai::upwind_variable` is a finite volume operator: it derives from `samurai::finite_volume`, which computes the sum of the fluxes (right flux minus left flux, plus up flux minus down flux) divided by $\Delta x_j$ (see `include/samurai/stencil_field.hpp`).
-The operator itself only defines the four fluxes `left_flux` ($F_{j, k-1/2, h}^n$), `right_flux` ($F_{j, k+1/2, h}^n$), `down_flux` ($G_{j, k, h-1/2}^n$) and `up_flux` ($G_{j, k, h+1/2}^n$).
+The scheme uses the finite volume framework of {{ project }} (see the {doc}`finite volume schemes reference <../reference/finite_volume_schemes>`): the demo defines the numerical flux on a face, and {{ project }} computes {eq}`eq-level-set-fv` on every leaf.
+Each flux is computed once per face and added to the two leaves that share it, with opposite signs.
+Where two leaves of different levels meet, the flux is computed between two cells of the finer level, one of them a ghost cell, and the coarse leaf receives the fluxes through its fine faces, so the scheme stays conservative across level jumps.
 
 ### The limited Lax-Wendroff flux
 
 The flux is the limited Lax-Wendroff flux of {ref}`LeVeque <ref-leveque>` (equation 6.32), with a limiter $\psi : \mathbb{R} \to [0, 2]$.
-On the left interface of cell $(j, k, h)$:
+On the face between the cells $(j, k, h)$ and $(j, k+1, h)$:
 
 $$
 \begin{aligned}
-F_{j, k-1/2, h}^n = {} & \left( u_{j, k-1/2, h}^n \right)^- \phi_{j, k, h}^n + \left( u_{j, k-1/2, h}^n \right)^+ \phi_{j, k-1, h}^n \\
-& + \frac{1}{2} \left| u_{j, k-1/2, h}^n \right| \left( 1 - \left| u_{j, k-1/2, h}^n \right| \frac{\Delta t}{\Delta x_j} \right) \psi\left( \theta_{j, k-1/2, h}^n \right) \left( \phi_{j, k, h}^n - \phi_{j, k-1, h}^n \right).
+F_{j, k+1/2, h}^n = {} & \left( u_{j, k+1/2, h}^n \right)^+ \phi_{j, k, h}^n + \left( u_{j, k+1/2, h}^n \right)^- \phi_{j, k+1, h}^n \\
+& + \frac{1}{2} \left| u_{j, k+1/2, h}^n \right| \left( 1 - \left| u_{j, k+1/2, h}^n \right| \frac{\Delta t}{\Delta x_j} \right) \psi\left( \theta_{j, k+1/2, h}^n \right) \left( \phi_{j, k+1, h}^n - \phi_{j, k, h}^n \right).
 \end{aligned}
 $$ (eq-level-set-flux)
 
@@ -166,40 +160,59 @@ $$
 \psi(\theta) = \max\left( 0, \min\left( 2\theta, \frac{1 + \theta}{2}, 2 \right) \right).
 $$
 
-Following equation 6.36 of {ref}`LeVeque <ref-leveque>`, $\theta$ is the ratio of the jump at the upwind interface to the jump at the current interface:
+Following equation 6.36 of {ref}`LeVeque <ref-leveque>`, $\theta$ is the ratio of the jump at the upwind face to the jump at the current face:
 
 $$
-\theta_{j, k-1/2, h}^n =
+\theta_{j, k+1/2, h}^n =
 \begin{cases}
-\dfrac{\phi_{j, k-1, h}^n - \phi_{j, k-2, h}^n}{\phi_{j, k, h}^n - \phi_{j, k-1, h}^n} & \text{if } u_{j, k-1/2, h}^n \geq 0, \\[2ex]
-\dfrac{\phi_{j, k+1, h}^n - \phi_{j, k, h}^n}{\phi_{j, k, h}^n - \phi_{j, k-1, h}^n} & \text{if } u_{j, k-1/2, h}^n < 0.
+\dfrac{\phi_{j, k, h}^n - \phi_{j, k-1, h}^n}{\phi_{j, k+1, h}^n - \phi_{j, k, h}^n} & \text{if } u_{j, k+1/2, h}^n \geq 0, \\[2ex]
+\dfrac{\phi_{j, k+2, h}^n - \phi_{j, k+1, h}^n}{\phi_{j, k+1, h}^n - \phi_{j, k, h}^n} & \text{if } u_{j, k+1/2, h}^n < 0.
 \end{cases}
 $$
 
 When the denominator is smaller than $10^{-8}$ in absolute value, the code replaces it with $10^{-8}$.
 
-The velocity on the interface comes from a quadratic interpolation of the first velocity component in the cells $k-1$, $k$ and $k+1$:
+The velocity on the face is the cubic interpolation of the first velocity component in the cells $k-1$ to $k+2$:
 
 $$
-u_{j, k-1/2, h}^n = \frac{3}{8} u_{j, k-1, h}^n + \frac{3}{4} u_{j, k, h}^n - \frac{1}{8} u_{j, k+1, h}^n,
-\qquad
-u_{j, k+1/2, h}^n = \frac{3}{8} u_{j, k+1, h}^n + \frac{3}{4} u_{j, k, h}^n - \frac{1}{8} u_{j, k-1, h}^n.
+u_{j, k+1/2, h}^n = \frac{1}{16} \left( -u_{j, k-1, h}^n + 9 u_{j, k, h}^n + 9 u_{j, k+1, h}^n - u_{j, k+2, h}^n \right).
 $$
 
-Each cell computes the velocity on its own interfaces from the three cells centered on itself.
-$G$ is built the same way along $y$, with the second velocity component $v$ and the indices $h - 2$ to $h + 2$.
+The flux on a face therefore reads the four cells $k-1$ to $k+2$.
+$G$ is built the same way along $y$, with the second velocity component $v$ and the indices $h - 1$ to $h + 2$.
 As {ref}`LeVeque <ref-leveque>` points out (p. 163), we cannot expect this finite volume scheme to be formally second-order accurate when the velocity field $\mathbf{u}$ is not uniform.
 
-In `stencil_field.hpp`, `flux` computes {eq}`eq-level-set-flux` from the interface velocity `vel`, the left and right values `ul` and `ur`, $\Delta t / \Delta x_j$ (`lb`) and $\theta$ (`r`).
-`left_flux` computes the interface velocity and $\theta$, then calls `flux`:
+### The flux in the code
 
-```{literalinclude} ../../../demos/FiniteVolume/stencil_field.hpp
+`make_level_set_convection` builds the scheme:
+
+```{literalinclude} ../../../demos/FiniteVolume/level_set_schemes.hpp
 :language: c++
-:lines: 92-103,130-144,155-193
+:lines: 19-67
+```
+
+- `FluxConfig` declares a non-linear flux (`SchemeType::NonLinear`) on a stencil of 4 cells. It reads the scalar field $\phi$, returns a scalar field, and takes the velocity field as a parameter field.
+- With 4 cells, the stencil in the direction `d` is the default one, $\{-1, 0, 1, 2\}$: `phi[0]` to `phi[3]` are $\phi_{j, k-1, h}$ to $\phi_{j, k+2, h}$, and the face lies between `phi[1]` and `phi[2]`. `data.cells` holds the same cells, in which the lambda reads the velocity.
+- `data.cell_length` is $\Delta x_j$, the length of the cells the flux is computed with, which is the finer level at a level jump.
+- `cons_flux_function` defines a conservative flux: the value that leaves one cell enters the other.
+- `dt` is captured by reference, because the demo shortens the last time step to stop at $T$.
+- `set_parameter_field(u)` makes the scheme fill the ghost cells of $\mathbf{u}$ before it is applied, when they are not up to date.
+
+The demo builds the scheme once, before the time loop:
+
+```{literalinclude} ../../../demos/FiniteVolume/level_set_AMR.cpp
+:language: c++
+:lines: 195-198
 :dedent:
 ```
 
-`right_flux`, `down_flux` and `up_flux` follow the same pattern.
+At each time step, `convection(phi)` returns a field that holds, on each leaf, the term in parentheses of {eq}`eq-level-set-fv` divided by $\Delta x_j$:
+
+```{literalinclude} ../../../demos/FiniteVolume/level_set_AMR.cpp
+:language: c++
+:lines: 238-243
+:dedent:
+```
 
 (reinitialize-the-level-set-function)=
 
@@ -268,24 +281,30 @@ The reinitialization runs on every leaf, at every level.
 Since only the steady state matters, the levels do not need to share a fictitious time step: a cell of level $j$ advances with $\Delta \tau_j = \Delta x_j / 4$, in the same way as Min and Gibou adapt the time step to each cell (section 6.1).
 On the coarse cells, the reinitialization keeps $\phi$ close to a signed distance, which the refinement criterion relies on (see {ref}`adapt-the-mesh`).
 
-In the demo, `phihat` is $\overline{\phi}$ and the ghost cells of each stage are updated before $H$ reads them:
+In the demo, `phi_0` is $\phi^0$, `phihat` is $\overline{\phi}$, and the ghost cells of each stage are updated before the scheme reads them:
 
 ```{literalinclude} ../../../demos/FiniteVolume/level_set_AMR.cpp
 :language: c++
-:lines: 240-246,251-259
+:lines: 245-260
 :dedent:
 ```
 
 `dt_fict` is $\Delta \tau_{\overline{J}} = \Delta x_{\overline{J}} / 4$.
-`H_wrap` returns $\left( \Delta x_j / \Delta x_{\overline{J}} \right) H(\phi)$, so that `dt_fict * H_wrap(...)` is $\Delta \tau_j \, H(\phi)$ on each level:
 
-```{literalinclude} ../../../demos/FiniteVolume/stencil_field.hpp
+### The Hamiltonian in the code
+
+$H(\phi)$ is not the divergence of a flux, so the demo writes it as a cell-based scheme: a function that computes the value on a cell from the values on a stencil around it.
+It is built like the {doc}`local schemes <../reference/local_schemes>`, with a star stencil instead of a single cell:
+
+```{literalinclude} ../../../demos/FiniteVolume/level_set_schemes.hpp
 :language: c++
-:lines: 10-80
-:dedent:
+:lines: 81-146
 ```
 
-In this code, `dxm` and `dxp` are $D_x^- \phi$ and $D_x^+ \phi$, and `dym` and `dyp` are $D_y^- \phi$ and $D_y^+ \phi$.
+- `StarStencilSchemeConfig` declares a non-linear scheme on the star stencil of radius 2: the cell and its two neighbors on each side in each direction, in the order of the comment.
+- The scheme function receives the cells of the stencil and $\phi$, and sets `value` on the center cell. `d_minus` and `d_plus` are $D^- \phi$ and $D^+ \phi$ in the direction `d`, and the loop over the directions works in any dimension.
+- `phi_0` is captured by reference. The demo declares it once, next to the scheme, and copies $\phi$ into it after each transport step (`phi_0 = phi`).
+- The function returns $\left( \Delta x_j / \Delta x_{\overline{J}} \right) H(\phi)$, so that `dt_fict * reinitialization(phi)` is $\Delta \tau_j \, H(\phi)$ on each level.
 
 (adapt-the-mesh)=
 
@@ -319,7 +338,7 @@ The adaptation loop then applies the tags until the mesh no longer changes:
 
 ```{literalinclude} ../../../demos/FiniteVolume/level_set_AMR.cpp
 :language: c++
-:lines: 211-212,214-222
+:lines: 216-217,219-227
 :dedent:
 ```
 
@@ -331,7 +350,7 @@ In each pass:
 
    ```{literalinclude} ../../../demos/FiniteVolume/level_set_AMR.cpp
    :language: c++
-   :lines: 197-202
+   :lines: 202-207
    :dedent:
    ```
 
@@ -369,13 +388,13 @@ At $t = 3.14$, the cells where $\phi < 0$ cover an area of $0.0699$, $1.1\,\%$ l
 
 ## What we built
 
-We transported a level-set function with a limited Lax-Wendroff finite volume scheme on an AMR mesh, reinitialized it on every level with a TVD-RK2 scheme on the Godunov Hamiltonian, and adapted the mesh to the contour with a user-defined criterion, {cpp:func}`samurai::graduation` and {cpp:func}`samurai::update_field`.
+We transported a level-set function on an AMR mesh with a limited Lax-Wendroff flux written in the finite volume framework of {{ project }}, reinitialized it on every level with a cell-based scheme for the Godunov Hamiltonian and a TVD-RK2 time stepping, and adapted the mesh to the contour with a user-defined criterion, {cpp:func}`samurai::graduation` and {cpp:func}`samurai::update_field`.
 
 ## Next steps
 
 - [`demos/FiniteVolume/level_set_MRA.cpp`](https://github.com/hpc-maths/samurai/blob/main/demos/FiniteVolume/level_set_MRA.cpp) solves the same problem on a multiresolution mesh.
 - The {doc}`graduation tutorial <graduation>` explains what graduation does to a mesh.
-- The {doc}`finite volume schemes reference <../reference/finite_volume_schemes>` describes the operators {{ project }} provides to write schemes without defining fluxes by hand.
+- The {doc}`finite volume schemes reference <../reference/finite_volume_schemes>` describes the other flux types and the ready-made operators of {{ project }}, such as `make_convection_upwind` and `make_convection_weno5`.
 
 ## References
 
