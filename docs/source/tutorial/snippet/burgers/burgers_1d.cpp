@@ -2,11 +2,11 @@
 #include <iostream>
 
 #include <samurai/algorithm.hpp>
+#include <samurai/amr/mesh.hpp>
 #include <samurai/bc.hpp>
 #include <samurai/box.hpp>
 #include <samurai/field.hpp>
 #include <samurai/io/hdf5.hpp>
-#include <samurai/mr/mesh.hpp>
 #include <samurai/samurai.hpp>
 #include <samurai/schemes/fv.hpp>
 
@@ -27,7 +27,7 @@ int main(int argc, char* argv[])
 
     const samurai::Box<double, dim> box({-3}, {3});
     auto config = samurai::mesh_config<dim>().min_level(level).max_level(level);
-    auto mesh   = samurai::mra::make_mesh(box, config);
+    auto mesh   = samurai::amr::make_mesh(box, config);
 
     std::cout << mesh << std::endl;
 

@@ -179,7 +179,7 @@ We start the `main` function by initializing {{ project }} and reading the comma
 {cpp:func}`samurai::initialize` returns the command-line application, to which we add the final time and the CFL number as options.
 `SAMURAI_PARSE` reads them, together with the options of {{ project }}.
 
-Next, we describe the mesh with {cpp:class}`samurai::mesh_config` and build it on the box $[-3, 3]$ with `samurai::mra::make_mesh`:
+Next, we describe the mesh with {cpp:class}`samurai::mesh_config` and build it on the box $[-3, 3]$ with `samurai::amr::make_mesh`:
 
 ```{literalinclude} snippet/burgers/burgers_1d.cpp
 :language: c++
@@ -188,7 +188,8 @@ Next, we describe the mesh with {cpp:class}`samurai::mesh_config` and build it o
 :dedent:
 ```
 
-The mesh is a multiresolution mesh, but with the same minimum and maximum level it stays uniform: all cells are at level 8.
+The mesh is an AMR mesh, which places its cells at the maximum level.
+With the same minimum and maximum level, it stays uniform: all cells are at level 8.
 The level-0 cell is the whole box, so a cell at level 8 has the size $\Delta x = 6 / 2^8$.
 
 The program prints the sub-meshes of the mesh (`cells`, `cells and ghosts`, ...).
@@ -302,7 +303,7 @@ Run the program with `--min-level 10 --max-level 10` to see them sharpen: $\Delt
 ## What we built
 
 We solved the Burgers equation {eq}`burgers-equation` past the formation of a shock.
-On the way, we built a uniform mesh from a `samurai::mesh_config`, created and initialized a scalar field, attached a boundary condition, and wrote a finite volume time loop with the flux-based upwind operator, which updates the ghost cells itself, and `samurai::swap`.
+On the way, we built a uniform AMR mesh from a `samurai::mesh_config`, created and initialized a scalar field, attached a boundary condition, and wrote a finite volume time loop with the flux-based upwind operator, which updates the ghost cells itself, and `samurai::swap`.
 
 ## Next steps
 
