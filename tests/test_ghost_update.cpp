@@ -1,7 +1,9 @@
 #include <cmath>
+#include <ranges>
 
 #include <gtest/gtest.h>
 
+#include <samurai/algorithm/update_outer_ghost.hpp>
 #include <samurai/bc.hpp>
 #include <samurai/field.hpp>
 #include <samurai/mr/adapt.hpp>
@@ -82,6 +84,43 @@ namespace samurai
     {
         ::samurai::initialize();
         EXPECT_NO_THROW(run_ghost_update_3d(/*boundary_touching=*/true));
+        ::samurai::finalize();
+    }
+
+    // Regression: update_outer_ghosts(field) loops from max_level down to
+    // min_level - 1, clamped at 0. The loop used to test level >= bound with a
+    // size_t level, so with a min_level of 0 or 1 the bound is 0, the test is
+    // always true and level wraps around to SIZE_MAX (out-of-bounds access).
+    TEST(ghost_update, outer_ghosts_all_levels_down_to_level_zero)
+    {
+        ::samurai::initialize();
+
+        constexpr std::size_t dim = 2;
+
+        for (const std::size_t min_level : {0UL, 1UL, 2UL})
+        {
+            auto config = mesh_config<dim>().min_level(min_level).max_level(4);
+            auto mesh   = mra::make_mesh(Box<double, dim>{xt::zeros<double>({dim}), xt::ones<double>({dim})}, config);
+
+            auto u = make_scalar_field<double>("u", mesh, 0.);
+            for_each_cell(mesh,
+                          [&](auto& cell)
+                          {
+                              u[cell] = cell.center(0) + 2 * cell.center(1);
+                          });
+            make_bc<Dirichlet<1>>(u, 1.);
+            auto expected = u;
+
+            const std::size_t lowest_level = min_level > 0 ? min_level - 1 : 0;
+            for (const std::size_t level : std::views::iota(lowest_level, mesh.max_level() + 1) | std::views::reverse)
+            {
+                update_outer_ghosts(level, expected);
+            }
+            update_outer_ghosts(u);
+
+            EXPECT_EQ(u.array(), expected.array()) << "min_level = " << min_level;
+        }
+
         ::samurai::finalize();
     }
 }
