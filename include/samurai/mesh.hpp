@@ -213,7 +213,6 @@ namespace samurai
         cell_t get_cell(std::size_t level, const xt::xexpression<E>& coord) const;
 
         void update_mesh_neighbour();
-        void update_neighbour_subdomain();
         void update_meshid_neighbour(const mesh_id_t& mesh_id);
 
         void to_stream(std::ostream& os) const;
@@ -427,8 +426,11 @@ namespace samurai
     {
         ScopedTimer timer("exchange neighbour meshes");
 #ifdef SAMURAI_WITH_MPI
+        // Only the neighbour rank set is built here. The neighbour meshes are
+        // filled by finalize_mesh: update_meshid_neighbour(cells) sends the
+        // cells that update_sub_mesh needs, and update_mesh_neighbour the whole
+        // mesh, subdomain included.
         find_neighbourhood();
-        update_neighbour_subdomain();
 #endif
     }
 
@@ -1090,47 +1092,6 @@ namespace samurai
             neighbour.mesh.compute_gravity_center();
         }
 #endif
-#endif
-    }
-
-    // TODO : find a clever way to factorize the two next functions. For new, I have to duplicate the code 2 times.
-
-    // This function is to only send m_subdomain instead of the whole mesh data
-    template <class D, class Config>
-    SAMURAI_INLINE void Mesh_base<D, Config>::update_neighbour_subdomain()
-    {
-#ifdef SAMURAI_WITH_MPI
-        // No neighbouring subdomain (e.g. single rank): nothing to exchange.
-        if (m_mpi_neighbourhood.empty())
-        {
-            return;
-        }
-        // send/recv the meshes of the neighbouring subdomains
-        mpi::communicator world;
-        std::vector<mpi::request> req;
-
-        boost::mpi::packed_oarchive::buffer_type buffer;
-        boost::mpi::packed_oarchive oa(world, buffer);
-        oa << derived_cast().m_subdomain;
-
-        std::transform(m_mpi_neighbourhood.cbegin(),
-                       m_mpi_neighbourhood.cend(),
-                       std::back_inserter(req),
-                       [&](const auto& neighbour)
-                       {
-                           return world.isend(neighbour.rank, neighbour.rank, buffer);
-                       });
-
-        for (auto& neighbour : m_mpi_neighbourhood)
-        {
-            world.recv(neighbour.rank, world.rank(), neighbour.mesh.m_subdomain);
-            neighbour.mesh.m_domain = m_domain;
-#ifdef SAMURAI_WITH_PETSC
-            neighbour.mesh.compute_gravity_center();
-#endif
-        }
-
-        mpi::wait_all(req.begin(), req.end());
 #endif
     }
 
