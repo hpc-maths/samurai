@@ -417,7 +417,6 @@ namespace samurai
     template <class D, class Config>
     SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const ca_type& ca, const self_type& ref_mesh)
         : m_domain(ref_mesh.m_domain)
-        , m_mpi_neighbourhood(ref_mesh.m_mpi_neighbourhood)
         , m_config(ref_mesh.m_config)
 #ifdef SAMURAI_WITH_MPI
         , m_discovery_ghost_reach(ref_mesh.m_discovery_ghost_reach)
@@ -425,6 +424,15 @@ namespace samurai
 #endif
     {
         m_cells[mesh_id_t::cells] = ca;
+
+        // Start from the neighbour ranks of the reference mesh, which
+        // exchange_neighbour_meshes keeps when the discovery inputs are
+        // unchanged. Their meshes are not copied: finalize_mesh sends them.
+        m_mpi_neighbourhood.reserve(ref_mesh.m_mpi_neighbourhood.size());
+        for (const auto& neighbour : ref_mesh.m_mpi_neighbourhood)
+        {
+            m_mpi_neighbourhood.emplace_back(neighbour.rank);
+        }
 
         construct_subdomain();
         exchange_neighbour_meshes(same_discovery_inputs(ref_mesh));
