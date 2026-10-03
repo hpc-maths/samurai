@@ -8,7 +8,7 @@
 #include <tuple>
 #include <unordered_map>
 
-#include "algorithm/update_ghost_mr.hpp"
+#include "algorithm/update_ghost_if_needed.hpp"
 #include "field.hpp"
 #include "numeric/prediction.hpp"
 #include "samurai_config.hpp"
@@ -580,7 +580,7 @@ namespace samurai
      * a single-resolution image of the solution is wanted.
      *
      * Requires at least two boundary ghosts (the prediction stencil reaches two coarse
-     * cells); throws otherwise. Ghosts are refreshed first via @c update_ghost_mr_if_needed.
+     * cells); throws otherwise. Ghosts are refreshed first via @c update_ghost_if_needed.
      */
     template <class Field>
     auto reconstruction(Field& field)
@@ -595,7 +595,7 @@ namespace samurai
                                      "mesh_config.disable_minimal_ghost_width().");
         }
 
-        update_ghost_mr_if_needed(field);
+        update_ghost_if_needed(field);
 
         auto make_field_like = [](const std::string& name, auto& mesh)
         {
@@ -982,7 +982,7 @@ namespace samurai
                                      "mesh_config.disable_minimal_ghost_width().");
         }
 
-        update_ghost_mr_if_needed(field_src);
+        update_ghost_if_needed(field_src);
 
         field_dst.fill(0.);
 

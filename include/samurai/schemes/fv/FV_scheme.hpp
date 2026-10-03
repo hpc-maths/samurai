@@ -1,5 +1,5 @@
 #pragma once
-#include "../../algorithm/update_ghost_mr.hpp"
+#include "../../algorithm/update_ghost_if_needed.hpp"
 #include "../../bc.hpp"
 #include "../../boundary.hpp"
 #include "../../concepts.hpp"
@@ -189,11 +189,11 @@ namespace samurai
         {
             if constexpr (cfg::stencil_size > 1)
             {
-                update_ghost_mr_if_needed(input_field);
+                update_ghost_if_needed(input_field);
             }
             if constexpr (cfg::has_parameter_field)
             {
-                update_ghost_mr_if_needed(parameter_field());
+                update_ghost_if_needed(parameter_field());
             }
         }
 

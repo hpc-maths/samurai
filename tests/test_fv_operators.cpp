@@ -21,6 +21,7 @@
 #include <gtest/gtest.h>
 
 #include <samurai/algorithm/update_ghost_mr.hpp>
+#include <samurai/amr/mesh.hpp>
 #include <samurai/bc.hpp>
 #include <samurai/cell_list.hpp>
 #include <samurai/mr/mesh.hpp>
@@ -1329,6 +1330,65 @@ namespace samurai
                           ++nb_checked;
                       });
         EXPECT_GT(nb_checked, 0u);
+    }
+
+    // =====================================================================
+    //  AMR mesh with three consecutive levels
+    // =====================================================================
+    //
+    // 1D AMR mesh on [0,1]: [0,1/4] at level 2, [1/4,1/2] at level 3, [1/2,1] at
+    // level 4. The AMR mesh stores its projection cells with its own convention,
+    // so the operator must fill the ghosts with the AMR ghost update: the leaves
+    // keep their values, the level-2 ghosts covered by finer cells hold the mean
+    // of their children, and the Burgers flux of the tutorial stays conservative.
+    TEST(fv_operators, amr_three_levels_burgers_conservation)
+    {
+        auto cfg = mesh_config<1>().min_level(2).max_level(4);
+        CellList<1> cl;
+        cl[2][{}].add_interval({0, 1});
+        cl[3][{}].add_interval({2, 4});
+        cl[4][{}].add_interval({8, 16});
+        auto mesh = amr::make_mesh(CellArray<1>(cl), cfg);
+
+        auto u = make_scalar_field<double>("u", mesh);
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          u[cell] = 1. + 0.5 * std::sin(2. * M_PI * cell.center(0)); // positive: the upwind flux takes the left value
+                      });
+        make_bc<Neumann<1>>(u, 0.);
+
+        auto leaves = make_scalar_field<double>("leaves", mesh);
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          leaves[cell] = u[cell];
+                      });
+
+        auto conv = 0.5 * make_convection_upwind<decltype(u)>();
+        auto r    = make_scalar_field<double>("r", mesh);
+        r         = conv(u);
+
+        double sum = 0;
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          EXPECT_EQ(u[cell], leaves[cell]) << "leaf overwritten at level " << cell.level << ", index " << cell.indices[0];
+                          sum += r[cell] * cell.length;
+                      });
+
+        // Neumann: each boundary ghost holds the value of its boundary cell
+        const double u_first = u(2, Interval<int>{0, 1})[0];
+        const double u_last  = u(4, Interval<int>{15, 16})[0];
+        EXPECT_NEAR(sum, 0.5 * (u_last * u_last - u_first * u_first), 1e-14);
+
+        auto mean = [&](std::size_t level, int i)
+        {
+            return 0.5 * (u(level + 1, Interval<int>{2 * i, 2 * i + 1})[0] + u(level + 1, Interval<int>{2 * i + 1, 2 * i + 2})[0]);
+        };
+        EXPECT_NEAR(u(3, Interval<int>{4, 5})[0], mean(3, 4), 1e-14);
+        EXPECT_NEAR(u(2, Interval<int>{1, 2})[0], mean(2, 1), 1e-14);
+        EXPECT_NEAR(u(2, Interval<int>{2, 3})[0], mean(2, 2), 1e-14);
     }
 
 #ifdef SAMURAI_WITH_PETSC
