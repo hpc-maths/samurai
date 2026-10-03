@@ -241,7 +241,7 @@ namespace samurai
             {
                 auto expr = intersection(difference(this->cells()[mesh_id_t::cells_and_ghosts][level],
                                                     union_(this->get_union()[level], this->cells()[mesh_id_t::cells][level])),
-                                         self(this->domain()).on(level));
+                                         this->domain(level));
 
                 lcl_type lcl{level};
                 expr(
