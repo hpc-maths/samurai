@@ -13,7 +13,7 @@
 #include <samurai/mr/operators.hpp>
 #include <samurai/samurai.hpp>
 
-#include "stencil_field.hpp"
+#include "level_set_schemes.hpp"
 
 #include "../LBM/boundary_conditions.hpp"
 
@@ -492,6 +492,9 @@ void update_ghosts(Field& phi, Field_u& u)
 
     amr_prediction(phi);
     amr_prediction(u);
+
+    phi.ghosts_updated() = true;
+    u.ghosts_updated()   = true;
 }
 
 template <class Field, class Phi>
@@ -574,6 +577,19 @@ int main(int argc, char* argv[])
 
     auto u = init_velocity(mesh);
 
+    auto phihat = samurai::make_scalar_field<double>("phi", mesh);
+    samurai::make_bc<samurai::Neumann<1>>(phihat, 0.);
+    auto phi_0 = samurai::make_scalar_field<double>("phi_0", mesh);
+
+    auto convection_scheme       = make_level_set_convection<decltype(phi)>(u, dt);
+    auto reinitialization_scheme = make_level_set_reinitialization(phi_0);
+
+    // The schemes are applied through their explicit form: scheme(phi) would update the
+    // ghosts with update_ghost_mr, which this mesh does not support. The ghosts are
+    // updated by update_ghosts instead.
+    auto convection       = samurai::make_explicit(convection_scheme);
+    auto reinitialization = samurai::make_explicit(reinitialization_scheme);
+
     std::size_t nsave = 1;
     std::size_t nt    = 0;
 
@@ -607,7 +623,7 @@ int main(int argc, char* argv[])
         // Numerical scheme
         update_ghosts(phi, u);
         phinp1.resize();
-        phinp1 = phi - dt * samurai::upwind_variable(u, phi, dt);
+        phinp1 = phi - dt * convection.apply_to(phi);
 
         std::swap(phi.array(), phinp1.array());
 
@@ -615,21 +631,15 @@ int main(int argc, char* argv[])
         const std::size_t fict_iteration = 5;                             // Number of fictitious iterations
         const double dt_fict             = 0.25 * mesh.min_cell_length(); // Fictitious time step at the finest level
 
-        auto phi_0 = phi;
+        phi_0 = phi;
         for (std::size_t k = 0; k < fict_iteration; ++k)
         {
-            // //Forward Euler - OK
-            // update_ghosts(phi, u);
-            // phinp1 = phi - dt_fict * H_wrap(phi, phi_0, max_level);
-            // std::swap(phi.array(), phinp1.array());
-
             // TVD-RK2
             update_ghosts(phi, u);
-            auto phihat = samurai::make_scalar_field<double>("phi", mesh);
-            samurai::make_bc<samurai::Neumann<1>>(phihat, 0.);
-            phihat = phi - dt_fict * H_wrap(phi, phi_0, mesh.max_level());
+            phihat.resize();
+            phihat = phi - dt_fict * reinitialization.apply_to(phi);
             update_ghosts(phihat, u);
-            phinp1 = .5 * phi + .5 * (phihat - dt_fict * H_wrap(phihat, phi_0, mesh.max_level()));
+            phinp1 = .5 * phi + .5 * (phihat - dt_fict * reinitialization.apply_to(phihat));
             std::swap(phi.array(), phinp1.array());
         }
 

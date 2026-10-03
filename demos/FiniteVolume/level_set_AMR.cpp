@@ -11,7 +11,7 @@
 #include <samurai/io/restart.hpp>
 #include <samurai/samurai.hpp>
 
-#include "stencil_field.hpp"
+#include "level_set_schemes.hpp"
 
 #include "../LBM/boundary_conditions.hpp"
 
@@ -192,6 +192,11 @@ int main(int argc, char* argv[])
     auto phinp1 = samurai::make_scalar_field<double>("phi", mesh);
     auto phihat = samurai::make_scalar_field<double>("phi", mesh);
     samurai::make_bc<samurai::Neumann<1>>(phihat, 0.);
+    auto phi_0 = samurai::make_scalar_field<double>("phi_0", mesh);
+
+    auto convection       = make_level_set_convection<decltype(phi)>(u, dt);
+    auto reinitialization = make_level_set_reinitialization(phi_0);
+
     auto tag = samurai::make_scalar_field<int>("tag", mesh);
 
     const xt::xtensor_fixed<int, xt::xshape<4, 2>> stencil_grad{
@@ -233,7 +238,7 @@ int main(int argc, char* argv[])
         // Numerical scheme
         samurai::update_ghost(phi, u);
         phinp1.resize();
-        phinp1 = phi - dt * samurai::upwind_variable(u, phi, dt);
+        phinp1 = phi - dt * convection(phi);
 
         std::swap(phi.array(), phinp1.array());
 
@@ -241,19 +246,15 @@ int main(int argc, char* argv[])
         const std::size_t fict_iteration = 5;                             // Number of fictitious iterations
         const double dt_fict             = 0.25 * mesh.min_cell_length(); // Fictitious time step at the finest level
 
-        auto phi_0 = phi;
+        phi_0 = phi;
         for (std::size_t k = 0; k < fict_iteration; ++k)
         {
-            // Forward Euler
-            // update_ghosts(phi, u, update_bc_for_level);
-            // phinp1 = phi - dt_fict * H_wrap(phi, phi_0, max_level);
-
             // TVD-RK2
             samurai::update_ghost(phi);
             phihat.resize();
-            phihat = phi - dt_fict * H_wrap(phi, phi_0, mesh.max_level());
+            phihat = phi - dt_fict * reinitialization(phi);
             samurai::update_ghost(phihat);
-            phinp1 = .5 * phi + .5 * (phihat - dt_fict * H_wrap(phihat, phi_0, mesh.max_level()));
+            phinp1 = .5 * phi + .5 * (phihat - dt_fict * reinitialization(phihat));
 
             std::swap(phi.array(), phinp1.array());
         }
