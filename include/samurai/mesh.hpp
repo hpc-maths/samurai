@@ -213,7 +213,6 @@ namespace samurai
         cell_t get_cell(std::size_t level, const xt::xexpression<E>& coord) const;
 
         void update_mesh_neighbour();
-        void update_neighbour_subdomain();
         void update_meshid_neighbour(const mesh_id_t& mesh_id);
 
         void to_stream(std::ostream& os) const;
@@ -253,6 +252,7 @@ namespace samurai
         void update_sub_mesh();
         void renumbering();
         void find_neighbourhood();
+        bool same_discovery_inputs(const self_type& ref_mesh) const;
 
         void compute_gravity_center();
 
@@ -261,7 +261,7 @@ namespace samurai
         // finalize_mesh() performs the post-construction steps (sub-mesh update,
         // corners, renumbering, origin/scaling propagation, ghost exchange and,
         // under MPI+PETSc, the gravity-center computation).
-        void exchange_neighbour_meshes();
+        void exchange_neighbour_meshes(bool keep_neighbourhood = false);
         void finalize_mesh(const coords_t& origin_point, double scaling_factor);
 
         void partition_mesh(std::size_t start_level, const Box<double, dim>& global_box);
@@ -283,6 +283,17 @@ namespace samurai
         coords_t m_gravity_center;
 
         config_t m_config;
+
+#ifdef SAMURAI_WITH_MPI
+        // Inputs of the neighbourhood discovery other than the subdomains, as
+        // they were when find_neighbourhood built the current neighbourhood.
+        // They are recorded rather than recomputed from a reference mesh
+        // because its configuration can change through cfg() after its
+        // construction (e.g. cfg().periodic(true) followed by a rebuild from
+        // that mesh): its neighbourhood was then discovered with the old values.
+        double m_discovery_ghost_reach = -1.;
+        std::array<bool, dim> m_discovery_periodicity{};
+#endif
 
 #ifdef SAMURAI_WITH_MPI
         friend class boost::serialization::access;
@@ -406,13 +417,25 @@ namespace samurai
     template <class D, class Config>
     SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const ca_type& ca, const self_type& ref_mesh)
         : m_domain(ref_mesh.m_domain)
-        , m_mpi_neighbourhood(ref_mesh.m_mpi_neighbourhood)
         , m_config(ref_mesh.m_config)
+#ifdef SAMURAI_WITH_MPI
+        , m_discovery_ghost_reach(ref_mesh.m_discovery_ghost_reach)
+        , m_discovery_periodicity(ref_mesh.m_discovery_periodicity)
+#endif
     {
         m_cells[mesh_id_t::cells] = ca;
 
+        // Start from the neighbour ranks of the reference mesh, which
+        // exchange_neighbour_meshes keeps when the discovery inputs are
+        // unchanged. Their meshes are not copied: finalize_mesh sends them.
+        m_mpi_neighbourhood.reserve(ref_mesh.m_mpi_neighbourhood.size());
+        for (const auto& neighbour : ref_mesh.m_mpi_neighbourhood)
+        {
+            m_mpi_neighbourhood.emplace_back(neighbour.rank);
+        }
+
         construct_subdomain();
-        exchange_neighbour_meshes();
+        exchange_neighbour_meshes(same_discovery_inputs(ref_mesh));
         finalize_mesh(ref_mesh.origin_point(), ref_mesh.scaling_factor());
     }
 
@@ -422,13 +445,50 @@ namespace samurai
     {
     }
 
+    /**
+     * Builds the MPI neighbour rank set. The neighbour meshes themselves are
+     * filled by finalize_mesh: update_meshid_neighbour(cells) sends the cells
+     * that update_sub_mesh needs, and update_mesh_neighbour the whole mesh.
+     *
+     * The neighbourhood is a pure function of the subdomain and of the ghost
+     * reach of every rank, and of the periodicity. When @p keep_neighbourhood
+     * holds on every rank, these inputs are those the neighbourhood copied from
+     * the reference mesh was discovered with: its neighbour set is still
+     * valid, and one all_reduce replaces the whole discovery (bounding-box
+     * all_gather and candidate subdomain exchange). The decision is
+     * collective, so every rank skips or none does; the all_reduce runs in
+     * every construction for the same reason.
+     */
     template <class D, class Config>
-    SAMURAI_INLINE void Mesh_base<D, Config>::exchange_neighbour_meshes()
+    SAMURAI_INLINE void Mesh_base<D, Config>::exchange_neighbour_meshes([[maybe_unused]] bool keep_neighbourhood)
     {
         ScopedTimer timer("exchange neighbour meshes");
 #ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
+        if (mpi::all_reduce(world, keep_neighbourhood, std::logical_and()))
+        {
+            return;
+        }
         find_neighbourhood();
-        update_neighbour_subdomain();
+#endif
+    }
+
+    /**
+     * Whether this mesh, built from @p ref_mesh, has the discovery inputs the
+     * neighbourhood copied from @p ref_mesh was discovered with: the subdomain
+     * of @p ref_mesh, and the recorded ghost reach and periodicity. The ghost
+     * reach matters on its own: it grows with the coarsest populated level, so
+     * coarsening may bring farther ranks into the neighbourhood while the
+     * subdomains stay the same.
+     */
+    template <class D, class Config>
+    SAMURAI_INLINE bool Mesh_base<D, Config>::same_discovery_inputs([[maybe_unused]] const self_type& ref_mesh) const
+    {
+#ifdef SAMURAI_WITH_MPI
+        return m_subdomain == ref_mesh.m_subdomain && ghost_physical_reach() == m_discovery_ghost_reach
+            && m_config.periodic() == m_discovery_periodicity;
+#else
+        return false;
 #endif
     }
 
@@ -902,6 +962,11 @@ namespace samurai
         swap(m_mpi_neighbourhood, mesh.m_mpi_neighbourhood);
         swap(m_union, mesh.m_union);
         swap(m_config, mesh.m_config);
+#ifdef SAMURAI_WITH_MPI
+        // The discovery inputs describe the neighbourhood: they move with it.
+        swap(m_discovery_ghost_reach, mesh.m_discovery_ghost_reach);
+        swap(m_discovery_periodicity, mesh.m_discovery_periodicity);
+#endif
     }
 
     template <class D, class Config>
@@ -1093,47 +1158,6 @@ namespace samurai
 #endif
     }
 
-    // TODO : find a clever way to factorize the two next functions. For new, I have to duplicate the code 2 times.
-
-    // This function is to only send m_subdomain instead of the whole mesh data
-    template <class D, class Config>
-    SAMURAI_INLINE void Mesh_base<D, Config>::update_neighbour_subdomain()
-    {
-#ifdef SAMURAI_WITH_MPI
-        // No neighbouring subdomain (e.g. single rank): nothing to exchange.
-        if (m_mpi_neighbourhood.empty())
-        {
-            return;
-        }
-        // send/recv the meshes of the neighbouring subdomains
-        mpi::communicator world;
-        std::vector<mpi::request> req;
-
-        boost::mpi::packed_oarchive::buffer_type buffer;
-        boost::mpi::packed_oarchive oa(world, buffer);
-        oa << derived_cast().m_subdomain;
-
-        std::transform(m_mpi_neighbourhood.cbegin(),
-                       m_mpi_neighbourhood.cend(),
-                       std::back_inserter(req),
-                       [&](const auto& neighbour)
-                       {
-                           return world.isend(neighbour.rank, neighbour.rank, buffer);
-                       });
-
-        for (auto& neighbour : m_mpi_neighbourhood)
-        {
-            world.recv(neighbour.rank, world.rank(), neighbour.mesh.m_subdomain);
-            neighbour.mesh.m_domain = m_domain;
-#ifdef SAMURAI_WITH_PETSC
-            neighbour.mesh.compute_gravity_center();
-#endif
-        }
-
-        mpi::wait_all(req.begin(), req.end());
-#endif
-    }
-
     // Modified function definition
     template <class D, class Config>
     SAMURAI_INLINE void Mesh_base<D, Config>::update_meshid_neighbour([[maybe_unused]] const mesh_id_t& mesh_id)
@@ -1316,6 +1340,9 @@ namespace samurai
         auto my_bbox        = mpi_neighbor::compute_subdomain_bbox(m_subdomain[max_level()]);
         my_bbox.rank        = rank;
         my_bbox.ghost_reach = ghost_physical_reach();
+
+        m_discovery_ghost_reach = my_bbox.ghost_reach;
+        m_discovery_periodicity = m_config.periodic();
 
         std::vector<mpi_neighbor::SubdomainBoundingBox<dim>> all_bboxes(static_cast<std::size_t>(size));
         mpi::all_gather(world, my_bbox, all_bboxes);

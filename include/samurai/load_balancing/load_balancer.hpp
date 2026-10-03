@@ -27,8 +27,8 @@
  *     serialized in for_each_interval order) per destination; blocking recv
  *     from each announced source; wait_all;
  *  4. new mesh built from kept + received cells. The Mesh_base(cl, ref_mesh)
- *     constructor re-discovers the MPI neighbourhood from scratch
- *     (find_neighbourhood), nothing else to do here;
+ *     constructor re-discovers the MPI neighbourhood (find_neighbourhood)
+ *     as soon as one subdomain changed, nothing else to do here;
  *  5. per field: copy kept values (intersection old∩new, level by level),
  *     insert received values (same for_each_interval order as the sender),
  *     then swap the data arrays into the user's field;
