@@ -58,7 +58,7 @@ namespace samurai
     /** @class CellArray
      *  @brief Array of LevelCellArray.
      *
-     *  A box is defined by its minimum and maximum corners.
+     *  The LevelCellArray at index @c level holds the cells of that level.
      *
      *  @tparam dim_ The dimension
      *  @tparam TInterval The type of the intervals (default type is
@@ -239,7 +239,7 @@ namespace samurai
     //////////////////////////////
 
     /**
-     * Default contructor which sets the level for each LevelCellArray.
+     * Default constructor which sets the level for each LevelCellArray.
      */
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
     SAMURAI_INLINE CellArray<dim_, TInterval, max_size_>::CellArray()
@@ -254,7 +254,7 @@ namespace samurai
      * Construction of a CellArray from a CellList
      *
      * @param cl The cell list.
-     * @parma with_update_index A boolean indicating if the index of the
+     * @param with_update_index A boolean indicating if the index of the
      * x-intervals must be computed.
      */
     template <std::size_t dim_, class TInterval, std::size_t max_size_>

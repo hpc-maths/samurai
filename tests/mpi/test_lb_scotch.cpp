@@ -1,7 +1,7 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-// PT-Scotch partitioning strategy tests (roadmap step 4).
+// PT-Scotch partitioning strategy tests.
 // Only compiled when SAMURAI_WITH_PTSCOTCH=ON.
 
 #ifdef SAMURAI_WITH_PTSCOTCH

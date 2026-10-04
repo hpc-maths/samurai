@@ -316,6 +316,8 @@ namespace samurai
     }
 } // namespace samurai::amr
 
+// Not part of the API reference.
+/// @cond
 template <>
 struct fmt::formatter<samurai::amr::AMR_Id> : formatter<string_view>
 {
@@ -347,3 +349,5 @@ struct fmt::formatter<samurai::amr::AMR_Id> : formatter<string_view>
         return formatter<string_view>::format(name, ctx);
     }
 };
+
+/// @endcond

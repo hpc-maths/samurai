@@ -1,7 +1,7 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-// Tests for the distributed cell graph (roadmap step 4).
+// Tests for the distributed cell graph.
 // The graph is always built when WITH_MPI=ON; these tests verify its structure
 // without requiring ParMETIS or PT-Scotch.
 

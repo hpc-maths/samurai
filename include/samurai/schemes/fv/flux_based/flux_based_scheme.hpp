@@ -9,7 +9,9 @@
 namespace samurai
 {
     /**
-     * @class FluxBasedScheme
+     * Scheme defined by the fluxes between neighbouring cells.
+     * The primary template is empty: it is specialized for each scheme type
+     * (non-linear, linear heterogeneous, linear homogeneous).
      */
     template <class cfg, class bdry_cfg, class check = void>
     class FluxBasedScheme

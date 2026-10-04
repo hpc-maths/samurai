@@ -5,6 +5,6 @@
 The struct gives the corner, the center and the face centers of the cell in real coordinates, and its length.
 For how to loop over the cells of a mesh, see the {doc}`loop how-to <../howto/loop>`; for the relation between a cell and its interval, see the {ref}`cell properties <cell>` in the interval tutorial.
 
-```{doxygenclass} samurai::Cell
+```{doxygenstruct} samurai::Cell
 :members:
 ```

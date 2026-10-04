@@ -20,7 +20,7 @@ namespace samurai
     // Interval definition //
     /////////////////////////
 
-    /** @class Interval
+    /** @struct Interval
      *  @brief An interval \f$[a, b)\f$ of integral coordinates with step and storage index.
      *
      * The index is used to associate each discrete coordinate @a c within
@@ -379,6 +379,8 @@ namespace samurai
 
 } // namespace samurai
 
+// Not part of the API reference.
+/// @cond
 template <class TValue, class TIndex>
 struct fmt::formatter<samurai::Interval<TValue, TIndex>>
 {
@@ -393,3 +395,5 @@ struct fmt::formatter<samurai::Interval<TValue, TIndex>>
         return fmt::format_to(ctx.out(), "[{}, {})@{}:{}", interval.start, interval.end, interval.index, interval.step);
     }
 };
+
+/// @endcond

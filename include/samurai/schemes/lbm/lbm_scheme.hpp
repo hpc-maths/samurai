@@ -33,9 +33,10 @@ namespace samurai
      *
      * with @c relax the collision @c m_k += s_k (m_k^eq - m_k).
      *
-     * @note Step 1: uniform mesh, @c stream is a nearest-neighbour shift and the
-     *       collision is done per cell (correctness first). The multi-level
-     *       stream (portions / precomputed prediction-maps) comes in step 2.
+     * @c stream works on every level of the adapted mesh: at the finest level it
+     * shifts each distribution by its lattice velocity; on a coarser level it applies
+     * a stencil built once per level from the prediction maps of the finest-level
+     * sub-cells. @c collide works cell by cell.
      */
     template <class Field, class... Blocks>
     class LBMScheme
@@ -266,7 +267,7 @@ namespace samurai
 
         /**
          * Flattened stream stencil of one velocity at a level gap @a j: the combined slice prediction
-         * map (@ref get_prediction), with the 1/2^{j.dim} projection weight @a inv_nc folded into
+         * map (@c detail::get_prediction), with the 1/2^{j.dim} projection weight @a inv_nc folded into
          * every coefficient. The streamed value of a coarse cell C is then simply
          *
          *     f_out(C) = sum_tap tap.w * f_in(C + tap.off).

@@ -1,7 +1,7 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-// SFC partitioning strategy (roadmap step 3), Morton and Hilbert, 2D and 3D:
+// SFC partitioning strategy, Morton and Hilbert, 2D and 3D:
 // weighted balance quality, negative coordinates, idempotence, and the
 // migration invariants on curve-shaped (non rectangular) partitions.
 

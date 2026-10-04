@@ -4,8 +4,7 @@
 namespace samurai
 {
     /**
-     * @class FluxBasedScheme
-     *    Implementation of LINEAR and HOMOGENEOUS schemes
+     * Specialization of @ref FluxBasedScheme for LINEAR and HOMOGENEOUS schemes.
      */
     template <class cfg, class bdry_cfg>
     class FluxBasedScheme<cfg, bdry_cfg, std::enable_if_t<cfg::scheme_type == SchemeType::LinearHomogeneous>>

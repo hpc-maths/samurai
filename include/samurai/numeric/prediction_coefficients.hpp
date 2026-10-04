@@ -36,7 +36,7 @@
  *
  * Two things are deliberately kept apart, because conflating them is what would make a
  * distributed run depend on its partition:
- *   - @ref prediction_shift decides *which* stencil to use, from the geometry of the
+ *   - @ref samurai::prediction_shift "prediction_shift" decides *which* stencil to use, from the geometry of the
  *     domain alone;
  *   - whether the cells that stencil names are present locally is a separate, halo
  *     question, and not this file's business.

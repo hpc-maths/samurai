@@ -65,46 +65,42 @@ namespace samurai
     };
 
     // =========================================================================
-    // Timers – central registry
+    // Timers - central registry
     // =========================================================================
 
     /**
      * @class Timers
      * @brief Registry of named timers with automatic call-context hierarchy.
      *
-     * ### Per-context tracking
      * The same timer name started from different call contexts (different parent
      * timers) is tracked as a **separate entry**. For example, if `"ghost update"`
      * is called both inside `"mesh adaptation"` and at the top level, both
      * instances appear as distinct rows in the output, each with their own
-     * elapsed time and call count.
+     * elapsed time and call count. The internal key is `(parent_context, name)`,
+     * determined at runtime by the thread-local active stack.
      *
-     * The internal key is `(parent_context, name)` — determined at runtime by
-     * the thread-local active stack.
-     *
-     * ### Cell throughput
      * The overload `stop(name, nb_cells)` accumulates cell counts. When at least one
      * `stop()` call provides a non-zero count, the output shows a `Mcells/s` column.
      *
-     * ### Usage
+     * Usage:
      * @code
-     * // Preferred: RAII guard – hierarchy built automatically
+     * // Preferred: RAII guard, the hierarchy is built automatically
      * {
      *     samurai::ScopedTimer t("mesh adaptation");
-     *     // ...
+     *     adapt_mesh(); // the timed work
      * } // stop() called here
      *
      * // With cell count
      * {
      *     samurai::ScopedTimer t("ghost update");
-     *     // ...
+     *     update_ghosts(); // the timed work
      *     t.set_cells(mesh.nb_cells());
      * }
      *
-     * // Explicit start/stop still fully supported
+     * // Explicit start/stop
      * samurai::times::timers.start("my timer");
      * samurai::times::timers.stop("my timer");
-     * or
+     * // or, with a cell count
      * samurai::times::timers.stop("my timer", nb_cells);
      * @endcode
      */
@@ -963,13 +959,13 @@ namespace samurai
      * while this one is alive becomes a child in the call tree.
      *
      * The same display name started from different call contexts is tracked
-     * as a separate entry — so `"ghost update"` called from inside
+     * as a separate entry, so `"ghost update"` called from inside
      * `"mesh adaptation"` and from the top level both appear in the output.
      *
      * @code
      * {
      *     samurai::ScopedTimer t("mesh adaptation");
-     *     // ...
+     *     adapt_mesh(); // the timed work
      *     t.set_cells(mesh.nb_cells());
      * }
      * @endcode

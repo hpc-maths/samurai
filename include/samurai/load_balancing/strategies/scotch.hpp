@@ -8,12 +8,11 @@
  * @brief PT-Scotch graph partitioning strategy.
  *
  * Partitions the cell graph using SCOTCH_dgraphPart with a balance-oriented
- * strategy (SCOTCH_STRATBALANCE, imbalance tolerance 5 %). Unlike the
- * original Strafella implementation which hardcoded nparts = 2, this version
- * uses the communicator size as the number of partitions.
+ * strategy (SCOTCH_STRATBALANCE, default imbalance tolerance 5 %). The
+ * number of partitions is the size of the communicator: one part per MPI rank.
  *
  * Prerequisites: SAMURAI_WITH_PTSCOTCH must be ON at configure time.
- * The header emits a #error if included without the option.
+ * The header emits an `#error` if included without the option.
  *
  * Communication: build_cell_graph (one all_gather + neighbour exchanges) then
  * SCOTCH_dgraphPart (collective).

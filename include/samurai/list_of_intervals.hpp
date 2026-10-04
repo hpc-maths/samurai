@@ -37,7 +37,7 @@ namespace samurai
     // ListOfIntervals definition //
     ////////////////////////////////
 
-    /** @class ListOfIntervals
+    /** @struct ListOfIntervals
      *  @brief Forward list of intervals.
      *
      * The intervals are kept sorted and disjoint. An iterator on the last
@@ -239,7 +239,7 @@ namespace samurai
     // FlatListOfIntervals definition    //
     ///////////////////////////////////////
 
-    /** @class FlatListOfIntervals
+    /** @struct FlatListOfIntervals
      *  @brief Vector-backed sorted list of disjoint intervals.
      *
      * Scratch buffer used by the subset workspaces. Same semantics as

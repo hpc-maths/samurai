@@ -23,7 +23,7 @@ namespace samurai
      * Runtime (type-erased) counterpart of the static set concept described by
      * `SetBase`. It exposes the same primitives through virtual calls, so a set
      * expression whose structure is only known at runtime can be manipulated
-     * uniformly (and, later, exposed to bindings such as Python).
+     * uniformly.
      *
      * Traversers are handed out as `AnyTraverser`, and the dimension `d`
      * becomes a runtime argument (instead of a template parameter). The

@@ -1,7 +1,7 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-// Space-filling curves of the load balancing module (roadmap step 3).
+// Space-filling curves of the load balancing module.
 // MPI-free: the curves are pure functions of the coordinates.
 
 #include <array>
@@ -94,8 +94,8 @@ namespace
         EXPECT_EQ(morton.key<3>(coord3{max3, max3, max3}), 0x7fffffffffffffffULL);
     }
 
-    // The defining property of Hilbert (and the non-regression test of the
-    // historic 3D overflow): on any dyadic block, the sorted keys are
+    // The defining property of Hilbert (and, in 3D, the check that the key does
+    // not overflow 64 bits, see max_bits): on any dyadic block, the sorted keys are
     // consecutive integers and two consecutive keys are face-adjacent cells
     // (Manhattan distance exactly 1). Morton fails this (it jumps).
     template <std::size_t dim>

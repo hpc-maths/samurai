@@ -1,8 +1,8 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-// Weight policies and local load metric of the load balancing module
-// (roadmap step 2). These pieces are MPI-free and tested sequentially.
+// Weight policies and local load metric of the load balancing module.
+// These pieces are MPI-free and tested sequentially.
 
 #include <cmath>
 

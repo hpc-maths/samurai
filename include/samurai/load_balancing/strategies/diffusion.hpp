@@ -15,8 +15,8 @@
  *
  *         t_j = (load_j - load_i) / (max(deg_i, deg_j) + 1)
  *
- *     (Cybenko 1989). The 1/(max(deg)+1) factor guarantees stability — the fixed
- *     0.5 coefficient of the previous implementation could oscillate. The only
+ *     (Cybenko 1989). The 1/(max(deg)+1) factor guarantees stability, whereas a
+ *     fixed 0.5 coefficient can make the iteration oscillate. The only
  *     collective is one boolean all_reduce per iteration to detect convergence
  *     (plus one all_reduce of the total load, once, to set the convergence
  *     scale): there is NO all_gather of the loads. Fluxes below
@@ -47,20 +47,20 @@
  *       - what remains mine stays a single connected island — the peel never
  *         jumps across the domain, because adjacency is recomputed from the
  *         cells just given, not from a fixed Cartesian direction.
- *     There is therefore no notion of direction at all (the previous
- *     barycentre-direction version scattered cells on adaptive meshes and broke
+ *     There is therefore no notion of direction at all (peeling along a direction
+ *     taken from the barycentres would scatter cells on adaptive meshes and break
  *     connectivity). Adjacency is evaluated at the coarsest level (`min_level`)
  *     by set algebra over the 2*dim cardinal translations and projected onto
  *     every actual level with `.on(level)`, which is dimension- and level-jump
  *     agnostic. The frontier between subdomains is a staircase, not a straight
- *     line (the straight-line / row-snapping constraint limited the old version
+ *     line (a straight-line / row-snapping frontier would restrict the partition
  *     to 2D bands).
  *
  *     The peel is ATOMIC at `min_level`: a coarse cell is ceded with ALL the
  *     fine cells it contains, or not at all, and we stop at a coarse-cell
  *     boundary once the requested flux is met. This is essential on adaptive
- *     meshes: stopping mid-cell at the finest level (a raw cell scan) used to
- *     dice the refined front into disconnected single-cell slivers — the very
+ *     meshes: stopping mid-cell at the finest level (a raw cell scan) would
+ *     dice the refined front into disconnected single-cell slivers, the very
  *     islands this peel is meant to avoid. A coarse cell is ceded only when it
  *     fits the remaining budget (the quantum-aware anti-overshoot of phase 1), so
  *     there is no overshoot: a cell that does not fit stops the peel and is left
@@ -120,8 +120,9 @@ namespace samurai::load_balancing
      */
     struct DiffusionOptions
     {
-        /// Fluxes smaller than this fraction of the local average load are
-        /// zeroed out to avoid micro-migrations.
+        /// Fluxes smaller than this fraction of the global average load (total
+        /// load divided by the number of processes) are zeroed out to avoid
+        /// micro-migrations.
         double flux_threshold = 0.01;
 
         /// Maximum number of iterations of the iterative flux solver.
@@ -453,15 +454,14 @@ namespace samurai::load_balancing
                 // cell (at `ref` = min_level) is either fully handed to the
                 // neighbour or fully kept. This is what keeps the partition
                 // compact. Ceding whole rings and stopping mid-ring at the finest
-                // level — a raw cell scan — used to slice the refined front into
-                // disconnected single-cell slivers (the islands seen on adaptive
-                // meshes). With atomic coarse cells the frontier is a min_level
-                // staircase, and since every coarse cell of the ring is
-                // face-adjacent to the front, everything we cede stays connected
-                // to the neighbour: no island can appear. The price is an
-                // overshoot bounded by one coarse cell's worth of load — small
-                // when refinement is along an interface (a coarse cell then holds
-                // only a thin band of fine cells).
+                // level (a raw cell scan) would slice the refined front into
+                // disconnected single-cell slivers (islands on adaptive meshes).
+                // With atomic coarse cells the frontier is a min_level staircase,
+                // and since every coarse cell of the ring is face-adjacent to the
+                // front, everything we cede stays connected to the neighbour: no
+                // island can appear. A coarse cell heavier than the remaining
+                // budget is not ceded (see the quantum-aware guard below), so the
+                // peel never overshoots.
                 cl_type ceded_cl;
                 bool stop = false;
                 for_each_interval(ring[ref],
@@ -497,8 +497,7 @@ namespace samurai::load_balancing
                                           // neighbour; the Cybenko flow is the balanced (conservative) flux,
                                           // so actuating AT MOST the prescribed amount can never push the
                                           // receiver past balance -- no overshoot, hence no limit cycle. This
-                                          // is the property that the previous (deal-agreement) flux cap
-                                          // duplicated and that closes the persistent oscillation seen with
+                                          // property prevents the persistent oscillation that appears with
                                           // many ranks on a long chain. Without it the atomic cell overshoots
                                           // a budget that has shrunk below one cell near convergence, which is
                                           // the residual limit cycle. A non-empty cell that does not fit stops

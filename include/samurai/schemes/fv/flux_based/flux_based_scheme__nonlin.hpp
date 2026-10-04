@@ -23,8 +23,7 @@ namespace samurai
     }
 
     /**
-     * @class FluxBasedScheme
-     *    Implementation of non-linear schemes
+     * Specialization of @ref FluxBasedScheme for non-linear schemes.
      */
     template <class cfg, class bdry_cfg>
     class FluxBasedScheme<cfg, bdry_cfg, std::enable_if_t<cfg::scheme_type == SchemeType::NonLinear>>

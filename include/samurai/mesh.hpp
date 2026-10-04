@@ -1240,11 +1240,10 @@ namespace samurai
 
     // Materialises `reference` (a full-resolution LCA defined at its own
     // level) into every level of `pyramid` from 0 to max_level(), coarsening
-    // or refining as needed via the usual `.on(level)` projection. Doing this
-    // once, here, instead of lazily in the ghost update (previously
-    // `self(mesh.domain()).on(level)` / `self(mesh.subdomain()).on(level)`,
-    // recomputed on every call) is the whole point: domain(level) and
-    // subdomain(level) become plain array look-ups. The range must cover 0,
+    // or refining as needed via the usual `.on(level)` set projection. Doing
+    // this once, here, instead of recomputing `self(mesh.domain()).on(level)` /
+    // `self(mesh.subdomain()).on(level)` on every ghost update is the whole
+    // point: domain(level) and subdomain(level) become plain array look-ups. The range must cover 0,
     // not just [min_level(), max_level()]: update_ghost_mr_aggregated walks
     // levels down to 0 regardless of mesh.min_level().
     template <class D, class Config>
@@ -1377,9 +1376,9 @@ namespace samurai
         // And update neighborhood list.
         // The expansion width must cover the ghost reach of BOTH sides of the
         // pair (symmetric decision: both ranks compute the same max), converted
-        // in cells at the subdomain level. The historic hardcoded width of 1
-        // missed ranks lying behind a subdomain strip thinner than the ghost
-        // footprint (see tests/mpi/test_lb_ghosts.cpp).
+        // in cells at the subdomain level. A fixed width of 1 would miss ranks
+        // lying behind a subdomain strip thinner than the ghost reach (see
+        // tests/mpi/test_lb_ghosts.cpp).
         const double subdomain_dx = m_subdomain[max_level()].cell_length();
         auto expansion_width      = [&](const auto& other_bbox)
         {

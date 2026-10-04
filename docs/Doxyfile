@@ -21,3 +21,6 @@ EXCLUDE_SYMBOLS = detail *::detail
 # Breathe finds a file by its base name, so leaving it in would make
 # `doxygenfile:: bc.hpp` ambiguous with samurai/bc/bc.hpp.
 EXCLUDE = ../include/samurai/bc.hpp
+# Declare the std namespace, so that the std::hash specializations of
+# include/samurai/utils.hpp have a known scope.
+BUILTIN_STL_SUPPORT = YES

@@ -5,6 +5,6 @@ Its `index` member gives where the values of the interval live in the storage of
 The struct also gives the arithmetic used to move an interval in space (`+`, `-`), to scale it (`*`, `/`) and to change its level (`>>`, `<<`).
 For a guided introduction to intervals and how they describe a mesh, see the {doc}`interval tutorial <../tutorial/interval>`.
 
-```{doxygenclass} samurai::Interval
+```{doxygenstruct} samurai::Interval
 :members:
 ```

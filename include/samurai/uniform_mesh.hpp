@@ -27,6 +27,8 @@ namespace samurai
 } // namespace samurai
 
 // Formatter specialization for UniformMeshId - must be defined before any use
+// Not part of the API reference.
+/// @cond
 template <>
 struct fmt::formatter<samurai::UniformMeshId> : fmt::formatter<std::string_view>
 {
@@ -50,6 +52,8 @@ struct fmt::formatter<samurai::UniformMeshId> : fmt::formatter<std::string_view>
         return fmt::formatter<std::string_view>::format(name, ctx);
     }
 };
+
+/// @endcond
 
 namespace samurai
 {

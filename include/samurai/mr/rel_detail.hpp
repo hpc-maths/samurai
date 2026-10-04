@@ -15,8 +15,8 @@ namespace samurai
         // Per-component max of |field| over the leaf cells. Iterated per interval
         // over the raw field data (the interval's index is the flat cell offset,
         // as used by field[cell]) rather than per cell with for_each_cell, which
-        // builds a Cell object for every cell - the dominant cost of the previous
-        // version. max is order-independent, so the result is bit-identical.
+        // would build a Cell object for every cell and dominate the cost. max is
+        // order-independent, so the result is the same as with a per-cell loop.
         void set_inv_max_field(auto& inv_max_fields, const auto& field, std::size_t dec = 0)
             requires(std::decay_t<decltype(field)>::is_scalar)
         {

@@ -1,7 +1,7 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-// Diffusion partitioning strategy (roadmap step 5), nD by interface layers:
+// Diffusion partitioning strategy, nD by interface layers:
 //  - the pure flux solver on analytic process graphs (2 procs, 1D chain);
 //  - the layer assignment: balance quality, connectivity (no islands),
 //    weighted load, 3D, and the unmet-flux reporting path.

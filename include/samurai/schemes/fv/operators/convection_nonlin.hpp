@@ -9,17 +9,15 @@ namespace samurai
     /**
      * Convection term where the velocity field is compressible.
      *
-     * Let U be the vector (in 2D) [u, v]^T.
+     * Let \f$U = [u, v]^T\f$ (in 2D).
      * The convective term is given by
-     *          \int_V \div (U \otimes U),
-     * which rewrites, by Green's theorem, as
-     *          \int_S (U \otimes U).n,
+     * \f[ \int_V \nabla \cdot (U \otimes U), \f]
+     * which rewrites, by the divergence theorem, as
+     * \f[ \int_S (U \otimes U) \cdot n. \f]
      * Developed in 2D, it means
-     *   | u^2  uv || n_x |
-     *   | uv  v^2 || n_y |,
-     * i.e.
-     *   | u^2 | if x-direction and | uv  | if y-direction.
-     *   | uv  |                    | v^2 |
+     * \f[ \begin{pmatrix} u^2 & uv \\ uv & v^2 \end{pmatrix} \begin{pmatrix} n_x \\ n_y \end{pmatrix}, \f]
+     * i.e. \f$\begin{pmatrix} u^2 \\ uv \end{pmatrix}\f$ in the x-direction and
+     * \f$\begin{pmatrix} uv \\ v^2 \end{pmatrix}\f$ in the y-direction.
      */
     template <class Field>
     auto make_convection_upwind()

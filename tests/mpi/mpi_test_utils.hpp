@@ -288,7 +288,7 @@ namespace samurai_test
     }
 
     /**
-     * The invariants of a correct migration (roadmap § 4.3):
+     * The invariants of a correct migration:
      *  1. cells are conserved globally (none lost, none duplicated);
      *  2. every field value followed its cell (checked against analytic());
      *  3. the duplicate-free global cell set is unchanged.

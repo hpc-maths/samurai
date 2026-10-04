@@ -365,7 +365,7 @@ namespace samurai
      * @param level Level where to apply the polynomial extrapolation
      * @param field Field to apply the extrapolation on
      * @param direction Direction of the boundary
-     * @param subset subset corresponding to inner ghosts where to apply the extrapolation on (center of the BC stencil)
+     * @param inner_ghosts_location subset corresponding to inner ghosts where to apply the extrapolation on (center of the BC stencil)
      * @param stencil_in_x The stencil along the first axis, ending on the ghost to fill
      */
     template <std::size_t ghost_layer, std::size_t stencil_size, class Field, class Subset>
@@ -476,7 +476,7 @@ namespace samurai
      * inner diagonal cell it mirrors, the one at the offset 1 - ghost_layer from the corner cell.
      *
      * This is what the growing extrapolation stencil of that layer computes (see Step 1 of
-     * @ref update_outer_corners_by_polynomial_extrapolation), written as the copy it reduces to,
+     * @c update_outer_corners_by_polynomial_extrapolation), written as the copy it reduces to,
      * so that the layers beyond the largest implemented stencil size need no new coefficients.
      */
     template <class Field>
