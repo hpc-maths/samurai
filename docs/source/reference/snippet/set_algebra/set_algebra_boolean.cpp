@@ -23,7 +23,7 @@ int main(int argc, char* argv[])
 
     constexpr std::size_t dim = 1;
 
-    // Two 1D sets at level 0: A = [0,5[ U [10,13[ and B = [4,8[.
+    // Two 1D sets at level 0: A = [0,5) U [10,13) and B = [4,8).
     samurai::LevelCellList<dim> list_a(0);
     list_a[{}].add_interval({0, 5});
     list_a[{}].add_interval({10, 13});

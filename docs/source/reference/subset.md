@@ -45,7 +45,7 @@ They must outlive the expression.
 
 The union is named `union_` because `union` is a C++ keyword.
 
-The following program combines two 1D sets of level 0, $A = [0, 5[ \cup [10, 13[$ and $B = [4, 8[$:
+The following program combines two 1D sets of level 0, $A = [0, 5) \cup [10, 13)$ and $B = [4, 8)$:
 
 ```{literalinclude} snippet/set_algebra/set_algebra_boolean.cpp
   :language: c++
@@ -57,14 +57,14 @@ The following program combines two 1D sets of level 0, $A = [0, 5[ \cup [10, 13[
 It prints:
 
 ```text
-union_(a, b): [0,8[@0:1 [10,13[@0:1
-intersection(a, b): [4,5[@0:1
-difference(a, b): [0,4[@0:1 [10,13[@0:1
-difference(b, a): [5,8[@0:1
+union_(a, b): [0,8)@0:1 [10,13)@0:1
+intersection(a, b): [4,5)@0:1
+difference(a, b): [0,4)@0:1 [10,13)@0:1
+difference(b, a): [5,8)@0:1
 ```
 
 ```{image} ./figures/set_algebra_boolean.svg
-:alt: Two 1D sets on cells 0 to 13. A holds [0, 5[ and [10, 13[, B holds [4, 8[. Their union is [0, 8[ and [10, 13[, their intersection is the single cell [4, 5[, A minus B is [0, 4[ and [10, 13[, and B minus A is [5, 8[.
+:alt: Two 1D sets on cells 0 to 13. A holds [0, 5) and [10, 13), B holds [4, 8). Their union is [0, 8) and [10, 13), their intersection is the single cell [4, 5), A minus B is [0, 4) and [10, 13), and B minus A is [5, 8).
 :width: 100%
 :align: center
 ```
@@ -96,27 +96,27 @@ It prints the intervals of each result, row by row:
 
 ```text
 plus:
-    y = 1: [1,2[@0:1
-    y = 2: [0,3[@0:1
-    y = 3: [1,2[@0:1
+    y = 1: [1,2)@0:1
+    y = 2: [0,3)@0:1
+    y = 3: [1,2)@0:1
 expand(plus, 1):
-    y = 0: [0,3[@0:1
-    y = 1: [-1,4[@0:1
-    y = 2: [-1,4[@0:1
-    y = 3: [-1,4[@0:1
-    y = 4: [0,3[@0:1
+    y = 0: [0,3)@0:1
+    y = 1: [-1,4)@0:1
+    y = 2: [-1,4)@0:1
+    y = 3: [-1,4)@0:1
+    y = 4: [0,3)@0:1
 expand(plus, 1, {false, true}):
-    y = 0: [1,2[@0:1
-    y = 1: [0,3[@0:1
-    y = 2: [0,3[@0:1
-    y = 3: [0,3[@0:1
-    y = 4: [1,2[@0:1
+    y = 0: [1,2)@0:1
+    y = 1: [0,3)@0:1
+    y = 2: [0,3)@0:1
+    y = 3: [0,3)@0:1
+    y = 4: [1,2)@0:1
 contract(plus, 1):
-    y = 2: [1,2[@0:1
+    y = 2: [1,2)@0:1
 translate(plus, {1, -1}):
-    y = 0: [2,3[@0:1
-    y = 1: [1,4[@0:1
-    y = 2: [2,3[@0:1
+    y = 0: [2,3)@0:1
+    y = 1: [1,4)@0:1
+    y = 2: [2,3)@0:1
 ```
 
 ```{image} ./figures/set_algebra_expand_contract.svg
@@ -141,11 +141,11 @@ Every set expression has a level, returned by `level()`:
 `a.on(level)` brings the set expression `a` to `level`: this is a set projection.
 The level does not have to exist in the mesh.
 
-- To a finer level, each cell becomes $2^s$ cells per direction, with $s$ the difference of levels: `[2,4[` at level 1 becomes `[8,16[` at level 3.
-- To a coarser level, a coarse cell belongs to the result as soon as one of its fine cells does: the projection rounds outwards. `[3,6[` at level 2 becomes `[1,3[` at level 1 and `[0,2[` at level 0.
+- To a finer level, each cell becomes $2^s$ cells per direction, with $s$ the difference of levels: `[2,4)` at level 1 becomes `[8,16)` at level 3.
+- To a coarser level, a coarse cell belongs to the result as soon as one of its fine cells does: the projection rounds outwards. `[3,6)` at level 2 becomes `[1,3)` at level 1 and `[0,2)` at level 0.
 
 The operands are compared at the finest level of the expression, and `on` applies to the result.
-In the following figure, level 1 holds the interval $[0, 4[$ and level 0 the interval $[1, 3[$:
+In the following figure, level 1 holds the interval $[0, 4)$ and level 0 the interval $[1, 3)$:
 
 ```{image} ./figures/subset_level.png
 :alt: Two levels of a 1D mesh. Level 1 has the cells 0 to 3. Level 0 has the cells 1 and 2, each one twice as wide as a cell of level 1, so that the cell 1 of level 0 covers the cells 2 and 3 of level 1.
@@ -153,7 +153,7 @@ In the following figure, level 1 holds the interval $[0, 4[$ and level 0 the int
 :align: center
 ```
 
-Compared without a set projection, the two intervals would give the intersection $[1, 3[$, which is wrong: the cell 1 of level 0 covers the cells 2 and 3 of level 1, and the cell 2 of level 0 is outside level 1.
+Compared without a set projection, the two intervals would give the intersection $[1, 3)$, which is wrong: the cell 1 of level 0 covers the cells 2 and 3 of level 1, and the cell 2 of level 0 is outside level 1.
 The following program computes the intersection on its default level, then on levels 0 and 3:
 
 ```{literalinclude} snippet/set_algebra/set_algebra_levels.cpp
@@ -166,13 +166,13 @@ The following program computes the intersection on its default level, then on le
 The output is:
 
 ```text
-intersection (level 1): [2,4[@0:1
-intersection.on(0) (level 0): [1,2[@0:1
-intersection.on(3) (level 3): [8,16[@0:1
-apply_op: level 0, interval [1,2[@0:1
+intersection (level 1): [2,4)@0:1
+intersection.on(0) (level 0): [1,2)@0:1
+intersection.on(3) (level 3): [8,16)@0:1
+apply_op: level 0, interval [1,2)@0:1
 ```
 
-The intersection is $[2, 4[$ on level 1, the finest level of its operands.
+The intersection is $[2, 4)$ on level 1, the finest level of its operands.
 On level 0, it is the cell 1, and on level 3 the cells 8 to 15.
 
 ## Traversal
@@ -283,8 +283,8 @@ The following program builds the union of a list of level cell arrays whose leng
 Each thread gets the same intervals:
 
 ```text
-thread 0: [0,6[ [12,18[ [24,30[
-thread 1: [0,6[ [12,18[ [24,30[
+thread 0: [0,6) [12,18) [24,30)
+thread 1: [0,6) [12,18) [24,30)
 ```
 
 ## See also
