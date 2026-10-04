@@ -36,6 +36,7 @@ field
 ## Sets and loops
 
 - {doc}`subset`: `samurai::SetBase` and the functions that build set expressions.
+- {doc}`dynamic_subset`: `samurai::DynamicSet` and the `samurai::dyn` functions that build set expressions at runtime.
 - {doc}`algorithm`: the loops over the levels, intervals and cells of a mesh, and the functions that find a cell.
 
 ```{toctree}
@@ -43,6 +44,7 @@ field
 :hidden:
 
 subset
+dynamic_subset
 algorithm
 ```
 
@@ -66,6 +68,7 @@ timers
 - {doc}`schemes`: the finite volume discrete operators, the configuration of user-defined schemes and the functions that combine them.
 - {doc}`bc`: the boundary condition types and `samurai::make_bc`.
 - {doc}`petsc`: `samurai::petsc::solve`, `samurai::petsc::make_solver` and the linear, non-linear and block solvers.
+- {doc}`lbm`: `samurai::LBMScheme`, the velocity schemes it is built from and the lattice Boltzmann wall boundary conditions.
 
 ```{toctree}
 :caption: Numerical schemes
@@ -74,4 +77,16 @@ timers
 schemes
 bc
 petsc
+lbm
+```
+
+## Parallel computing
+
+- {doc}`load_balancing`: `samurai::load_balancing::LoadBalancer`, its strategies, the weight policies and the imbalance metrics.
+
+```{toctree}
+:caption: Parallel computing
+:hidden:
+
+load_balancing
 ```
