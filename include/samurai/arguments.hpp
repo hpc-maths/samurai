@@ -47,7 +47,9 @@ namespace samurai
             ->group("SAMURAI");
 
 #ifdef SAMURAI_WITH_MPI
-        app.add_flag("--dont-redirect-output", args::dont_redirect_output, "Redirect the output for all ranks different of 0")
+        app.add_flag("--dont-redirect-output",
+                     args::dont_redirect_output,
+                     "Keep the standard output of every rank (by default, only rank 0 prints)")
             ->capture_default_str()
             ->group("IO");
 #endif
