@@ -7,8 +7,8 @@ int main(int argc, char* argv[])
 
     static constexpr std::size_t dim = 2;
 
-    samurai::DomainBuilder<dim> domain({-1.0, -1.0}, {1.0, 1.0});
-    domain.remove({0.0, 0.0}, {0.4, 0.4});
+    samurai::DomainBuilder<dim> domain({0.0, 0.0}, {2.0, 1.0});
+    domain.add({0.0, 1.0}, {1.0, 2.0});
 
     samurai::finalize();
     return 0;
