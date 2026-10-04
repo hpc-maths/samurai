@@ -165,6 +165,7 @@ int main(int argc, char* argv[])
         };
     }
 
+    // Make the mesh graded
     ite = 0;
     while (true)
     {

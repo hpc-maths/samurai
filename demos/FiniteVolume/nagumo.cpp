@@ -339,6 +339,7 @@ int main(int argc, char* argv[])
             //     [Id - dt*React](unp1) = u - dt*Diff(u)
             implicit_reaction_solver.solve(unp1, rhs);
         }
+        // Implicit diffusion and reaction
         else
         {
             if (dt_has_changed)

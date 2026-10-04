@@ -163,6 +163,7 @@ int main(int argc, char* argv[])
             }
         }
 
+        // Build the refined mesh
         samurai::CellList<dim> cl;
         samurai::for_each_cell(
             ca,

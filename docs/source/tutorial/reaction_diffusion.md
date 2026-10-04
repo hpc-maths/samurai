@@ -175,7 +175,9 @@ For a scalar field, the Jacobian is a `double`:
 
 ```c++
 react.set_jacobian_function(
-    [&](samurai::JacobianMatrix<cfg>& jac, const auto& cell, const auto& field)
+    [&](samurai::JacobianMatrix<cfg>& jac,
+        const auto& cell,
+        const auto& field)
     {
         auto v = field[cell];
         jac    = k * (2 * v * (1 - v) - v * v);
@@ -234,8 +236,8 @@ We create the PETSc linear solver once, before the time loop:
 
 ```{literalinclude} ../../../demos/FiniteVolume/nagumo.cpp
   :language: c++
-  :start-at: auto implicit_diffusion_solver
-  :end-before: auto implicit_reaction_solver
+  :start-at: // Linear solver
+  :end-before: // independent, local Newton solvers
   :dedent:
 ```
 
@@ -259,7 +261,7 @@ We configure it to use Newton's method with a line search, and an LU solve for e
 
 ```{literalinclude} ../../../demos/FiniteVolume/nagumo.cpp
   :language: c++
-  :start-at: auto full_implicit_solver
+  :start-at: // Non-linear solver
   :end-before: //----
   :dedent:
 ```
@@ -301,7 +303,8 @@ We start from the solution at the current time step, which is close to the solut
 
 ```{literalinclude} ../../../demos/FiniteVolume/nagumo.cpp
   :language: c++
-  :lines: 263-275
+  :start-after: // Implicit diffusion and reaction
+  :end-before: // u <-- unp1
   :dedent:
 ```
 
