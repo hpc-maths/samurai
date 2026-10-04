@@ -15,5 +15,6 @@ the software. These guides are intended to be straightforward and easy to follow
    loop.md
    options.md
    save.md
+   adapt.md
    plot.md
    timers.md
