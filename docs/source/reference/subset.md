@@ -45,6 +45,30 @@ They must outlive the expression.
 
 The union is named `union_` because `union` is a C++ keyword.
 
+The following program combines two 1D sets of level 0, $A = [0, 5[ \cup [10, 13[$ and $B = [4, 8[$:
+
+```{literalinclude} snippet/set_algebra/set_algebra_boolean.cpp
+  :language: c++
+  :start-at: print("union_
+  :end-at: print("difference(b, a)
+  :dedent: 4
+```
+
+It prints:
+
+```text
+union_(a, b): [0,8[@0:1 [10,13[@0:1
+intersection(a, b): [4,5[@0:1
+difference(a, b): [0,4[@0:1 [10,13[@0:1
+difference(b, a): [5,8[@0:1
+```
+
+```{image} ./figures/set_algebra_boolean.svg
+:alt: Two 1D sets on cells 0 to 13. A holds [0, 5[ and [10, 13[, B holds [4, 8[. Their union is [0, 8[ and [10, 13[, their intersection is the single cell [4, 5[, A minus B is [0, 4[ and [10, 13[, and B minus A is [5, 8[.
+:width: 100%
+:align: center
+```
+
 The arguments have these types, with `value_t` the integer type of the interval bounds (`int` by default) and `dim` the dimension:
 
 - `t`: `xt::xtensor_fixed<value_t, xt::xshape<dim>>`, the shift in cells along $x$, $y$, $z$;
@@ -93,6 +117,12 @@ translate(plus, {1, -1}):
     y = 0: [2,3[@0:1
     y = 1: [1,4[@0:1
     y = 2: [2,3[@0:1
+```
+
+```{image} ./figures/set_algebra_expand_contract.svg
+:alt: Five 2D grids of x from -1 to 4 and y from 0 to 4. The plus sign holds the cell (1, 2) and its four axis neighbors. expand(plus, 1) fills a 5 by 5 square without its four corners. Expanding only along y gives a column of 5 cells at x = 1 and a column of 3 cells at x = 0 and x = 2. contract(plus, 1) keeps only the center cell (1, 2). translate(plus, {1, -1}) moves the plus sign one cell right and one cell down.
+:width: 100%
+:align: center
 ```
 
 The cell $(1, 2)$ survives `contract(plus, 1)` although its four diagonal neighbors are not in the set.
