@@ -1,72 +1,134 @@
-name: Bug Report
-description: File a bug report
+name: Bug report
+description: Report a wrong result, a crash, or a build or install failure
 title: "[Bug]: "
-labels: ["bug", "triage"]
+labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to fill out this bug report!
+        Thanks for reporting a bug. The fields below ask for what we need to reproduce it.
+        For a question about how to use samurai, open a discussion in [Q&A](https://github.com/hpc-maths/samurai/discussions/categories/q-a) instead.
   - type: textarea
     id: what-happened
     attributes:
       label: What happened?
-      description: A clear and concise description of what you observe.
-      placeholder: Tell us what you see!
-      value: "A bug happened!"
-    validations:
-      required: true
-  - type: textarea
-    id: input-code
-    attributes:
-      label: Input code
-      description: A code example which shows this behavior.
-      render: cpp
+      description: What you observe. Include the error message or the wrong value.
+      placeholder: The program stops with a segmentation fault after the first mesh adaptation.
     validations:
       required: true
   - type: textarea
     id: what-expected
     attributes:
-      label: What expected?
-      description: A clear and concise description of what you expected to happen.
+      label: What did you expect?
+      description: What should have happened instead.
+      placeholder: The simulation runs to the final time.
     validations:
       required: true
-  - type: dropdown
-    id: OS
+  - type: textarea
+    id: input-code
     attributes:
-      label: What is your operating system?
-      options:
-        - Linux
-        - Mac OS
-        - Windows
+      label: Code to reproduce the bug
+      description: The smallest program that shows the bug, or the name of the demo that shows it. It will be formatted as C++, so no need for backticks.
+      placeholder: |
+        #include <samurai/samurai.hpp>
+
+        int main(int argc, char* argv[])
+        {
+            auto& app = samurai::initialize("bug report", argc, argv);
+            SAMURAI_PARSE(argc, argv);
+            // ...
+            samurai::finalize();
+            return 0;
+        }
+      render: cpp
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command line
+      description: The commands that build and run the program, with all their options. It will be formatted as shell, so no need for backticks.
+      placeholder: |
+        cmake --build build --target finite-volume-advection-2d
+        mpiexec -n 4 ./build/demos/FiniteVolume/finite-volume-advection-2d --Tf 0.05
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: samurai version
+      description: The release number, or the commit SHA if you built from source.
+      placeholder: 0.33.0
     validations:
       required: true
   - type: dropdown
     id: installation
     attributes:
-      label: How did you install our software?
+      label: How did you install samurai?
       options:
-        - conda or mamba
+        - conda, mamba or micromamba (conda-forge)
+        - spack
         - from source
+        - other (say which in "Additional information")
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - other (say which in "Additional information")
+    validations:
+      required: true
+  - type: input
+    id: compiler
+    attributes:
+      label: Compiler and version
+      description: The output of `c++ --version`, or the name and version of the compiler you use.
+      placeholder: GCC 13.2.0
     validations:
       required: true
   - type: textarea
-    id: version
+    id: cmake-options
     attributes:
-      label: Software version
-      description: The version of our software used where the bug was found.
-      value: "0.x.x"
+      label: CMake options
+      description: The options passed to `cmake` when you configured samurai or your project. It will be formatted as shell, so no need for backticks.
+      placeholder: -DCMAKE_BUILD_TYPE=Release -DWITH_MPI=ON -DWITH_PETSC=ON
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: mpi-processes
+    attributes:
+      label: Number of MPI processes
+      description: Leave empty for a sequential run. Say whether the bug also happens on 1 process.
+      placeholder: 4 (also fails on 1)
+  - type: textarea
+    id: info
+    attributes:
+      label: Output of `--info`
+      description: A program that passes `argc` and `argv` to `samurai::initialize` prints the samurai version, the dependency versions and the build configuration when you run it with `--info`. It will be formatted as text, so no need for backticks.
+      render: text
   - type: textarea
     id: logs
     attributes:
-      label: Relevant log output
-      description: Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
-      render: Shell
+      label: Log output
+      description: The full output of the failing command (compiler errors, CMake errors, run time messages). It will be formatted as text, so no need for backticks.
+      render: text
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional information
+      description: Anything else that helps to reproduce the bug, for example the dependency versions if you did not install them with conda.
   - type: checkboxes
     id: terms
     attributes:
       label: Code of Conduct
-      description: By submitting this issue, you agree to follow our [Code of Conduct](https://github.com/hpc-maths/samurai/blob/master/docs/CODE_OF_CONDUCT.md)
+      description: By submitting this issue, you agree to follow our [Code of Conduct](https://github.com/hpc-maths/samurai/blob/main/docs/CODE_OF_CONDUCT.md).
       options:
         - label: I agree to follow this project's Code of Conduct
           required: true

@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Samurai Community Support
-    url: https://github.com/hpc-maths/samurai/discussions
-    about: Please ask and answer questions here.
+  - name: Ask a question
+    url: https://github.com/hpc-maths/samurai/discussions/categories/q-a
+    about: Ask how to use samurai, or help others, in the Q&A discussions.
+  - name: Documentation
+    url: https://hpc-math-samurai.readthedocs.io
+    about: Tutorials, how-to guides and the reference documentation.
