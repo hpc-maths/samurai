@@ -63,11 +63,15 @@ timers
 
 ## Numerical schemes
 
+- {doc}`schemes`: the finite volume discrete operators, the configuration of user-defined schemes and the functions that combine them.
 - {doc}`bc`: the boundary condition types and `samurai::make_bc`.
+- {doc}`petsc`: `samurai::petsc::solve`, `samurai::petsc::make_solver` and the linear, non-linear and block solvers.
 
 ```{toctree}
 :caption: Numerical schemes
 :hidden:
 
+schemes
 bc
+petsc
 ```
