@@ -121,6 +121,10 @@ html_theme_options = {
         },
     ],
     "primary_sidebar_end": ["sidebar-ethical-ads.html"],
+    # Keep the section links, the search button and the icons on one header row.
+    "navbar_align": "left",
+    "header_links_before_dropdown": 6,
+    "navbar_persistent": ["search-button"],
 }
 
 # Theme options are theme-specific and customize the look and feel of a theme
