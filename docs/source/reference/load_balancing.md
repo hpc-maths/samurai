@@ -403,6 +403,8 @@ Properties:
 - Subdomain boundaries are staircases, in any dimension.
 - When the interface runs out before the flux is met, the deficit is reported in `LoadBalanceStats::unmet_flux`.
 - A rank without MPI neighbour still takes part in the collectives and gives nothing.
+  From a state where some ranks hold no cell, for example after `concentrate_on()`, the ranks that hold the cells have no MPI neighbour, so `Diffusion` moves no cell at all.
+  Use a global strategy to leave such a state.
 
 Communication: point-to-point with the neighbours (neighbour meshes, degrees, loads), one boolean `all_reduce` per flux iteration and one scalar `all_reduce` for the average load.
 There is no gather of the loads.
@@ -412,7 +414,8 @@ Reference: G. Cybenko, *Dynamic load balancing for distributed memory multiproce
 ### Graph partitioners
 
 `Metis` (ParMETIS) and `Scotch` (PT-Scotch) partition the graph of the cells and minimize the edge cut, which approximates the number of ghost values exchanged between ranks.
-Both reject a rank that holds no cell.
+Do not call them while a rank holds no cell.
+With ParMETIS 4.0.3, such a rank prints `PARMETIS ERROR adjncy is NULL` and the run hangs.
 
 ```c++
 #include <samurai/load_balancing/load_balancer.hpp>
@@ -450,9 +453,9 @@ ParMETIS receives the vertex weights only (`wgtflag = 2`).
 - **Geometric k-way** (`MetisOptions::adaptive = false`, the default) calls `ParMETIS_V3_PartGeomKway` with the cell centers.
   If it fails, for example on degenerate coordinates, `ParMETIS_V3_PartKway` is called instead.
 - **Adaptive repartitioning** (`MetisOptions::adaptive = true`) calls `ParMETIS_V3_AdaptiveRepart` with the current partition as a starting point, `itr = 1000` and a redistribution size of 1000 per vertex.
-  The ParMETIS manual recommends 1000 for `itr` when the ratio of communication time to redistribution time is unknown; a high value favors a low edge cut over little data redistribution.
+  `itr` is the ratio of communication time to data redistribution time: a high value favors a low edge cut, a low value favors little data redistribution, and the [ParMETIS 4.x manual](https://github.com/KarypisLab/ParMETIS/blob/main/manual/manual.pdf) (section 5.2) recommends 1000 when the ratio is unknown.
 
-A ParMETIS error is thrown as `std::runtime_error`.
+A ParMETIS return code other than `METIS_OK` is thrown as `std::runtime_error` on the rank that receives it.
 
 #### PT-Scotch
 
@@ -501,7 +504,7 @@ Maintainers: state which of the two meshes the figures come from, the hardware (
 ### Balance and migration on the demo
 
 The comparison of balance and migrated cells in this section (`SFC<Hilbert>` and `Scotch` reach an imbalance close to 0, `Metis` has the lowest edge cut, `Diffusion` migrates the fewest cells per call) was measured on `demos/mpi/load_balancing.cpp` with 2 and 4 processes and a uniform weight.
-With its defaults, the demo advects a disk of radius 0.2 on a periodic unit square, levels 4 to 10, `epsilon = 2e-4`, final time 0.1, and rebalances every 10 time steps.
+With its defaults, the demo advects a disk of radius 0.2 on a periodic unit square, levels 4 to 10, `epsilon = 2e-4`, final time 0.1, and rebalances at time step 1 and every 10 time steps.
 
 ```{admonition} TODO: conditions of the demo comparison
 :class: warning
@@ -531,10 +534,10 @@ mpiexec -n 4 ./mpi-load-balancing-3d --lb-strategy diffusion
 | --- | --- | --- |
 | `--lb-strategy` | `sfc-hilbert` | `void`, `sfc-morton`, `sfc-hilbert`, `diffusion`, and `metis` or `scotch` when built with them. |
 | `--lb-weight` | `uniform` | `uniform`, or `level` for `2^(l - min_level)`. |
-| `--nt-loadbalance` | 10 | Rebalance (or check, with `--lb-threshold`) every N time steps. |
+| `--nt-loadbalance` | 10 | Rebalance (or check, with `--lb-threshold`) at time step 1, then at every multiple of N. |
 | `--lb-threshold` | 0 | If above 0, rebalance only when `required()` is `true` with this threshold. |
 | `--lb-stats-file` | none | Append one CSV line per rebalance (rank 0): time step, time, strategy, weight, ranks, imbalance before and after, migrated cells. |
-| `--lb-skew` | off | Move every cell to rank 0 before the time loop. Not usable with `metis` and `scotch`. |
+| `--lb-skew` | off | Move every cell to rank 0 before the time loop. Not usable with `metis` and `scotch`; `diffusion` moves no cell from this state. |
 | `--lb-sfc-interval` | off | Use interval atoms with the SFC strategies. |
 | `--lb-diffusion-iterations`, `--lb-diffusion-flux-threshold`, `--lb-diffusion-min-retained` | `DiffusionOptions` defaults | Set the {ref}`diffusion options <reference-load-balancing-options>`. |
 
@@ -542,7 +545,8 @@ mpiexec -n 4 ./mpi-load-balancing-3d --lb-strategy diffusion
 
 `benchmark/benchmark_load_balancing.cpp` builds `bench_load_balancing` (`-DBUILD_BENCHMARKS=ON -DWITH_MPI=ON`).
 For each strategy it times `partition()` alone, in 2D and 3D on uniform periodic meshes (128 x 128 and 16 x 16 x 16), 10 iterations each.
-For `SFC` and `Diffusion` it also times a full `load_balance()` from a state where rank 0 holds every cell; `Metis` and `Scotch` are left out of this case because they reject empty ranks.
+For `SFC` and `Diffusion` it also times a full `load_balance()` from a state where rank 0 holds every cell; `Metis` and `Scotch` are left out of this case because they cannot run with empty ranks.
+`Diffusion` moves no cell from this state, so its full-pass time measures the cost of a pass that migrates nothing.
 
 ```bash
 mpiexec -n 4 ./benchmark/bench_load_balancing
