@@ -892,7 +892,7 @@ void(samurai::StencilJacobian<cfg>& jac, const samurai::StencilData<cfg>& data, 
 a matrix of size `output_n_comp x input_n_comp`, which reduces to a scalar when both fields are scalar fields.
 The [flux divergence](#flux-divergence) example below defines one.
 Without a Jacobian function, the explicit application works, but the implicit assembly fails (see [Errors](#errors)).
-The PETSc options `-snes_mf` (matrix-free) and `-snes_fd` (finite differences) compute the Jacobian automatically instead.
+The PETSc option `-snes_mf` (matrix-free Jacobian) solves without it. `-snes_fd` (finite-difference Jacobian) does not work with the default direct solver: the residual does not depend on the ghost unknowns, so the matrix has zero rows there and the factorization fails with a zero pivot ([#625](https://github.com/hpc-maths/samurai/issues/625)).
 
 ### Flux divergence
 
@@ -1085,7 +1085,7 @@ samurai::static_for<0, dim>::apply(
 return samurai::make_flux_based_scheme(upwind_f);
 ```
 
-These discrete operators have no Jacobian function: they can be applied explicitly, and solved implicitly only with `-snes_mf` or `-snes_fd`.
+These discrete operators have no Jacobian function: they can be applied explicitly, and solved implicitly only with `-snes_mf`.
 
 (non_conservative_schemes)=
 
@@ -1397,7 +1397,7 @@ The jacobian function of operator 'burgers' has not been implemented.
 Use option -snes_mf or -snes_fd for an automatic computation of the jacobian matrix.
 ```
 
-Define `cons_jacobian_function` (or `jacobian_function` for a non-conservative scheme), or pass `-snes_mf` or `-snes_fd` to the program.
+Define `cons_jacobian_function` (or `jacobian_function` for a non-conservative scheme), or pass `-snes_mf` to the program (the message also names `-snes_fd`, which fails with the default direct solver, see [#625](https://github.com/hpc-maths/samurai/issues/625)).
 
 Mismatched field types in the ready-made discrete operators fail at compile time with a `static_assert`, for instance
 "The field type for the divergence operator must have a size equal to the space dimension."
