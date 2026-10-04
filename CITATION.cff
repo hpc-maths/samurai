@@ -1,0 +1,35 @@
+cff-version: 1.2.0
+message: If you use samurai in your work, please cite it with the metadata below.
+type: software
+title: samurai
+abstract: >-
+  samurai (Structured Adaptive mesh and MUlti-Resolution based on Algebra of
+  Intervals) is a header-only C++ library for numerical simulation on adaptive
+  Cartesian meshes. It stores the mesh as intervals and implements AMR and
+  multiresolution methods with a set algebra on these intervals.
+authors:
+  - given-names: Thomas
+    family-names: Bellotti
+    orcid: https://orcid.org/0000-0002-4139-075X
+    affiliation: CMAP, CNRS, Ecole polytechnique, Institut Polytechnique de Paris
+  - given-names: Loic
+    family-names: Gouarin
+    orcid: https://orcid.org/0000-0003-4761-9989
+    affiliation: CMAP, CNRS, Ecole polytechnique, Institut Polytechnique de Paris
+  - given-names: Marc
+    family-names: Massot
+    orcid: https://orcid.org/0000-0001-8823-7667
+    affiliation: CMAP, CNRS, Ecole polytechnique, Institut Polytechnique de Paris
+  - given-names: Pierre
+    family-names: Matalon
+    orcid: https://orcid.org/0000-0002-4288-2289
+    affiliation: CMAP, CNRS, Ecole polytechnique, Institut Polytechnique de Paris
+version: 0.33.0
+license: BSD-3-Clause
+repository-code: https://github.com/hpc-maths/samurai
+url: https://hpc-math-samurai.readthedocs.io
+keywords:
+  - mesh adaptation
+  - PDE
+  - AMR
+  - multiresolution

@@ -12,7 +12,7 @@
     "applicationCategory": "scientific computing",
     "author": [
         {
-            "@id": "https://orcid.org/0000-0001-8823-7667",
+            "@id": "https://orcid.org/0000-0002-4139-075X",
             "@type": "Person",
             "affiliation": {
                 "@type": "Organization",
@@ -57,9 +57,8 @@
         }
     ],
     "dateCreated": "2018-12-01",
-    "dateModified": "2025-12-20",
     "datePublished": "2023-04-18",
-    "description": "The use of mesh adaptation methods in numerical simulation allows to drastically reduce the memory footprint and the computational costs. There are different kinds of methods: AMR patch-based, AMR cell-based, multiresolution cell-based or point-based, ...\n\nDifferent open source software is available to the community to manage mesh adaptation: AMReX for patch-based AMR, p4est and pablo for cell-based adaptation.\n\nThe strength of samurai is that it allows to implement all the above mentioned mesh adaptation methods from the same data structure. The mesh is represented as intervals and a set algebra allows to efficiently search for subsets among these intervals. Samurai also offers a flexible and pleasant interface to easily implement numerical methods.",
+    "description": "samurai (Structured Adaptive mesh and MUlti-Resolution based on Algebra of Intervals) is a header-only C++ library for numerical simulation on adaptive Cartesian meshes. Mesh adaptation methods come in several kinds: patch-based AMR, cell-based AMR, and cell-based or point-based multiresolution. Other open source libraries each cover one kind: AMReX for patch-based AMR, p4est and PABLO for cell-based adaptation.\n\nsamurai implements all of these methods on one data structure. The mesh is stored as intervals, and a set algebra on these intervals finds the subsets of cells that a numerical scheme works on.",
     "downloadUrl": "https://github.com/hpc-maths/samurai/releases",
     "keywords": [
         "mesh adaptation",
@@ -75,7 +74,7 @@
         "MacOS"
     ],
     "programmingLanguage": "C++",
-    "version": "0.27.1",
+    "version": "0.33.0",
     "codeRepository": "https://github.com/hpc-maths/samurai",
     "numpex-catalog:annotatedLink": [
         {
