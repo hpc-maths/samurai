@@ -9,9 +9,9 @@ It is a header-only C++ library that stores adaptive Cartesian meshes as sets of
 
 tutorial/index
 howto/index
-philosophy
+Philosophy <philosophy>
 reference/index
-api/index
+API <api/index>
 LBM/index
 ```
 
