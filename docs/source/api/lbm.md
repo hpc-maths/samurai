@@ -84,7 +84,7 @@ The shallow water program `demos/LBM/new_D1Q3_shallow_waters_dam.cpp` closes the
 ```{literalinclude} ../../../demos/LBM/new_D1Q3_shallow_waters_dam.cpp
 :language: c++
 :start-at: auto reservoir = [&scheme](double h_wall)
-:end-at: make_bc<samurai::AntiBounceBack>
+:end-at: ->on(right);
 :dedent: 8
 ```
 
@@ -93,7 +93,7 @@ The Euler program `demos/LBM/new_D2Q4444_euler_implosion.cpp` has four blocks of
 ```{literalinclude} ../../../demos/LBM/new_D2Q4444_euler_implosion.cpp
 :language: c++
 :start-at: std::array<std::array<int, dim>, 16> velocities{};
-:end-at: make_bc<samurai::BounceBack>
+:end-at: block_odd_axis);
 :dedent: 4
 ```
 
