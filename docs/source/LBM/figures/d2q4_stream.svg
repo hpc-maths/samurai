@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="280" viewBox="0 0 680 280" font-family="DejaVu Sans, Arial, sans-serif" font-size="14">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1f4e9c"/>
+    </marker>
+    <marker id="arrow-small" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#b33c1b"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="680" height="280" rx="8" fill="#ffffff"/>
+
+  <!-- Left panel: the D2Q4 velocity set -->
+  <g transform="translate(24, 0)">
+  <text x="150" y="28" text-anchor="middle" font-weight="bold" fill="#222222">D2Q4 velocity set</text>
+  <g fill="none" stroke="#9a9a9a" stroke-dasharray="4 3">
+    <rect x="120" y="60" width="60" height="60"/>
+    <rect x="60" y="120" width="60" height="60"/>
+    <rect x="180" y="120" width="60" height="60"/>
+    <rect x="120" y="180" width="60" height="60"/>
+  </g>
+  <rect x="120" y="120" width="60" height="60" fill="#e8eef9" stroke="#222222" stroke-width="1.5"/>
+  <g stroke="#1f4e9c" stroke-width="2.5" marker-end="url(#arrow)">
+    <line x1="150" y1="150" x2="208" y2="150"/>
+    <line x1="150" y1="150" x2="150" y2="92"/>
+    <line x1="150" y1="150" x2="92" y2="150"/>
+    <line x1="150" y1="150" x2="150" y2="208"/>
+  </g>
+  <circle cx="150" cy="150" r="3.5" fill="#222222"/>
+  <g fill="#1f4e9c">
+    <text x="248" y="155">0: (1, 0)</text>
+    <text x="150" y="52" text-anchor="middle">1: (0, 1)</text>
+    <text x="52" y="155" text-anchor="end">2: (−1, 0)</text>
+    <text x="150" y="258" text-anchor="middle">3: (0, −1)</text>
+  </g>
+  </g>
+
+  <!-- Right panel: stream of f_0 into a coarse cell -->
+  <text x="500" y="28" text-anchor="middle" font-weight="bold" fill="#222222">Stream of f₀ into a coarse cell</text>
+  <!-- donor slice: C shifted by -c0 -->
+  <rect x="400" y="80" width="100" height="100" fill="#f6d9cf"/>
+  <g fill="none" stroke="#9a9a9a">
+    <rect x="350" y="80" width="50" height="50"/>
+    <rect x="400" y="80" width="50" height="50"/>
+    <rect x="450" y="80" width="50" height="50"/>
+    <rect x="500" y="80" width="50" height="50"/>
+    <rect x="550" y="80" width="50" height="50"/>
+    <rect x="350" y="130" width="50" height="50"/>
+    <rect x="400" y="130" width="50" height="50"/>
+    <rect x="450" y="130" width="50" height="50"/>
+    <rect x="500" y="130" width="50" height="50"/>
+    <rect x="550" y="130" width="50" height="50"/>
+  </g>
+  <rect x="450" y="80" width="100" height="100" fill="none" stroke="#222222" stroke-width="3"/>
+  <g stroke="#b33c1b" stroke-width="2" marker-end="url(#arrow-small)">
+    <line x1="418" y1="105" x2="472" y2="105"/>
+    <line x1="468" y1="112" x2="522" y2="112"/>
+    <line x1="418" y1="155" x2="472" y2="155"/>
+    <line x1="468" y1="162" x2="522" y2="162"/>
+  </g>
+  <text x="550" y="70" text-anchor="middle" fill="#222222">coarse cell C, level L − 1</text>
+  <text x="450" y="204" text-anchor="middle" fill="#b33c1b">donor sub-cells: C shifted by −c₀,</text>
+  <text x="450" y="222" text-anchor="middle" fill="#b33c1b">reconstructed at level L</text>
+  <text x="500" y="256" text-anchor="middle" fill="#444444" font-size="13">f₀(C) is the mean of the 4 streamed fine values</text>
+</svg>
