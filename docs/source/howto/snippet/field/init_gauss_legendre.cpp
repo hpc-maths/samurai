@@ -1,7 +1,5 @@
-#include <cmath>
 #include <iostream>
 
-#include <samurai/algorithm.hpp>
 #include <samurai/box.hpp>
 #include <samurai/field.hpp>
 #include <samurai/mr/mesh.hpp>
@@ -16,7 +14,6 @@ int main(int argc, char* argv[])
     samurai::Box<double, dim> box({0.0, 0.0}, {1.0, 1.0});
 
     auto config = samurai::mesh_config<dim>();
-
     config.min_level(0).max_level(1);
     auto mesh = samurai::mra::make_mesh(box, config);
 
@@ -27,14 +24,7 @@ int main(int argc, char* argv[])
     // Exact for polynomials up to degree 2
     samurai::GaussLegendre<2> gl;
 
-    // Integral of f over the cell divided by the cell volume
-    auto u       = samurai::make_scalar_field<double>("u", mesh, 0.);
-    auto average = [&](const auto& cell)
-    {
-        const double volume = std::pow(cell.length, dim);
-        u[cell]             = gl.quadrature<1>(cell, f) / volume;
-    };
-    samurai::for_each_cell(mesh, average);
+    auto u = samurai::make_scalar_field<double>("u", mesh, f, gl);
 
     std::cout << u << std::endl;
 

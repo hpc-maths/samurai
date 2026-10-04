@@ -14,7 +14,6 @@ int main(int argc, char* argv[])
     samurai::Box<double, dim> box({0.0, 0.0}, {1.0, 1.0});
 
     auto config = samurai::mesh_config<dim>();
-
     config.min_level(0).max_level(1);
     auto mesh = samurai::mra::make_mesh(box, config);
 

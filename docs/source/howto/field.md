@@ -107,8 +107,8 @@ The complete program is in `docs/source/howto/snippet/field/init_function.cpp`; 
 
 ### Average a function over each cell
 
-To store the cell average of a function instead of its value at the center, compute the integral of the function over each cell with a `samurai::GaussLegendre<degree>` quadrature and divide it by the cell volume.
-The quadrature is exact for polynomials up to `degree`.
+Pass a `samurai::GaussLegendre<degree>` object after the function to store the cell average of the function instead of its value at the center.
+The quadrature is exact for polynomials up to `degree`, and the ghost cells are set to 0.
 Use this form when your scheme works on cell averages, as finite volume schemes do:
 
 ```{literalinclude} snippet/field/init_gauss_legendre.cpp
@@ -127,12 +127,6 @@ Field u
     level: 1 coords: { 0.75,  0.25} index: 24, value: 0.583333
     level: 1 coords: { 0.25,  0.75} index: 29, value: 0.0833333
     level: 1 coords: { 0.75,  0.75} index: 30, value: 0.583333
-```
-
-```{note}
-`make_scalar_field` and `make_vector_field` also have an overload that takes the function and the `GaussLegendre` object, `make_scalar_field<double>("u", mesh, f, gl)`.
-It does not compile in this version of samurai, because it calls the non-const method `GaussLegendre::quadrature` on a const reference.
-TODO: use this overload in the example once it compiles.
 ```
 
 The complete program is in `docs/source/howto/snippet/field/init_gauss_legendre.cpp`.
