@@ -3,15 +3,12 @@
 This guide shows you how to write a samurai mesh and its fields to disk so that you can post-process and visualize them.
 The `save` function writes an HDF5 file and an XDMF file that ParaView opens directly.
 
-samurai has two families of output functions:
-
-- `save` writes the mesh and fields for post-processing: an HDF5 file and an XDMF file.
-- `dump` and `load` write and read restart files: an HDF5 file only, with no XDMF file.
+To write a checkpoint that your program can read back, use `dump` and `load` instead, as the [restart how-to guide](restart.md) explains.
 
 ## Before you start
 
 - You have a mesh and fields. If not, see the [mesh how-to guide](mesh.md) and the [field how-to guide](field.md).
-- Include `samurai/io/hdf5.hpp` to use `save`, and `samurai/io/restart.hpp` to use `dump` and `load`.
+- Include `samurai/io/hdf5.hpp`.
 - Call `samurai::initialize(argc, argv)` at the start of `main` and `samurai::finalize()` at the end if your build uses MPI or if you want the `--save-debug-fields` option.
   `initialize` starts MPI and reads the samurai command-line options.
 - For an MPI build, HDF5 must be built with parallel (MPI-IO) support.
@@ -126,27 +123,8 @@ With a directory, as in the snippet above, the braced list works.
    For a run on one process, the file holds the datasets `/mesh/points`, `/mesh/connectivity`, `/mesh/fields/u` and `/mesh/fields/v_0` to `/mesh/fields/v_2`.
 3. Open `fields.xdmf` (not the `.h5` file) in ParaView with **File > Open**. The fields `u`, `v_0`, `v_1` and `v_2` appear in the list of cell arrays.
 
-## Save for a restart
-
-To write a file that your program can read back, use `dump` and `load`:
-
-```{literalinclude} snippet/save/dump_mesh.cpp
-    :language: c++
-```
-
-`dump` writes `restart_file.h5` in the current directory.
-`load` reads it back: it replaces the mesh with the saved one and fills the fields that have the same names.
-
-- `dump` writes no XDMF file. Use `save` for files that you open in ParaView.
-- `dump` does not create the directory: it must exist.
-- The fields you pass to `load` must have the same names and number of components as the dumped fields.
-
-```{warning}
-In an MPI program, run `load` with the same number of MPI processes as `dump`.
-Otherwise, `load` throws `std::runtime_error` with the message `The number of processes in the restart file (...) does not match the current number of processes (...)`.
-```
-
 ## Related
 
 - [How-to: plot samurai fields and meshes](plot.md), to visualize the files that `save` writes.
 - [How-to: set options in samurai](options.md), for the other samurai command-line options.
+- [How-to: restart a simulation from a checkpoint](restart.md), to write files that your program reads back with `load`.
