@@ -61,24 +61,10 @@ suppress_warnings = ["duplicate_declaration.cpp"]
 templates_path = ["_templates"]
 
 # The suffix(es) of source filenames.
-# Pages are written in reStructuredText or MyST Markdown. A docname has no
-# extension, so converting `page.rst` to `page.md` keeps its URL and its
-# toctree entries.
-source_suffix = {
-    ".rst": "restructuredtext",
-    ".md": "markdown",
-}
+# Every page is written in MyST Markdown.
+source_suffix = {".md": "markdown"}
 
-rst_epilog = f"""
-.. |project| replace:: {project}
-
-.. role:: cpp_code(code)
-   :language: c++
-
-"""
-
-# MyST counterpart of the `|project|` substitution in `rst_epilog`:
-# write `{{ project }}` in Markdown pages.
+# Write `{{ project }}` in a page to get the project name.
 myst_substitutions = {"project": project}
 
 # The master toctree document.
