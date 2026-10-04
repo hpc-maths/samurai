@@ -1,3 +1,5 @@
+#include <iostream>
+
 #include <samurai/box.hpp>
 #include <samurai/field.hpp>
 #include <samurai/mr/mesh.hpp>
@@ -13,11 +15,17 @@ int main(int argc, char* argv[])
 
     auto config = samurai::mesh_config<dim>();
 
-    config.min_level(2).max_level(5);
+    config.min_level(0).max_level(1);
     auto mesh = samurai::mra::make_mesh(box, config);
 
-    // A field with 3 components
-    auto field = samurai::make_vector_field<double, 3>("v", mesh);
+    // 1 on the left half of the domain, 0 on the right half
+    auto step = [](const auto& x)
+    {
+        return (x[0] < 0.5) ? 1. : 0.;
+    };
+    auto u = samurai::make_scalar_field<double>("u", mesh, step);
+
+    std::cout << u << std::endl;
 
     samurai::finalize();
     return 0;
