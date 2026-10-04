@@ -255,7 +255,7 @@ namespace samurai
         for_each_cell(mesh,
                       [&](const auto& cell)
                       {
-                          field[cell] = gl.template quadrature<n_comp>(cell, f) / pow(cell.length, mesh_t::dim);
+                          field[cell] = xt::eval(gl.template quadrature<n_comp>(cell, f) / pow(cell.length, mesh_t::dim));
                       });
         return field;
     }
