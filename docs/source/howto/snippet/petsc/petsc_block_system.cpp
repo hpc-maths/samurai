@@ -5,9 +5,6 @@
 #include <samurai/samurai.hpp>
 #include <samurai/schemes/fv.hpp>
 
-// This example needs PETSc: it does nothing in a build without it.
-#ifdef SAMURAI_WITH_PETSC
-
 void solve_coupled_heat()
 {
     samurai::Box<double, 2> box({0., 0.}, {1., 1.});
@@ -67,13 +64,3 @@ int main(int argc, char** argv)
     samurai::finalize();
     return 0;
 }
-
-#else
-
-int main()
-{
-    std::cout << "This example needs PETSc." << std::endl;
-    return 0;
-}
-
-#endif

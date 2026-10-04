@@ -17,7 +17,7 @@ The same steps cover linear schemes, non-linear schemes (Newton's method) and bl
 
 The examples of this guide live in `docs/source/howto/snippet/petsc/`.
 Each one solves three backward Euler steps of a heat equation on a uniform 2D mesh of the unit square, and prints the iterations and the residual of each solve.
-They are wrapped in `#ifdef SAMURAI_WITH_PETSC`, so that they still compile in a build without PETSc.
+In the samurai source tree, `-DBUILD_SNIPPETS=ON` builds them when `-DWITH_PETSC=ON` is set too.
 
 ## Pass the command line to PETSc
 
@@ -26,7 +26,6 @@ Call `samurai::initialize` with `argc` and `argv`, then `SAMURAI_PARSE`, at the 
 ```{literalinclude} snippet/petsc/petsc_linear_heat.cpp
   :language: c++
   :start-at: int main
-  :end-before: "#else"
 ```
 
 In a PETSc build, `samurai::initialize` calls `PetscInitialize` with `argc` and `argv`, which also initializes MPI, and `samurai::finalize` calls `PetscFinalize`.
@@ -338,5 +337,6 @@ Rank 0 owns the global rows 0 to 31 and rank 1 the rows 32 to 63; each rank also
 
 - The {doc}`reaction-diffusion tutorial <../tutorial/reaction_diffusion>`, which solves linear and non-linear implicit schemes step by step.
 - The {doc}`finite volume schemes reference <../reference/finite_volume_schemes>` and the {doc}`local schemes reference <../reference/local_schemes>`, to build the operators you solve.
+- The {doc}`PETSc API reference <../api/petsc>`, for the solver classes and their members.
 - {doc}`cmake`, to turn on PETSc and MPI in your project, and {doc}`options`, for the samurai command-line options.
 - The demos `demos/FiniteVolume/heat.cpp`, `heat_nonlinear.cpp`, `nagumo.cpp`, `stokes_2d.cpp` and `lid_driven_cavity.cpp`.

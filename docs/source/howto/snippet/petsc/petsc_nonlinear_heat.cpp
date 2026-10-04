@@ -6,9 +6,6 @@
 #include <samurai/samurai.hpp>
 #include <samurai/schemes/fv.hpp>
 
-// This example needs PETSc: it does nothing in a build without it.
-#ifdef SAMURAI_WITH_PETSC
-
 // Largest value of |f - g| over the cells of all ranks
 template <class Field>
 double max_diff(const Field& f, const Field& g)
@@ -128,13 +125,3 @@ int main(int argc, char** argv)
     samurai::finalize();
     return 0;
 }
-
-#else
-
-int main()
-{
-    std::cout << "This example needs PETSc." << std::endl;
-    return 0;
-}
-
-#endif
