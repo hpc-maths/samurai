@@ -6,7 +6,7 @@ This guide shows how to visit the cells of a samurai mesh, either one cell at a 
 
 You need a samurai mesh. If you don't have one yet, see the {doc}`mesh how-to <mesh>`. The examples that set field values also create a scalar field; the {doc}`field how-to <field>` explains how.
 
-Called on a mesh, both loops visit the cells that hold the solution (`mesh[mesh_id_t::cells]`), at whatever level they sit. To visit other cells, such as the ghost cells, pass a sub-mesh or a subset instead of the mesh: see {ref}`howto-loop-choose-cells`.
+Called on a mesh, both loops visit the cells that hold the solution (`mesh[mesh_id_t::cells]`), at whatever level they sit. To visit other cells, such as the ghost cells, pass a sub-mesh or a set expression instead of the mesh: see {ref}`howto-loop-choose-cells`.
 
 ## Looping over cells
 
@@ -29,13 +29,13 @@ Besides `level` and `center()`, a cell gives its length (`cell.length`), the cen
 
 ## Setting field values cell by cell
 
-Inside the loop, `field[cell]` gives the value of a field at that cell, and you can read or write it. The following example initializes a scalar field `u` with a Gaussian centered at $(0.5, 0.5)$, $u(x, y) = e^{-20\left((x - 0.5)^2 + (y - 0.5)^2\right)}$:
+Inside the loop, `u[cell]` gives the value of the field `u` at that cell, and you can read or write it. The following example initializes a scalar field `u` with a Gaussian centered at $(0.5, 0.5)$, $u(x, y) = e^{-20\left((x - 0.5)^2 + (y - 0.5)^2\right)}$:
 
 ```{literalinclude} snippet/loop/for_each_cell_field.cpp
   :language: c++
 ```
 
-`cell.center(0)` and `cell.center(1)` are the $x$ and $y$ coordinates of the cell center. The program prints nothing; to look at the field, save it as described in the {doc}`save how-to <save>`.
+`cell.center(0)` and `cell.center(1)` are the $x$ and $y$ coordinates of the cell center; the example subtracts 0.5 from them to get the distance to the center of the Gaussian. The program prints nothing; to look at the field, save it as described in the {doc}`save how-to <save>`.
 
 For a vector field, `field[cell]` holds all the components of the cell. Add a second `[]` to reach one component:
 
@@ -53,15 +53,18 @@ The following example prints the level, the interval and the $y$ index of each i
   :language: c++
 ```
 
-All the cells are at level 5, so there is one interval per row: the program prints 32 lines, with `y` going from 0 to 31. An interval prints as `[start,end)@offset:step`, where `start` and `end` are the first index and one past the last index along $x$, `offset` is the shift that gives the position of the cells in the field storage, and `step` is the stride between indices. Each line has the form:
+All the cells are at level 5, so there is one interval per row: the program prints 32 lines, with `y` going from 0 to 31. An interval prints as `[start,end)@offset:step`, where `start` and `end` are the first index and one past the last index along $x$, `offset` is the shift that gives the position of the cells in the field storage, and `step` is the stride between indices. The first lines and the last one are:
 
 ```text
-Level: 5, x: [0,32)@<offset>:1, y: 0
+Level: 5, x: [0,32)@498:1, y: 0
+Level: 5, x: [0,32)@534:1, y: 1
+...
+Level: 5, x: [0,32)@1614:1, y: 31
 ```
 
 ## Setting field values interval by interval
 
-The next example initializes the same Gaussian as above, on the box $[-1, 1]^2$ with levels 0 to 2, one interval at a time:
+The next example initializes the same Gaussian as above, on the same mesh, one interval at a time:
 
 ```{literalinclude} snippet/loop/for_each_interval_field.cpp
   :language: c++
@@ -69,12 +72,13 @@ The next example initializes the same Gaussian as above, on the box $[-1, 1]^2$ 
 
 Inside the loop:
 
+- `h = mesh.cell_length(level)` is the length of the cells of the interval, and `o = mesh.origin_point()` is the lower corner of the box.
 - `j = index[0]` is the $y$ index of the interval.
-- `xt::arange(i.start, i.end)` lists the $x$ indices of the cells of the interval. Adding 0.5, multiplying by the cell length `mesh.cell_length(level)` and adding the origin of the mesh `mesh.origin_point()[0]` gives the $x$ coordinates of the cell centers, as an xtensor expression.
-- `y` is the $y$ coordinate of the cell centers of the row, a single number.
-- `field(level, i, j)` is a view on the values of the field for the cells of the interval. Assigning an xtensor expression to it writes all these values at once.
+- `xt::arange(i.start, i.end)` lists the $x$ indices of the cells of the interval. Adding 0.5, multiplying by `h` and adding `o[0]` gives the $x$ coordinates of the cell centers, as an xtensor expression. The example then subtracts 0.5, the $x$ coordinate of the center of the Gaussian.
+- `y` is the $y$ coordinate of the cell centers of the row, minus 0.5: a single number.
+- `u(level, i, j)` is a view on the values of the field for the cells of the interval. Assigning an xtensor expression to it writes all these values at once.
 
-The program prints one line per interval, with the level, the $x$ coordinates of the cell centers of the interval and their common $y$ coordinate.
+Like the cell version, the program prints nothing.
 
 For a vector field, put the component index first:
 
@@ -85,7 +89,7 @@ field(component_index, level, i, j) = value;
 In 3D, add the $z$ index after `j`: `field(level, i, j, k)`.
 
 ```{warning}
-`field(level, i, j)` is an xtensor view, not a number, so the math functions of the standard library such as `std::sin` and `std::exp` don't accept it. Use the xtensor functions instead, such as `xt::sin` and `xt::exp`, as the example does.
+`u(level, i, j)` is an xtensor view, not a number, so the math functions of the standard library such as `std::sin` and `std::exp` don't accept it. Use the xtensor functions instead, such as `xt::sin` and `xt::exp`, as the example does.
 ```
 
 (howto-loop-choose-cells)=
@@ -94,34 +98,14 @@ In 3D, add the $z$ index after `j`: `field(level, i, j, k)`.
 
 A samurai mesh stores several sets of cells, selected by a `mesh_id_t` value. `for_each_cell(mesh, f)` and `for_each_interval(mesh, f)` use `mesh[mesh_id_t::cells]`. Pass another set to visit other cells:
 
-```c++
-using mesh_id_t = typename std::decay_t<decltype(mesh)>::mesh_id_t;
-
-// the cells and their ghost cells
-samurai::for_each_cell(mesh[mesh_id_t::cells_and_ghosts],
-                       [&](const auto& cell)
-                       {
-                           std::cout << cell.level << " " << cell.center() << std::endl;
-                       });
-
-// the cells of one level
-samurai::for_each_interval(mesh[mesh_id_t::cells][level],
-                           [&](std::size_t level, const auto& i, const auto& index)
-                           {
-                               std::cout << level << " " << i << " " << index << std::endl;
-                           });
-
-// the ghost cells of one level only, built with the set algebra
-auto ghosts = samurai::difference(mesh[mesh_id_t::cells_and_ghosts][level], mesh[mesh_id_t::cells][level]);
-samurai::for_each_cell(mesh,
-                       ghosts,
-                       [&](const auto& cell)
-                       {
-                           std::cout << cell.center() << std::endl;
-                       });
+```{literalinclude} snippet/loop/choose_cells.cpp
+  :language: c++
+  :start-at: using mesh_id_t
+  :end-at: samurai::for_each_cell(mesh, ghosts
+  :dedent:
 ```
 
-`mesh[id]` holds every level and `mesh[id][level]` one level. A subset is any expression of the set algebra (`intersection`, `union_`, `difference`, `translate`, ...); `for_each_interval(set, f)` loops over its intervals and `for_each_cell(mesh, set, f)` over its cells.
+`mesh[id]` holds every level and `mesh[id][level]` one level. A set expression is any expression of the set algebra (`intersection`, `union_`, `difference`, `translate`, ...); `for_each_interval(set, f)` loops over its intervals and `for_each_cell(mesh, set, f)` over its cells.
 
 The available sets depend on the mesh type:
 
@@ -129,7 +113,7 @@ The available sets depend on the mesh type:
 | --- | --- | --- | --- | --- |
 | `cells` | yes | yes | yes | the cells that hold the solution |
 | `cells_and_ghosts` | yes | yes | yes | the cells and their ghost cells |
-| `proj_cells` | | yes | yes | the cells computed by projection from the finer level |
+| `proj_cells` | | yes | yes | the cells computed by field projection from the finer level |
 | `pred_cells` | | | yes | the cells filled by the prediction operator |
 | `union_cells` | | yes | | the cells used by the multiresolution analysis |
 | `all_cells` | | yes | yes | every cell stored by the mesh |
@@ -138,12 +122,11 @@ The available sets depend on the mesh type:
 
 `samurai::for_each_cell` takes an optional template argument that selects how the loop runs. With `samurai::Run::Parallel`, the cells of each level are split into OpenMP tasks:
 
-```cpp
-samurai::for_each_cell<samurai::Run::Parallel>(mesh,
-                                               [&](const auto& cell)
-                                               {
-                                                   field[cell] = cell.center(0);
-                                               });
+```{literalinclude} snippet/loop/for_each_cell_parallel.cpp
+  :language: c++
+  :start-at: auto set_value
+  :end-at: samurai::for_each_cell<
+  :dedent:
 ```
 
 The loop runs in parallel only when samurai is built with OpenMP: set the CMake option `WITH_OPENMP=ON` when you build samurai, or `SAMURAI_WITH_OPENMP=ON` in a project that finds samurai with `find_package`. Otherwise it runs sequentially. The function is then called from several threads at once, so it must only write to data that belongs to the current cell. The default, `samurai::Run::Sequential`, visits the cells in the order shown above. `samurai::for_each_interval` has no parallel variant.

@@ -1,4 +1,3 @@
-#include <cmath>
 #include <iostream>
 
 #include <samurai/algorithm.hpp>
@@ -22,11 +21,9 @@ int main(int argc, char* argv[])
 
     auto set_value = [&](const auto& cell)
     {
-        const double x = cell.center(0) - 0.5;
-        const double y = cell.center(1) - 0.5;
-        u[cell]        = std::exp(-20. * (x * x + y * y));
+        u[cell] = cell.center(0);
     };
-    samurai::for_each_cell(mesh, set_value);
+    samurai::for_each_cell<samurai::Run::Parallel>(mesh, set_value);
 
     samurai::finalize();
     return 0;
