@@ -12,22 +12,29 @@
 namespace fs = std::filesystem;
 
 template <std::size_t dim>
-double exact_solution(xt::xtensor_fixed<double, xt::xshape<dim>> coords, double t, double diff_coeff)
+double exact_solution(xt::xtensor_fixed<double, xt::xshape<dim>> x,
+                      double t,
+                      double diff_coeff)
 {
     assert(t > 0 && "t must be > 0");
     double result = 1;
     for (std::size_t d = 0; d < dim; ++d)
     {
-        result *= 1 / (2 * sqrt(M_PI * diff_coeff * t)) * exp(-coords(d) * coords(d) / (4 * diff_coeff * t));
+        result *= 1 / (2 * sqrt(M_PI * diff_coeff * t))
+                * exp(-x(d) * x(d) / (4 * diff_coeff * t));
     }
     return result;
 }
 
 template <class Field>
-void save(const fs::path& path, const std::string& filename, const Field& u, const std::string& suffix = "")
+void save(const fs::path& path,
+          const std::string& filename,
+          const Field& u,
+          const std::string& suffix = "")
 {
-    auto mesh   = u.mesh();
-    auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
+    auto mesh = u.mesh();
+    auto level_ =
+        samurai::make_scalar_field<std::size_t>("level", mesh);
 
     if (!fs::exists(path))
     {
@@ -42,22 +49,39 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 
 #ifdef SAMURAI_WITH_MPI
     mpi::communicator world;
-    samurai::save(path, fmt::format("{}_size_{}{}", filename, world.size(), suffix), mesh, u, level_);
+    samurai::save(
+        path,
+        fmt::format("{}_size_{}{}", filename, world.size(), suffix),
+        mesh,
+        u,
+        level_);
 #else
-    samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
-    samurai::dump(path, fmt::format("{}_restart{}", filename, suffix), mesh, u);
+    samurai::save(path,
+                  fmt::format("{}{}", filename, suffix),
+                  mesh,
+                  u,
+                  level_);
+    samurai::dump(path,
+                  fmt::format("{}_restart{}", filename, suffix),
+                  mesh,
+                  u);
 #endif
 }
 
 int main(int argc, char* argv[])
 {
-    auto& app = samurai::initialize("Finite volume example for the heat equation", argc, argv);
+    auto& app = samurai::initialize(
+        "Finite volume example for the heat equation",
+        argc,
+        argv);
 
     static constexpr std::size_t dim = 2;
     using Box                        = samurai::Box<double, dim>;
     using point_t                    = typename Box::point_t;
 
-    std::cout << "------------------------- Heat -------------------------" << std::endl;
+    std::cout
+        << "------------------------- Heat -------------------------"
+        << std::endl;
 
     //--------------------//
     // Program parameters //
@@ -92,19 +116,49 @@ int main(int argc, char* argv[])
     std::string filename       = "heat_" + std::to_string(dim) + "D";
     bool save_final_state_only = false;
 
-    app.add_option("--left", left_box, "The left border of the box")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--right", right_box, "The right border of the box")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--init-sol", init_sol, "Initial solution: dirac/crenel")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--diff-coeff", diff_coeff, "Diffusion coefficient")->capture_default_str()->group("Simulation parameters");
-    app.add_flag("--explicit", explicit_scheme, "Explicit scheme instead of implicit")->group("Simulation parameters");
-    app.add_option("--Ti", t0, "Initial time")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
-    app.add_flag("--save-final-state-only", save_final_state_only, "Save final state only")->group("Output");
+    app.add_option("--left", left_box, "The left border of the box")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_option("--right", right_box, "The right border of the box")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_option("--init-sol",
+                   init_sol,
+                   "Initial solution: dirac/crenel")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_option("--diff-coeff", diff_coeff, "Diffusion coefficient")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_flag("--explicit",
+                 explicit_scheme,
+                 "Explicit scheme instead of implicit")
+        ->group("Simulation parameters");
+    app.add_option("--Ti", t0, "Initial time")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_option("--Tf", Tf, "Final time")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_option("--restart-file", restart_file, "Restart file")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_option("--dt", dt, "Time step")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_option("--cfl", cfl, "The CFL")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_option("--path", path, "Output path")
+        ->capture_default_str()
+        ->group("Output");
+    app.add_option("--filename", filename, "File name prefix")
+        ->capture_default_str()
+        ->group("Output");
+    app.add_flag("--save-final-state-only",
+                 save_final_state_only,
+                 "Save final state only")
+        ->group("Output");
     SAMURAI_PARSE(argc, argv);
 
     //--------------------//
@@ -115,8 +169,12 @@ int main(int argc, char* argv[])
     box_corner1.fill(left_box);
     box_corner2.fill(right_box);
     Box box(box_corner1, box_corner2);
-    auto config = samurai::mesh_config<dim>().min_level(4).max_level(dim == 1 ? 5 : 8).max_stencil_size(2).disable_minimal_ghost_width();
-    auto mesh   = samurai::mra::make_empty_mesh(config);
+    auto config = samurai::mesh_config<dim>()
+                      .min_level(4)
+                      .max_level(dim == 1 ? 5 : 8)
+                      .max_stencil_size(2)
+                      .disable_minimal_ghost_width();
+    auto mesh = samurai::mra::make_empty_mesh(config);
 
     auto u = samurai::make_scalar_field<double>("u", mesh);
 
@@ -127,25 +185,32 @@ int main(int argc, char* argv[])
         // Initial solution
         if (init_sol == "dirac")
         {
-            t0 = 1e-2; // in this particular case, the exact solution is not defined for t=0
-            samurai::for_each_cell(mesh,
-                                   [&](auto& cell)
-                                   {
-                                       u[cell] = exact_solution(cell.center(), t0, diff_coeff);
-                                   });
+            // in this particular case, the exact solution is not
+            // defined for t=0
+            t0 = 1e-2;
+            samurai::for_each_cell(
+                mesh,
+                [&](auto& cell)
+                {
+                    u[cell] =
+                        exact_solution(cell.center(), t0, diff_coeff);
+                });
         }
         else // crenel
         {
-            samurai::for_each_cell(mesh,
-                                   [&](auto& cell)
-                                   {
-                                       bool is_in_crenel = true;
-                                       for (std::size_t d = 0; d < dim; ++d)
-                                       {
-                                           is_in_crenel = is_in_crenel && (abs(cell.center(d)) < right_box / 3);
-                                       }
-                                       u[cell] = is_in_crenel ? 1 : 0;
-                                   });
+            samurai::for_each_cell(
+                mesh,
+                [&](auto& cell)
+                {
+                    bool is_in_crenel = true;
+                    for (std::size_t d = 0; d < dim; ++d)
+                    {
+                        is_in_crenel =
+                            is_in_crenel
+                            && (abs(cell.center(d)) < right_box / 3);
+                    }
+                    u[cell] = is_in_crenel ? 1 : 0;
+                });
         }
     }
     else
@@ -184,7 +249,8 @@ int main(int argc, char* argv[])
         save(path, filename, u, fmt::format("_ite_{}", nsave++));
     }
 
-    auto back_euler_solver = samurai::petsc::make_solver(id + dt * diff);
+    auto back_euler_solver =
+        samurai::petsc::make_solver(id + dt * diff);
     back_euler_solver.set_unknown(unp1);
     back_euler_solver.configure = [](KSP& ksp, PC& pc)
     {
@@ -203,7 +269,11 @@ int main(int argc, char* argv[])
             t = Tf;
             back_euler_solver.set_scheme(id + dt * diff);
         }
-        std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt) << std::flush;
+        std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}",
+                                 nt++,
+                                 t,
+                                 dt)
+                  << std::flush;
 
         // Mesh adaptation
         MRadaptation(mra_config);
@@ -232,14 +302,16 @@ int main(int argc, char* argv[])
             save(path, filename, u, fmt::format("_ite_{}", nsave++));
         }
 
-        // Compute the error at instant t with respect to the exact solution
+        // Compute the error at instant t with respect to the exact
+        // solution
         if (init_sol == "dirac")
         {
-            double error = samurai::L2_error(u,
-                                             [&](const auto& coord)
-                                             {
-                                                 return exact_solution(coord, t, diff_coeff);
-                                             });
+            double error = samurai::L2_error(
+                u,
+                [&](const auto& coord)
+                {
+                    return exact_solution(coord, t, diff_coeff);
+                });
             std::cout.precision(2);
             std::cout << ", L2-error: " << std::scientific << error;
         }
@@ -249,8 +321,11 @@ int main(int argc, char* argv[])
     if (!save_final_state_only && dim == 1)
     {
         std::cout << std::endl;
-        std::cout << "Run the following command to view the results:" << std::endl;
-        std::cout << "python <<path to samurai>>/python/read_mesh.py " << filename << "_ite_ --field u level --start 1 --end " << nsave
+        std::cout << "Run the following command to view the results:"
+                  << std::endl;
+        std::cout << "python <<path to samurai>>/python/read_mesh.py "
+                  << filename
+                  << "_ite_ --field u level --start 1 --end " << nsave
                   << std::endl;
     }
 

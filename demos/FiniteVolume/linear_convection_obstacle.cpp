@@ -12,10 +12,14 @@
 namespace fs = std::filesystem;
 
 template <class Field>
-void save(const fs::path& path, const std::string& filename, const Field& u, const std::string& suffix = "")
+void save(const fs::path& path,
+          const std::string& filename,
+          const Field& u,
+          const std::string& suffix = "")
 {
-    auto mesh   = u.mesh();
-    auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
+    auto mesh = u.mesh();
+    auto level_ =
+        samurai::make_scalar_field<std::size_t>("level", mesh);
 
     if (!fs::exists(path))
     {
@@ -28,16 +32,25 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
                                level_[cell] = cell.level;
                            });
 
-    samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
+    samurai::save(path,
+                  fmt::format("{}{}", filename, suffix),
+                  mesh,
+                  u,
+                  level_);
 }
 
 int main(int argc, char* argv[])
 {
-    auto& app = samurai::initialize("Finite volume example for the linear convection equation", argc, argv);
+    auto& app = samurai::initialize(
+        "Finite volume example for the linear convection equation",
+        argc,
+        argv);
 
     static constexpr std::size_t dim = 2;
 
-    std::cout << "------------------------- Linear convection -------------------------" << std::endl;
+    std::cout << "------------------------- Linear convection "
+                 "-------------------------"
+              << std::endl;
 
     //--------------------//
     // Program parameters //
@@ -57,12 +70,24 @@ int main(int argc, char* argv[])
     std::string filename = "linear_convection_obstacle";
     std::size_t nfiles   = 0;
 
-    app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
-    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
+    app.add_option("--Tf", Tf, "Final time")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_option("--dt", dt, "Time step")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_option("--cfl", cfl, "The CFL")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_option("--path", path, "Output path")
+        ->capture_default_str()
+        ->group("Output");
+    app.add_option("--filename", filename, "File name prefix")
+        ->capture_default_str()
+        ->group("Output");
+    app.add_option("--nfiles", nfiles, "Number of output files")
+        ->capture_default_str()
+        ->group("Output");
     app.allow_extras();
     SAMURAI_PARSE(argc, argv);
 
@@ -73,18 +98,24 @@ int main(int argc, char* argv[])
     samurai::DomainBuilder<dim> domain({-1., -1.}, {1., 1.});
     domain.remove({0.0, 0.0}, {0.4, 0.4});
 
-    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level).max_stencil_size(6);
-    auto mesh   = samurai::mra::make_mesh(domain, config);
+    auto config = samurai::mesh_config<dim>()
+                      .min_level(min_level)
+                      .max_level(max_level)
+                      .max_stencil_size(6);
+    auto mesh = samurai::mra::make_mesh(domain, config);
 
     // Initial solution
-    auto u = samurai::make_scalar_field<double>("u",
-                                                mesh,
-                                                [](const auto& coords)
-                                                {
-                                                    const auto& x = coords(0);
-                                                    const auto& y = coords(1);
-                                                    return (x >= -0.8 && x <= -0.3 && y >= 0.3 && y <= 0.8) ? 1. : 0.;
-                                                });
+    auto u = samurai::make_scalar_field<double>(
+        "u",
+        mesh,
+        [](const auto& coords)
+        {
+            const auto& x = coords(0);
+            const auto& y = coords(1);
+            return (x >= -0.8 && x <= -0.3 && y >= 0.3 && y <= 0.8)
+                     ? 1.
+                     : 0.;
+        });
 
     auto unp1 = samurai::make_scalar_field<>("unp1", mesh);
     // Intermediary fields for the RK3 scheme
@@ -94,14 +125,16 @@ int main(int argc, char* argv[])
     // Convection operator
     samurai::VelocityVector<dim> constant_velocity = {1, -1};
 
-    auto velocity = samurai::make_vector_field<dim>("velocity",
-                                                    mesh,
-                                                    [&](const auto&)
-                                                    {
-                                                        return constant_velocity;
-                                                    });
+    auto velocity =
+        samurai::make_vector_field<dim>("velocity",
+                                        mesh,
+                                        [&](const auto&)
+                                        {
+                                            return constant_velocity;
+                                        });
 
-    samurai::make_bc<samurai::Dirichlet<1>>(velocity, 0., 0.); // Wall boundary condition
+    // Wall boundary condition
+    samurai::make_bc<samurai::Dirichlet<1>>(velocity, 0., 0.);
     samurai::make_bc<samurai::Dirichlet<3>>(u, 0.);
     u1.copy_bc_from(u);
     u2.copy_bc_from(u);
@@ -124,11 +157,13 @@ int main(int argc, char* argv[])
     auto mra_config   = samurai::mra_config().epsilon(1e-3);
     MRadaptation(mra_config, velocity);
 
-    double dt_save    = nfiles == 0 ? dt : Tf / static_cast<double>(nfiles);
+    double dt_save    = nfiles == 0 ? dt
+                                    : Tf / static_cast<double>(nfiles);
     std::size_t nsave = 0, nt = 0;
     if (nfiles != 1)
     {
-        std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
+        std::string suffix =
+            (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
         save(path, filename, u, suffix);
     }
 
@@ -142,12 +177,17 @@ int main(int argc, char* argv[])
             dt += Tf - t;
             t = Tf;
         }
-        std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt) << std::flush;
+        std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}",
+                                 nt++,
+                                 t,
+                                 dt)
+                  << std::flush;
 
         // Mesh adaptation
 
         MRadaptation(mra_config, velocity);
-        // samurai::save(path, fmt::format("{}_mesh", filename), {true, true}, mesh, u);
+        // samurai::save(path, fmt::format("{}_mesh", filename),
+        //               {true, true}, mesh, u);
         samurai::for_each_cell(mesh,
                                [&](const auto& cell)
                                {
@@ -169,11 +209,14 @@ int main(int argc, char* argv[])
         samurai::swap(u, unp1);
 
         // Save the result
-        if (nfiles == 0 || t >= static_cast<double>(nsave) * dt_save || t == Tf)
+        if (nfiles == 0 || t >= static_cast<double>(nsave) * dt_save
+            || t == Tf)
         {
             if (nfiles != 1)
             {
-                std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
+                std::string suffix =
+                    (nfiles != 1) ? fmt::format("_ite_{}", nsave++)
+                                  : "";
                 save(path, filename, u, suffix);
             }
             else

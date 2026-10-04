@@ -13,7 +13,8 @@
  *
  * with \delta = 0.01
  *
- * and \partial_x f(level, i) = (f(level, i+1) - f(level, i-1))/(2 \Delta x)
+ * and \partial_x f(level, i) = (f(level, i+1) - f(level, i-1))
+ *                              / (2 \Delta x)
  *
  * \Delta x = 2^{-level}
  *
@@ -32,31 +33,37 @@ void AMR_criterion(const Field& f, Tag& tag)
 
     tag.fill(static_cast<int>(samurai::CellFlag::keep));
 
-    samurai::for_each_interval(mesh[mesh_id_t::cells],
-                               [&](std::size_t level, auto& i, auto&)
-                               {
-                                   const double dx = mesh.cell_length(level);
+    samurai::for_each_interval(
+        mesh[mesh_id_t::cells],
+        [&](std::size_t level, auto& i, auto&)
+        {
+            const double dx = mesh.cell_length(level);
 
-                                   auto der_approx = samurai::eval(abs((f(level, i + 1) - f(level, i - 1)) / (2. * dx)));
-                                   auto mask       = der_approx > 0.01;
+            auto der_approx = samurai::eval(
+                abs((f(level, i + 1) - f(level, i - 1)) / (2. * dx)));
+            auto mask = der_approx > 0.01;
 
-                                   if (level < max_level)
-                                   {
-                                       samurai::apply_on_masked(tag(level, i),
-                                                                mask,
-                                                                [](auto& e)
-                                                                {
-                                                                    e = static_cast<int>(samurai::CellFlag::refine);
-                                                                });
-                                   }
-                                   if (level > min_level)
-                                   {
-                                       samurai::apply_on_masked(tag(level, i),
-                                                                !mask,
-                                                                [](auto& e)
-                                                                {
-                                                                    e = static_cast<int>(samurai::CellFlag::coarsen);
-                                                                });
-                                   }
-                               });
+            if (level < max_level)
+            {
+                samurai::apply_on_masked(
+                    tag(level, i),
+                    mask,
+                    [](auto& e)
+                    {
+                        e = static_cast<int>(
+                            samurai::CellFlag::refine);
+                    });
+            }
+            if (level > min_level)
+            {
+                samurai::apply_on_masked(
+                    tag(level, i),
+                    !mask,
+                    [](auto& e)
+                    {
+                        e = static_cast<int>(
+                            samurai::CellFlag::coarsen);
+                    });
+            }
+        });
 }

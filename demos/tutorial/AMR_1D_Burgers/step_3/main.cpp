@@ -27,7 +27,9 @@ namespace fs = std::filesystem;
 
 int main(int argc, char* argv[])
 {
-    auto& app = samurai::initialize("Tutorial AMR Burgers 1D step 3", argc, argv);
+    auto& app = samurai::initialize("Tutorial AMR Burgers 1D step 3",
+                                    argc,
+                                    argv);
 
     // Simulation parameters
     double cfl = 0.99;
@@ -38,11 +40,21 @@ int main(int argc, char* argv[])
     std::string filename = "amr_1d_burgers_step_3";
     std::size_t nfiles   = 1;
 
-    app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
-    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
+    app.add_option("--cfl", cfl, "The CFL")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_option("--Tf", Tf, "Final time")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_option("--path", path, "Output path")
+        ->capture_default_str()
+        ->group("Output");
+    app.add_option("--filename", filename, "File name prefix")
+        ->capture_default_str()
+        ->group("Output");
+    app.add_option("--nfiles", nfiles, "Number of output files")
+        ->capture_default_str()
+        ->group("Output");
     SAMURAI_PARSE(argc, argv);
 
     if (!fs::exists(path))
@@ -51,13 +63,16 @@ int main(int argc, char* argv[])
     }
 
     constexpr std::size_t dim     = 1;
-    const std::size_t start_level = 6; // <--------------------------------
-    const std::size_t min_level   = 6; // <--------------------------------
-    const std::size_t max_level   = 6; // <--------------------------------
+    const std::size_t start_level = 6; // <--
+    const std::size_t min_level   = 6; // <--
+    const std::size_t max_level   = 6; // <--
 
     const samurai::Box<double, dim> box({-3}, {3});
-    auto config = samurai::mesh_config<dim>().min_level(min_level).max_level(max_level).start_level(start_level);
-    Mesh<decltype(config)> mesh(box, config); // <--------------------------------
+    auto config = samurai::mesh_config<dim>()
+                      .min_level(min_level)
+                      .max_level(max_level)
+                      .start_level(start_level);
+    Mesh<decltype(config)> mesh(box, config); // <--
 
     auto phi = init_sol(mesh);
 
@@ -87,8 +102,12 @@ int main(int argc, char* argv[])
 
         if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
         {
-            std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
-            samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, phi);
+            std::string suffix =
+                (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
+            samurai::save(path,
+                          fmt::format("{}{}", filename, suffix),
+                          mesh,
+                          phi);
         }
     }
 

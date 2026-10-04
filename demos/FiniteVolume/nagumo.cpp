@@ -11,10 +11,14 @@
 namespace fs = std::filesystem;
 
 template <class Field>
-void save(const fs::path& path, const std::string& filename, const Field& u, const std::string& suffix = "")
+void save(const fs::path& path,
+          const std::string& filename,
+          const Field& u,
+          const std::string& suffix = "")
 {
-    auto mesh   = u.mesh();
-    auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
+    auto mesh = u.mesh();
+    auto level_ =
+        samurai::make_scalar_field<std::size_t>("level", mesh);
 
     if (!fs::exists(path))
     {
@@ -27,20 +31,32 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
                                level_[cell] = cell.level;
                            });
 
-    samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
-    samurai::dump(path, fmt::format("{}_restart{}", filename, suffix), mesh, u);
+    samurai::save(path,
+                  fmt::format("{}{}", filename, suffix),
+                  mesh,
+                  u,
+                  level_);
+    samurai::dump(path,
+                  fmt::format("{}_restart{}", filename, suffix),
+                  mesh,
+                  u);
 }
 
 int main(int argc, char* argv[])
 {
-    auto& app = samurai::initialize("Finite volume example for the Nagumo equation", argc, argv);
+    auto& app = samurai::initialize(
+        "Finite volume example for the Nagumo equation",
+        argc,
+        argv);
 
     static constexpr std::size_t dim    = 1;
     static constexpr std::size_t n_comp = 1;
     using Box                           = samurai::Box<double, dim>;
     using point_t                       = typename Box::point_t;
 
-    std::cout << "------------------------- Nagumo -------------------------" << std::endl;
+    std::cout
+        << "------------------------- Nagumo -------------------------"
+        << std::endl;
 
     /**
      * Nagumo, or Fisher-KPP equation:
@@ -74,20 +90,53 @@ int main(int argc, char* argv[])
     std::string filename       = "nagumo";
     bool save_final_state_only = false;
 
-    app.add_option("--left", left_box, "The left border of the box")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--right", right_box, "The right border of the box")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--D", D, "Diffusion coefficient")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--k", k, "Parameter of the reaction operator")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--Ti", t, "Initial time")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--dt", dt, "Time step")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
-    app.add_flag("--explicit-reaction", explicit_reaction, "Explicit the reaction term")->capture_default_str()->group("Simulation parameters");
-    app.add_flag("--explicit-diffusion", explicit_diffusion, "Explicit the diffusion term")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
-    app.add_flag("--save-final-state-only", save_final_state_only, "Save final state only")->group("Output");
+    app.add_option("--left", left_box, "The left border of the box")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_option("--right", right_box, "The right border of the box")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_option("--D", D, "Diffusion coefficient")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_option("--k", k, "Parameter of the reaction operator")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_option("--Ti", t, "Initial time")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_option("--Tf", Tf, "Final time")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_option("--restart-file", restart_file, "Restart file")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_option("--dt", dt, "Time step")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_option("--cfl", cfl, "The CFL")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_flag("--explicit-reaction",
+                 explicit_reaction,
+                 "Explicit the reaction term")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_flag("--explicit-diffusion",
+                 explicit_diffusion,
+                 "Explicit the diffusion term")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_option("--path", path, "Output path")
+        ->capture_default_str()
+        ->group("Output");
+    app.add_option("--filename", filename, "File name prefix")
+        ->capture_default_str()
+        ->group("Output");
+    app.add_flag("--save-final-state-only",
+                 save_final_state_only,
+                 "Save final state only")
+        ->group("Output");
     SAMURAI_PARSE(argc, argv);
 
     //--------------------//
@@ -98,9 +147,12 @@ int main(int argc, char* argv[])
     box_corner1.fill(left_box);
     box_corner2.fill(right_box);
     Box box(box_corner1, box_corner2);
-    auto config = samurai::mesh_config<dim>().min_level(4).max_level(8).disable_minimal_ghost_width();
-    auto mesh   = samurai::mra::make_mesh(box, config);
-    auto u      = samurai::make_vector_field<double, n_comp>("u", mesh);
+    auto config = samurai::mesh_config<dim>()
+                      .min_level(4)
+                      .max_level(8)
+                      .disable_minimal_ghost_width();
+    auto mesh = samurai::mra::make_mesh(box, config);
+    auto u    = samurai::make_vector_field<double, n_comp>("u", mesh);
 
     double z0 = left_box / 5;    // wave initial position
     double c  = sqrt(k * D / 2); // wave velocity
@@ -120,18 +172,20 @@ int main(int argc, char* argv[])
     {
         u.resize();
         // Initial solution
-        samurai::for_each_cell(mesh,
-                               [&](auto& cell)
-                               {
-                                   u[cell] = exact_solution(cell.center(0), 0);
-                               });
+        samurai::for_each_cell(
+            mesh,
+            [&](auto& cell)
+            {
+                u[cell] = exact_solution(cell.center(0), 0);
+            });
     }
     else
     {
         samurai::load(restart_file, mesh, u);
     }
 
-    auto unp1 = samurai::make_vector_field<double, n_comp>("unp1", mesh);
+    auto unp1 =
+        samurai::make_vector_field<double, n_comp>("unp1", mesh);
 
     samurai::make_bc<samurai::Neumann<1>>(u);
     samurai::make_bc<samurai::Neumann<1>>(unp1);
@@ -140,17 +194,24 @@ int main(int argc, char* argv[])
     auto id   = samurai::make_identity<decltype(u)>();
 
     // Reaction operator
-    using cfg  = samurai::LocalCellSchemeConfig<samurai::SchemeType::NonLinear, decltype(u), decltype(u)>;
+    using cfg =
+        samurai::LocalCellSchemeConfig<samurai::SchemeType::NonLinear,
+                                       decltype(u),
+                                       decltype(u)>;
     auto react = samurai::make_cell_based_scheme<cfg>();
     react.set_name("Reaction");
     react.set_scheme_function(
-        [&](samurai::SchemeValue<cfg>& value, const auto& cell, const auto& field)
+        [&](samurai::SchemeValue<cfg>& value,
+            const auto& cell,
+            const auto& field)
         {
             auto v = field[cell];
             value  = k * v * v * (1 - v);
         });
     react.set_jacobian_function(
-        [&](samurai::JacobianMatrix<cfg>& jac, const auto& cell, const auto& field)
+        [&](samurai::JacobianMatrix<cfg>& jac,
+            const auto& cell,
+            const auto& field)
         {
             auto v = field[cell];
             jac.fill(0);
@@ -186,22 +247,29 @@ int main(int argc, char* argv[])
     // Linear and non-linear solvers //
     //-------------------------------//
 
-    auto implicit_diffusion_solver      = samurai::petsc::make_solver(id + dt * diff); // Linear solver
+    // Linear solver
+    auto implicit_diffusion_solver =
+        samurai::petsc::make_solver(id + dt * diff);
     implicit_diffusion_solver.configure = [](KSP& ksp, PC& pc)
     {
         KSPSetType(ksp, KSPPREONLY);
         PCSetType(pc, PCLU);
     };
 
-    auto implicit_reaction_solver      = samurai::petsc::make_solver(id - dt * react); // independent, local Newton solvers
-    implicit_reaction_solver.configure = [](SNES& snes, KSP& ksp, PC& pc)
+    // independent, local Newton solvers
+    auto implicit_reaction_solver =
+        samurai::petsc::make_solver(id - dt * react);
+    implicit_reaction_solver.configure =
+        [](SNES& snes, KSP& ksp, PC& pc)
     {
         SNESSetType(snes, SNESNEWTONLS);
         KSPSetType(ksp, KSPPREONLY);
         PCSetType(pc, PCLU);
     };
 
-    auto full_implicit_solver      = samurai::petsc::make_solver(id + dt * diff - dt * react); // Non-linear solver
+    // Non-linear solver
+    auto full_implicit_solver =
+        samurai::petsc::make_solver(id + dt * diff - dt * react);
     full_implicit_solver.configure = [](SNES& snes, KSP& ksp, PC& pc)
     {
         SNESSetType(snes, SNESNEWTONLS);
@@ -213,7 +281,8 @@ int main(int argc, char* argv[])
     //   Time iteration   //
     //--------------------//
 
-    bool dt_has_changed = false; // to track if we need to update the solvers
+    // to track if we need to update the solvers
+    bool dt_has_changed = false;
     while (t != Tf)
     {
         // Move to next timestep
@@ -224,7 +293,11 @@ int main(int argc, char* argv[])
             t              = Tf;
             dt_has_changed = true;
         }
-        std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}", nt++, t, dt) << std::flush;
+        std::cout << fmt::format("iteration {}: t = {:.2f}, dt = {}",
+                                 nt++,
+                                 t,
+                                 dt)
+                  << std::flush;
 
         // Mesh adaptation
         MRadaptation(mra_config);
@@ -244,9 +317,11 @@ int main(int argc, char* argv[])
             }
             if (mesh.min_level() != mesh.max_level())
             {
-                implicit_diffusion_solver.reset(); // reset the solver after mesh adaptation
+                // reset the solver after mesh adaptation
+                implicit_diffusion_solver.reset();
             }
-            implicit_diffusion_solver.solve(unp1, rhs); // Solve the linear equation   [Id + dt*Diff](unp1) = rhs
+            // Solve the linear equation   [Id + dt*Diff](unp1) = rhs
+            implicit_diffusion_solver.solve(unp1, rhs);
         }
         else if (explicit_diffusion && !explicit_reaction)
         {
@@ -255,34 +330,43 @@ int main(int argc, char* argv[])
             {
                 implicit_reaction_solver.set_scheme(id - dt * react);
             }
-            // Note that we do not need to reset the solver after mesh adaptation because it is composed of local solvers that do not
-            // involve any global matrix assembly that would change size.
-            unp1 = u;                                  // Set initial guess for the Newton algorithm
-            implicit_reaction_solver.solve(unp1, rhs); // Solve the non-linear equation   [Id - dt*React](unp1) = u - dt*Diff(u)
+            // Note that we do not need to reset the solver after mesh
+            // adaptation because it is composed of local solvers that
+            // do not involve any global matrix assembly that would
+            // change size.
+            unp1 = u; // Set initial guess for the Newton algorithm
+            // Solve the non-linear equation
+            //     [Id - dt*React](unp1) = u - dt*Diff(u)
+            implicit_reaction_solver.solve(unp1, rhs);
         }
         else
         {
             if (dt_has_changed)
             {
-                full_implicit_solver.set_scheme(id + dt * diff - dt * react);
+                full_implicit_solver.set_scheme(id + dt * diff
+                                                - dt * react);
             }
             if (mesh.min_level() != mesh.max_level())
             {
-                full_implicit_solver.reset(); // reset the solver after mesh adaptation
+                // reset the solver after mesh adaptation
+                full_implicit_solver.reset();
             }
-            unp1 = u;                            // Set initial guess for the Newton algorithm
-            full_implicit_solver.solve(unp1, u); // Solve the non-linear equation   [Id + dt*Diff - dt*React](unp1) = u
+            unp1 = u; // Set initial guess for the Newton algorithm
+            // Solve the non-linear equation
+            //     [Id + dt*Diff - dt*React](unp1) = u
+            full_implicit_solver.solve(unp1, u);
         }
 
         // u <-- unp1
         samurai::swap(u, unp1);
 
         // Compute error
-        double error = samurai::L2_error(u,
-                                         [&](const auto& coord)
-                                         {
-                                             return exact_solution(coord(0), t);
-                                         });
+        double error =
+            samurai::L2_error(u,
+                              [&](const auto& coord)
+                              {
+                                  return exact_solution(coord(0), t);
+                              });
         std::cout.precision(2);
         std::cout << ", L2-error: " << std::scientific << error;
 
@@ -298,8 +382,11 @@ int main(int argc, char* argv[])
     if (!save_final_state_only && dim == 1)
     {
         std::cout << std::endl;
-        std::cout << "Run the following command to view the results:" << std::endl;
-        std::cout << "python <<path to samurai>>/python/read_mesh.py " << filename << "_ite_ --field u level --start 1 --end " << nsave
+        std::cout << "Run the following command to view the results:"
+                  << std::endl;
+        std::cout << "python <<path to samurai>>/python/read_mesh.py "
+                  << filename
+                  << "_ite_ --field u level --start 1 --end " << nsave
                   << std::endl;
     }
 

@@ -25,14 +25,20 @@ namespace fs = std::filesystem;
 
 int main(int argc, char* argv[])
 {
-    auto& app = samurai::initialize("Tutorial AMR Burgers 1D step 1", argc, argv);
+    auto& app = samurai::initialize("Tutorial AMR Burgers 1D step 1",
+                                    argc,
+                                    argv);
 
     // Output parameters
     fs::path path        = fs::current_path();
     std::string filename = "amr_1d_burgers_step_1";
 
-    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
+    app.add_option("--path", path, "Output path")
+        ->capture_default_str()
+        ->group("Output");
+    app.add_option("--filename", filename, "File name prefix")
+        ->capture_default_str()
+        ->group("Output");
     SAMURAI_PARSE(argc, argv);
 
     if (!fs::exists(path))
@@ -40,7 +46,7 @@ int main(int argc, char* argv[])
         fs::create_directory(path);
     }
 
-    constexpr std::size_t dim    = 1; // cppcheck-suppress unreadVariable
+    constexpr std::size_t dim = 1; // cppcheck-suppress unreadVariable
     const std::size_t init_level = 6;
 
     const samurai::Box<double, dim> box({-3}, {3});

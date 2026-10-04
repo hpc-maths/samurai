@@ -12,7 +12,7 @@ template <class Mesh>
 auto init_field(Mesh& mesh, double dec)
 {
     static constexpr std::size_t dim = Mesh::dim;
-    auto f                           = samurai::make_scalar_field<double>("u", mesh);
+    auto f = samurai::make_scalar_field<double>("u", mesh);
     f.fill(0.);
     samurai::for_each_cell(
         mesh,
@@ -30,7 +30,9 @@ auto init_field(Mesh& mesh, double dec)
             {
                 auto y              = cell.center(1);
                 const double radius = .2;
-                if ((x - dec - .5) * (x - dec - .5) + (y - dec - .5) * (y - dec - .5) < radius * radius)
+                if ((x - dec - .5) * (x - dec - .5)
+                        + (y - dec - .5) * (y - dec - .5)
+                    < radius * radius)
                 {
                     f[cell] = 1;
                 }
@@ -40,7 +42,10 @@ auto init_field(Mesh& mesh, double dec)
                 auto y              = cell.center(1);
                 auto z              = cell.center(2);
                 const double radius = .2;
-                if ((x - dec - .5) * (x - dec - .5) + (y - dec - .5) * (y - dec - .5) + (z - dec - .5) * (z - dec - .5) < radius * radius)
+                if ((x - dec - .5) * (x - dec - .5)
+                        + (y - dec - .5) * (y - dec - .5)
+                        + (z - dec - .5) * (z - dec - .5)
+                    < radius * radius)
                 {
                     f[cell] = 1;
                 }
@@ -54,11 +59,12 @@ int main()
     samurai::initialize();
 
     constexpr std::size_t dim = 3;
-    auto box                  = samurai::Box<double, dim>({0., 0., 0.}, {1., 1., 1.});
+    auto box = samurai::Box<double, dim>({0., 0., 0.}, {1., 1., 1.});
 
-    auto mesh_cfg = samurai::mesh_config<dim>().min_level(2).max_level(8);
-    auto mesh1    = samurai::mra::make_mesh(box, mesh_cfg);
-    auto f1       = init_field(mesh1, 0);
+    auto mesh_cfg =
+        samurai::mesh_config<dim>().min_level(2).max_level(8);
+    auto mesh1 = samurai::mra::make_mesh(box, mesh_cfg);
+    auto f1    = init_field(mesh1, 0);
 
     auto mesh2 = samurai::mra::make_mesh(box, mesh_cfg);
     auto f2    = init_field(mesh2, 0.1);
@@ -66,7 +72,8 @@ int main()
     auto adapt_1 = samurai::make_MRAdapt(f1);
     auto adapt_2 = samurai::make_MRAdapt(f2);
 
-    auto mra_config = samurai::mra_config().epsilon(1e-3).regularity(2.);
+    auto mra_config =
+        samurai::mra_config().epsilon(1e-3).regularity(2.);
     adapt_1(mra_config);
     adapt_2(mra_config);
 

@@ -34,9 +34,13 @@ void update_field(Field& f, const Tag& tag, Mesh& new_mesh)
      *                       |==========|                 |===========|
      */
 
-    for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
+    for (std::size_t level = mesh.min_level();
+         level <= mesh.max_level();
+         ++level)
     {
-        auto common_leaves = samurai::intersection(mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level]);
+        auto common_leaves =
+            samurai::intersection(mesh[mesh_id_t::cells][level],
+                                  new_mesh[mesh_id_t::cells][level]);
 
         common_leaves(
             [&](const auto& i, auto)
@@ -45,29 +49,45 @@ void update_field(Field& f, const Tag& tag, Mesh& new_mesh)
             });
     }
 
-    samurai::for_each_interval(mesh[mesh_id_t::cells],
-                               [&](std::size_t level, const auto& interval, const auto&)
-                               {
-                                   auto itag = static_cast<size_type>(interval.start + interval.index);
-                                   for (coord_index_t i = interval.start; i < interval.end; ++i)
-                                   {
-                                       if (tag[itag] & static_cast<int>(samurai::CellFlag::refine))
-                                       {
-                                           auto ii                      = interval_t{i, i + 1};
-                                           new_f(level + 1, 2 * ii)     = f(level, ii) - 1. / 8 * (f(level, ii + 1) - f(level, ii - 1));
-                                           new_f(level + 1, 2 * ii + 1) = f(level, ii) + 1. / 8 * (f(level, ii + 1) - f(level, ii - 1));
-                                       }
-                                       itag++;
-                                   }
-                               });
+    samurai::for_each_interval(
+        mesh[mesh_id_t::cells],
+        [&](std::size_t level, const auto& interval, const auto&)
+        {
+            auto itag = static_cast<size_type>(interval.start
+                                               + interval.index);
+            for (coord_index_t i = interval.start; i < interval.end;
+                 ++i)
+            {
+                if (tag[itag]
+                    & static_cast<int>(samurai::CellFlag::refine))
+                {
+                    auto ii = interval_t{i, i + 1};
+                    new_f(level + 1, 2 * ii) =
+                        f(level, ii)
+                        - 1. / 8
+                              * (f(level, ii + 1) - f(level, ii - 1));
+                    new_f(level + 1, 2 * ii + 1) =
+                        f(level, ii)
+                        + 1. / 8
+                              * (f(level, ii + 1) - f(level, ii - 1));
+                }
+                itag++;
+            }
+        });
 
-    for (std::size_t level = mesh.min_level() + 1; level <= mesh.max_level(); ++level)
+    for (std::size_t level = mesh.min_level() + 1;
+         level <= mesh.max_level();
+         ++level)
     {
-        auto subset = samurai::intersection(mesh[mesh_id_t::cells][level], new_mesh[mesh_id_t::cells][level - 1]).on(level - 1);
+        auto subset = samurai::intersection(
+                          mesh[mesh_id_t::cells][level],
+                          new_mesh[mesh_id_t::cells][level - 1])
+                          .on(level - 1);
         subset(
             [&](const auto& i, auto)
             {
-                new_f(level - 1, i) = 0.5 * (f(level, 2 * i) + f(level, 2 * i + 1));
+                new_f(level - 1, i) =
+                    0.5 * (f(level, 2 * i) + f(level, 2 * i + 1));
             });
     }
 

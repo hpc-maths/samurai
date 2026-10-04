@@ -1,8 +1,9 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-// Program of the getting started tutorial (docs/source/tutorial/getting_started.md):
-// advection of a disc on a 2D mesh adapted by multiresolution.
+// Program of the getting started tutorial
+// (docs/source/tutorial/getting_started.md): advection of a disc on a
+// 2D mesh adapted by multiresolution.
 
 #include <iostream>
 #include <string>
@@ -21,7 +22,8 @@ template <class Field>
 void save(const std::string& filename, Field& u)
 {
     auto& mesh = u.mesh();
-    auto level = samurai::make_scalar_field<std::size_t>("level", mesh);
+    auto level =
+        samurai::make_scalar_field<std::size_t>("level", mesh);
     samurai::for_each_cell(mesh,
                            [&](const auto& cell)
                            {
@@ -32,27 +34,32 @@ void save(const std::string& filename, Field& u)
 
 int main(int argc, char* argv[])
 {
-    samurai::initialize("Getting started: advection of a disc on an adaptive mesh", argc, argv);
+    samurai::initialize(
+        "Getting started: advection of a disc on an adaptive mesh",
+        argc,
+        argv);
     SAMURAI_PARSE(argc, argv);
 
     constexpr std::size_t dim = 2;
 
     // Create the mesh
     const samurai::Box<double, dim> box({0., 0.}, {1., 1.});
-    auto config = samurai::mesh_config<dim>().min_level(4).max_level(8);
-    auto mesh   = samurai::mra::make_mesh(box, config);
+    auto config =
+        samurai::mesh_config<dim>().min_level(4).max_level(8);
+    auto mesh = samurai::mra::make_mesh(box, config);
 
     // Create the field
     auto u = samurai::make_scalar_field<double>("u", mesh);
-    samurai::for_each_cell(mesh,
-                           [&](const auto& cell)
-                           {
-                               const auto x        = cell.center();
-                               const double radius = 0.2;
-                               const double dx     = x[0] - 0.3;
-                               const double dy     = x[1] - 0.3;
-                               u[cell]             = (dx * dx + dy * dy <= radius * radius) ? 1. : 0.;
-                           });
+    samurai::for_each_cell(
+        mesh,
+        [&](const auto& cell)
+        {
+            const auto x        = cell.center();
+            const double radius = 0.2;
+            const double dx     = x[0] - 0.3;
+            const double dy     = x[1] - 0.3;
+            u[cell] = (dx * dx + dy * dy <= radius * radius) ? 1. : 0.;
+        });
     samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
 
     // Adapt the mesh
@@ -84,7 +91,11 @@ int main(int argc, char* argv[])
             dt += Tf - t;
             t = Tf;
         }
-        std::cout << fmt::format("iteration {}: t = {:.6f}, dt = {:.6f}", nt++, t, dt) << std::endl;
+        std::cout << fmt::format(
+            "iteration {}: t = {:.6f}, dt = {:.6f}",
+            nt++,
+            t,
+            dt) << std::endl;
 
         unp1.resize();
         unp1 = u - dt * conv(u);

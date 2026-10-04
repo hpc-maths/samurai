@@ -32,31 +32,38 @@ auto init(Mesh& mesh, Case& c)
 
     auto u = samurai::make_scalar_field<double>("u", mesh);
 
-    samurai::for_each_interval(mesh[mesh_id_t::cells],
-                               [&](std::size_t level, const auto& i, const auto&)
-                               {
-                                   const double dx = mesh.cell_length(level);
-                                   auto x          = mesh.origin_point()[0] + dx * arange<double>(i.start, i.end) + 0.5 * dx;
+    samurai::for_each_interval(
+        mesh[mesh_id_t::cells],
+        [&](std::size_t level, const auto& i, const auto&)
+        {
+            const double dx = mesh.cell_length(level);
 
-                                   switch (c)
-                                   {
-                                       case Case::abs:
-                                           u(level, i) = abs(x);
-                                           break;
-                                       case Case::exp:
-                                           u(level, i) = exp(-100 * x * x);
-                                           break;
-                                       case Case::tanh:
-                                           u(level, i) = tanh(50 * abs(x)) - 1;
-                                           break;
-                                   }
-                               });
+            auto x = mesh.origin_point()[0]
+                   + dx * arange<double>(i.start, i.end) + 0.5 * dx;
+
+            switch (c)
+            {
+                case Case::abs:
+                    u(level, i) = abs(x);
+                    break;
+                case Case::exp:
+                    u(level, i) = exp(-100 * x * x);
+                    break;
+                case Case::tanh:
+                    u(level, i) = tanh(50 * abs(x)) - 1;
+                    break;
+            }
+        });
     return u;
 }
 
 int main(int argc, char* argv[])
 {
-    auto& app = samurai::initialize("1d reconstruction of an adapted solution using multiresolution", argc, argv);
+    auto& app =
+        samurai::initialize("1d reconstruction of an adapted solution "
+                            "using multiresolution",
+                            argc,
+                            argv);
 
     constexpr size_t dim = 1;
 
@@ -71,9 +78,15 @@ int main(int argc, char* argv[])
     fs::path path        = fs::current_path();
     std::string filename = "reconstruction_1d";
 
-    app.add_option("--case", test_case, "Test case")->capture_default_str()->transform(CLI::CheckedTransformer(map, CLI::ignore_case));
-    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
+    app.add_option("--case", test_case, "Test case")
+        ->capture_default_str()
+        ->transform(CLI::CheckedTransformer(map, CLI::ignore_case));
+    app.add_option("--path", path, "Output path")
+        ->capture_default_str()
+        ->group("Output");
+    app.add_option("--filename", filename, "File name prefix")
+        ->capture_default_str()
+        ->group("Output");
 
     SAMURAI_PARSE(argc, argv);
 
@@ -106,7 +119,8 @@ int main(int argc, char* argv[])
     auto mra_config   = samurai::mra_config().regularity(2);
     MRadaptation(mra_config);
 
-    auto level_ = samurai::make_scalar_field<std::size_t>("level", mrmesh);
+    auto level_ =
+        samurai::make_scalar_field<std::size_t>("level", mrmesh);
     samurai::for_each_cell(mrmesh[mrmesh_id_t::cells],
                            [&](const auto& cell)
                            {
@@ -117,15 +131,25 @@ int main(int argc, char* argv[])
     auto t1            = std::chrono::high_resolution_clock::now();
     auto u_reconstruct = reconstruction(u);
     auto t2            = std::chrono::high_resolution_clock::now();
-    std::cout << "execution time " << std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count() << std::endl;
+    auto elapsed =
+        std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1);
+    std::cout << "execution time " << elapsed.count() << std::endl;
 
-    auto error = samurai::make_scalar_field<double>("error", u_reconstruct.mesh());
-    samurai::for_each_interval(u_reconstruct.mesh(),
-                               [&](std::size_t level, const auto& i, const auto&)
-                               {
-                                   error(level, i) = abs(u_reconstruct(level, i) - u_exact(level, i));
-                               });
-    samurai::save(path, fmt::format("uniform_{}", filename), u_reconstruct.mesh(), u_reconstruct, error);
+    auto error =
+        samurai::make_scalar_field<double>("error",
+                                           u_reconstruct.mesh());
+    samurai::for_each_interval(
+        u_reconstruct.mesh(),
+        [&](std::size_t level, const auto& i, const auto&)
+        {
+            error(level, i) =
+                abs(u_reconstruct(level, i) - u_exact(level, i));
+        });
+    samurai::save(path,
+                  fmt::format("uniform_{}", filename),
+                  u_reconstruct.mesh(),
+                  u_reconstruct,
+                  error);
 
     samurai::finalize();
     return 0;

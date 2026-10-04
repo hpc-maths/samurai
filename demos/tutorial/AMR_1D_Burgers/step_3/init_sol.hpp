@@ -9,12 +9,12 @@
 template <class Mesh>
 auto init_sol(Mesh& mesh)
 {
-    using mesh_id_t = typename Mesh::mesh_id_t; // <-----------------
+    using mesh_id_t = typename Mesh::mesh_id_t; // <--
     auto phi        = samurai::make_scalar_field<double>("phi", mesh);
     phi.fill(0.);
 
     samurai::for_each_cell(mesh[mesh_id_t::cells_and_ghosts],
-                           [&](auto& cell) // <-----------------
+                           [&](auto& cell) // <--
                            {
                                double x = cell.center(0);
 
@@ -25,7 +25,8 @@ auto init_sol(Mesh& mesh)
                                }
                                else
                                {
-                                   phi[cell] = (x < 0.) ? (1 + x) : (1 - x);
+                                   phi[cell] = (x < 0.) ? (1 + x)
+                                                        : (1 - x);
                                }
                            });
 

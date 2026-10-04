@@ -17,7 +17,9 @@
 
 namespace fs = std::filesystem;
 
-auto generate_mesh(std::size_t min_level, std::size_t max_level, std::size_t nsamples = 100)
+auto generate_mesh(std::size_t min_level,
+                   std::size_t max_level,
+                   std::size_t nsamples = 100)
 {
     constexpr std::size_t dim = 2;
     xt::random::seed(42);
@@ -27,9 +29,11 @@ auto generate_mesh(std::size_t min_level, std::size_t max_level, std::size_t nsa
 
     for (std::size_t s = 0; s < nsamples; ++s)
     {
-        auto level = xt::random::randint<std::size_t>({1}, min_level, max_level)[0];
-        auto x     = xt::random::randint<int>({1}, 0, (1 << level) - 1)[0];
-        auto y     = xt::random::randint<int>({1}, 0, (1 << level) - 1)[0];
+        auto level = xt::random::randint<std::size_t>({1},
+                                                      min_level,
+                                                      max_level)[0];
+        auto x = xt::random::randint<int>({1}, 0, (1 << level) - 1)[0];
+        auto y = xt::random::randint<int>({1}, 0, (1 << level) - 1)[0];
 
         cl[level][{y}].add_point(x);
     }
@@ -39,7 +43,9 @@ auto generate_mesh(std::size_t min_level, std::size_t max_level, std::size_t nsa
 
 int main(int argc, char* argv[])
 {
-    auto& app = samurai::initialize("Graduation example: test case 2", argc, argv);
+    auto& app = samurai::initialize("Graduation example: test case 2",
+                                    argc,
+                                    argv);
 
     constexpr std::size_t dim = 2;
     std::size_t min_level     = 1;
@@ -50,11 +56,24 @@ int main(int argc, char* argv[])
     fs::path path        = fs::current_path();
     std::string filename = "graduation_case_2";
 
-    app.add_option("--minimum-level", min_level, "Minimum level of the mesh generator")->capture_default_str();
-    app.add_option("--maximum-level", max_level, "Maximum level of the mesh generator")->capture_default_str();
-    app.add_flag("--with-corner", with_corner, "Make the graduation including the diagonal")->capture_default_str();
-    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
+    app.add_option("--minimum-level",
+                   min_level,
+                   "Minimum level of the mesh generator")
+        ->capture_default_str();
+    app.add_option("--maximum-level",
+                   max_level,
+                   "Maximum level of the mesh generator")
+        ->capture_default_str();
+    app.add_flag("--with-corner",
+                 with_corner,
+                 "Make the graduation including the diagonal")
+        ->capture_default_str();
+    app.add_option("--path", path, "Output path")
+        ->capture_default_str()
+        ->group("Output");
+    app.add_option("--filename", filename, "File name prefix")
+        ->capture_default_str()
+        ->group("Output");
     SAMURAI_PARSE(argc, argv);
 
     if (!fs::exists(path))
@@ -69,15 +88,22 @@ int main(int argc, char* argv[])
     std::size_t ite = 0;
     while (true)
     {
-        std::cout << "Iteration for remove intersection: " << ite++ << "\n";
+        std::cout << "Iteration for remove intersection: " << ite++
+                  << "\n";
         auto tag = samurai::make_scalar_field<bool>("tag", ca);
         tag.fill(false);
 
-        for (std::size_t level = ca.min_level() + 1; level <= ca.max_level(); ++level)
+        for (std::size_t level = ca.min_level() + 1;
+             level <= ca.max_level();
+             ++level)
         {
-            for (std::size_t level_below = ca.min_level(); level_below < level; ++level_below)
+            for (std::size_t level_below = ca.min_level();
+                 level_below < level;
+                 ++level_below)
             {
-                auto set = samurai::intersection(ca[level], ca[level_below]).on(level_below);
+                auto set =
+                    samurai::intersection(ca[level], ca[level_below])
+                        .on(level_below);
                 set(
                     [&](const auto& i, const auto& index)
                     {
@@ -87,21 +113,24 @@ int main(int argc, char* argv[])
         }
 
         samurai::CellList<dim> cl;
-        samurai::for_each_cell(ca,
-                               [&](auto cell)
-                               {
-                                   auto i = cell.indices[0];
-                                   auto j = cell.indices[1];
-                                   if (tag[cell])
-                                   {
-                                       cl[cell.level + 1][{2 * j}].add_interval({2 * i, 2 * i + 2});
-                                       cl[cell.level + 1][{2 * j + 1}].add_interval({2 * i, 2 * i + 2});
-                                   }
-                                   else
-                                   {
-                                       cl[cell.level][{j}].add_point(i);
-                                   }
-                               });
+        samurai::for_each_cell(
+            ca,
+            [&](auto cell)
+            {
+                auto i = cell.indices[0];
+                auto j = cell.indices[1];
+                if (tag[cell])
+                {
+                    cl[cell.level + 1][{2 * j}].add_interval(
+                        {2 * i, 2 * i + 2});
+                    cl[cell.level + 1][{2 * j + 1}].add_interval(
+                        {2 * i, 2 * i + 2});
+                }
+                else
+                {
+                    cl[cell.level][{j}].add_point(i);
+                }
+            });
         samurai::CellArray<dim> new_ca = {cl, true};
 
         if (new_ca == ca)
@@ -112,7 +141,9 @@ int main(int argc, char* argv[])
         std::swap(ca, new_ca);
     }
 
-    samurai::save(path, fmt::format("{}_without_intersection", filename), ca);
+    samurai::save(path,
+                  fmt::format("{}_without_intersection", filename),
+                  ca);
 
     xt::xtensor_fixed<int, xt::xshape<4, dim>> stencil;
     if (with_corner)
@@ -141,14 +172,21 @@ int main(int argc, char* argv[])
         auto tag = samurai::make_scalar_field<bool>("tag", ca);
         tag.fill(false);
 
-        for (std::size_t level = ca.min_level() + 2; level <= ca.max_level(); ++level)
+        for (std::size_t level = ca.min_level() + 2;
+             level <= ca.max_level();
+             ++level)
         {
-            for (std::size_t level_below = ca.min_level(); level_below < level - 1; ++level_below)
+            for (std::size_t level_below = ca.min_level();
+                 level_below < level - 1;
+                 ++level_below)
             {
                 for (std::size_t is = 0; is < stencil.shape()[0]; ++is)
                 {
                     auto s   = xt::view(stencil, is);
-                    auto set = samurai::intersection(samurai::translate(ca[level], s), ca[level_below]).on(level_below);
+                    auto set = samurai::intersection(
+                                   samurai::translate(ca[level], s),
+                                   ca[level_below])
+                                   .on(level_below);
                     set(
                         [&](const auto& i, const auto& index)
                         {
@@ -159,21 +197,24 @@ int main(int argc, char* argv[])
         }
 
         samurai::CellList<dim> cl;
-        samurai::for_each_cell(ca,
-                               [&](auto cell)
-                               {
-                                   auto i = cell.indices[0];
-                                   auto j = cell.indices[1];
-                                   if (tag[cell])
-                                   {
-                                       cl[cell.level + 1][{2 * j}].add_interval({2 * i, 2 * i + 2});
-                                       cl[cell.level + 1][{2 * j + 1}].add_interval({2 * i, 2 * i + 2});
-                                   }
-                                   else
-                                   {
-                                       cl[cell.level][{j}].add_point(i);
-                                   }
-                               });
+        samurai::for_each_cell(
+            ca,
+            [&](auto cell)
+            {
+                auto i = cell.indices[0];
+                auto j = cell.indices[1];
+                if (tag[cell])
+                {
+                    cl[cell.level + 1][{2 * j}].add_interval(
+                        {2 * i, 2 * i + 2});
+                    cl[cell.level + 1][{2 * j + 1}].add_interval(
+                        {2 * i, 2 * i + 2});
+                }
+                else
+                {
+                    cl[cell.level][{j}].add_point(i);
+                }
+            });
         samurai::CellArray<dim> new_ca = {cl, true};
 
         if (new_ca == ca)

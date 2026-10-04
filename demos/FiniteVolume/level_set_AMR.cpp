@@ -25,19 +25,22 @@ auto init_level_set(Field& phi)
     auto& mesh      = phi.mesh();
     phi.resize();
 
-    samurai::for_each_cell(mesh[mesh_id_t::cells],
-                           [&](auto& cell)
-                           {
-                               auto center    = cell.center();
-                               const double x = center[0];
-                               const double y = center[1];
+    samurai::for_each_cell(
+        mesh[mesh_id_t::cells],
+        [&](auto& cell)
+        {
+            auto center    = cell.center();
+            const double x = center[0];
+            const double y = center[1];
 
-                               constexpr double radius   = .15;
-                               constexpr double x_center = 0.5;
-                               constexpr double y_center = 0.75;
+            constexpr double radius   = .15;
+            constexpr double x_center = 0.5;
+            constexpr double y_center = 0.75;
 
-                               phi[cell] = std::sqrt(std::pow(x - x_center, 2.) + std::pow(y - y_center, 2.)) - radius;
-                           });
+            phi[cell] = std::sqrt(std::pow(x - x_center, 2.)
+                                  + std::pow(y - y_center, 2.))
+                      - radius;
+        });
 
     samurai::make_bc<samurai::Neumann<1>>(phi, 0.);
 
@@ -53,16 +56,19 @@ auto init_velocity(Mesh& mesh)
     auto u = samurai::make_vector_field<double, 2>("u", mesh);
     u.fill(0);
 
-    samurai::for_each_cell(mesh[mesh_id_t::cells_and_ghosts],
-                           [&](auto& cell)
-                           {
-                               auto center    = cell.center();
-                               const double x = center[0];
-                               const double y = center[1];
+    samurai::for_each_cell(
+        mesh[mesh_id_t::cells_and_ghosts],
+        [&](auto& cell)
+        {
+            auto center    = cell.center();
+            const double x = center[0];
+            const double y = center[1];
 
-                               u[cell][0] = -std::pow(std::sin(PI * x), 2.) * std::sin(2. * PI * y);
-                               u[cell][1] = std::pow(std::sin(PI * y), 2.) * std::sin(2. * PI * x);
-                           });
+            u[cell][0] = -std::pow(std::sin(PI * x), 2.)
+                       * std::sin(2. * PI * y);
+            u[cell][1] =
+                std::pow(std::sin(PI * y), 2.) * std::sin(2. * PI * x);
+        });
 
     samurai::make_bc<samurai::Neumann<1>>(u, 0., 0.);
 
@@ -71,7 +77,8 @@ auto init_velocity(Mesh& mesh)
     //     return xt::xtensor_fixed<double, xt::xshape<2>>{
     //         -std::pow(std::sin(PI*coords[0]), 2.) *
     //         std::sin(2.*PI*coords[1]),
-    //          std::pow(std::sin(PI*coords[1]), 2.) * std::sin(2.*PI*coords[0])
+    //          std::pow(std::sin(PI*coords[1]), 2.) *
+    //          std::sin(2.*PI*coords[0])
     //     };
     // });
 
@@ -87,41 +94,51 @@ void AMR_criteria(const Field& f, Tag& tag)
     const std::size_t min_level = mesh.min_level();
     const std::size_t max_level = mesh.max_level();
 
-    samurai::for_each_cell(mesh[mesh_id_t::cells],
-                           [&](auto cell)
-                           {
-                               const double dx = mesh.min_cell_length();
+    samurai::for_each_cell(
+        mesh[mesh_id_t::cells],
+        [&](auto cell)
+        {
+            const double dx = mesh.min_cell_length();
 
-                               if (std::abs(f[cell]) < 1.2 * 5 * std::sqrt(2.) * dx)
-                               {
-                                   if (cell.level == max_level)
-                                   {
-                                       tag[cell] = static_cast<int>(samurai::CellFlag::keep);
-                                   }
-                                   else
-                                   {
-                                       tag[cell] = static_cast<int>(samurai::CellFlag::refine);
-                                   }
-                               }
-                               else
-                               {
-                                   if (cell.level == min_level)
-                                   {
-                                       tag[cell] = static_cast<int>(samurai::CellFlag::keep);
-                                   }
-                                   else
-                                   {
-                                       tag[cell] = static_cast<int>(samurai::CellFlag::coarsen);
-                                   }
-                               }
-                           });
+            if (std::abs(f[cell]) < 1.2 * 5 * std::sqrt(2.) * dx)
+            {
+                if (cell.level == max_level)
+                {
+                    tag[cell] =
+                        static_cast<int>(samurai::CellFlag::keep);
+                }
+                else
+                {
+                    tag[cell] =
+                        static_cast<int>(samurai::CellFlag::refine);
+                }
+            }
+            else
+            {
+                if (cell.level == min_level)
+                {
+                    tag[cell] =
+                        static_cast<int>(samurai::CellFlag::keep);
+                }
+                else
+                {
+                    tag[cell] =
+                        static_cast<int>(samurai::CellFlag::coarsen);
+                }
+            }
+        });
 }
 
 template <class Field, class Phi>
-void save(const fs::path& path, const std::string& filename, const Field& u, const Phi& phi, const std::string& suffix = "")
+void save(const fs::path& path,
+          const std::string& filename,
+          const Field& u,
+          const Phi& phi,
+          const std::string& suffix = "")
 {
-    auto mesh   = u.mesh();
-    auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
+    auto mesh = u.mesh();
+    auto level_ =
+        samurai::make_scalar_field<std::size_t>("level", mesh);
 
     if (!fs::exists(path))
     {
@@ -134,14 +151,26 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
                                level_[cell] = cell.level;
                            });
 
-    samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, phi, u, level_);
-    samurai::dump(path, fmt::format("{}_restart{}", filename, suffix), mesh, phi);
+    samurai::save(path,
+                  fmt::format("{}{}", filename, suffix),
+                  mesh,
+                  phi,
+                  u,
+                  level_);
+    samurai::dump(path,
+                  fmt::format("{}_restart{}", filename, suffix),
+                  mesh,
+                  phi);
 }
 
 int main(int argc, char* argv[])
 {
     samurai::args::timers = true;
-    auto& app             = samurai::initialize("Finite volume example with a level set in 2d using AMR", argc, argv);
+
+    auto& app = samurai::initialize(
+        "Finite volume example with a level set in 2d using AMR",
+        argc,
+        argv);
 
     constexpr std::size_t dim = 2;
 
@@ -158,21 +187,46 @@ int main(int argc, char* argv[])
     std::string filename = "FV_level_set_2d_AMR";
     std::size_t nfiles   = 1;
 
-    app.add_option("--min-corner", min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--max-corner", max_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--Ti", t, "Initial time")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
-    app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
-    app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
+    app.add_option("--min-corner",
+                   min_corner,
+                   "The min corner of the box")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_option("--max-corner",
+                   max_corner,
+                   "The max corner of the box")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_option("--cfl", cfl, "The CFL")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_option("--Ti", t, "Initial time")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_option("--Tf", Tf, "Final time")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_option("--restart-file", restart_file, "Restart file")
+        ->capture_default_str()
+        ->group("Simulation parameters");
+    app.add_option("--path", path, "Output path")
+        ->capture_default_str()
+        ->group("Output");
+    app.add_option("--filename", filename, "File name prefix")
+        ->capture_default_str()
+        ->group("Output");
+    app.add_option("--nfiles", nfiles, "Number of output files")
+        ->capture_default_str()
+        ->group("Output");
     SAMURAI_PARSE(argc, argv);
 
     const samurai::Box<double, dim> box(min_corner, max_corner);
-    auto config = samurai::mesh_config<dim>().min_level(4).max_level(8).max_stencil_radius(2);
-    auto mesh   = samurai::amr::make_empty_mesh(config);
-    auto phi    = samurai::make_scalar_field<double>("phi", mesh);
+    auto config = samurai::mesh_config<dim>()
+                      .min_level(4)
+                      .max_level(8)
+                      .max_stencil_radius(2);
+    auto mesh = samurai::amr::make_empty_mesh(config);
+    auto phi  = samurai::make_scalar_field<double>("phi", mesh);
 
     if (restart_file.empty())
     {
@@ -194,7 +248,7 @@ int main(int argc, char* argv[])
     samurai::make_bc<samurai::Neumann<1>>(phihat, 0.);
     auto phi_0 = samurai::make_scalar_field<double>("phi_0", mesh);
 
-    auto convection       = make_level_set_convection<decltype(phi)>(u, dt);
+    auto convection = make_level_set_convection<decltype(phi)>(u, dt);
     auto reinitialization = make_level_set_reinitialization(phi_0);
 
     auto tag = samurai::make_scalar_field<int>("tag", mesh);
@@ -215,7 +269,8 @@ int main(int argc, char* argv[])
         // std::size_t ite = 0;
         while (true)
         {
-            // std::cout << "Mesh adaptation iteration " << ite++ << std::endl;
+            // std::cout << "Mesh adaptation iteration " << ite++
+            //           << std::endl;
             tag.resize();
             AMR_criteria(phi, tag);
             samurai::graduation(tag, stencil_grad);
@@ -233,7 +288,11 @@ int main(int argc, char* argv[])
             t = Tf;
         }
 
-        std::cout << fmt::format("iteration {}: t = {}, dt = {}", nt++, t, dt) << std::endl;
+        std::cout << fmt::format("iteration {}: t = {}, dt = {}",
+                                 nt++,
+                                 t,
+                                 dt)
+                  << std::endl;
 
         // Numerical scheme
         samurai::update_ghost(phi, u);
@@ -243,8 +302,10 @@ int main(int argc, char* argv[])
         std::swap(phi.array(), phinp1.array());
 
         // Reinitialization of the level set
-        const std::size_t fict_iteration = 5;                             // Number of fictitious iterations
-        const double dt_fict             = 0.25 * mesh.min_cell_length(); // Fictitious time step at the finest level
+        // Number of fictitious iterations
+        const std::size_t fict_iteration = 5;
+        // Fictitious time step at the finest level
+        const double dt_fict = 0.25 * mesh.min_cell_length();
 
         phi_0 = phi;
         for (std::size_t k = 0; k < fict_iteration; ++k)
@@ -254,14 +315,17 @@ int main(int argc, char* argv[])
             phihat.resize();
             phihat = phi - dt_fict * reinitialization(phi);
             samurai::update_ghost(phihat);
-            phinp1 = .5 * phi + .5 * (phihat - dt_fict * reinitialization(phihat));
+            phinp1 =
+                .5 * phi
+                + .5 * (phihat - dt_fict * reinitialization(phihat));
 
             std::swap(phi.array(), phinp1.array());
         }
 
         if (t >= static_cast<double>(nsave) * dt_save || t == Tf)
         {
-            const std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
+            const std::string suffix =
+                (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
             save(path, filename, u, phi, suffix);
         }
     }

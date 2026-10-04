@@ -24,3 +24,26 @@ repos:
     hooks:
       - id: clang-format
         files: .*\.[hc]pp$
+        # Demo files included in the docs are formatted at 71 columns to
+        # fit a code block: this hook skips them and the next one formats
+        # them with demos/.clang-format-docs. Add a file to the list when
+        # a page starts including it. demos/tutorial has its own
+        # .clang-format instead.
+        exclude: &docs_demos |
+          (?x)^demos/(
+            FiniteVolume/diff_heated_cavity\.cpp|
+            FiniteVolume/heat\.cpp|
+            FiniteVolume/level_set_AMR\.cpp|
+            FiniteVolume/level_set_schemes\.hpp|
+            FiniteVolume/linear_convection_obstacle\.cpp|
+            FiniteVolume/nagumo\.cpp|
+            LBM/new_D1Q3_shallow_waters_dam\.cpp|
+            LBM/new_D2Q4444_euler_implosion\.cpp|
+            LBM/new_D2Q4_advection\.cpp|
+            LBM/new_D2Q9_von_karman\.cpp
+          )$
+      - id: clang-format
+        name: clang-format (demos included in the docs)
+        alias: clang-format-docs
+        files: *docs_demos
+        args: ["--style=file:demos/.clang-format-docs"]
