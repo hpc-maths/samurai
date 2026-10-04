@@ -61,7 +61,7 @@ To count them at another level, bring the operand to that level first: `expand(a
 
 The following program applies these operations to a 2D set of five cells shaped like a plus sign:
 
-```{literalinclude} ../howto/snippet/set_algebra/set_algebra_expand_contract.cpp
+```{literalinclude} snippet/set_algebra/set_algebra_expand_contract.cpp
   :language: c++
   :start-at: // A plus sign
   :end-at: print("translate
@@ -126,7 +126,7 @@ In the following figure, level 1 holds the interval $[0, 4[$ and level 0 the int
 Compared without a set projection, the two intervals would give the intersection $[1, 3[$, which is wrong: the cell 1 of level 0 covers the cells 2 and 3 of level 1, and the cell 2 of level 0 is outside level 1.
 The following program computes the intersection on its default level, then on levels 0 and 3:
 
-```{literalinclude} ../howto/snippet/set_algebra/set_algebra_levels.cpp
+```{literalinclude} snippet/set_algebra/set_algebra_levels.cpp
   :language: c++
   :start-at: auto set = samurai::intersection
   :end-at: });
@@ -243,7 +243,7 @@ Give each thread its own `clone()`.
 
 The following program builds the union of a list of level cell arrays whose length is known at runtime, brings it to level 1, and traverses it from two threads:
 
-```{literalinclude} ../howto/snippet/set_algebra/set_algebra_dynamic.cpp
+```{literalinclude} snippet/set_algebra/set_algebra_dynamic.cpp
   :language: c++
   :start-at: // The number of operands
   :end-at: thread.join();
