@@ -206,6 +206,7 @@ It prints:
 
 ```{literalinclude} snippet/interval/interval_1d_output.txt
 :language: text
+:class: wrap-output
 ```
 
 Each interval is printed as `position->[start,end)@index:step`, where `position` is the place of the interval in its array.
@@ -394,6 +395,7 @@ It prints the {cpp:class}`samurai::CellArray`:
 
 ```{literalinclude} snippet/interval/2d_mesh_representation_output.txt
 :language: text
+:class: wrap-output
 ```
 
 The `cells` lines of `dim 0` are the x arrays, the `cells` lines of `dim 1` are the y intervals, and the `offsets` lines are the `y-offset` arrays, printed as `(position: value)` pairs.
@@ -423,6 +425,7 @@ At level 3, the cell length is $\Delta x = 2 / 2^3 = 0.25$, so the box holds $8 
 
 ```{literalinclude} snippet/interval/2d_mesh_box_output.txt
 :language: text
+:class: wrap-output
 ```
 
 :::{warning}

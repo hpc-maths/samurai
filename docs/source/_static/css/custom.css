@@ -7,3 +7,10 @@
     max-width: 100%;
     /* default is 88rem */
 }
+
+/* Program output included with `:class: wrap-output`: wrap long lines
+   instead of scrolling, the text itself is unchanged. */
+.wrap-output pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
