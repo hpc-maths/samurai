@@ -19,6 +19,7 @@ Build a `samurai::UniformMesh` from a box and a level:
 
 ```{literalinclude} snippet/mesh/uniform.cpp
   :language: c++
+  :end-before: // Print the number
 ```
 
 This example creates a 2D uniform mesh on the box from $(0.0, 0.0)$ to $(1.0, 1.0)$ at level 4, which gives $2^4$ cells along each dimension.
@@ -37,6 +38,7 @@ Describe the mesh with `samurai::mesh_config`, then pass it to `samurai::mra::ma
 
 ```{literalinclude} snippet/mesh/mrmesh.cpp
   :language: c++
+  :end-before: // Print the number
 ```
 
 This example creates a 2D multiresolution mesh on the box from $(0.0, 0.0)$ to $(1.0, 1.0)$ with a minimum level of 2 and a maximum level of 5.
@@ -49,6 +51,7 @@ Set the level the cells start at with `start_level`:
 
 ```{literalinclude} snippet/mesh/amrmesh.cpp
   :language: c++
+  :end-before: // Print the number
 ```
 
 This example creates a 2D AMR mesh on the box from $(0.0, 0.0)$ to $(1.0, 1.0)$ with all cells at level 4, a minimum level of 2 and a maximum level of 5.
@@ -58,15 +61,13 @@ The start level must lie between the minimum and the maximum level, otherwise bu
 ## Set the ghost cells and the graduation
 
 Multiresolution and AMR meshes take their stencil and graduation settings from `samurai::mesh_config`.
-Chain the setters you need:
+Call the setters you need on the configuration before you build the mesh:
 
-```cpp
-auto config = samurai::mesh_config<dim, 2>() // prediction stencil radius of 2
-                  .min_level(2)
-                  .max_level(5)
-                  .max_stencil_radius(2)     // the numerical scheme reaches 2 cells in each direction
-                  .graduation_width(3);      // levels differ by at most one within 3 cells
-auto mesh   = samurai::mra::make_mesh(box, config);
+```{literalinclude} snippet/mesh/ghost_config.cpp
+  :language: c++
+  :start-at: // Prediction stencil radius
+  :end-at: auto mesh =
+  :dedent:
 ```
 
 Choose the values from your numerical scheme:
@@ -98,16 +99,59 @@ The [options how-to guide](options.md) explains how to parse and list these opti
 
 ## Check the mesh
 
-Print the mesh to check its levels and cells:
+The complete programs of the examples above print the number of cells of the mesh.
+For the uniform mesh, `docs/source/howto/snippet/mesh/uniform.cpp` ends with:
 
-```cpp
-#include <iostream>
-
-std::cout << mesh << std::endl;
+```{literalinclude} snippet/mesh/uniform.cpp
+  :language: c++
+  :start-at: // Print the number
+  :end-at: std::endl;
+  :dedent:
 ```
 
-The output lists each sub-mesh (`cells`, `cells and ghosts`, ...) with its cells level by level.
-For the multiresolution example, the `cells` sub-mesh has cells at level 5 only; for the AMR example, at level 4 only.
+It prints the $16 \times 16$ cells at level 4, and the $18 \times 18$ cells once the layer of one ghost cell is added:
+
+```text
+cells: 256
+cells and ghosts: 324
+```
+
+The multiresolution and AMR programs count the cells of each level with `mesh.nb_cells(level, mesh_id_t::cells)`:
+
+```{literalinclude} snippet/mesh/mrmesh.cpp
+  :language: c++
+  :start-at: // Print the number
+  :end-at: "}"
+  :dedent:
+```
+
+The multiresolution mesh has all its cells at level 5:
+
+```text
+level 2: 0 cells
+level 3: 0 cells
+level 4: 0 cells
+level 5: 1024 cells
+```
+
+The AMR mesh has all its cells at level 4, its start level:
+
+```text
+level 2: 0 cells
+level 3: 0 cells
+level 4: 256 cells
+level 5: 0 cells
+```
+
+The program `docs/source/howto/snippet/mesh/ghost_config.cpp` of the previous section prints the ghost width of its mesh and of the same mesh with the default settings:
+
+```text
+ghost width: 3
+default ghost width: 2
+```
+
+To see every sub-mesh (`cells`, `cells and ghosts`, ...) interval by interval, print the mesh itself with `std::cout << mesh`.
+Its lines are long: one line holds all the intervals of a level along one direction.
 
 ## Next steps
 
