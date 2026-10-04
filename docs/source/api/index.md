@@ -46,6 +46,21 @@ subset
 algorithm
 ```
 
+## Adaptation and output
+
+- {doc}`mr`: `samurai::make_MRAdapt`, `samurai::mra_config` and the multiresolution adaptation they run.
+- {doc}`io`: `samurai::save`, `samurai::dump` and `samurai::load`, with the HDF5 options and the metadata callbacks.
+- {doc}`timers`: `samurai::ScopedTimer` and the `samurai::Timers` registry behind the `--timers` report.
+
+```{toctree}
+:caption: Adaptation and output
+:hidden:
+
+mr
+io
+timers
+```
+
 ## Numerical schemes
 
 - {doc}`bc`: the boundary condition types and `samurai::make_bc`.
