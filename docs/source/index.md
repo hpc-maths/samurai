@@ -31,8 +31,8 @@ LBM/index
 ## Examples and applications
 
 - {doc}`LBM/index`: lattice Boltzmann schemes on multiresolution meshes, with the test cases that validate them.
-- [Demos](https://github.com/hpc-maths/samurai/tree/main/demos): complete programs in the repository, grouped by method (finite volume, lattice Boltzmann, WENO, multigrid, MPI).
-- [samurai gallery](https://hpc-maths.github.io/samurai-gallery/): complete simulations to start from.
+- {doc}`demos`: the complete programs of the repository, grouped by method (finite volume, lattice Boltzmann, multigrid, MPI), with the command that builds and runs each one.
+- {doc}`gallery`: complete simulations, with videos of the solution and the mesh, to start from.
 
 ## Contributing
 
