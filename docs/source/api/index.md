@@ -20,6 +20,19 @@ interval
 cell
 ```
 
+## Meshes and fields
+
+- {doc}`mesh`: the uniform, multiresolution and AMR meshes, their configuration, and the cell arrays and cell lists they are made of.
+- {doc}`field`: `samurai::ScalarField`, `samurai::VectorField` and the functions that create them.
+
+```{toctree}
+:caption: Meshes and fields
+:hidden:
+
+mesh
+field
+```
+
 ## Sets and loops
 
 - {doc}`subset`: `samurai::SetBase` and the functions that build set expressions.
