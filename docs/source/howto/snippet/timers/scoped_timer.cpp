@@ -11,7 +11,7 @@ int main(int argc, char** argv)
 {
     static constexpr std::size_t dim = 2;
 
-    samurai::initialize("Custom timer example", argc, argv);
+    samurai::initialize("Scoped timer example", argc, argv);
 
     samurai::Box<double, dim> box({0.0, 0.0}, {1.0, 1.0});
     auto config = samurai::mesh_config<dim>();
@@ -26,9 +26,10 @@ int main(int argc, char** argv)
         u[cell]        = std::exp(-20. * (x * x + y * y));
     };
 
-    samurai::times::timers.start("init field");
-    samurai::for_each_cell(mesh, init);
-    samurai::times::timers.stop("init field");
+    {
+        samurai::ScopedTimer init_timer("init field");
+        samurai::for_each_cell(mesh, init);
+    } // init_timer stops here
 
     samurai::finalize();
     return 0;
