@@ -836,7 +836,7 @@ jobs:
             - name: Compiler installation
               shell: bash -l {0}
               run: |
-                  micromamba install -y cxx-compiler ccache
+                  micromamba install -y cxx-compiler ccache petsc pkg-config
                   ccache --max-size=2G
                   ccache --zero-stats
 
@@ -846,6 +846,7 @@ jobs:
                   cmake \
                       . \
                       -Bbuild \
+                      -DWITH_PETSC=ON \
                       -DBUILD_SNIPPETS=ON
 
             - name: Build snippets
