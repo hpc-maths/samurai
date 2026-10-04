@@ -216,6 +216,6 @@ namespace samurai
         list.add_interval({4, 7});
         std::stringstream ss;
         ss << list;
-        EXPECT_STREQ(ss.str().data(), "[2,3[@0:1 [4,7[@0:1 ");
+        EXPECT_STREQ(ss.str().data(), "[2,3)@0:1 [4,7)@0:1 ");
     }
 }

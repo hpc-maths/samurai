@@ -39,22 +39,22 @@ The cells are numbered from the coarsest level to the finest level and, at each 
 
 For example:
 
-- `field(0, 0)` is entry 0 and belongs to the interval $[0, 2[$ at level 0;
-- `field(2, 14)` is entry 8 and belongs to the interval $[14, 16[$ at level 2.
+- `field(0, 0)` is entry 0 and belongs to the interval $[0, 2)$ at level 0;
+- `field(2, 14)` is entry 8 and belongs to the interval $[14, 16)$ at level 2.
 
 The cells of an interval are contiguous in the array, so one integer per interval is enough to find them: the index given by the `@` operator.
-The interval $[14, 16[$ at level 2 holds entries 8 and 9 of the array.
+The interval $[14, 16)$ at level 2 holds entries 8 and 9 of the array.
 With the index $-6$, the entry of each cell is its $x$ coordinate plus the index:
 
 $$
-[14, 16[@-6 \rightarrow [14 - 6, 15 - 6] = [8, 9].
+[14, 16)@-6 \rightarrow [14 - 6, 15 - 6] = [8, 9].
 $$ (field-1d-index)
 
 Following the same rule, the index of each interval is:
 
-- level 0: $[0, 2[@0$, $[5, 6[@-3$;
-- level 1: $[4, 7[@-1$, $[8, 10[@-2$;
-- level 2: $[14, 16[@-6$.
+- level 0: $[0, 2)@0$, $[5, 6)@-3$;
+- level 1: $[4, 7)@-1$, $[8, 10)@-2$;
+- level 2: $[14, 16)@-6$.
 
 ### A 2D example
 
@@ -76,32 +76,32 @@ The cells are numbered in the same way: from the coarsest level to the finest le
 
 For example:
 
-- `field(0, 0, 0)` is entry 0 and belongs to the interval $[0, 4[$ for $y = 0$ at level 0;
-- `field(2, 14, 15)` is entry 35 and belongs to the interval $[14, 16[$ for $y = 15$ at level 2.
+- `field(0, 0, 0)` is entry 0 and belongs to the interval $[0, 4)$ for $y = 0$ at level 0;
+- `field(2, 14, 15)` is entry 35 and belongs to the interval $[14, 16)$ for $y = 15$ at level 2.
 
 As in 1D, the index of an interval along $x$ gives the entries of its cells.
-The interval $[14, 16[$ for $y = 15$ at level 2 holds entries 35 and 36, so its index is 21:
+The interval $[14, 16)$ for $y = 15$ at level 2 holds entries 35 and 36, so its index is 21:
 
 $$
-[14, 16[@21 \rightarrow [14 + 21, 15 + 21] = [35, 36].
+[14, 16)@21 \rightarrow [14 + 21, 15 + 21] = [35, 36].
 $$ (field-2d-index)
 
 With these indices, the whole `samurai::CellArray` is:
 
 ```text
 level 0:
-    x: [0, 4[@0, [0, 1[@4, [3, 4[@2, [0, 1[@6, [3, 4[@4, [0, 3[@8
-    y: [0, 4[@0
+    x: [0, 4)@0, [0, 1)@4, [3, 4)@2, [0, 1)@6, [3, 4)@4, [0, 3)@8
+    y: [0, 4)@0
     y-offset: [0, 1, 3, 5, 6]
 
 level 1:
-    x: [2, 6[@9, [2, 6[@13, [2, 4[@17, [5, 6[@16, [2, 6[@20, [6, 8[@20, [6, 7[@22
-    y: [2, 8[@-2
+    x: [2, 6)@9, [2, 6)@13, [2, 4)@17, [5, 6)@16, [2, 6)@20, [6, 8)@20, [6, 7)@22
+    y: [2, 8)@-2
     y-offset: [0, 1, 2, 4, 5, 6, 7]
 
 level 2:
-    x: [8, 10[@21, [8, 10[@23, [14, 16[@19, [14, 16[@21
-    y: [8, 10[@-8, [14, 16[@-12
+    x: [8, 10)@21, [8, 10)@23, [14, 16)@19, [14, 16)@21
+    y: [8, 10)@-8, [14, 16)@-12
     y-offset: [0, 1, 2, 3, 4]
 ```
 

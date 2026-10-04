@@ -220,7 +220,7 @@ Next, we describe the mesh with {cpp:class}`samurai::mesh_config`, with its mini
 The mesh is an adaptive mesh refinement (AMR) mesh.
 It starts uniform at the maximum level: the level-0 cell is the whole box, so a cell at level 8 has the size $\Delta x_8 = 6 / 2^8$.
 The program prints the sub-meshes of the mesh (`cells`, `cells and ghosts`, ...).
-The `cells` sub-mesh has a single interval `[0,256[` at level 8: the 256 cells $C_{8,0}, \dots, C_{8,255}$ of {eq}`burgers-cells`.
+The `cells` sub-mesh has a single interval `[0,256)` at level 8: the 256 cells $C_{8,0}, \dots, C_{8,255}$ of {eq}`burgers-cells`.
 The first adaptation of the time loop merges the cells where the initial condition is constant.
 
 :::{note}

@@ -69,10 +69,10 @@ The next sections explain these constraints.
 The interval is the main data structure of {{ project }}.
 An interval is printed as follows:
 
-```{image} ./figures/interval.png
+```{image} ./figures/interval.svg
 :alt: A printed interval from -5 to 10 with index 0 and step 1, where the labels start, end, index and step point at each part.
 :align: center
-:width: 200
+:width: 300
 ```
 
 An interval is defined by its start and end values (in black).
@@ -112,7 +112,7 @@ The figure below illustrates the idea:
 :width: 250
 ```
 
-We have two cells $0$ and $1$ on the level $l$, so the interval $[0, 2[$ describes this domain at the level $l$.
+We have two cells $0$ and $1$ on the level $l$, so the interval $[0, 2)$ describes this domain at the level $l$.
 
 :::{note}
 We could describe closed intervals such as $[0, 1]$.
@@ -180,9 +180,9 @@ We now take a 1D mesh with several levels and look at how {{ project }} stores i
 
 For each level, the intervals are:
 
-- level 0: $[0, 2[$, $[5, 6[$
-- level 1: $[4, 7[$, $[8, 10[$
-- level 2: $[14, 16[$
+- level 0: $[0, 2)$, $[5, 6)$
+- level 1: $[4, 7)$, $[8, 10)$
+- level 2: $[14, 16)$
 
 The level and $\Delta x$ from {eq}`dx` give the real intervals:
 
@@ -209,24 +209,24 @@ It prints:
 │      Level 0       │
 └────────────────────┘
      dim 0
-            cells = 0->[0,2[@0:1 1->[5,6[@-3:1
+            cells = 0->[0,2)@0:1 1->[5,6)@-3:1
 
 
 ┌────────────────────┐
 │      Level 1       │
 └────────────────────┘
      dim 0
-            cells = 0->[4,7[@-1:1 1->[8,10[@-2:1
+            cells = 0->[4,7)@-1:1 1->[8,10)@-2:1
 
 
 ┌────────────────────┐
 │      Level 2       │
 └────────────────────┘
      dim 0
-            cells = 0->[14,16[@-6:1
+            cells = 0->[14,16)@-6:1
 ```
 
-Each interval is printed as `position->[start,end[@index:step`, where `position` is the place of the interval in its array.
+Each interval is printed as `position->[start,end)@index:step`, where `position` is the place of the interval in its array.
 The [2D example](#read-the-printed-mesh) explains how the index values are computed.
 
 This example uses two data structures, {cpp:class}`samurai::CellList` and {cpp:class}`samurai::CellArray`.
@@ -253,13 +253,13 @@ In our 1D example, the {cpp:class}`samurai::CellList` of this mesh is:
 
 ```text
 level 0:
-    x: [0, 2[, [5, 6[
+    x: [0, 2), [5, 6)
 
 level 1:
-    x: [4, 7[, [8, 10[
+    x: [4, 7), [8, 10)
 
 level 2:
-    x: [14, 16[
+    x: [14, 16)
 ```
 
 The {cpp:class}`samurai::CellArray` has the same intervals.
@@ -282,37 +282,37 @@ The {cpp:class}`samurai::CellList` of this mesh is:
 ```text
 level 0:
     y: 0
-        x: [0, 4[
+        x: [0, 4)
     y: 1
-        x: [0, 1[, [3, 4[
+        x: [0, 1), [3, 4)
     y: 2
-        x: [0, 1[, [3, 4[
+        x: [0, 1), [3, 4)
     y: 3
-        x: [0, 3[
+        x: [0, 3)
 
 level 1:
     y: 2
-        x: [2, 6[
+        x: [2, 6)
     y: 3
-        x: [2, 6[
+        x: [2, 6)
     y: 4
-        x: [2, 4[, [5, 6[
+        x: [2, 4), [5, 6)
     y: 5
-        x: [2, 6[
+        x: [2, 6)
     y: 6
-        x: [6, 8[
+        x: [6, 8)
     y: 7
-        x: [6, 7[
+        x: [6, 7)
 
 level 2:
     y: 8
-        x: [8, 10[
+        x: [8, 10)
     y: 9
-        x: [8, 10[
+        x: [8, 10)
     y: 14
-        x: [14, 16[
+        x: [14, 16)
     y: 15
-        x: [14, 16[
+        x: [14, 16)
 ```
 
 The keys of the map in {cpp:class}`samurai::CellList` are the indices in y, and the value of each key is the list of intervals in the x-direction for this index.
@@ -321,18 +321,18 @@ The {cpp:class}`samurai::CellArray` of the same mesh is:
 
 ```text
 level 0:
-    x: [0, 4[, [0, 1[, [3, 4[, [0, 1[, [3, 4[, [0, 3[
-    y: [0, 4[@0
+    x: [0, 4), [0, 1), [3, 4), [0, 1), [3, 4), [0, 3)
+    y: [0, 4)@0
     y-offset: [0, 1, 3, 5, 6]
 
 level 1:
-    x: [2, 6[, [2, 6[, [2, 4[, [5, 6[, [2, 6[, [6, 8[, [6, 7[
-    y: [2, 8[@-2
+    x: [2, 6), [2, 6), [2, 4), [5, 6), [2, 6), [6, 8), [6, 7)
+    y: [2, 8)@-2
     y-offset: [0, 1, 2, 4, 5, 6, 7]
 
 level 2:
-    x: [8, 10[, [8, 10[, [14, 16[, [14, 16[
-    y: [8, 10[@-8, [14, 16[@-12
+    x: [8, 10), [8, 10), [14, 16), [14, 16)
+    y: [8, 10)@-8, [14, 16)@-12
     y-offset: [0, 1, 2, 3, 4]
 ```
 
@@ -343,17 +343,17 @@ First, we concatenate the intervals in the x-direction of each index `y`, in inc
 At level 2, the x array is:
 
 ```text
-x: [8, 10[, [8, 10[, [14, 16[, [14, 16[
+x: [8, 10), [8, 10), [14, 16), [14, 16)
 ```
 
 Then, we build intervals in the y-direction from the keys.
-At level 2, the keys are `y = 8, 9, 14, 15`, which give two intervals of consecutive values: $[8, 10[$ and $[14, 16[$.
+At level 2, the keys are `y = 8, 9, 14, 15`, which give two intervals of consecutive values: $[8, 10)$ and $[14, 16)$.
 
 The compressed view of the {cpp:class}`samurai::CellList` at level 2 is:
 
 ```text
-x: [8, 10[, [8, 10[, [14, 16[, [14, 16[
-y: [8, 10[, [14, 16[
+x: [8, 10), [8, 10), [14, 16), [14, 16)
+y: [8, 10), [14, 16)
 ```
 
 ### Read the printed mesh
@@ -376,15 +376,15 @@ One question remains: for a given `y`, which entry of `y-offset` do we read?
 This is the role of the index.
 For `y = 14`, the entry is `y-offset[2]`, because `y = 14` is the third `y` value.
 The index of a `y` interval is chosen so that `y + index` is the position of `y` in `y-offset`.
-For the interval $[14, 16[$, the index is `-12`, and `y-offset[y + index] = y-offset[14 - 12] = y-offset[2]`.
+For the interval $[14, 16)$, the index is `-12`, and `y-offset[y + index] = y-offset[14 - 12] = y-offset[2]`.
 
 The same computation of the `y-offset` and of the indices at levels 0 and 1 gives the whole {cpp:class}`samurai::CellArray` shown above.
 
 The intervals in the x-direction also carry an index.
 It gives the position of each cell in the storage of a field defined on the mesh: the cell `x` of an interval is stored at `x + index`.
 The cells are numbered one after the other, level by level.
-At level 0, the first interval $[0, 4[$ holds cells 0 to 3, so its index is 0.
-The next interval $[0, 1[$ holds cell 4, so its index is $4 - 0 = 4$, and $[3, 4[$ holds cell 5, so its index is $5 - 3 = 2$.
+At level 0, the first interval $[0, 4)$ holds cells 0 to 3, so its index is 0.
+The next interval $[0, 1)$ holds cell 4, so its index is $4 - 0 = 4$, and $[3, 4)$ holds cell 5, so its index is $5 - 3 = 2$.
 
 :::{note}
 The compression of a {cpp:class}`samurai::CellList` into a {cpp:class}`samurai::CellArray` is recursive over the directions.
@@ -444,10 +444,10 @@ At level 3, the cell length is $\Delta x = 2 / 2^3 = 0.25$, so the box holds $8 
 │      Level 3       │
 └────────────────────┘
      dim 0
-            cells = 0->[0,8[@0:1 1->[0,8[@8:1 2->[0,8[@16:1 3->[0,8[@24:1 4->[0,8[@32:1 5->[0,8[@40:1 6->[0,8[@48:1 7->[0,8[@56:1
+            cells = 0->[0,8)@0:1 1->[0,8)@8:1 2->[0,8)@16:1 3->[0,8)@24:1 4->[0,8)@32:1 5->[0,8)@40:1 6->[0,8)@48:1 7->[0,8)@56:1
 
      dim 1
-            cells = 0->[0,8[@0:1
+            cells = 0->[0,8)@0:1
 
           offsets = (0: 0) (1: 1) (2: 2) (3: 3) (4: 4) (5: 5) (6: 6) (7: 7) (8: 8)
 ```
