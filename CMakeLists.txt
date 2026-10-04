@@ -273,6 +273,7 @@ endif()
 if(BUILD_SNIPPETS)
   add_subdirectory(docs/source/howto/snippet)
   add_subdirectory(docs/source/tutorial/snippet)
+  add_subdirectory(docs/source/reference/snippet)
 endif()
 
 if(BUILD_TESTS)
