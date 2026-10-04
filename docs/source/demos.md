@@ -151,7 +151,7 @@ Options that start with a single dash, such as `-pc_type lu`, go to the PETSc so
 | --- | --- |
 | `finite-volume-heat` | 2D heat equation, implicit or explicit (`--explicit`). |
 | `finite-volume-heat-heterogeneous` | 2D heat equation with a diffusion coefficient that depends on the cell. See {ref}`lin_heter_operators`. |
-| `finite-volume-heat-nonlinear` | 2D nonlinear heat equation, with a flux written by the user. |
+| `finite-volume-heat-nonlinear` | 2D nonlinear heat equation, with a flux written by the user. Its printed L2 error is wrong ([#610](https://github.com/hpc-maths/samurai/issues/610)). |
 | `finite-volume-nagumo` | 1D Nagumo reaction-diffusion equation, implicit or IMEX. See {doc}`tutorial/reaction_diffusion`. |
 | `finite-volume-linear-convection` | 2D periodic convection with WENO5, explicit or backward Euler (`--implicit`). |
 | `finite-volume-stokes-2d` | 2D Stokes problem, stationary (`s`) or not (`ns`), solved as a block system. |
@@ -269,17 +269,13 @@ Run commands, from `build/demos/multigrid` and `build/demos/highorder`:
 ./highorder
 ```
 
-:::{admonition} TODO: demos that fail
-:class: warning
+```{warning}
+Three of these commands fail on the current code:
 
-Maintainers: three commands of this page fail with the code of the repository.
-
-- `./highorder` aborts at start with `MPI_Comm_create_keyval() function was called after MPI_FINALIZE`: `demos/highorder/main.cpp` calls `samurai::finalize()` inside the lambda that fills `adapt_field`.
-- `./multigrid --level 5 -pc_type mg` reports `0 iterations` and an $L^2$ error of `3.33e-02` (`4.77e-05` with the default solver).
-- `./manual_block_matrix_assembly` prints its vector, then aborts with `MPI_Comm_get_attr() function was called after MPI_FINALIZE`: the PETSc solver is destroyed after `samurai::finalize()`.
-
-Fix the demos, then delete this note.
-:::
+- `./highorder` aborts at start ([#607](https://github.com/hpc-maths/samurai/issues/607));
+- `./manual_block_matrix_assembly` aborts at exit ([#608](https://github.com/hpc-maths/samurai/issues/608));
+- `./multigrid --level 5 -pc_type mg` does not converge to the right solution ([#609](https://github.com/hpc-maths/samurai/issues/609)).
+```
 
 ## Mesh from a geometry
 
