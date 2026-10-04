@@ -43,7 +43,7 @@ int main(int argc, char* argv[])
                 local(
                     [&](const auto& interval, const auto&)
                     {
-                        results[t] += " [" + std::to_string(interval.start) + "," + std::to_string(interval.end) + "[";
+                        results[t] += " [" + std::to_string(interval.start) + "," + std::to_string(interval.end) + ")";
                     });
             });
     }
