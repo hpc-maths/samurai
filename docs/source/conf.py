@@ -51,6 +51,12 @@ extensions = [
 breathe_projects = {"samurai": "../xml"}
 breathe_default_project = "samurai"
 
+# Breathe declares the enclosing namespace (`samurai`) once per `doxygenfile`
+# directive, and the Sphinx C++ domain reports every declaration after the
+# first one as a duplicate. The API pages use `doxygenfile` on several headers
+# of the same namespace, so these warnings say nothing about the docs.
+suppress_warnings = ["duplicate_declaration.cpp"]
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 

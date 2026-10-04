@@ -17,3 +17,7 @@ MACRO_EXPANSION = YES
 PREDEFINED = SAMURAI_INLINE=
 # Implementation details are not part of the public API.
 EXCLUDE_SYMBOLS = detail *::detail
+# samurai/bc.hpp only includes the headers of samurai/bc/ and documents nothing.
+# Breathe finds a file by its base name, so leaving it in would make
+# `doxygenfile:: bc.hpp` ambiguous with samurai/bc/bc.hpp.
+EXCLUDE = ../include/samurai/bc.hpp
