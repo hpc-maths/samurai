@@ -99,11 +99,11 @@ When you leave out the directory, pass the options as a named object and not as 
 ```{literalinclude} snippet/save/save_all_submeshes.cpp
     :language: c++
     :start-after: // Without a directory
-    :end-at: samurai::save("submeshes", options
+    :end-at: samurai::save("submesh", options
     :dedent:
 ```
 
-The call `samurai::save("submeshes", {true, true}, mesh, ...)` also matches the overload that takes a directory and a file name (`{true, true}` converts to a `std::string`), so the call is either ambiguous or resolved to the wrong overload.
+The call `samurai::save("submesh", {true, true}, mesh, ...)` also matches the overload that takes a directory and a file name (`{true, true}` converts to a `std::string`), so the call is either ambiguous or resolved to the wrong overload.
 With a directory, as in the snippet above, the braced list works.
 
 ## If you run with MPI

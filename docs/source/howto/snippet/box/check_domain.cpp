@@ -15,7 +15,6 @@ int main(int argc, char* argv[])
     domain.add({0.0, 1.0}, {1.0, 2.0});
 
     auto config = samurai::mesh_config<dim>();
-
     config.min_level(2).max_level(4);
     auto mesh = samurai::mra::make_mesh(domain, config);
 

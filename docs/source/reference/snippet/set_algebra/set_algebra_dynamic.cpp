@@ -14,7 +14,7 @@ int main(int argc, char* argv[])
 
     constexpr std::size_t dim = 1;
     using lca_t               = samurai::LevelCellArray<dim>;
-    using set_t               = samurai::DynamicSet<dim, lca_t::interval_t>;
+    using set_t = samurai::DynamicSet<dim, lca_t::interval_t>;
 
     std::vector<lca_t> blocks;
     for (int start : {0, 6, 12})
@@ -32,7 +32,7 @@ int main(int argc, char* argv[])
     }
     const set_t set = samurai::dyn::union_(operands).on(1);
 
-    // One clone per thread: a DynamicSet keeps its traversal state inside.
+    // One clone per thread: a DynamicSet holds its traversal state
     std::vector<std::string> results(2);
     std::vector<std::thread> threads;
     for (std::size_t t = 0; t < results.size(); ++t)
@@ -43,7 +43,9 @@ int main(int argc, char* argv[])
                 local(
                     [&](const auto& interval, const auto&)
                     {
-                        results[t] += " [" + std::to_string(interval.start) + "," + std::to_string(interval.end) + ")";
+                        const auto a = std::to_string(interval.start);
+                        const auto b = std::to_string(interval.end);
+                        results[t] += " [" + a + "," + b + ")";
                     });
             });
     }

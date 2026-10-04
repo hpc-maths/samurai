@@ -21,14 +21,14 @@ int main(int argc, char* argv[])
     auto u = samurai::make_scalar_field<double>("u", mesh);
     auto v = samurai::make_vector_field<double, 3>("v", mesh);
 
-    samurai::save("output_path", "submeshes", {true, true}, mesh, u, v);
+    samurai::save("output_path", "submesh", {true, true}, mesh, u, v);
     // or
     const fs::path cwd = fs::current_path();
-    samurai::save(cwd, "submeshes", {true, true}, mesh, u, v);
+    samurai::save(cwd, "submesh", {true, true}, mesh, u, v);
 
     // Without a directory, pass the options as a named object
     samurai::Hdf5Options<decltype(mesh)> options(true, true);
-    samurai::save("submeshes", options, mesh, u, v);
+    samurai::save("submesh", options, mesh, u, v);
 
     samurai::finalize();
     return 0;
