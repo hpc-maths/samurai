@@ -53,10 +53,10 @@ The following example prints the level, the interval and the $y$ index of each i
   :language: c++
 ```
 
-All the cells are at level 5, so there is one interval per row: the program prints 32 lines, with `y` going from 0 to 31. An interval prints as `[start,end[@offset:step`, where `start` and `end` are the first index and one past the last index along $x$, `offset` is the shift that gives the position of the cells in the field storage, and `step` is the stride between indices. Each line has the form:
+All the cells are at level 5, so there is one interval per row: the program prints 32 lines, with `y` going from 0 to 31. An interval prints as `[start,end)@offset:step`, where `start` and `end` are the first index and one past the last index along $x$, `offset` is the shift that gives the position of the cells in the field storage, and `step` is the stride between indices. Each line has the form:
 
 ```text
-Level: 5, x: [0,32[@<offset>:1, y: 0
+Level: 5, x: [0,32)@<offset>:1, y: 0
 ```
 
 ## Setting field values interval by interval

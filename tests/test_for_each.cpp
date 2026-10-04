@@ -62,7 +62,7 @@ namespace samurai
          *   |...|---|---|---|...|
          *     0   1   2   3   4
          *
-         * set = [0,2[
+         * set = [0,2)
          */
 
         int nb_cells = 0;

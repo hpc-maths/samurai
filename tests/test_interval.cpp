@@ -132,8 +132,8 @@ namespace samurai
 
                     // Checking shifted interval
                     interval_t out = i >> shift;
-                    EXPECT_EQ(out.start, rstart) << " for [" << start << "," << end << "[ >> " << shift;
-                    EXPECT_EQ(out.end, rend) << " for [" << start << "," << end << "[ >> " << shift;
+                    EXPECT_EQ(out.start, rstart) << " for [" << start << "," << end << ") >> " << shift;
+                    EXPECT_EQ(out.end, rend) << " for [" << start << "," << end << ") >> " << shift;
                 }
             }
         }
@@ -189,8 +189,8 @@ namespace samurai
 
                     // Checking shifted interval
                     interval_t out = i << shift;
-                    EXPECT_EQ(out.start, rstart) << " for [" << start << "," << end << "[ << " << shift;
-                    EXPECT_EQ(out.end, rend) << " for [" << start << "," << end << "[ << " << shift;
+                    EXPECT_EQ(out.start, rstart) << " for [" << start << "," << end << ") << " << shift;
+                    EXPECT_EQ(out.end, rend) << " for [" << start << "," << end << ") << " << shift;
                 }
             }
         }
@@ -201,6 +201,6 @@ namespace samurai
         Interval<int, int> i{0, 3, 0};
         std::stringstream ss;
         ss << i;
-        EXPECT_STREQ(ss.str().data(), "[0,3[@0:1");
+        EXPECT_STREQ(ss.str().data(), "[0,3)@0:1");
     }
 }

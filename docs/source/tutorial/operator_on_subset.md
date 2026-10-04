@@ -59,18 +59,18 @@ The output is:
 │      Level 0       │
 └────────────────────┘
      dim 0
-            cells = 0->[0,10[@0:1
+            cells = 0->[0,10)@0:1
 
 
 ┌────────────────────┐
 │      Level 1       │
 └────────────────────┘
      dim 0
-            cells = 0->[2,6[@8:1 1->[11,15[@3:1
+            cells = 0->[2,6)@8:1 1->[11,15)@3:1
 ```
 
-Each interval prints as `[start,end[@index:step`.
-`index` is the offset that gives the position of a cell in the field storage: the cell `i` of the interval `[2,6[@8:1` is stored at `8 + i`, so the cells 2 to 5 of level 1 come right after the 10 cells of level 0.
+Each interval prints as `[start,end)@index:step`.
+`index` is the offset that gives the position of a cell in the field storage: the cell `i` of the interval `[2,6)@8:1` is stored at `8 + i`, so the cells 2 to 5 of level 1 come right after the 10 cells of level 0.
 `step` is the stride between the cells of the interval.
 
 ## Set algebra
@@ -109,8 +109,8 @@ In 1D, this array is empty, so we leave the second parameter unnamed.
 The output is:
 
 ```text
-intersection found in [2,6[@0:1
-intersection found in [11,15[@0:1
+intersection found in [2,6)@0:1
+intersection found in [11,15)@0:1
 ```
 
 The result is computed on level 1.
@@ -132,8 +132,8 @@ To get the intersection on level 0:
 The output is:
 
 ```text
-intersection found in [1,3[@0:1
-intersection found in [5,8[@0:1
+intersection found in [1,3)@0:1
+intersection found in [5,8)@0:1
 ```
 
 A cell of level 0 belongs to the result as soon as it overlaps the intersection.
@@ -152,8 +152,8 @@ Here is the intersection on level 3:
 The output is:
 
 ```text
-intersection found in [8,24[@0:1
-intersection found in [44,60[@0:1
+intersection found in [8,24)@0:1
+intersection found in [44,60)@0:1
 ```
 
 ### Difference
@@ -171,9 +171,9 @@ The difference between level 0 and level 1:
 gives, on level 1:
 
 ```text
-difference found in [0,2[@0:1
-difference found in [6,11[@0:1
-difference found in [15,20[@0:1
+difference found in [0,2)@0:1
+difference found in [6,11)@0:1
+difference found in [15,20)@0:1
 ```
 
 ## Projection with a subset
@@ -221,24 +221,24 @@ subset(
 `u(level, i)` gives the values of `u` on the interval `i` of a level.
 `2 * i` is the interval of the even fine cells, with a step of 2, and `2 * i + 1` the interval of the odd ones.
 
-The first interval of the subset, `[1,3[`, works.
-The second one, `[5,8[`, contains the coarse cells 5 and 7, whose fine cells 10 and 15 do not exist.
+The first interval of the subset, `[1,3)`, works.
+The second one, `[5,8)`, contains the coarse cells 5 and 7, whose fine cells 10 and 15 do not exist.
 The program stops with an uncaught `std::out_of_range` exception.
 C++ does not fix which of `u(1, 2 * i)` and `u(1, 2 * i + 1)` is evaluated first, so the message depends on the compiler.
 It is one of these two:
 
 ```text
-LevelCellArray::get_interval: interval not found at level 1, i = [10,16[@0:2, index =
-Field 'u' interval query failed on level 1: requested interval [11,17[@0:2 could not be found for indices []; available interval: [11,15[@3:1
+LevelCellArray::get_interval: interval not found at level 1, i = [10,16)@0:2, index =
+Field 'u' interval query failed on level 1: requested interval [11, 17)@0:2 could not be found for indices []; available interval: [11, 15)@3:1
 ```
 
 The first message says that the fine cell 10 is not in the mesh.
-The second one says that the fine cells 11, 13 and 15 are not all in one interval of level 1: the interval found, `[11,15[`, stops before 15.
+The second one says that the fine cells 11, 13 and 15 are not all in one interval of level 1: the interval found, `[11, 15)`, stops before 15.
 
 ### Contraction
 
 To keep only the coarse cells whose two fine cells exist, we contract level 1 before the intersection.
-`samurai::contract(ca[1], 1)` removes one cell at each end of every interval of level 1, which gives `[3,5[` and `[12,14[`:
+`samurai::contract(ca[1], 1)` removes one cell at each end of every interval of level 1, which gives `[3,5)` and `[12,14)`:
 
 ```{literalinclude} ../../../demos/tutorial/set_operator.cpp
   :language: c++
@@ -247,12 +247,12 @@ To keep only the coarse cells whose two fine cells exist, we contract level 1 be
   :dedent: 4
 ```
 
-On level 0, this subset is `[1,3[` and `[6,7[`: the cells 1, 2 and 6 of the figure.
+On level 0, this subset is `[1,3)` and `[6,7)`: the cells 1, 2 and 6 of the figure.
 After the projection, the cells 1, 2 and 6 of level 0 hold 2.5, 4.5 and 12.5, the other cells of level 0 hold 0, and level 1 does not change.
 The demo prints the field with `std::cout << u`, which gives one line per cell with its level, its center, its index and its value.
 
 A coarse cell that remains after the contraction always has its two fine cells.
-The contraction can also remove a coarse cell whose two fine cells exist: a level 1 interval of exactly two cells, such as `[4,6[`, disappears when it is contracted by 1.
+The contraction can also remove a coarse cell whose two fine cells exist: a level 1 interval of exactly two cells, such as `[4,6)`, disappears when it is contracted by 1.
 
 ## Operators working in many dimensions
 

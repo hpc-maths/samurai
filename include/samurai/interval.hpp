@@ -21,7 +21,7 @@ namespace samurai
     /////////////////////////
 
     /** @class Interval
-     *  @brief An interval \f$[\![ a, b [\![\f$ of integral coordinates with step and storage index.
+     *  @brief An interval \f$[a, b)\f$ of integral coordinates with step and storage index.
      *
      * The index is used to associate each discrete coordinate @a c within
      * the interval to a value in a storage, at the position given by
@@ -35,7 +35,7 @@ namespace samurai
      * of cells: considering that the cell of index \f$i\f$ and level \f$l\f$
      * is associated to the real interval
      * \f$\left[\frac{i}{2^l}, \frac{i + 1}{2^l}\right]\f$,
-     * then an @c Interval \f$[\![ a, b [\![\f$ at level \f$l\f$ is associated to the real
+     * then an @c Interval \f$[a, b)\f$ at level \f$l\f$ is associated to the real
      * interval \f$\left[\frac{a}{2^l}, \frac{b}{2^l}\right]\f$.
      *
      * Thus, any operation like space shifting (using @c + or @c - ),
@@ -194,9 +194,9 @@ namespace samurai
 
     /** @brief Decreases level by given non-negative shift.
      *
-     * Given an @c Interval \f$[\![ a, b [\![\f$ at level \f$l\f$,
+     * Given an @c Interval \f$[a, b)\f$ at level \f$l\f$,
      * and a non-negative shift \f$i <= l\f$ (subsequent shifts are ignored),
-     * it should return the @b smallest @c Interval \f$[\![ a', b' [\![\f$ at level \f$l - i\f$
+     * it should return the @b smallest @c Interval \f$[a', b')\f$ at level \f$l - i\f$
      * such that \f$\left[\frac{a}{2^l}, \frac{b}{2^l}\right] \subseteq \left[\frac{a'}{2^{l - i}}, \frac{b'}{2^{l - i}}\right] \f$.
      *
      * This is equivalent to:
@@ -230,8 +230,8 @@ namespace samurai
 
     /** @brief Increases level by given non-negative shift.
      *
-     * Given an @c Interval \f$[\![ a, b [\![\f$ at level \f$l\f$,
-     * it should return the @b smallest @c Interval \f$[\![ a', b' [\![\f$ at level \f$l + i\f$
+     * Given an @c Interval \f$[a, b)\f$ at level \f$l\f$,
+     * it should return the @b smallest @c Interval \f$[a', b')\f$ at level \f$l + i\f$
      * such that \f$\left[\frac{a}{2^l}, \frac{b}{2^l}\right] \subseteq \left[\frac{a'}{2^{l + i}}, \frac{b'}{2^{l + i}}\right] \f$.
      *
      * This is equivalent to:
@@ -275,7 +275,7 @@ namespace samurai
     template <class value_t, class index_t>
     SAMURAI_INLINE std::ostream& operator<<(std::ostream& out, const Interval<value_t, index_t>& interval)
     {
-        out << "[" << interval.start << "," << interval.end << "[@" << interval.index << ":" << interval.step;
+        out << "[" << interval.start << "," << interval.end << ")@" << interval.index << ":" << interval.step;
         return out;
     }
 
@@ -390,6 +390,6 @@ struct fmt::formatter<samurai::Interval<TValue, TIndex>>
     template <typename FormatContext>
     auto format(const samurai::Interval<TValue, TIndex>& interval, FormatContext& ctx) const
     {
-        return fmt::format_to(ctx.out(), "[{}, {}[@{}:{}", interval.start, interval.end, interval.index, interval.step);
+        return fmt::format_to(ctx.out(), "[{}, {})@{}:{}", interval.start, interval.end, interval.index, interval.step);
     }
 };
