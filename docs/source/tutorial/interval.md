@@ -198,32 +198,14 @@ Overlaps often appear when the mesh is adapted and ghost cells are needed to upd
 
 The following program builds this mesh:
 
-```{literalinclude} snippet/interval.cpp
+```{literalinclude} snippet/interval/interval_1d.cpp
 :language: c++
 ```
 
 It prints:
 
-```text
-┌────────────────────┐
-│      Level 0       │
-└────────────────────┘
-     dim 0
-            cells = 0->[0,2)@0:1 1->[5,6)@-3:1
-
-
-┌────────────────────┐
-│      Level 1       │
-└────────────────────┘
-     dim 0
-            cells = 0->[4,7)@-1:1 1->[8,10)@-2:1
-
-
-┌────────────────────┐
-│      Level 2       │
-└────────────────────┘
-     dim 0
-            cells = 0->[14,16)@-6:1
+```{literalinclude} snippet/interval/interval_1d_output.txt
+:language: text
 ```
 
 Each interval is printed as `position->[start,end)@index:step`, where `position` is the place of the interval in its array.
@@ -410,7 +392,7 @@ cmake --build build --target tutorial-2d-mesh
 
 It prints the {cpp:class}`samurai::CellArray`:
 
-```{literalinclude} snippet/2d_mesh_representation_output.txt
+```{literalinclude} snippet/interval/2d_mesh_representation_output.txt
 :language: text
 ```
 
@@ -428,7 +410,7 @@ A {cpp:class}`samurai::CellArray` can also hold, at a given level, a uniform Car
 
 The following example uses a box in real coordinates:
 
-```{literalinclude} snippet/2d_mesh_box.cpp
+```{literalinclude} snippet/interval/2d_mesh_box.cpp
 :language: c++
 ```
 
@@ -439,17 +421,8 @@ Since no scaling factor is given, {{ project }} computes one from the side lengt
 Here, both sides have length 2 and the scaling factor is $s = 2$.
 At level 3, the cell length is $\Delta x = 2 / 2^3 = 0.25$, so the box holds $8 \times 8$ cells:
 
-```text
-┌────────────────────┐
-│      Level 3       │
-└────────────────────┘
-     dim 0
-            cells = 0->[0,8)@0:1 1->[0,8)@8:1 2->[0,8)@16:1 3->[0,8)@24:1 4->[0,8)@32:1 5->[0,8)@40:1 6->[0,8)@48:1 7->[0,8)@56:1
-
-     dim 1
-            cells = 0->[0,8)@0:1
-
-          offsets = (0: 0) (1: 1) (2: 2) (3: 3) (4: 4) (5: 5) (6: 6) (7: 7) (8: 8)
+```{literalinclude} snippet/interval/2d_mesh_box_output.txt
+:language: text
 ```
 
 :::{warning}
