@@ -364,7 +364,7 @@ With `--bc antibounceback`, the left side is a wall and the right side is a rese
 ```{literalinclude} ../../../demos/LBM/new_D1Q3_shallow_waters_dam.cpp
   :language: c++
   :start-at: auto reservoir = [&scheme]
-  :end-at: make_bc<samurai::AntiBounceBack>
+  :end-at: ->on(right);
   :dedent:
 ```
 
