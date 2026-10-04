@@ -74,3 +74,14 @@ plot
 options
 timers
 ```
+
+## Troubleshooting
+
+- {doc}`troubleshooting`: find the cause and the fix of a common error message, from the CMake configuration to the run of your program.
+
+```{toctree}
+:caption: Troubleshooting
+:hidden:
+
+troubleshooting
+```
