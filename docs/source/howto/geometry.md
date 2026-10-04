@@ -177,9 +177,8 @@ No mass leaves through the walls: the square piles up against the edge of the ho
 ## Build a 3D mesh from an OBJ surface
 
 ```{warning}
-`demos/from_obj/main.cpp` does not compile against the current sources.
-`include/samurai/io/from_geometry.hpp` includes `../graduation.hpp`, which does not exist (`make_graduation` is in `samurai/algorithm/graduation.hpp`), and `include/samurai/io/cgal.hpp` assigns to an `xt::view` of a fixed-size tensor, which xtensor 0.27 rejects.
-TODO: link the issue that tracks these build errors.
+`mesh-from-obj` and `samurai::from_geometry` do not work on the current sources: they do not compile, and return an empty mesh once the build errors are patched ([#616](https://github.com/hpc-maths/samurai/issues/616)).
+The rest of this section describes the intended use.
 ```
 
 `samurai::from_geometry<3>` in `samurai/io/from_geometry.hpp` builds a 3D cell array from a closed triangulated surface.
