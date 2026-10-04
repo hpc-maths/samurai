@@ -48,7 +48,7 @@ Describe the adaptation criterion with a `samurai::mra_config` object and chain 
 ```{literalinclude} snippet/adapt/mr_adapt.cpp
   :language: c++
   :start-at: auto mra_config
-  :end-at: auto mra_config
+  :end-at: mra_config.epsilon
   :dedent:
 ```
 

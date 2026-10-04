@@ -47,7 +47,7 @@ int main(int argc, char** argv)
     auto mesh = samurai::mra::make_mesh(box, make_config());
 
     auto u    = samurai::make_scalar_field<double>("u", mesh);
-    auto v    = samurai::make_vector_field<double, dim>("v", mesh);
+    auto v    = samurai::make_vector_field<dim>("v", mesh);
     auto init = [&](const auto& cell)
     {
         const auto x    = cell.center();
@@ -83,7 +83,7 @@ int main(int argc, char** argv)
     // Restart: load the checkpoint into an empty mesh and fields
     auto new_mesh = samurai::mra::make_empty_mesh(make_config());
     auto new_u    = samurai::make_scalar_field<double>("u", new_mesh);
-    auto new_v    = samurai::make_vector_field<double, dim>("v", new_mesh);
+    auto new_v    = samurai::make_vector_field<dim>("v", new_mesh);
 
     double new_t              = 0.;
     std::size_t new_iteration = 0;
