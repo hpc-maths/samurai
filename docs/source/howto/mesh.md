@@ -72,12 +72,12 @@ Call the setters you need on the configuration before you build the mesh:
 
 Choose the values from your numerical scheme:
 
-- `max_stencil_radius` is the number of neighbors your scheme reads in each direction. It is 1 by default.
+- `max_stencil_radius` is the number of neighbors your scheme reads in each direction. It is 2 by default: samurai raises any smaller value to 2 when it builds the mesh, as explained below.
 - `graduation_width` is the width, in cells, of the neighborhood of a cell in which levels differ by at most one. It is 1 by default.
 - The second template parameter of `mesh_config` is the radius of the stencil of the prediction operator. It is 1 by default, which gives a prediction of order 3 ($2s+1$ with $s = 1$).
 
 The ghost width is the larger of the stencil radius and the prediction stencil radius.
-samurai raises the stencil radius to at least 2, which leaves enough ghost cells at the boundary for reconstruction and for transfers between levels.
+When it builds the mesh, samurai raises the stencil radius to at least 2, which leaves enough ghost cells at the boundary for reconstruction and for transfers between levels.
 The default ghost width is therefore 2.
 To keep a stencil radius of 1, call `disable_minimal_ghost_width()` on the configuration.
 
