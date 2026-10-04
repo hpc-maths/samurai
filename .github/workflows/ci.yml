@@ -49,7 +49,7 @@ jobs:
                   while IFS= read -r file; do
                       [ -z "$file" ] && continue
                       case "$file" in
-                          docs/source/howto/snippet/*)
+                          docs/source/howto/snippet/* | docs/source/tutorial/snippet/*)
                               snippets=true ;;
                           docs/* | *.md | LICENSE | AUTHORS.txt | codemeta.json | CITATION.cff | \
                           .readthedocs.yml | .markdownlint* | .github/ISSUE_TEMPLATE/* | .github/PULL_REQUEST_TEMPLATE.md | \
