@@ -22,6 +22,7 @@ cmake
 ## Mesh and data
 
 - {doc}`box`: define the domain of the mesh from one box or from several boxes, with holes.
+- {doc}`geometry`: build a domain around obstacles given as boxes, as a level-set function or as a 3D surface file.
 - {doc}`mesh`: create a uniform, multiresolution or adaptive mesh refinement (AMR) mesh, and set its levels and ghosts.
 - {doc}`field`: create a scalar or vector field on a mesh and give it initial values.
 - {doc}`loop`: visit the cells of a mesh one cell or one interval at a time.
@@ -31,6 +32,7 @@ cmake
 :hidden:
 
 box
+geometry
 mesh
 field
 loop
