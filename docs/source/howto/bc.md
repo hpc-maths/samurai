@@ -236,4 +236,5 @@ A condition you write yourself works with explicit schemes and with the ghost up
 - The {doc}`boundary conditions reference <../reference/bc>`, for the complete list of conditions, the treatment of the corners and of the ghosts beyond the condition, and the lattice Boltzmann conditions.
 - The {doc}`boundary condition API <../api/bc>`, for the classes and functions.
 - {doc}`petsc`, to solve an implicit scheme, whose unknown field needs Dirichlet or Neumann conditions.
+- {doc}`fv_scheme`, to write a finite volume scheme that reads the ghosts these conditions fill.
 - {doc}`troubleshooting`, for the errors about stencil sizes and ghost layers.

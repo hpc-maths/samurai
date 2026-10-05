@@ -42,6 +42,7 @@ loop
 
 - {doc}`adapt`: make a multiresolution mesh follow your solution.
 - {doc}`bc`: set Dirichlet, Neumann, periodic or user-defined boundary conditions on a field.
+- {doc}`fv_scheme`: write a finite volume scheme from its flux and check it against a built-in scheme.
 - {doc}`petsc`: solve an implicit scheme with PETSc, sequentially or with MPI.
 
 ```{toctree}
@@ -50,6 +51,7 @@ loop
 
 adapt
 bc
+fv_scheme
 petsc
 ```
 
