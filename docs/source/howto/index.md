@@ -62,6 +62,17 @@ restart
 plot
 ```
 
+## Parallel
+
+- {doc}`mpi`: build a program with MPI, run it on several processes and check its result against one process.
+
+```{toctree}
+:caption: Parallel
+:hidden:
+
+mpi
+```
+
 ## Run and measure
 
 - {doc}`options`: read the predefined command-line options of {{ project }} and add your own.
