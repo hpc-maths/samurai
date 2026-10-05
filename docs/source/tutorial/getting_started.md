@@ -211,7 +211,15 @@ cmake --build build --target tutorial-getting-started
    The finest cells, at level 8, follow the edge of the disc, and the cells far from it are coarser, down to level 4.
    To see the cells themselves, choose *Surface With Edges* in the representation menu.
 
-% TODO: add a figure of `u` and `level` at t = 0.3 from a run of the demo, with alt text.
+The figure below shows both fields at $t = 0.3$, from a run of the program with its default options.
+The final mesh has 13,333 cells, where a uniform mesh at level 8 has 65,536.
+
+```{figure} ./figures/getting_started_final.png
+:alt: Two square plots of the unit square at t = 0.3. Left, the field u: a dark disc centered near (0.6, 0.6) on a white background, with a slightly blurred edge. Right, the cell levels: a band of level 8 cells along the edge of the disc, level 6 cells inside the disc, and cells of levels 4 and 5 toward the boundary of the domain.
+:width: 100%
+
+The field `u` (left) and the level of each cell (right) at $t = 0.3$.
+```
 
 ## Change the parameters
 
@@ -234,7 +242,7 @@ The adapted mesh has fewer cells than a uniform mesh at level 8, and it is as fi
 ## Next steps
 
 - Learn how {{ project }} stores meshes and fields in the {doc}`interval <interval>` and {doc}`field <field>` tutorials, then follow the other tutorials of this section.
-- Follow the [Hands-on samurai course](https://hpc-maths.github.io/2025-hands-on-samurai/), a guided path from a naive Burgers solver to the Euler equations.
-- Browse the [samurai gallery](https://hpc-maths.github.io/samurai-gallery/) for complete simulations to start from.
+- Follow the {doc}`Hands-on samurai course <hands_on>`, a guided path from a naive Burgers solver to the Euler equations.
+- Browse the {doc}`samurai gallery <../gallery>` for complete simulations to start from, and the {doc}`demos <../demos>` for the programs that come with {{ project }}.
 - Use the how-to guides for a given task: [create a mesh](../howto/mesh.md), [set the command-line options](../howto/options.md), [save the results](../howto/save.md) and [plot them](../howto/plot.md).
 - Read `demos/FiniteVolume/advection_2d.cpp` in the repository: it is the same problem with options for the parameters, several output files and restart files.

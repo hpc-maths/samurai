@@ -57,3 +57,18 @@ These tutorials write a complete solver on an adaptive mesh.
 level_set
 reaction_diffusion
 ```
+
+## Complete programs
+
+After the tutorials, start from a complete program close to your problem.
+
+- {doc}`../demos`: the programs of the `demos/` folder, with the CMake target and a run command for each one.
+- {doc}`../gallery`: complete simulations with videos of the solution and the mesh, each one a self-contained project.
+
+```{toctree}
+:caption: Complete programs
+:hidden:
+
+../demos
+../gallery
+```
