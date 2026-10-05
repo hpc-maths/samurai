@@ -411,42 +411,65 @@ article h1 {
   text-wrap: balance;
 }
 
-/* A section head is a small label in spaced capitals, then a short red stroke and a rule. */
+/* Heading scale, against a 19px body: h1 46px, h2 about 29px, h3 about 24px, all in the
+   text serif; h4 is a small label in spaced capitals. Each level is clearly larger than the
+   text below it, and there is more space above a heading than below it. */
+
+/* A section heading is followed, right after its last word and on its baseline, by a short red stroke and a
+   hairline that run to the edge of the column: an inline mark as wide as the column, clipped
+   by the heading. */
 article h2 {
-  display: flex;
-  align-items: center;
-  gap: 0.875rem;
-  margin: 3em 0 1em;
-  font: 600 0.684em/1.3 var(--sm-sans);
-  letter-spacing: 0.14em;
-  font-kerning: none;
-  text-transform: uppercase;
+  overflow: hidden;
+  margin: 2.1em 0 0.55em;
+  font: 600 1.55em/1.2 var(--sm-serif);
+  letter-spacing: -0.006em;
   color: var(--sm-ink);
+  text-wrap: balance;
 }
 
 /* The red stroke is 2px tall so it stays red at any vertical offset; the rule is 1px. */
 article h2::after {
   content: "";
-  flex: 1;
+  display: inline-block;
+  vertical-align: baseline;
+  width: 100%;
   height: 2px;
+  margin-left: 0.3em;
+  margin-right: -100%;
   background:
     linear-gradient(var(--sm-red), var(--sm-red)) 0 0 / 26px 2px no-repeat,
     linear-gradient(var(--sm-rule), var(--sm-rule)) 34px 50% / 100% 1px no-repeat;
 }
 
-article h2 code {
-  text-transform: none;
-  letter-spacing: 0;
+/* The permalink stays (it shows on hover) but takes little room before the mark. */
+article h2 > .headerlink {
+  margin-left: 0.1em;
+  padding: 0;
+  font-size: 0.6em;
 }
+
+article h2 code { font-size: 0.82em; }
 
 article h3 {
-  margin: 2em 0 0.6em;
-  font: 600 1.16em/1.3 var(--sm-serif);
+  margin: 1.8em 0 0.5em;
+  font: 600 1.26em/1.25 var(--sm-serif);
+  text-wrap: balance;
 }
 
+article h3 code { font-size: 0.85em; }
+
 article h4 {
-  margin: 1.6em 0 0.5em;
-  font: 600 1em/1.35 var(--sm-serif);
+  margin: 1.7em 0 0.6em;
+  font: 600 0.72em/1.3 var(--sm-sans);
+  letter-spacing: 0.13em;
+  font-kerning: none;
+  text-transform: uppercase;
+  color: var(--sm-ink);
+}
+
+article h4 code {
+  text-transform: none;
+  letter-spacing: 0;
 }
 article :is(h2, h3, h4) .headerlink { color: var(--sm-ink-3); }
 
