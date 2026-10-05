@@ -260,6 +260,7 @@ int main(int argc, char* argv[])
             unp1 = u;                                  // Set initial guess for the Newton algorithm
             implicit_reaction_solver.solve(unp1, rhs); // Solve the non-linear equation   [Id - dt*React](unp1) = u - dt*Diff(u)
         }
+        // Implicit diffusion and reaction
         else
         {
             if (dt_has_changed)

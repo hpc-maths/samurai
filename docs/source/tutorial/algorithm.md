@@ -36,7 +36,7 @@ The function `init_sol` creates a scalar field `phi` on the mesh and sets its va
 
 ```{literalinclude} ../../../demos/tutorial/AMR_1D_Burgers/step_1/init_sol.hpp
   :language: c++
-  :lines: 8-
+  :start-at: template <class Mesh>
 ```
 
 {cpp:func}`samurai::for_each_cell` takes the mesh and a function with one parameter, the cell.
@@ -72,7 +72,7 @@ The function `update_sol` of step 2 computes {eq}`tutorial-loop-upwind` for all 
 
 ```{literalinclude} ../../../demos/tutorial/AMR_1D_Burgers/step_2/update_sol.hpp
   :language: c++
-  :lines: 8-
+  :start-at: template <class Field>
 ```
 
 {cpp:func}`samurai::for_each_interval` takes the mesh and a function with three parameters:

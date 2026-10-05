@@ -301,7 +301,8 @@ We start from the solution at the current time step, which is close to the solut
 
 ```{literalinclude} ../../../demos/FiniteVolume/nagumo.cpp
   :language: c++
-  :lines: 263-275
+  :start-after: // Implicit diffusion and reaction
+  :end-before: // u <-- unp1
   :dedent:
 ```
 

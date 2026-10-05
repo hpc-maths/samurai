@@ -87,7 +87,8 @@ The demo keeps the same velocity until the final time, so only the area inside t
 
 ```{literalinclude} ../../../demos/FiniteVolume/level_set_AMR.cpp
 :language: c++
-:lines: 21-45
+:start-at: template <class Field>
+:end-before: template <class Mesh>
 ```
 
 `init_velocity` builds $\mathbf{u}$ as a vector field with two components.
@@ -95,7 +96,9 @@ It fills the leaves and the ghost cells (`mesh_id_t::cells_and_ghosts`) and also
 
 ```{literalinclude} ../../../demos/FiniteVolume/level_set_AMR.cpp
 :language: c++
-:lines: 47-68,77-79
+:start-at: template <class Mesh>
+:end-before: template <class Field, class Tag>
+:lines: 1-22,31-
 ```
 
 The velocity is computed once, on the initial mesh.
@@ -107,7 +110,8 @@ The schemes below read two cells on each side, hence `max_stencil_radius(2)`:
 
 ```{literalinclude} ../../../demos/FiniteVolume/level_set_AMR.cpp
 :language: c++
-:lines: 172-185
+:start-at: const samurai::Box<double, dim> box(min_corner, max_corner);
+:end-before: double dt
 :dedent:
 ```
 
@@ -188,7 +192,8 @@ As {ref}`LeVeque <ref-leveque>` points out (p. 163), we cannot expect this finit
 
 ```{literalinclude} ../../../demos/FiniteVolume/level_set_schemes.hpp
 :language: c++
-:lines: 19-67
+:start-at: template <class Field, class VelocityField>
+:end-before: /**
 ```
 
 - `FluxConfig` declares a non-linear flux (`SchemeType::NonLinear`) on a stencil of 4 cells. It reads the scalar field $\phi$, returns a scalar field, and takes the velocity field as a parameter field.
@@ -202,7 +207,8 @@ The demo builds the scheme once, before the time loop:
 
 ```{literalinclude} ../../../demos/FiniteVolume/level_set_AMR.cpp
 :language: c++
-:lines: 195-198
+:start-at: auto phi_0 = samurai::make_scalar_field
+:end-at: make_level_set_reinitialization(phi_0);
 :dedent:
 ```
 
@@ -210,7 +216,8 @@ At each time step, `convection(phi)` returns a field that holds, on each leaf, t
 
 ```{literalinclude} ../../../demos/FiniteVolume/level_set_AMR.cpp
 :language: c++
-:lines: 238-243
+:start-at: // Numerical scheme
+:end-at: std::swap(phi.array(), phinp1.array());
 :dedent:
 ```
 
@@ -285,7 +292,8 @@ In the demo, `phi_0` is $\phi^0$, `phihat` is $\overline{\phi}$, and the ghost c
 
 ```{literalinclude} ../../../demos/FiniteVolume/level_set_AMR.cpp
 :language: c++
-:lines: 245-260
+:start-at: // Reinitialization of the level set
+:end-before: if (t >= static_cast<double>(nsave) * dt_save
 :dedent:
 ```
 
@@ -298,7 +306,7 @@ It is built like the {doc}`local schemes <../reference/local_schemes>`, with a s
 
 ```{literalinclude} ../../../demos/FiniteVolume/level_set_schemes.hpp
 :language: c++
-:lines: 81-146
+:start-at: template <class Field>
 ```
 
 - `StarStencilSchemeConfig` declares a non-linear scheme on the star stencil of radius 2: the cell and its two neighbors on each side in each direction, in the order of the comment.
@@ -331,14 +339,17 @@ Since the reinitialization keeps $\phi$ close to a signed distance, the band ext
 
 ```{literalinclude} ../../../demos/FiniteVolume/level_set_AMR.cpp
 :language: c++
-:lines: 81-118
+:start-at: template <class Field, class Tag>
+:end-before: template <class Field, class Phi>
 ```
 
 The adaptation loop then applies the tags until the mesh no longer changes:
 
 ```{literalinclude} ../../../demos/FiniteVolume/level_set_AMR.cpp
 :language: c++
-:lines: 216-217,219-227
+:start-at: while (true)
+:end-before: t += dt;
+:lines: 1-2,4-
 :dedent:
 ```
 
@@ -350,7 +361,8 @@ In each pass:
 
    ```{literalinclude} ../../../demos/FiniteVolume/level_set_AMR.cpp
    :language: c++
-   :lines: 202-207
+   :start-at: const xt::xtensor_fixed<int, xt::xshape<4, 2>> stencil_grad{
+   :end-at: };
    :dedent:
    ```
 

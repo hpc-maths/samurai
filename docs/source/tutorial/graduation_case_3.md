@@ -36,7 +36,8 @@ We start with a uniform mesh at level `start_level` on the domain $[-2, 2] \time
 
 ```{literalinclude} ../../../demos/tutorial/graduation_case_3.cpp
 :language: c++
-:lines: 19-28
+:start-at: auto generate_mesh
+:end-before: int main(
 ```
 
 At level $l$ the cell length is $2^{-l}$, so the box of cell indices goes from $-2 \cdot 2^{l}$ to $2 \cdot 2^{l}$ in each direction, which `2 << start_level` computes.
@@ -61,7 +62,8 @@ Then we test the criterion on each cell:
 
 ```{literalinclude} ../../../demos/tutorial/graduation_case_3.cpp
 :language: c++
-:lines: 64-92
+:start-at: auto tag = samurai::make_scalar_field<bool>
+:end-before: // graduation
 :dedent:
 ```
 
@@ -75,7 +77,8 @@ From the tags, we build the new mesh with a {cpp:class}`samurai::CellList`:
 
 ```{literalinclude} ../../../demos/tutorial/graduation_case_3.cpp
 :language: c++
-:lines: 148-170
+:start-at: samurai::CellList<dim> cl;
+:end-at: samurai::CellArray<dim> new_ca = {cl, true};
 :dedent:
 ```
 
@@ -89,7 +92,8 @@ The loop starts before the creation of `tag`:
 
 ```{literalinclude} ../../../demos/tutorial/graduation_case_3.cpp
 :language: c++
-:lines: 59-62
+:start-at: std::size_t ite = 0;
+:end-at: std::cout << "Iteration for remove intersection: "
 :dedent:
 ```
 
@@ -97,7 +101,8 @@ The loop ends after the construction of `new_ca`, when the new mesh equals the o
 
 ```{literalinclude} ../../../demos/tutorial/graduation_case_3.cpp
 :language: c++
-:lines: 172-178
+:start-at: if (new_ca == ca)
+:end-before: samurai::save(path, filename, ca);
 :dedent:
 ```
 
@@ -121,7 +126,8 @@ We insert this step between the criterion and the construction of the new mesh:
 
 ```{literalinclude} ../../../demos/tutorial/graduation_case_3.cpp
 :language: c++
-:lines: 94-146
+:start-at: // graduation
+:end-before: samurai::CellList<dim> cl;
 :dedent:
 ```
 
