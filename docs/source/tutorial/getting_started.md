@@ -33,8 +33,27 @@ on the unit square $[0, 1]^2$, up to the final time $T = 0.3$.
 At $t = 0$, $u = 1$ inside the disc of center $(0.3, 0.3)$ and radius $0.2$, and $u = 0$ outside.
 On the boundary, $u = 0$.
 The exact solution is the same disc, moved by $\mathbf{a} t$: at $t = 0.3$ its center is at $(0.6, 0.6)$.
+{ref}`plate-transport` shows the disc and the adapted mesh at both times.
 
 We discretize {eq}`tutorial-getting-started-advection` with an explicit Euler scheme in time and an upwind scheme in space.
+
+```{plate} The disc transported by the velocity (1, 1)
+:figure: transported_disc
+:label: plate-transport
+
+**Fig. 1.** The initial state, $t = 0$: $u = 1$ in the disc of center $(0.3, 0.3)$ and radius $0.2$, ruled in fine lines, and $u = 0$ outside.
+*a*, the finest cells, hatched in [red]{.sm-red}, follow the edge of the disc, where the details are large.
+*b*, inside the disc $u$ is constant, the details are zero and the cells are coarse.
+*c*, the same far from the disc.
+
+**Fig. 2.** The final state, $t = 0.3$.
+The disc has moved by $\mathbf{a} t = (0.3, 0.3)$, and the fine cells have moved with its edge.
+*d*, the dotted circle marks where the disc started.
+The program adapts the mesh at every one of its 154 time steps.
+
+*The plate is drawn with levels 3 to 6 so that each cell stays visible, and with the exact disc.
+The program uses levels 4 to 8, a cell side going from 1/16 to 1/256, and its scheme smooths the edge of the disc.*
+```
 
 ## Create the project
 
@@ -102,6 +121,13 @@ A cell at level $\ell$ has a side of $2^{-\ell}$.
 With levels 4 to 8, the cells go from $1/16$ (level 4) to $1/256$ (level 8).
 `samurai::mra::make_mesh` builds a mesh for multiresolution adaptation, uniform at the finest level to start with.
 
+```{diagram}
+:figure: level_rows
+
+The levels of this program over the first quarter of the $x$ axis.
+Each level halves the side of the cells of the level before; the indices of the cells of a level run over a half-open interval, here $[0, 4)$ at level 4 and $[0, 64)$ at level 8.
+```
+
 ### Create the field
 
 ```{literalinclude} ../../../demos/tutorial/getting_started.cpp
@@ -149,6 +175,23 @@ The last time step is shortened so that the loop stops at $t = 0.3$.
 
 Before the loop, `samurai::make_convection_upwind<decltype(u)>(velocity)` builds the upwind scheme of the convection term.
 The scheme is defined by its numerical fluxes at the cell faces, which lets {{ project }} treat correctly the faces between two cells of different levels.
+{ref}`plate-time-step` follows one iteration of the loop; its Fig. 3 shows such a face.
+
+```{plate} One time step of the solver
+:figure: time_step
+:label: plate-time-step
+
+**Fig. 1.** *adapt*: the multiresolution adaptation rebuilds the mesh around the current solution; the cells it creates are hatched in [red]{.sm-red}.
+
+**Fig. 2.** *resize*: `unp1` is not passed to the adaptation, so its storage is resized to the new mesh by hand.
+
+**Fig. 3.** *scheme*: the upwind scheme is written as numerical fluxes at the cell faces.
+*a*, a face between a coarse cell and two fine cells, in [red]{.sm-red}: the fluxes treat this face correctly.
+`conv(u)` first fills the ghost cells it reads.
+
+**Fig. 4.** *swap*: `samurai::swap` exchanges the two fields, so that `u` holds the new solution and keeps track of whether its ghost cells are up to date.
+The loop then starts again, until $t = 0.3$.
+```
 
 Each iteration:
 

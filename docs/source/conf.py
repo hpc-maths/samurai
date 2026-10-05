@@ -51,6 +51,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "_ext"))
 
 extensions = [
     "statements",
+    "plates",
     "sphinx.ext.todo",
     "sphinx.ext.mathjax",
     "breathe",
