@@ -39,7 +39,7 @@ These members belong to the specializations of `samurai::NormalFluxDefinition`, 
 :undoc-members:
 ```
 
-```{doxygenclass} samurai::NormalFluxDefinitionBase
+```{doxygenstruct} samurai::NormalFluxDefinitionBase
 :members:
 ```
 
