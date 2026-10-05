@@ -91,7 +91,15 @@ If you want to see it run first, go to [Build and run](#build-and-run) and come 
 ```
 
 The box is the unit square.
-The mesh configuration gives the range of levels: a cell at level $\ell$ has a side of $2^{-\ell}$, so the cells go from $1/16$ (level 4) to $1/256$ (level 8).
+The mesh configuration gives the range of levels.
+
+```{definition} level
+:label: def-level
+
+A cell at level $\ell$ has a side of $2^{-\ell}$.
+```
+
+With levels 4 to 8, the cells go from $1/16$ (level 4) to $1/256$ (level 8).
 `samurai::mra::make_mesh` builds a mesh for multiresolution adaptation, uniform at the finest level to start with.
 
 ### Create the field
@@ -190,7 +198,7 @@ After the loop, `save` writes the final state.
 
    When it ends, the directory contains `getting_started_init.xdmf` and `getting_started.xdmf`, each with its `.h5` data file.
 
-:::{note}
+:::{remark}
 If you built {{ project }} from source, you can also build this program in the build directory of the repository, without a project of your own:
 
 ```bash

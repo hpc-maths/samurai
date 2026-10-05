@@ -553,6 +553,49 @@ article .literal-block-wrapper .code-block-caption {
 }
 article .literal-block-wrapper div.highlight { border-radius: 0; }
 
+/* --- definitions and remarks (the definition and remark directives, _ext/statements.py)
+   A statement sits between a rule above and a short rule below; its label is in red
+   small capitals, the defined term in italics. ------------------------------------- */
+
+article .sm-statement {
+  margin: 1.9em 0 1.75em;
+  padding: 0.65em 0 0;
+  border-top: var(--sm-w-rule) solid var(--sm-ink-3);
+}
+
+article .sm-statement::after {
+  content: "";
+  display: block;
+  width: 3.2em;
+  margin-top: 0.65em;
+  border-bottom: var(--sm-w-rule) solid var(--sm-ink-3);
+}
+article .sm-statement > :last-child { margin-bottom: 0; }
+
+article .sm-statement-label {
+  font-weight: 600;
+  font-variant-caps: all-small-caps;
+  font-variant-numeric: lining-nums;
+  letter-spacing: 0.07em;
+  font-kerning: none;
+  color: var(--sm-red);
+}
+article .sm-remark .sm-statement-label { font-weight: 500; }
+
+article .sm-statement-term::before {
+  content: "(";
+  font-style: normal;
+}
+
+article .sm-statement-term::after {
+  content: ")";
+  font-style: normal;
+}
+article .sm-statement div.highlight { margin-top: 0.75em; }
+
+/* A statement that ends on a listing closes with the listing's own rule. */
+article .sm-statement:has(> :is(div[class^="highlight-"], .literal-block-wrapper):last-child)::after { display: none; }
+
 /* --- notes, warnings and the like, set as remarks ------------------------------------ */
 
 article .admonition,

@@ -80,7 +80,7 @@ samurai::make_bc<samurai::Neumann<1>>(unp1);
 
 Without a value, {cpp:func}`samurai::make_bc` sets the boundary value to zero.
 
-:::{note}
+:::{remark}
 The demo declares `u`, `unp1` and `rhs` with `samurai::make_vector_field<double, n_comp>` and `n_comp = 1`.
 This tutorial uses scalar fields, the natural type for a scalar equation.
 Of the code shown on this page, only the Jacobian function depends on this choice.

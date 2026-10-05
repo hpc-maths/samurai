@@ -105,7 +105,7 @@ $$
 u_g = 2v - u_0.
 $$
 
-```{note}
+```{remark}
 The construction treats the cell values as point values at the cell centers.
 A finite volume field stores cell averages: on cell averages, `samurai::Dirichlet<order>` reproduces polynomials of degree 1 exactly, whatever the order.
 `tests/test_bc_ghost_values.cpp` checks both conventions.

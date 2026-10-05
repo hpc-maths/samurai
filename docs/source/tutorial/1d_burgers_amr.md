@@ -223,7 +223,7 @@ The program prints the sub-meshes of the mesh (`cells`, `cells and ghosts`, ...)
 The `cells` sub-mesh has a single interval `[0,256)` at level 8: the 256 cells $C_{8,0}, \dots, C_{8,255}$ of {eq}`burgers-cells`.
 The first adaptation of the time loop merges the cells where the initial condition is constant.
 
-:::{note}
+:::{remark}
 The command-line options `--min-level` and `--max-level` replace the levels set in the code (see the {doc}`mesh how-to guide <../howto/mesh>`).
 With the same value for both, the mesh stays uniform.
 :::

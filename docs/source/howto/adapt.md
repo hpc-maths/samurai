@@ -58,7 +58,12 @@ Describe the adaptation criterion with a `samurai::mra_config` object and chain 
 | `regularity(double)` | `1` | Assumed smoothness of the solution. A larger value raises the threshold for refining and gives a coarser mesh. |
 | `relative_detail(bool)` | `false` | Divides the details of each component by the maximum of its absolute value over the cells, so that one threshold fits components of different magnitudes. |
 
+```{definition} detail
+:label: def-detail
+
 The detail of a cell is the difference between its value and the value predicted from its parent.
+```
+
 With $d$ the dimension and $L$ the maximum level, the threshold at level $\ell$ is $\epsilon_\ell = \epsilon / 2^{d(L - \ell)}$.
 Cells at level $\ell$ are merged into their parent when their details are at most $\epsilon_\ell$ and the detail of the parent is at most $2^{\text{regularity}} \, \epsilon_\ell$.
 A cell is refined when its detail exceeds $2^{\text{regularity} + d} \, \epsilon_\ell$.
@@ -88,7 +93,7 @@ A field that you pass neither to `make_MRAdapt` nor to the call keeps its old si
 In a time loop, adapt the mesh at the start of each time step, before the scheme reads the solution.
 The [getting started tutorial](../tutorial/getting_started.md) and the demo `demos/FiniteVolume/advection_2d.cpp` follow this pattern.
 
-```{note}
+```{remark}
 The call `MRadaptation(epsilon, regularity)` with two numbers is deprecated.
 Use a `samurai::mra_config` object instead.
 ```

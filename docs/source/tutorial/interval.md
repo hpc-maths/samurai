@@ -59,7 +59,7 @@ This is not mandatory: a mesh can have overlapping regions, as in this one:
 :width: 80%
 ```
 
-:::{note}
+:::{remark}
 {{ project }} adds some constraints on the cells, so it cannot build exactly the domains drawn above.
 The next sections explain these constraints.
 :::
@@ -75,11 +75,15 @@ An interval is printed as follows:
 :width: 300
 ```
 
+```{definition} interval
+:label: def-interval
+
 An interval is defined by its start and end values (in black).
 It has two more attributes:
 
 - the index (in red), an offset that links the interval to the array where the data are stored (see [Read the printed mesh](#read-the-printed-mesh)),
 - the step (in green), the step used to move inside the interval.
+```
 
 :::{warning}
 
@@ -114,7 +118,7 @@ The figure below illustrates the idea:
 
 We have two cells $0$ and $1$ on the level $l$, so the interval $[0, 2)$ describes this domain at the level $l$.
 
-:::{note}
+:::{remark}
 We could describe closed intervals such as $[0, 1]$.
 Excluding the end of the interval matters for the algebra of intervals (see {ref}`AlgebraOfSet`).
 :::
@@ -164,7 +168,7 @@ The other constraint is that a cell at the level $l$ is included in a cell at an
 :width: 80%
 ```
 
-:::{note}
+:::{remark}
 This property is needed for mesh adaptation.
 :::
 
@@ -190,7 +194,7 @@ The level and $\Delta x$ from {eq}`dx` give the real intervals:
 - level 1: $[2, 3.5]$, $[4, 5]$
 - level 2: $[3.5, 4]$
 
-:::{note}
+:::{remark}
 There are no overlapping regions in this example, to keep it readable.
 The following tutorials show meshes with overlaps.
 Overlaps often appear when the mesh is adapted and ghost cells are needed to update the solution with a stencil operator (such as the fluxes of a finite volume scheme).
@@ -220,7 +224,7 @@ The default maximum level is `default_config::max_level` (20), so the default ar
 For each level, it stores lists of intervals in the x-direction.
 In 2D and 3D, these lists sit in a nested `std::map` whose keys are the indices in the other directions (y, z).
 
-:::{note}
+:::{remark}
 The [2D example](#2d-mesh-example) shows how the keys are built.
 In 1D there is no other direction, so the key is empty.
 This is why we write `{}` when we fill the {cpp:class}`samurai::CellList`, as in `cl[0][{}].add_interval({0, 2});`.
@@ -369,7 +373,7 @@ The cells are numbered one after the other, level by level.
 At level 0, the first interval $[0, 4)$ holds cells 0 to 3, so its index is 0.
 The next interval $[0, 1)$ holds cell 4, so its index is $4 - 0 = 4$, and $[3, 4)$ holds cell 5, so its index is $5 - 3 = 2$.
 
-:::{note}
+:::{remark}
 The compression of a {cpp:class}`samurai::CellList` into a {cpp:class}`samurai::CellArray` is recursive over the directions.
 The same algorithm works in 3D and in higher dimensions.
 :::
