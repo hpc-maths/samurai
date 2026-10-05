@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
-#
-# Configuration file for the Sphinx documentation builder.
+"""Configuration file for the Sphinx documentation builder."""
 #
 # This file does only contain a selection of the most common options. For a
 # full list see the documentation:
 # http://www.sphinx-doc.org/en/master/config
+
+# Sphinx reads its options from module variables with lowercase names.
+# pylint: disable=invalid-name
 
 # -- Path setup --------------------------------------------------------------
 
@@ -443,4 +445,5 @@ def run_doxygen_if_xml_missing(app, config):
 
 
 def setup(app):
+    """Generate the Doxygen XML, if it is missing, once the configuration is read."""
     app.connect("config-inited", run_doxygen_if_xml_missing)

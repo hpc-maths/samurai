@@ -19,7 +19,10 @@ document.addEventListener("readthedocs-addons-data-ready", (event) => {
     const select = document.createElement("select");
     select.setAttribute("aria-label", "Documentation version");
     for (const version of active) {
-      const option = new Option(version.slug, version.urls.documentation, false, version.slug === current.slug);
+      const option = document.createElement("option");
+      option.value = version.urls.documentation;
+      option.textContent = version.slug;
+      option.selected = version.slug === current.slug;
       select.append(option);
     }
     select.addEventListener("change", () => {
