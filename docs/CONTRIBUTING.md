@@ -311,14 +311,14 @@ The CI first classifies the changed files.
 
 - **Every pull request** runs `pre-commit` and the title check.
 - **Documentation-only changes** (`docs/`, Markdown files, issue and pull request templates, release metadata) skip the build and test jobs.
-  When they touch a snippet directory, `compile_snippets` compiles the snippets.
+  When they touch a snippet directory, `compile_snippets` compiles the snippets, with and without MPI, and checks their outputs.
 - **Any other change** runs the full CI:
   - `cppcheck`;
   - `linux-mamba`: GCC 11 to 13 and Clang 16 to 19, with PETSc, the demos and the tests; it runs `test_samurai_lib`, `test_fv_operators_petsc` and the pytest suite;
   - `linux-mpi-mamba`: MPI demos on 1 to 9 processes and the MPI CTest tests;
   - `macos-mamba`;
   - `linux-mamba-check-nan` and `linux-mamba-check-nan-mpi`: demos built with `SAMURAI_CHECK_NAN`;
-  - `compile_snippets` and `benchmarks`.
+  - `compile_snippets`, which also checks the snippet outputs, since they depend on the library, and `benchmarks`.
 
 The `ci-status` job sums up the result: it passes when every job has passed or was skipped.
 
