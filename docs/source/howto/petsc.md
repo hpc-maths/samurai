@@ -47,8 +47,8 @@ The function `solve_heat` solves $u_{n+1} + \Delta t\, \mathcal{D}(u_{n+1}) = u_
   :end-before: int main
 ```
 
-1. Attach boundary conditions to the unknown field, here `unp1`.
-   The solver reads them to write the equations of the ghosts outside the domain.
+1. Attach boundary conditions to the unknown field, here `unp1`, as the {doc}`boundary conditions how-to guide <bc>` explains.
+   The solver reads them to write the equations of the ghosts outside the domain; it handles `samurai::Dirichlet` and `samurai::Neumann` only.
    The right-hand side `u` needs none.
 2. Build the operator to invert, here `A = id + dt * diff`.
    It is not a matrix: the solver assembles the PETSc matrix from it.

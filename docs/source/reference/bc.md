@@ -3,6 +3,7 @@
 A boundary condition attached to a field gives the values of the field's ghosts outside the domain.
 {{ project }} provides Dirichlet and Neumann conditions, applies a polynomial extrapolation to the ghosts that no condition reaches, and accepts user-defined conditions.
 A periodic direction has no boundary condition: periodicity is a property of the mesh.
+{doc}`../howto/bc` shows how to set each kind of condition, with examples that print the ghost values.
 
 The conditions are declared in `<samurai/bc.hpp>`.
 The lattice Boltzmann conditions are declared in `<samurai/schemes/lbm/boundary.hpp>`.

@@ -41,6 +41,7 @@ loop
 ## Adaptation and solvers
 
 - {doc}`adapt`: make a multiresolution mesh follow your solution.
+- {doc}`bc`: set Dirichlet, Neumann, periodic or user-defined boundary conditions on a field.
 - {doc}`petsc`: solve an implicit scheme with PETSc, sequentially or with MPI.
 
 ```{toctree}
@@ -48,6 +49,7 @@ loop
 :hidden:
 
 adapt
+bc
 petsc
 ```
 

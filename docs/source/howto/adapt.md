@@ -20,7 +20,7 @@ The example below builds a 2D mesh with levels 3 to 7, sets the field `u` to a G
 Give the field its values before the first adaptation.
 `samurai::mra::make_mesh` puts every cell at the maximum level, and the adaptation needs the solution there to decide which cells it can coarsen.
 
-Attach the boundary conditions of the field with `samurai::make_bc` before adapting too.
+Attach the boundary conditions of the field with `samurai::make_bc` before adapting too, as the [boundary conditions how-to guide](bc.md) explains.
 Near a non-periodic boundary, the adaptation reads the ghosts outside the domain, and the boundary conditions fill them.
 
 ## Create the adaptation
