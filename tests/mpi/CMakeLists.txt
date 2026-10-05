@@ -41,6 +41,7 @@ endforeach()
 
 # Graph construction test (always built with MPI; no external library needed)
 add_mpi_gtest(test_lb_graph)
+add_mpi_gtest(test_graduation_parallel)
 
 # ParMETIS tests (only if ParMETIS is available)
 if(SAMURAI_WITH_PARMETIS)
