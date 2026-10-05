@@ -89,8 +89,10 @@ def boolean_operations(_p):
 
 @figure
 def set_projection(_p):
-    """reference/subset.md: set_algebra_levels.cpp, two operands of two levels and
-    the set projection of their intersection."""
+    """Draw two operands of two levels and the set projection of their intersection.
+
+    Figure of reference/subset.md, from set_algebra_levels.cpp.
+    """
     x0, unit, pitch = 200, 116, 58  # a level-0 cell is 116 units wide
     rows = [
         ("level 1", None, 1, 6, [(0, 4)], "ink"),
@@ -143,8 +145,10 @@ def set_projection(_p):
 
 @figure
 def level_rows(_p):
-    """tutorial/getting_started.md: the levels 4 to 8 of the program, over the
-    first quarter of the x axis."""
+    """Draw the levels 4 to 8 of the program over the first quarter of the x axis.
+
+    Figure of tutorial/getting_started.md.
+    """
     x0, quarter, pitch, top = 84, 512, 56, 34
     g = line(x0, top - 10, x0 + quarter, top - 10)
     for v, label in ((0, "0"), (0.25, "1/16"), (0.5, "1/8"), (0.75, "3/16"), (1, "1/4")):
@@ -183,8 +187,11 @@ def level_rows(_p):
 
 @figure
 def transported_disc(p):
-    """tutorial/getting_started.md: the disc at t = 0 and at t = 0.3, with the
-    mesh refined along its edge. Drawn with levels 3 to 6, the program uses 4 to 8."""
+    """Draw the disc at t = 0 and at t = 0.3, with the mesh refined along its edge.
+
+    Figure of tutorial/getting_started.md. It is drawn with levels 3 to 6, while
+    the program uses 4 to 8.
+    """
     min_level, max_level, radius = 3, 6, 0.2
     start, end = (0.3, 0.3), (0.6, 0.6)  # the centre moves by a t = (1, 1) * 0.3
     m0 = build_mesh(min_level, max_level, circle_refine(*start, radius))
@@ -345,8 +352,11 @@ def time_step(p):
 
 @figure
 def plus_sign_operations(p):
-    """reference/subset.md: set_algebra_expand_contract.cpp, every result drawn
-    from the intervals the program prints."""
+    """Draw the expansion, contraction and translation of a plus sign.
+
+    Figure of reference/subset.md, from set_algebra_expand_contract.cpp: every
+    result is drawn from the intervals the program prints.
+    """
     plus = [(1, 1), (0, 2), (1, 2), (2, 2), (1, 3)]
     # y = 0 and 4: [0, 3); y = 1 to 3: [-1, 4)
     expanded = [(i, j) for i in range(3) for j in range(5)] + [

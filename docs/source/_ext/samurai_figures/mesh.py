@@ -26,9 +26,12 @@ def _finest_grid(leaves, max_level):
 
 
 def build_mesh(min_level, max_level, refine):
-    """A graded mesh: start from the uniform mesh at ``min_level``, split every cell
-    for which ``refine(level, i, j)`` is true, down to ``max_level``, then split the
-    cells that touch a cell more than one level finer until none is left."""
+    """Build a graded mesh.
+
+    Start from the uniform mesh at ``min_level``, split every cell for which
+    ``refine(level, i, j)`` is true, down to ``max_level``, then split the cells
+    that touch a cell more than one level finer until none is left.
+    """
     leaves = []
 
     def split(level, i, j):
