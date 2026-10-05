@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="290" viewBox="0 0 640 290" font-family="DejaVu Sans, Arial, sans-serif" font-size="15">
+  <defs>
+    <marker id="arrow-enter" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1f4e9c"/>
+    </marker>
+    <marker id="arrow-stay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#6b6b6b"/>
+    </marker>
+    <marker id="arrow-leave" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#b33c1b"/>
+    </marker>
+    <marker id="arrow-step" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#9a9a9a"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="640" height="290" rx="8" fill="#ffffff"/>
+  <!-- panel 1 -->
+  <text x="100" y="32" text-anchor="middle" font-weight="bold" fill="#222222">1. Coarse cells</text>
+  <text x="100" y="52" text-anchor="middle" fill="#444444" font-size="14">level L − 1</text>
+  <g fill="none" stroke="#9a9a9a" stroke-width="1.2">
+    <rect x="16" y="66" width="56" height="56"/>
+    <rect x="128" y="66" width="56" height="56"/>
+  </g>
+  <rect x="72" y="66" width="56" height="56" fill="none" stroke="#222222" stroke-width="2.5"/>
+  <text x="44" y="144" text-anchor="middle" fill="#222222">W</text>
+  <text x="100" y="144" text-anchor="middle" fill="#222222" font-weight="bold">C</text>
+  <text x="156" y="144" text-anchor="middle" fill="#222222">E</text>
+  <line x1="194" y1="94" x2="226" y2="94" stroke="#9a9a9a" stroke-width="2" marker-end="url(#arrow-step)"/>
+  <text x="100" y="170" text-anchor="middle" fill="#444444" font-size="14">one value of f₀*</text>
+  <text x="100" y="188" text-anchor="middle" fill="#444444" font-size="14">per coarse cell</text>
+  <!-- panel 2 -->
+  <text x="320" y="32" text-anchor="middle" font-weight="bold" fill="#222222">2. Prediction</text>
+  <text x="320" y="52" text-anchor="middle" fill="#444444" font-size="14">to level L</text>
+  <rect x="264" y="66" width="28" height="56" fill="#cfe0f5"/>
+  <rect x="292" y="66" width="28" height="56" fill="#e4e4e4"/>
+  <rect x="320" y="66" width="28" height="56" fill="#f6d9cf"/>
+  <g fill="none" stroke="#b5b5b5" stroke-dasharray="3 3">
+    <line x1="264" y1="66" x2="264" y2="122"/>
+    <line x1="236" y1="94" x2="292" y2="94"/>
+    <line x1="320" y1="66" x2="320" y2="122"/>
+    <line x1="292" y1="94" x2="348" y2="94"/>
+    <line x1="376" y1="66" x2="376" y2="122"/>
+    <line x1="348" y1="94" x2="404" y2="94"/>
+  </g>
+  <g fill="none" stroke="#9a9a9a" stroke-width="1.2">
+    <rect x="236" y="66" width="56" height="56"/>
+    <rect x="348" y="66" width="56" height="56"/>
+  </g>
+  <rect x="292" y="66" width="56" height="56" fill="none" stroke="#222222" stroke-width="2.5"/>
+  <text x="264" y="144" text-anchor="middle" fill="#222222">W</text>
+  <text x="320" y="144" text-anchor="middle" fill="#222222" font-weight="bold">C</text>
+  <text x="376" y="144" text-anchor="middle" fill="#222222">E</text>
+  <line x1="414" y1="94" x2="446" y2="94" stroke="#9a9a9a" stroke-width="2" marker-end="url(#arrow-step)"/>
+  <text x="320" y="170" text-anchor="middle" fill="#444444" font-size="14">4 predicted values</text>
+  <text x="320" y="188" text-anchor="middle" fill="#444444" font-size="14">per coarse cell</text>
+  <!-- panel 3 -->
+  <text x="540" y="32" text-anchor="middle" font-weight="bold" fill="#222222">3. Stream by c₀</text>
+  <text x="540" y="52" text-anchor="middle" fill="#444444" font-size="14">at level L</text>
+  <rect x="512" y="66" width="28" height="56" fill="#cfe0f5"/>
+  <rect x="540" y="66" width="28" height="56" fill="#e4e4e4"/>
+  <rect x="568" y="66" width="28" height="56" fill="#f6d9cf"/>
+  <g fill="none" stroke="#b5b5b5" stroke-dasharray="3 3">
+    <line x1="484" y1="66" x2="484" y2="122"/>
+    <line x1="456" y1="94" x2="512" y2="94"/>
+    <line x1="540" y1="66" x2="540" y2="122"/>
+    <line x1="512" y1="94" x2="568" y2="94"/>
+    <line x1="596" y1="66" x2="596" y2="122"/>
+    <line x1="568" y1="94" x2="624" y2="94"/>
+  </g>
+  <g fill="none" stroke="#9a9a9a" stroke-width="1.2">
+    <rect x="456" y="66" width="56" height="56"/>
+    <rect x="568" y="66" width="56" height="56"/>
+  </g>
+  <rect x="512" y="66" width="56" height="56" fill="none" stroke="#222222" stroke-width="2.5"/>
+  <text x="484" y="144" text-anchor="middle" fill="#222222">W</text>
+  <text x="540" y="144" text-anchor="middle" fill="#222222" font-weight="bold">C</text>
+  <text x="596" y="144" text-anchor="middle" fill="#222222">E</text>
+  <line x1="502" y1="80" x2="522" y2="80" stroke="#1f4e9c" stroke-width="2.5" marker-end="url(#arrow-enter)"/>
+  <line x1="502" y1="108" x2="522" y2="108" stroke="#1f4e9c" stroke-width="2.5" marker-end="url(#arrow-enter)"/>
+  <line x1="530" y1="80" x2="550" y2="80" stroke="#6b6b6b" stroke-width="2.5" marker-end="url(#arrow-stay)"/>
+  <line x1="530" y1="108" x2="550" y2="108" stroke="#6b6b6b" stroke-width="2.5" marker-end="url(#arrow-stay)"/>
+  <line x1="558" y1="80" x2="578" y2="80" stroke="#b33c1b" stroke-width="2.5" marker-end="url(#arrow-leave)"/>
+  <line x1="558" y1="108" x2="578" y2="108" stroke="#b33c1b" stroke-width="2.5" marker-end="url(#arrow-leave)"/>
+  <text x="540" y="170" text-anchor="middle" fill="#444444" font-size="14">each value moves</text>
+  <text x="540" y="188" text-anchor="middle" fill="#444444" font-size="14">one fine cell right</text>
+  <rect x="132" y="213" width="16" height="16" fill="#cfe0f5" stroke="#9a9a9a"/>
+  <text x="156" y="227" fill="#222222">enters C</text>
+  <rect x="268" y="213" width="16" height="16" fill="#e4e4e4" stroke="#9a9a9a"/>
+  <text x="292" y="227" fill="#222222">stays in C</text>
+  <rect x="404" y="213" width="16" height="16" fill="#f6d9cf" stroke="#9a9a9a"/>
+  <text x="428" y="227" fill="#222222">leaves C</text>
+  <text x="320" y="264" text-anchor="middle" fill="#222222">f₀(C) at t + Δt  =  f₀*(C)  +  ¼ (Σ blue values − Σ red values)</text>
+</svg>
