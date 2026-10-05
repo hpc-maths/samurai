@@ -28,6 +28,17 @@ samurai_snippet_output(disable_args_parse ARGS --max-level 7)
 samurai_snippet_output(custom_options ARGS --my-option 3 --my-flag)
 samurai_snippet_output(custom_options OUTPUT custom_options_config_output.txt ARGS --config config.toml INPUTS config.toml)
 samurai_snippet_output(restart_mesh_fields)
+samurai_snippet_output(bc_dirichlet_neumann)
+samurai_snippet_output(bc_regions)
+samurai_snippet_output(bc_periodic)
+samurai_snippet_output(bc_custom)
+samurai_snippet_output(fv_laplacian)
+samurai_snippet_output(fv_gradient)
+samurai_snippet_output(fv_upwind)
+# The gap between the Jacobian and its finite differences is round-off: its
+# digits change with the processor, keep only its exponent
+samurai_snippet_output(fv_burgers
+    REPLACE [[(finite differences: )\d\.\d+e]] [[\1x.xxe]])
 samurai_snippet_output(mpi_adapt NP 1 OUTPUT mpi_adapt_np1_output.txt)
 samurai_snippet_output(mpi_adapt NP 2 OUTPUT mpi_adapt_np2_output.txt)
 samurai_snippet_output(mpi_adapt NP 4 OUTPUT mpi_adapt_np4_output.txt)

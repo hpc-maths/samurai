@@ -186,7 +186,7 @@ The program checks the scheme against the exact $\nabla \cdot f(u) = u\,(\partia
   :language: text
 ```
 
-The error decreases at order 2 and the Jacobian matches the finite differences to $10^{-11}$, the accuracy of a centered difference with a step of $10^{-6}$.
+The error decreases at order 2 and the Jacobian matches the finite differences to $10^{-11}$, the accuracy of a centered difference with a step of $10^{-6}$; its digits are round-off and change with the processor, so the output shows them as `x`.
 The column `pair` is explained in the next section.
 In an implicit solve, a correct Jacobian also shows as a quadratic decrease of the Newton residual, as the [PETSc how-to guide](petsc.md#solve-a-non-linear-scheme) shows.
 
