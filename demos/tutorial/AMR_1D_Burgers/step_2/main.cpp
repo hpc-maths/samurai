@@ -25,9 +25,8 @@ namespace fs = std::filesystem;
 
 int main(int argc, char* argv[])
 {
-    auto& app = samurai::initialize("Tutorial AMR Burgers 1D step 2",
-                                    argc,
-                                    argv);
+    auto& app =
+        samurai::initialize("Tutorial AMR Burgers 1D step 2", argc, argv);
 
     // Simulation parameters
     double cfl = 0.99;
@@ -60,7 +59,7 @@ int main(int argc, char* argv[])
         fs::create_directory(path);
     }
 
-    constexpr std::size_t dim = 1; // cppcheck-suppress unreadVariable
+    constexpr std::size_t dim    = 1; // cppcheck-suppress unreadVariable
     const std::size_t init_level = 6;
 
     const samurai::Box<double, dim> box({-3}, {3});
@@ -97,8 +96,8 @@ int main(int argc, char* argv[])
 
         if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
         {
-            std::string suffix =
-                (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
+            std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++)
+                                               : "";
             samurai::save(path,
                           fmt::format("{}{}", filename, suffix),
                           mesh,

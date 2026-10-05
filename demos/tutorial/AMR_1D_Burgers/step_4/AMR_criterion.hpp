@@ -50,8 +50,7 @@ void AMR_criterion(const Field& f, Tag& tag)
                     mask,
                     [](auto& e)
                     {
-                        e = static_cast<int>(
-                            samurai::CellFlag::refine);
+                        e = static_cast<int>(samurai::CellFlag::refine);
                     });
             }
             if (level > min_level)
@@ -61,8 +60,7 @@ void AMR_criterion(const Field& f, Tag& tag)
                     !mask,
                     [](auto& e)
                     {
-                        e = static_cast<int>(
-                            samurai::CellFlag::coarsen);
+                        e = static_cast<int>(samurai::CellFlag::coarsen);
                     });
             }
         });

@@ -25,22 +25,22 @@ auto init_level_set(Field& phi)
     auto& mesh      = phi.mesh();
     phi.resize();
 
-    samurai::for_each_cell(
-        mesh[mesh_id_t::cells],
-        [&](auto& cell)
-        {
-            auto center    = cell.center();
-            const double x = center[0];
-            const double y = center[1];
+    samurai::for_each_cell(mesh[mesh_id_t::cells],
+                           [&](auto& cell)
+                           {
+                               auto center    = cell.center();
+                               const double x = center[0];
+                               const double y = center[1];
 
-            constexpr double radius   = .15;
-            constexpr double x_center = 0.5;
-            constexpr double y_center = 0.75;
+                               constexpr double radius   = .15;
+                               constexpr double x_center = 0.5;
+                               constexpr double y_center = 0.75;
 
-            phi[cell] = std::sqrt(std::pow(x - x_center, 2.)
-                                  + std::pow(y - y_center, 2.))
-                      - radius;
-        });
+                               phi[cell] =
+                                   std::sqrt(std::pow(x - x_center, 2.)
+                                             + std::pow(y - y_center, 2.))
+                                   - radius;
+                           });
 
     samurai::make_bc<samurai::Neumann<1>>(phi, 0.);
 
@@ -56,19 +56,18 @@ auto init_velocity(Mesh& mesh)
     auto u = samurai::make_vector_field<double, 2>("u", mesh);
     u.fill(0);
 
-    samurai::for_each_cell(
-        mesh[mesh_id_t::cells_and_ghosts],
-        [&](auto& cell)
-        {
-            auto center    = cell.center();
-            const double x = center[0];
-            const double y = center[1];
+    samurai::for_each_cell(mesh[mesh_id_t::cells_and_ghosts],
+                           [&](auto& cell)
+                           {
+                               auto center    = cell.center();
+                               const double x = center[0];
+                               const double y = center[1];
 
-            u[cell][0] = -std::pow(std::sin(PI * x), 2.)
-                       * std::sin(2. * PI * y);
-            u[cell][1] =
-                std::pow(std::sin(PI * y), 2.) * std::sin(2. * PI * x);
-        });
+                               u[cell][0] = -std::pow(std::sin(PI * x), 2.)
+                                          * std::sin(2. * PI * y);
+                               u[cell][1] = std::pow(std::sin(PI * y), 2.)
+                                          * std::sin(2. * PI * x);
+                           });
 
     samurai::make_bc<samurai::Neumann<1>>(u, 0., 0.);
 
@@ -104,26 +103,22 @@ void AMR_criteria(const Field& f, Tag& tag)
             {
                 if (cell.level == max_level)
                 {
-                    tag[cell] =
-                        static_cast<int>(samurai::CellFlag::keep);
+                    tag[cell] = static_cast<int>(samurai::CellFlag::keep);
                 }
                 else
                 {
-                    tag[cell] =
-                        static_cast<int>(samurai::CellFlag::refine);
+                    tag[cell] = static_cast<int>(samurai::CellFlag::refine);
                 }
             }
             else
             {
                 if (cell.level == min_level)
                 {
-                    tag[cell] =
-                        static_cast<int>(samurai::CellFlag::keep);
+                    tag[cell] = static_cast<int>(samurai::CellFlag::keep);
                 }
                 else
                 {
-                    tag[cell] =
-                        static_cast<int>(samurai::CellFlag::coarsen);
+                    tag[cell] = static_cast<int>(samurai::CellFlag::coarsen);
                 }
             }
         });
@@ -136,9 +131,8 @@ void save(const fs::path& path,
           const Phi& phi,
           const std::string& suffix = "")
 {
-    auto mesh = u.mesh();
-    auto level_ =
-        samurai::make_scalar_field<std::size_t>("level", mesh);
+    auto mesh   = u.mesh();
+    auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
 
     if (!fs::exists(path))
     {
@@ -187,14 +181,10 @@ int main(int argc, char* argv[])
     std::string filename = "FV_level_set_2d_AMR";
     std::size_t nfiles   = 1;
 
-    app.add_option("--min-corner",
-                   min_corner,
-                   "The min corner of the box")
+    app.add_option("--min-corner", min_corner, "The min corner of the box")
         ->capture_default_str()
         ->group("Simulation parameters");
-    app.add_option("--max-corner",
-                   max_corner,
-                   "The max corner of the box")
+    app.add_option("--max-corner", max_corner, "The max corner of the box")
         ->capture_default_str()
         ->group("Simulation parameters");
     app.add_option("--cfl", cfl, "The CFL")
@@ -248,7 +238,7 @@ int main(int argc, char* argv[])
     samurai::make_bc<samurai::Neumann<1>>(phihat, 0.);
     auto phi_0 = samurai::make_scalar_field<double>("phi_0", mesh);
 
-    auto convection = make_level_set_convection<decltype(phi)>(u, dt);
+    auto convection       = make_level_set_convection<decltype(phi)>(u, dt);
     auto reinitialization = make_level_set_reinitialization(phi_0);
 
     auto tag = samurai::make_scalar_field<int>("tag", mesh);
@@ -288,10 +278,7 @@ int main(int argc, char* argv[])
             t = Tf;
         }
 
-        std::cout << fmt::format("iteration {}: t = {}, dt = {}",
-                                 nt++,
-                                 t,
-                                 dt)
+        std::cout << fmt::format("iteration {}: t = {}, dt = {}", nt++, t, dt)
                   << std::endl;
 
         // Numerical scheme
@@ -316,8 +303,7 @@ int main(int argc, char* argv[])
             phihat = phi - dt_fict * reinitialization(phi);
             samurai::update_ghost(phihat);
             phinp1 =
-                .5 * phi
-                + .5 * (phihat - dt_fict * reinitialization(phihat));
+                .5 * phi + .5 * (phihat - dt_fict * reinitialization(phihat));
 
             std::swap(phi.array(), phinp1.array());
         }

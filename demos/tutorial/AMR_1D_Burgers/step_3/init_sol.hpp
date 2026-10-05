@@ -25,8 +25,7 @@ auto init_sol(Mesh& mesh)
                                }
                                else
                                {
-                                   phi[cell] = (x < 0.) ? (1 + x)
-                                                        : (1 - x);
+                                   phi[cell] = (x < 0.) ? (1 + x) : (1 - x);
                                }
                            });
 

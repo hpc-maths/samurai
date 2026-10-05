@@ -29,9 +29,8 @@ auto generate_mesh(std::size_t min_level,
 
     for (std::size_t s = 0; s < nsamples; ++s)
     {
-        auto level = xt::random::randint<std::size_t>({1},
-                                                      min_level,
-                                                      max_level)[0];
+        auto level =
+            xt::random::randint<std::size_t>({1}, min_level, max_level)[0];
         auto x = xt::random::randint<int>({1}, 0, (1 << level) - 1)[0];
         auto y = xt::random::randint<int>({1}, 0, (1 << level) - 1)[0];
 
@@ -43,9 +42,8 @@ auto generate_mesh(std::size_t min_level,
 
 int main(int argc, char* argv[])
 {
-    auto& app = samurai::initialize("Graduation example: test case 2",
-                                    argc,
-                                    argv);
+    auto& app =
+        samurai::initialize("Graduation example: test case 2", argc, argv);
 
     constexpr std::size_t dim = 2;
     std::size_t min_level     = 1;
@@ -88,22 +86,18 @@ int main(int argc, char* argv[])
     std::size_t ite = 0;
     while (true)
     {
-        std::cout << "Iteration for remove intersection: " << ite++
-                  << "\n";
+        std::cout << "Iteration for remove intersection: " << ite++ << "\n";
         auto tag = samurai::make_scalar_field<bool>("tag", ca);
         tag.fill(false);
 
-        for (std::size_t level = ca.min_level() + 1;
-             level <= ca.max_level();
+        for (std::size_t level = ca.min_level() + 1; level <= ca.max_level();
              ++level)
         {
-            for (std::size_t level_below = ca.min_level();
-                 level_below < level;
+            for (std::size_t level_below = ca.min_level(); level_below < level;
                  ++level_below)
             {
-                auto set =
-                    samurai::intersection(ca[level], ca[level_below])
-                        .on(level_below);
+                auto set = samurai::intersection(ca[level], ca[level_below])
+                               .on(level_below);
                 set(
                     [&](const auto& i, const auto& index)
                     {
@@ -141,9 +135,7 @@ int main(int argc, char* argv[])
         std::swap(ca, new_ca);
     }
 
-    samurai::save(path,
-                  fmt::format("{}_without_intersection", filename),
-                  ca);
+    samurai::save(path, fmt::format("{}_without_intersection", filename), ca);
 
     xt::xtensor_fixed<int, xt::xshape<4, dim>> stencil;
     if (with_corner)
@@ -173,8 +165,7 @@ int main(int argc, char* argv[])
         auto tag = samurai::make_scalar_field<bool>("tag", ca);
         tag.fill(false);
 
-        for (std::size_t level = ca.min_level() + 2;
-             level <= ca.max_level();
+        for (std::size_t level = ca.min_level() + 2; level <= ca.max_level();
              ++level)
         {
             for (std::size_t level_below = ca.min_level();
@@ -183,11 +174,11 @@ int main(int argc, char* argv[])
             {
                 for (std::size_t is = 0; is < stencil.shape()[0]; ++is)
                 {
-                    auto s   = xt::view(stencil, is);
-                    auto set = samurai::intersection(
-                                   samurai::translate(ca[level], s),
-                                   ca[level_below])
-                                   .on(level_below);
+                    auto s = xt::view(stencil, is);
+                    auto set =
+                        samurai::intersection(samurai::translate(ca[level], s),
+                                              ca[level_below])
+                            .on(level_below);
                     set(
                         [&](const auto& i, const auto& index)
                         {

@@ -25,10 +25,10 @@ void update_ghost(Field& phi)
      */
     for (std::size_t level = max_level; level >= min_level; --level)
     {
-        auto expr = samurai::intersection(
-                        mesh[mesh_id_t::cells][level],
-                        mesh[mesh_id_t::cells_and_ghosts][level - 1])
-                        .on(level - 1);
+        auto expr =
+            samurai::intersection(mesh[mesh_id_t::cells][level],
+                                  mesh[mesh_id_t::cells_and_ghosts][level - 1])
+                .on(level - 1);
 
         expr(
             [&](const auto& i, auto)
@@ -47,10 +47,10 @@ void update_ghost(Field& phi)
      */
     for (std::size_t level = min_level; level <= max_level; ++level)
     {
-        auto expr = samurai::difference(
-                        mesh[mesh_id_t::cells_and_ghosts][level],
-                        mesh.domain())
-                        .on(level);
+        auto expr =
+            samurai::difference(mesh[mesh_id_t::cells_and_ghosts][level],
+                                mesh.domain())
+                .on(level);
 
         expr(
             [&](const auto& i, auto)
@@ -67,15 +67,14 @@ void update_ghost(Field& phi)
      *
      *   |-------------|
      */
-    for (std::size_t level = min_level + 1; level <= max_level;
-         ++level)
+    for (std::size_t level = min_level + 1; level <= max_level; ++level)
     {
-        auto expr = samurai::intersection(
-                        mesh.domain(),
-                        samurai::difference(
-                            mesh[mesh_id_t::cells_and_ghosts][level],
-                            mesh.get_union()[level - 1]))
-                        .on(level);
+        auto expr =
+            samurai::intersection(
+                mesh.domain(),
+                samurai::difference(mesh[mesh_id_t::cells_and_ghosts][level],
+                                    mesh.get_union()[level - 1]))
+                .on(level);
 
         expr(
             [&](const auto& i, auto)
@@ -83,19 +82,17 @@ void update_ghost(Field& phi)
                 auto i_coarse = i >> 1;
                 if (i.start & 1)
                 {
-                    phi(level, i) =
-                        phi(level - 1, i_coarse)
-                        + 1. / 8
-                              * (phi(level - 1, i_coarse + 1)
-                                 - phi(level - 1, i_coarse - 1));
+                    phi(level, i) = phi(level - 1, i_coarse)
+                                  + 1. / 8
+                                        * (phi(level - 1, i_coarse + 1)
+                                           - phi(level - 1, i_coarse - 1));
                 }
                 else
                 {
-                    phi(level, i) =
-                        phi(level - 1, i_coarse)
-                        - 1. / 8
-                              * (phi(level - 1, i_coarse + 1)
-                                 - phi(level - 1, i_coarse - 1));
+                    phi(level, i) = phi(level - 1, i_coarse)
+                                  - 1. / 8
+                                        * (phi(level - 1, i_coarse + 1)
+                                           - phi(level - 1, i_coarse - 1));
                 }
             });
     }

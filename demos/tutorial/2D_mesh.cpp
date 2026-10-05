@@ -14,10 +14,9 @@ namespace fs = std::filesystem;
 
 int main(int argc, char* argv[])
 {
-    auto& app =
-        samurai::initialize("Create mesh from CellList and save it",
-                            argc,
-                            argv);
+    auto& app = samurai::initialize("Create mesh from CellList and save it",
+                                    argc,
+                                    argv);
 
     constexpr std::size_t dim = 2; // cppcheck-suppress unreadVariable
     samurai::CellList<dim> cl;

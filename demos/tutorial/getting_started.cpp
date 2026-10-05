@@ -22,8 +22,7 @@ template <class Field>
 void save(const std::string& filename, Field& u)
 {
     auto& mesh = u.mesh();
-    auto level =
-        samurai::make_scalar_field<std::size_t>("level", mesh);
+    auto level = samurai::make_scalar_field<std::size_t>("level", mesh);
     samurai::for_each_cell(mesh,
                            [&](const auto& cell)
                            {
@@ -44,9 +43,8 @@ int main(int argc, char* argv[])
 
     // Create the mesh
     const samurai::Box<double, dim> box({0., 0.}, {1., 1.});
-    auto config =
-        samurai::mesh_config<dim>().min_level(4).max_level(8);
-    auto mesh = samurai::mra::make_mesh(box, config);
+    auto config = samurai::mesh_config<dim>().min_level(4).max_level(8);
+    auto mesh   = samurai::mra::make_mesh(box, config);
 
     // Create the field
     auto u = samurai::make_scalar_field<double>("u", mesh);
@@ -91,11 +89,11 @@ int main(int argc, char* argv[])
             dt += Tf - t;
             t = Tf;
         }
-        std::cout << fmt::format(
-            "iteration {}: t = {:.6f}, dt = {:.6f}",
-            nt++,
-            t,
-            dt) << std::endl;
+        std::cout << fmt::format("iteration {}: t = {:.6f}, dt = {:.6f}",
+                                 nt++,
+                                 t,
+                                 dt)
+                  << std::endl;
 
         unp1.resize();
         unp1 = u - dt * conv(u);

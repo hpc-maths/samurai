@@ -4,14 +4,15 @@
 # formats them with this file. The other options come from the
 # .clang-format files of the parent directories of each formatted file.
 #
-# A code block of the documentation shows 71 columns without scrolling
-# in a 1300 px wide window. The root style lets a line overflow by a few
+# They are formatted at 80 columns, the usual limit of C++ projects,
+# which a code block of the documentation shows without scrolling from
+# a 1366 px wide window. The root style lets a line overflow by a few
 # characters and almost never breaks after "=": both penalties are
 # changed so that the limit holds and long right-hand sides move to the
 # next line. Comments are not reflowed, so that ASCII diagrams stay
 # intact: wrap long comments by hand.
 BasedOnStyle: InheritParentConfig
-ColumnLimit: 71
+ColumnLimit: 80
 PenaltyBreakAssignment: 10
 PenaltyExcessCharacter: 1000
 ReflowComments: false

@@ -16,9 +16,8 @@ void save(const fs::path& path,
           const Field& u,
           const std::string& suffix = "")
 {
-    auto mesh = u.mesh();
-    auto level_ =
-        samurai::make_scalar_field<std::size_t>("level", mesh);
+    auto mesh   = u.mesh();
+    auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
 
     if (!fs::exists(path))
     {
@@ -31,32 +30,24 @@ void save(const fs::path& path,
                                level_[cell] = cell.level;
                            });
 
-    samurai::save(path,
-                  fmt::format("{}{}", filename, suffix),
-                  mesh,
-                  u,
-                  level_);
-    samurai::dump(path,
-                  fmt::format("{}_restart{}", filename, suffix),
-                  mesh,
-                  u);
+    samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
+    samurai::dump(path, fmt::format("{}_restart{}", filename, suffix), mesh, u);
 }
 
 int main(int argc, char* argv[])
 {
-    auto& app = samurai::initialize(
-        "Finite volume example for the Nagumo equation",
-        argc,
-        argv);
+    auto& app =
+        samurai::initialize("Finite volume example for the Nagumo equation",
+                            argc,
+                            argv);
 
     static constexpr std::size_t dim    = 1;
     static constexpr std::size_t n_comp = 1;
     using Box                           = samurai::Box<double, dim>;
     using point_t                       = typename Box::point_t;
 
-    std::cout
-        << "------------------------- Nagumo -------------------------"
-        << std::endl;
+    std::cout << "------------------------- Nagumo -------------------------"
+              << std::endl;
 
     /**
      * Nagumo, or Fisher-KPP equation:
@@ -172,20 +163,18 @@ int main(int argc, char* argv[])
     {
         u.resize();
         // Initial solution
-        samurai::for_each_cell(
-            mesh,
-            [&](auto& cell)
-            {
-                u[cell] = exact_solution(cell.center(0), 0);
-            });
+        samurai::for_each_cell(mesh,
+                               [&](auto& cell)
+                               {
+                                   u[cell] = exact_solution(cell.center(0), 0);
+                               });
     }
     else
     {
         samurai::load(restart_file, mesh, u);
     }
 
-    auto unp1 =
-        samurai::make_vector_field<double, n_comp>("unp1", mesh);
+    auto unp1 = samurai::make_vector_field<double, n_comp>("unp1", mesh);
 
     samurai::make_bc<samurai::Neumann<1>>(u);
     samurai::make_bc<samurai::Neumann<1>>(unp1);
@@ -194,10 +183,9 @@ int main(int argc, char* argv[])
     auto id   = samurai::make_identity<decltype(u)>();
 
     // Reaction operator
-    using cfg =
-        samurai::LocalCellSchemeConfig<samurai::SchemeType::NonLinear,
-                                       decltype(u),
-                                       decltype(u)>;
+    using cfg  = samurai::LocalCellSchemeConfig<samurai::SchemeType::NonLinear,
+                                                decltype(u),
+                                                decltype(u)>;
     auto react = samurai::make_cell_based_scheme<cfg>();
     react.set_name("Reaction");
     react.set_scheme_function(
@@ -259,8 +247,7 @@ int main(int argc, char* argv[])
     // independent, local Newton solvers
     auto implicit_reaction_solver =
         samurai::petsc::make_solver(id - dt * react);
-    implicit_reaction_solver.configure =
-        [](SNES& snes, KSP& ksp, PC& pc)
+    implicit_reaction_solver.configure = [](SNES& snes, KSP& ksp, PC& pc)
     {
         SNESSetType(snes, SNESNEWTONLS);
         KSPSetType(ksp, KSPPREONLY);
@@ -344,8 +331,7 @@ int main(int argc, char* argv[])
         {
             if (dt_has_changed)
             {
-                full_implicit_solver.set_scheme(id + dt * diff
-                                                - dt * react);
+                full_implicit_solver.set_scheme(id + dt * diff - dt * react);
             }
             if (mesh.min_level() != mesh.max_level())
             {
@@ -362,12 +348,11 @@ int main(int argc, char* argv[])
         samurai::swap(u, unp1);
 
         // Compute error
-        double error =
-            samurai::L2_error(u,
-                              [&](const auto& coord)
-                              {
-                                  return exact_solution(coord(0), t);
-                              });
+        double error = samurai::L2_error(u,
+                                         [&](const auto& coord)
+                                         {
+                                             return exact_solution(coord(0), t);
+                                         });
         std::cout.precision(2);
         std::cout << ", L2-error: " << std::scientific << error;
 
@@ -386,9 +371,8 @@ int main(int argc, char* argv[])
         std::cout << "Run the following command to view the results:"
                   << std::endl;
         std::cout << "python <<path to samurai>>/python/read_mesh.py "
-                  << filename
-                  << "_ite_ --field u level --start 1 --end " << nsave
-                  << std::endl;
+                  << filename << "_ite_ --field u level --start 1 --end "
+                  << nsave << std::endl;
     }
 
     if (save_final_state_only)

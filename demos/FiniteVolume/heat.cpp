@@ -32,9 +32,8 @@ void save(const fs::path& path,
           const Field& u,
           const std::string& suffix = "")
 {
-    auto mesh = u.mesh();
-    auto level_ =
-        samurai::make_scalar_field<std::size_t>("level", mesh);
+    auto mesh   = u.mesh();
+    auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
 
     if (!fs::exists(path))
     {
@@ -49,39 +48,30 @@ void save(const fs::path& path,
 
 #ifdef SAMURAI_WITH_MPI
     mpi::communicator world;
-    samurai::save(
-        path,
-        fmt::format("{}_size_{}{}", filename, world.size(), suffix),
-        mesh,
-        u,
-        level_);
-#else
     samurai::save(path,
-                  fmt::format("{}{}", filename, suffix),
+                  fmt::format("{}_size_{}{}", filename, world.size(), suffix),
                   mesh,
                   u,
                   level_);
-    samurai::dump(path,
-                  fmt::format("{}_restart{}", filename, suffix),
-                  mesh,
-                  u);
+#else
+    samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
+    samurai::dump(path, fmt::format("{}_restart{}", filename, suffix), mesh, u);
 #endif
 }
 
 int main(int argc, char* argv[])
 {
-    auto& app = samurai::initialize(
-        "Finite volume example for the heat equation",
-        argc,
-        argv);
+    auto& app =
+        samurai::initialize("Finite volume example for the heat equation",
+                            argc,
+                            argv);
 
     static constexpr std::size_t dim = 2;
     using Box                        = samurai::Box<double, dim>;
     using point_t                    = typename Box::point_t;
 
-    std::cout
-        << "------------------------- Heat -------------------------"
-        << std::endl;
+    std::cout << "------------------------- Heat -------------------------"
+              << std::endl;
 
     //--------------------//
     // Program parameters //
@@ -122,9 +112,7 @@ int main(int argc, char* argv[])
     app.add_option("--right", right_box, "The right border of the box")
         ->capture_default_str()
         ->group("Simulation parameters");
-    app.add_option("--init-sol",
-                   init_sol,
-                   "Initial solution: dirac/crenel")
+    app.add_option("--init-sol", init_sol, "Initial solution: dirac/crenel")
         ->capture_default_str()
         ->group("Simulation parameters");
     app.add_option("--diff-coeff", diff_coeff, "Diffusion coefficient")
@@ -192,8 +180,7 @@ int main(int argc, char* argv[])
                 mesh,
                 [&](auto& cell)
                 {
-                    u[cell] =
-                        exact_solution(cell.center(), t0, diff_coeff);
+                    u[cell] = exact_solution(cell.center(), t0, diff_coeff);
                 });
         }
         else // crenel
@@ -205,9 +192,8 @@ int main(int argc, char* argv[])
                     bool is_in_crenel = true;
                     for (std::size_t d = 0; d < dim; ++d)
                     {
-                        is_in_crenel =
-                            is_in_crenel
-                            && (abs(cell.center(d)) < right_box / 3);
+                        is_in_crenel = is_in_crenel
+                                    && (abs(cell.center(d)) < right_box / 3);
                     }
                     u[cell] = is_in_crenel ? 1 : 0;
                 });
@@ -249,8 +235,7 @@ int main(int argc, char* argv[])
         save(path, filename, u, fmt::format("_ite_{}", nsave++));
     }
 
-    auto back_euler_solver =
-        samurai::petsc::make_solver(id + dt * diff);
+    auto back_euler_solver = samurai::petsc::make_solver(id + dt * diff);
     back_euler_solver.set_unknown(unp1);
     back_euler_solver.configure = [](KSP& ksp, PC& pc)
     {
@@ -324,9 +309,8 @@ int main(int argc, char* argv[])
         std::cout << "Run the following command to view the results:"
                   << std::endl;
         std::cout << "python <<path to samurai>>/python/read_mesh.py "
-                  << filename
-                  << "_ite_ --field u level --start 1 --end " << nsave
-                  << std::endl;
+                  << filename << "_ite_ --field u level --start 1 --end "
+                  << nsave << std::endl;
     }
 
     if (save_final_state_only)

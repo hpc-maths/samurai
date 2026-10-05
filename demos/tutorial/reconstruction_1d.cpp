@@ -59,11 +59,10 @@ auto init(Mesh& mesh, Case& c)
 
 int main(int argc, char* argv[])
 {
-    auto& app =
-        samurai::initialize("1d reconstruction of an adapted solution "
-                            "using multiresolution",
-                            argc,
-                            argv);
+    auto& app = samurai::initialize("1d reconstruction of an adapted solution "
+                                    "using multiresolution",
+                                    argc,
+                                    argv);
 
     constexpr size_t dim = 1;
 
@@ -119,8 +118,7 @@ int main(int argc, char* argv[])
     auto mra_config   = samurai::mra_config().regularity(2);
     MRadaptation(mra_config);
 
-    auto level_ =
-        samurai::make_scalar_field<std::size_t>("level", mrmesh);
+    auto level_ = samurai::make_scalar_field<std::size_t>("level", mrmesh);
     samurai::for_each_cell(mrmesh[mrmesh_id_t::cells],
                            [&](const auto& cell)
                            {
@@ -136,14 +134,12 @@ int main(int argc, char* argv[])
     std::cout << "execution time " << elapsed.count() << std::endl;
 
     auto error =
-        samurai::make_scalar_field<double>("error",
-                                           u_reconstruct.mesh());
+        samurai::make_scalar_field<double>("error", u_reconstruct.mesh());
     samurai::for_each_interval(
         u_reconstruct.mesh(),
         [&](std::size_t level, const auto& i, const auto&)
         {
-            error(level, i) =
-                abs(u_reconstruct(level, i) - u_exact(level, i));
+            error(level, i) = abs(u_reconstruct(level, i) - u_exact(level, i));
         });
     samurai::save(path,
                   fmt::format("uniform_{}", filename),

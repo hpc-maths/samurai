@@ -35,9 +35,8 @@ namespace fs = std::filesystem;
 
 int main(int argc, char* argv[])
 {
-    auto& app = samurai::initialize("Tutorial AMR Burgers 1D step 6",
-                                    argc,
-                                    argv);
+    auto& app =
+        samurai::initialize("Tutorial AMR Burgers 1D step 6", argc, argv);
 
     // Simulation parameters
     double cfl         = 0.99;
@@ -108,8 +107,7 @@ int main(int argc, char* argv[])
         std::size_t i_adapt = 0;
         while (i_adapt < (max_level - min_level + 1))
         {
-            auto tag =
-                samurai::make_scalar_field<std::size_t>("tag", mesh);
+            auto tag = samurai::make_scalar_field<std::size_t>("tag", mesh);
 
             fmt::print("adaptation iteration : {:4d}\n", i_adapt++);
             update_ghost(phi);
@@ -129,17 +127,15 @@ int main(int argc, char* argv[])
 
         if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
         {
-            auto level =
-                samurai::make_scalar_field<std::size_t>("level", mesh);
-            samurai::for_each_interval(
-                mesh[MeshID::cells],
-                [&](std::size_t lvl, const auto& i, auto)
-                {
-                    level(lvl, i) = lvl;
-                });
+            auto level = samurai::make_scalar_field<std::size_t>("level", mesh);
+            samurai::for_each_interval(mesh[MeshID::cells],
+                                       [&](std::size_t lvl, const auto& i, auto)
+                                       {
+                                           level(lvl, i) = lvl;
+                                       });
 
-            std::string suffix =
-                (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
+            std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++)
+                                               : "";
             samurai::save(path,
                           fmt::format("{}{}", filename, suffix),
                           mesh,

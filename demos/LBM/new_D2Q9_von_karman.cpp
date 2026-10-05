@@ -40,11 +40,10 @@ namespace fs = std::filesystem;
 
 int main(int argc, char* argv[])
 {
-    auto& app = samurai::initialize(
-        "D2Q9 MRT Navier-Stokes, von Karman street "
-        "past a cylinder (schemes/lbm)",
-        argc,
-        argv);
+    auto& app = samurai::initialize("D2Q9 MRT Navier-Stokes, von Karman street "
+                                    "past a cylinder (schemes/lbm)",
+                                    argc,
+                                    argv);
 
     static constexpr std::size_t dim = 2;
     using Box                        = samurai::Box<double, dim>;
@@ -127,8 +126,7 @@ int main(int argc, char* argv[])
                 }
             }
         }
-        return static_cast<double>(inside)
-             / static_cast<double>(n * n);
+        return static_cast<double>(inside) / static_cast<double>(n * n);
     };
 
     auto m = samurai::make_vector_field<double, 9>("m", mesh);
@@ -143,12 +141,11 @@ int main(int argc, char* argv[])
         mesh,
         [&](const auto& cell)
         {
-            const double frac = solid_fraction(cell.center(0),
-                                               cell.center(1),
-                                               cell.length);
-            m[cell](0)        = rho0;
-            m[cell](1)        = (1. - frac) * rho0 * u0;
-            m[cell](2)        = (1. - frac) * 0.01 * rho0 * u0;
+            const double frac =
+                solid_fraction(cell.center(0), cell.center(1), cell.length);
+            m[cell](0) = rho0;
+            m[cell](1) = (1. - frac) * rho0 * u0;
+            m[cell](2) = (1. - frac) * 0.01 * rho0 * u0;
         });
 
     // D2Q9 Lallemand-Luo moment matrices (see new_D2Q9_taylor_green
@@ -188,8 +185,7 @@ int main(int argc, char* argv[])
         {1./9, r1/6, -r1/6, r2/18, r3/12, -r3/12, r4/36, 0., -r2/4},
     }};
     // clang-format on
-    auto eq = [l2, l4](std::array<double, 9>& meq,
-                       std::span<const double> mm)
+    auto eq = [l2, l4](std::array<double, 9>& meq, std::span<const double> mm)
     {
         const double rho = mm[0];
         const double qx  = mm[1];
@@ -205,33 +201,32 @@ int main(int argc, char* argv[])
         meq[7]           = (qx * qx - qy * qy) / rho;
         meq[8]           = qx * qy / rho;
     };
-    std::array<double, 9> s =
-        {0., 0., 0., 1.64, 1.54, 1.54, 1.64, s_nu, s_nu};
+    std::array<double, 9> s = {0., 0., 0., 1.64, 1.54, 1.54, 1.64, s_nu, s_nu};
 
-    auto scheme = samurai::make_lbm_scheme<field_t>(
-        "D2Q9_von_karman",
-        lambda,
-        samurai::velocity_scheme<dim, 9>(
-            {
-                {{0, 0},
-                 {1, 0},
-                 {0, 1},
-                 {-1, 0},
-                 {0, -1},
-                 {1, 1},
-                 {-1, 1},
-                 {-1, -1},
-                 {1, -1}}
+    auto scheme =
+        samurai::make_lbm_scheme<field_t>("D2Q9_von_karman",
+                                          lambda,
+                                          samurai::velocity_scheme<dim, 9>(
+                                              {
+                                                  {{0, 0},
+                                                   {1, 0},
+                                                   {0, 1},
+                                                   {-1, 0},
+                                                   {0, -1},
+                                                   {1, 1},
+                                                   {-1, 1},
+                                                   {-1, -1},
+                                                   {1, -1}}
     },
-            M,
-            invM,
-            s,
-            eq));
+                                              M,
+                                              invM,
+                                              s,
+                                              eq));
 
     // Free-stream inflow (left, top, bottom) and rest equilibria for
     // the obstacle.
-    const std::array<double, 9> feq_inflow = scheme.equilibrium_f(
-        {rho0, rho0 * u0, 0., 0., 0., 0., 0., 0., 0.});
+    const std::array<double, 9> feq_inflow =
+        scheme.equilibrium_f({rho0, rho0 * u0, 0., 0., 0., 0., 0., 0., 0.});
     const std::array<double, 9> feq_rest =
         scheme.equilibrium_f({rho0, 0., 0., 0., 0., 0., 0., 0., 0.});
 
@@ -256,9 +251,8 @@ int main(int argc, char* argv[])
             mesh,
             [&](const auto& cell)
             {
-                const double frac = solid_fraction(cell.center(0),
-                                                   cell.center(1),
-                                                   cell.length);
+                const double frac =
+                    solid_fraction(cell.center(0), cell.center(1), cell.length);
                 if (frac == 0.)
                 {
                     return;
@@ -306,19 +300,16 @@ int main(int argc, char* argv[])
                                    m[cell](2) = qy;
                                });
 
-        auto level =
-            samurai::make_scalar_field<std::size_t>("level", mesh);
-        auto rho = samurai::make_scalar_field<double>("rho", mesh);
-        auto velocity =
-            samurai::make_vector_field<double, 2>("velocity", mesh);
-        auto solid = samurai::make_scalar_field<double>("solid", mesh);
+        auto level    = samurai::make_scalar_field<std::size_t>("level", mesh);
+        auto rho      = samurai::make_scalar_field<double>("rho", mesh);
+        auto velocity = samurai::make_vector_field<double, 2>("velocity", mesh);
+        auto solid    = samurai::make_scalar_field<double>("solid", mesh);
         samurai::for_each_cell(
             mesh,
             [&](const auto& cell)
             {
-                const double frac = solid_fraction(cell.center(0),
-                                                   cell.center(1),
-                                                   cell.length);
+                const double frac =
+                    solid_fraction(cell.center(0), cell.center(1), cell.length);
 
                 level[cell]       = cell.level;
                 rho[cell]         = m[cell](0);
@@ -357,11 +348,11 @@ int main(int argc, char* argv[])
             t = Tf;
         }
 
-        std::cout << fmt::format(
-            "iteration {}: t = {:.4f}, dt = {:.4e}",
-            nt++,
-            t,
-            dt) << std::endl;
+        std::cout << fmt::format("iteration {}: t = {:.4f}, dt = {:.4e}",
+                                 nt++,
+                                 t,
+                                 dt)
+                  << std::endl;
 
         scheme(f, m);
         cdl = penalise();
@@ -398,9 +389,8 @@ int main(int argc, char* argv[])
             rhomin             = std::min(rhomin, rho);
             rhomax             = std::max(rhomax, rho);
             umax               = std::max(umax, speed);
-            const double frac  = solid_fraction(cell.center(0),
-                                               cell.center(1),
-                                               cell.length);
+            const double frac =
+                solid_fraction(cell.center(0), cell.center(1), cell.length);
             if (frac == 1.)
             {
                 // penalised cells: should be ~0
@@ -409,13 +399,11 @@ int main(int argc, char* argv[])
         });
 
     std::cout << "cells = " << mesh.nb_cells() << ", Re = " << Re
-              << ", nu = " << nu << ", s_nu = " << s_nu
-              << ", dt = " << dt << std::endl;
-    std::cout << "rho in [" << rhomin << ", " << rhomax
-              << "], |u|max = " << umax
-              << ", |u|max in solid = " << u_solid_max
-              << ", Cd = " << cdl[0] << ", Cl = " << cdl[1]
+              << ", nu = " << nu << ", s_nu = " << s_nu << ", dt = " << dt
               << std::endl;
+    std::cout << "rho in [" << rhomin << ", " << rhomax
+              << "], |u|max = " << umax << ", |u|max in solid = " << u_solid_max
+              << ", Cd = " << cdl[0] << ", Cl = " << cdl[1] << std::endl;
 
     samurai::finalize();
     return 0;

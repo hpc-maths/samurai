@@ -19,10 +19,10 @@ void update_sol(double dt, Field& phi, Field& phi_np1)
         {
             const double dx = mesh.cell_length(level);
 
-            phi_np1(level, i) = phi(level, i)
-                              - .5 * dt / dx
-                                    * (pow(phi(level, i), 2.)
-                                       - pow(phi(level, i - 1), 2.));
+            phi_np1(level, i) =
+                phi(level, i)
+                - .5 * dt / dx
+                      * (pow(phi(level, i), 2.) - pow(phi(level, i - 1), 2.));
         });
 
     /////////////////////////
@@ -39,8 +39,7 @@ void update_sol(double dt, Field& phi, Field& phi_np1)
      *      x         x                                        x
      *
      */
-    for (std::size_t level = mesh.min_level();
-         level < mesh.max_level();
+    for (std::size_t level = mesh.min_level(); level < mesh.max_level();
          ++level)
     {
         const double dx = mesh.cell_length(level);
@@ -48,8 +47,7 @@ void update_sol(double dt, Field& phi, Field& phi_np1)
         int stencil = 1;
         auto subset_left =
             samurai::intersection(
-                samurai::translate(mesh[mesh_id_t::cells][level + 1],
-                                   stencil),
+                samurai::translate(mesh[mesh_id_t::cells][level + 1], stencil),
                 mesh[mesh_id_t::cells][level])
                 .on(level);
 
@@ -59,8 +57,7 @@ void update_sol(double dt, Field& phi, Field& phi_np1)
                 phi_np1(level, i) =
                     phi_np1(level, i)
                     - .5 * dt / dx * pow(phi(level, i - 1), 2.)
-                    + .5 * dt / dx
-                          * pow(phi(level + 1, 2 * i - 1), 2.);
+                    + .5 * dt / dx * pow(phi(level + 1, 2 * i - 1), 2.);
             });
     }
     /////////////////////////

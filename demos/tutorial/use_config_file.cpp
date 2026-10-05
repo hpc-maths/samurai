@@ -13,14 +13,12 @@ int main(int argc, char** argv)
 
     if (samurai::args::min_level != 4)
     {
-        std::cerr << "Error: Default min-level should be 4."
-                  << std::endl;
+        std::cerr << "Error: Default min-level should be 4." << std::endl;
         return 1;
     }
     if (samurai::args::max_level != 7)
     {
-        std::cerr << "Error: Default max-level should be 6."
-                  << std::endl;
+        std::cerr << "Error: Default max-level should be 6." << std::endl;
         return 1;
     }
 

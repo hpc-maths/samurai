@@ -27,9 +27,8 @@ namespace fs = std::filesystem;
 
 int main(int argc, char* argv[])
 {
-    auto& app = samurai::initialize("Tutorial AMR Burgers 1D step 3",
-                                    argc,
-                                    argv);
+    auto& app =
+        samurai::initialize("Tutorial AMR Burgers 1D step 3", argc, argv);
 
     // Simulation parameters
     double cfl = 0.99;
@@ -102,8 +101,8 @@ int main(int argc, char* argv[])
 
         if (t >= static_cast<double>(nsave + 1) * dt_save || t == Tf)
         {
-            std::string suffix =
-                (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
+            std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++)
+                                               : "";
             samurai::save(path,
                           fmt::format("{}{}", filename, suffix),
                           mesh,

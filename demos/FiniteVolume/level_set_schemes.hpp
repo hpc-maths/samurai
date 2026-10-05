@@ -20,8 +20,7 @@ template <class Field, class VelocityField>
     requires samurai::field_like<VelocityField>
 auto make_level_set_convection(VelocityField& u, const double& dt)
 {
-    static_assert(Field::is_scalar,
-                  "The level set must be a scalar field");
+    static_assert(Field::is_scalar, "The level set must be a scalar field");
     static_assert(VelocityField::dim == Field::dim
                   && VelocityField::n_comp == Field::dim);
 
@@ -54,10 +53,9 @@ auto make_level_set_convection(VelocityField& u, const double& dt)
 
                 // Velocity at the face, interpolated from the four
                 // cells of the stencil
-                const double v =
-                    (-u[cells[0]](d) + 9. * u[cells[1]](d)
-                     + 9. * u[cells[2]](d) - u[cells[3]](d))
-                    / 16.;
+                const double v = (-u[cells[0]](d) + 9. * u[cells[1]](d)
+                                  + 9. * u[cells[2]](d) - u[cells[3]](d))
+                               / 16.;
 
                 // theta: ratio of the jump at the upwind face to the
                 // jump at this face
@@ -67,14 +65,11 @@ auto make_level_set_convection(VelocityField& u, const double& dt)
                     jump = 1e-8;
                 }
                 const double theta =
-                    ((v >= 0) ? phi[1] - phi[0] : phi[3] - phi[2])
-                    / jump;
+                    ((v >= 0) ? phi[1] - phi[0] : phi[3] - phi[2]) / jump;
 
-                const double mc = std::max(
-                    0.,
-                    std::min({2. * theta, .5 * (1. + theta), 2.}));
-                const double courant =
-                    std::abs(v) * dt / data.cell_length;
+                const double mc =
+                    std::max(0., std::min({2. * theta, .5 * (1. + theta), 2.}));
+                const double courant = std::abs(v) * dt / data.cell_length;
 
                 flux = std::max(v, 0.) * phi[1]
                      + std::min(v, 0.) * phi[2] // upwind flux
@@ -104,8 +99,7 @@ auto make_level_set_convection(VelocityField& u, const double& dt)
 template <class Field>
 auto make_level_set_reinitialization(const Field& phi_0)
 {
-    static_assert(Field::is_scalar,
-                  "The level set must be a scalar field");
+    static_assert(Field::is_scalar, "The level set must be a scalar field");
 
     static constexpr std::size_t dim = Field::dim;
 
@@ -113,11 +107,10 @@ auto make_level_set_reinitialization(const Field& phi_0)
     //     left2, left, center, right, right2, bottom2, bottom, top,
     //     top2 (, front2, front, back, back2)
     static constexpr std::size_t radius = 2;
-    using cfg = samurai::StarStencilSchemeConfig<
-        samurai::SchemeType::NonLinear,
-        radius,
-        Field,
-        Field>;
+    using cfg = samurai::StarStencilSchemeConfig<samurai::SchemeType::NonLinear,
+                                                 radius,
+                                                 Field,
+                                                 Field>;
 
     auto scheme = samurai::make_cell_based_scheme<cfg>();
     scheme.set_name("level-set reinitialization");
@@ -130,9 +123,8 @@ auto make_level_set_reinitialization(const Field& phi_0)
 
             auto minmod = [](double a, double b)
             {
-                return (a * b > 0.)
-                         ? ((std::abs(a) < std::abs(b)) ? a : b)
-                         : 0.;
+                return (a * b > 0.) ? ((std::abs(a) < std::abs(b)) ? a : b)
+                                    : 0.;
             };
 
             const bool positive = phi_0[cells[center]] >= 0.;
@@ -156,37 +148,32 @@ auto make_level_set_reinitialization(const Field& phi_0)
 
                 // One-sided differences, corrected by the minmod of
                 // the second differences
-                const double dd =
-                    (phi_p1 - 2. * phi_c + phi_m1) / (h * h);
-                const double dd_left =
-                    (phi_c - 2. * phi_m1 + phi_m2) / (h * h);
+                const double dd      = (phi_p1 - 2. * phi_c + phi_m1) / (h * h);
+                const double dd_left = (phi_c - 2. * phi_m1 + phi_m2) / (h * h);
                 const double dd_right =
                     (phi_p2 - 2. * phi_p1 + phi_c) / (h * h);
 
-                const double d_minus = (phi_c - phi_m1) / h
-                                     + .5 * h * minmod(dd, dd_left);
-                const double d_plus = (phi_p1 - phi_c) / h
-                                    - .5 * h * minmod(dd, dd_right);
+                const double d_minus =
+                    (phi_c - phi_m1) / h + .5 * h * minmod(dd, dd_left);
+                const double d_plus =
+                    (phi_p1 - phi_c) / h - .5 * h * minmod(dd, dd_right);
 
                 // Godunov upwinding
                 if (positive)
                 {
-                    norm2 +=
-                        std::max(std::pow(std::max(d_minus, 0.), 2.),
-                                 std::pow(std::min(d_plus, 0.), 2.));
+                    norm2 += std::max(std::pow(std::max(d_minus, 0.), 2.),
+                                      std::pow(std::min(d_plus, 0.), 2.));
                 }
                 else
                 {
-                    norm2 +=
-                        std::max(std::pow(std::min(d_minus, 0.), 2.),
-                                 std::pow(std::max(d_plus, 0.), 2.));
+                    norm2 += std::max(std::pow(std::min(d_minus, 0.), 2.),
+                                      std::pow(std::max(d_plus, 0.), 2.));
                 }
             }
 
             const double scale = h / phi.mesh().min_cell_length();
 
-            value = (positive ? 1. : -1.) * scale
-                  * (std::sqrt(norm2) - 1.);
+            value = (positive ? 1. : -1.) * scale * (std::sqrt(norm2) - 1.);
         });
     return scheme;
 }

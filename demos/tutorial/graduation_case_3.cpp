@@ -19,9 +19,8 @@ namespace fs = std::filesystem;
 auto generate_mesh(std::size_t start_level)
 {
     constexpr std::size_t dim = 2; // cppcheck-suppress unreadVariable
-    const samurai::Box<int, dim> box(
-        {-(2 << start_level), -(2 << start_level)},
-        {2 << start_level, 2 << start_level});
+    const samurai::Box<int, dim> box({-(2 << start_level), -(2 << start_level)},
+                                     {2 << start_level, 2 << start_level});
     samurai::CellArray<dim> ca;
 
     ca[start_level] = {start_level, box};
@@ -31,9 +30,8 @@ auto generate_mesh(std::size_t start_level)
 
 int main(int argc, char* argv[])
 {
-    auto& app = samurai::initialize("Graduation example: test case 3",
-                                    argc,
-                                    argv);
+    auto& app =
+        samurai::initialize("Graduation example: test case 3", argc, argv);
 
     constexpr std::size_t dim = 2; // cppcheck-suppress unreadVariable
     std::size_t start_level   = 1;
@@ -76,8 +74,7 @@ int main(int argc, char* argv[])
     std::size_t ite = 0;
     while (true)
     {
-        std::cout << "Iteration for remove intersection: " << ite++
-                  << "\n";
+        std::cout << "Iteration for remove intersection: " << ite++ << "\n";
 
         auto tag = samurai::make_scalar_field<bool>("tag", ca);
         tag.fill(false);
@@ -90,9 +87,8 @@ int main(int argc, char* argv[])
                 const double dx = cell.length;
 
                 const std::size_t npoints = 1 << (max_level + 4);
-                const double dt =
-                    2. * PI / static_cast<double>(npoints);
-                double t = 0;
+                const double dt = 2. * PI / static_cast<double>(npoints);
+                double t        = 0;
 
                 for (std::size_t it = 0; it < npoints; ++it)
                 {
@@ -122,15 +118,14 @@ int main(int argc, char* argv[])
                 {1,  -1}
             };
 
-            for (std::size_t level = ca.max_level(); level > 1;
-                 --level)
+            for (std::size_t level = ca.max_level(); level > 1; --level)
             {
                 for (std::size_t i = 0; i < stencil.shape()[0]; ++i)
                 {
-                    auto s      = xt::view(stencil, i);
-                    auto subset = samurai::intersection(
-                        samurai::translate(ca[level], s),
-                        ca[level - 1]);
+                    auto s = xt::view(stencil, i);
+                    auto subset =
+                        samurai::intersection(samurai::translate(ca[level], s),
+                                              ca[level - 1]);
 
                     subset(
                         [&](const auto& interval, const auto& index)
@@ -140,10 +135,9 @@ int main(int argc, char* argv[])
 
                             if (i_f.is_valid())
                             {
-                                auto mask =
-                                    tag(level, i_f - s[0], j_f - s[1]);
-                                auto i_c = i_f >> 1;
-                                auto j_c = j_f >> 1;
+                                auto mask = tag(level, i_f - s[0], j_f - s[1]);
+                                auto i_c  = i_f >> 1;
+                                auto j_c  = j_f >> 1;
                                 samurai::apply_on_masked(
                                     tag(level - 1, i_c, j_c),
                                     mask,
@@ -156,10 +150,9 @@ int main(int argc, char* argv[])
                             i_f = interval.odd_elements();
                             if (i_f.is_valid())
                             {
-                                auto mask =
-                                    tag(level, i_f - s[0], j_f - s[1]);
-                                auto i_c = i_f >> 1;
-                                auto j_c = j_f >> 1;
+                                auto mask = tag(level, i_f - s[0], j_f - s[1]);
+                                auto i_c  = i_f >> 1;
+                                auto j_c  = j_f >> 1;
                                 samurai::apply_on_masked(
                                     tag(level - 1, i_c, j_c),
                                     mask,
@@ -176,9 +169,7 @@ int main(int argc, char* argv[])
         samurai::CellList<dim> cl;
         samurai::for_each_interval(
             ca,
-            [&](std::size_t level,
-                const auto& interval,
-                const auto& index)
+            [&](std::size_t level, const auto& interval, const auto& index)
             {
                 using size_type = typename decltype(tag)::size_type;
                 auto j          = index[0];
@@ -188,8 +179,7 @@ int main(int argc, char* argv[])
                 {
                     if (tag[itag] && level < max_level)
                     {
-                        cl[level + 1][{2 * j}].add_interval(
-                            {2 * i, 2 * i + 2});
+                        cl[level + 1][{2 * j}].add_interval({2 * i, 2 * i + 2});
                         cl[level + 1][{2 * j + 1}].add_interval(
                             {2 * i, 2 * i + 2});
                     }

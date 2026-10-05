@@ -20,9 +20,8 @@ namespace fs = std::filesystem;
 auto generate_mesh(std::size_t start_level, std::size_t max_level)
 {
     constexpr std::size_t dim = 2;
-    const samurai::Box<int, dim> box(
-        {0, 0},
-        {1 << start_level, 1 << start_level});
+    const samurai::Box<int, dim> box({0, 0},
+                                     {1 << start_level, 1 << start_level});
     samurai::CellArray<dim> ca;
 
     xt::random::seed(42);
@@ -36,15 +35,12 @@ auto generate_mesh(std::size_t start_level, std::size_t max_level)
         using bools_t = xt::xtensor_fixed<bool, xt::xshape<2>>;
         samurai::for_each_interval(
             ca,
-            [&](std::size_t level,
-                const auto& interval,
-                const auto& index)
+            [&](std::size_t level, const auto& interval, const auto& index)
             {
-                auto choice = xt::random::choice(bools_t{true, false},
-                                                 interval.size());
+                auto choice =
+                    xt::random::choice(bools_t{true, false}, interval.size());
                 std::size_t ic = 0;
-                for (int i = interval.start; i < interval.end;
-                     ++i, ++ic)
+                for (int i = interval.start; i < interval.end; ++i, ++ic)
                 {
                     if (choice[ic])
                     {
@@ -68,9 +64,8 @@ auto generate_mesh(std::size_t start_level, std::size_t max_level)
 
 int main(int argc, char* argv[])
 {
-    auto& app = samurai::initialize("Graduation example: test case 1",
-                                    argc,
-                                    argv);
+    auto& app =
+        samurai::initialize("Graduation example: test case 1", argc, argv);
 
     constexpr std::size_t dim        = 2;
     std::size_t start_level          = 1;
@@ -111,9 +106,7 @@ int main(int argc, char* argv[])
     const std::size_t min_level = ca.min_level();
     const std::size_t max_level = ca.max_level();
 
-    samurai::save(path,
-                  fmt::format("{}_before_graduation", filename),
-                  ca);
+    samurai::save(path, fmt::format("{}_before_graduation", filename), ca);
 
     xt::xtensor_fixed<int, xt::xshape<4, dim>> stencil;
     if (with_corner)
@@ -140,20 +133,18 @@ int main(int argc, char* argv[])
         auto tag = samurai::make_scalar_field<bool>("tag", ca);
         tag.fill(false);
 
-        for (std::size_t level = min_level + 2; level <= max_level;
-             ++level)
+        for (std::size_t level = min_level + 2; level <= max_level; ++level)
         {
-            for (std::size_t level_below = min_level;
-                 level_below < level - 1;
+            for (std::size_t level_below = min_level; level_below < level - 1;
                  ++level_below)
             {
                 for (std::size_t is = 0; is < stencil.shape()[0]; ++is)
                 {
-                    auto s   = xt::view(stencil, is);
-                    auto set = samurai::intersection(
-                                   samurai::translate(ca[level], s),
-                                   ca[level_below])
-                                   .on(level_below);
+                    auto s = xt::view(stencil, is);
+                    auto set =
+                        samurai::intersection(samurai::translate(ca[level], s),
+                                              ca[level_below])
+                            .on(level_below);
                     set(
                         [&](const auto& i, const auto& index)
                         {
@@ -192,9 +183,7 @@ int main(int argc, char* argv[])
 
         std::swap(ca, new_ca);
     }
-    samurai::save(path,
-                  fmt::format("{}_after_graduation", filename),
-                  ca);
+    samurai::save(path, fmt::format("{}_after_graduation", filename), ca);
 
     samurai::finalize();
     return 0;

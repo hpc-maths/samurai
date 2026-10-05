@@ -11,9 +11,7 @@
 
 int main(int argc, char* argv[])
 {
-    auto& app = samurai::initialize("Differentially heated cavity",
-                                    argc,
-                                    argv);
+    auto& app = samurai::initialize("Differentially heated cavity", argc, argv);
 
     constexpr std::size_t dim = 2;
 
@@ -78,24 +76,20 @@ int main(int argc, char* argv[])
     //-----------------//
 
     // Mesh creation
-    auto box    = samurai::Box<double, dim>({0, 0}, {1, 1});
-    auto config = samurai::mesh_config<dim>()
-                      .min_level(2)
-                      .max_level(7)
-                      .max_stencil_size(2);
+    auto box = samurai::Box<double, dim>({0, 0}, {1, 1});
+    auto config =
+        samurai::mesh_config<dim>().min_level(2).max_level(7).max_stencil_size(
+            2);
     auto mesh = samurai::mra::make_mesh(box, config);
 
     // Fields for the Navier-Stokes equations
-    auto velocity =
-        samurai::make_vector_field<double, dim>("velocity", mesh);
+    auto velocity = samurai::make_vector_field<double, dim>("velocity", mesh);
     auto velocity_np1 =
         samurai::make_vector_field<double, dim>("velocity_np1", mesh);
-    auto pressure =
-        samurai::make_scalar_field<double>("pressure", mesh);
+    auto pressure = samurai::make_scalar_field<double>("pressure", mesh);
     auto pressure_np1 =
         samurai::make_scalar_field<double>("pressure_np1", mesh);
-    auto temperature =
-        samurai::make_scalar_field<double>("temperature", mesh);
+    auto temperature = samurai::make_scalar_field<double>("temperature", mesh);
     auto temperature_np1 =
         samurai::make_scalar_field<double>("temperature_np1", mesh);
 
@@ -105,17 +99,11 @@ int main(int argc, char* argv[])
 
     // Fields for the null space of the system (constant pressure)
     auto constant_pressure =
-        samurai::make_scalar_field<double>("constant_pressure",
-                                           mesh,
-                                           1.);
+        samurai::make_scalar_field<double>("constant_pressure", mesh, 1.);
     auto zero_velocity =
-        samurai::make_vector_field<double, dim>("zero_velocity",
-                                                mesh,
-                                                0.);
+        samurai::make_vector_field<double, dim>("zero_velocity", mesh, 0.);
     auto zero_temperature =
-        samurai::make_scalar_field<double>("zero_temperature",
-                                           mesh,
-                                           0.);
+        samurai::make_scalar_field<double>("zero_temperature", mesh, 0.);
 
     using VelocityField    = decltype(velocity);
     using PressureField    = decltype(pressure_np1);
@@ -149,8 +137,7 @@ int main(int argc, char* argv[])
 
     // Multi-resolution: the mesh is adapted according to the velocity
     auto MRadaptation = samurai::make_MRAdapt(velocity);
-    auto mra_config =
-        samurai::mra_config().epsilon(1e-3).regularity(2);
+    auto mra_config   = samurai::mra_config().epsilon(1e-3).regularity(2);
 
     //--------------------//
     // Initial conditions //
@@ -194,12 +181,11 @@ int main(int argc, char* argv[])
     // id:   V ---> V
     auto id_V = samurai::make_identity<VelocityField>();
     // diff: V ---> -√(Pr/Ra)ΔV
-    auto diff_V = samurai::make_diffusion_order2<VelocityField>(
-        std::sqrt(Pr / Ra));
+    auto diff_V =
+        samurai::make_diffusion_order2<VelocityField>(std::sqrt(Pr / Ra));
     // conv: V ---> V·∇V
     auto conv_V =
-        samurai::make_convection_smooth_rusanov_incompressible<
-            VelocityField>();
+        samurai::make_convection_smooth_rusanov_incompressible<VelocityField>();
     // div:  V ---> ∇·V
     auto div_V = samurai::make_divergence_order2<VelocityField>();
 
@@ -214,12 +200,10 @@ int main(int argc, char* argv[])
     auto diff_T = samurai::make_diffusion_order2<TemperatureField>(
         1. / std::sqrt(Pr * Ra));
     // conv: T ---> V·∇T
-    auto conv_T =
-        samurai::make_convection_smooth_rusanov_incompressible<
-            TemperatureField>(velocity_np1);
+    auto conv_T = samurai::make_convection_smooth_rusanov_incompressible<
+        TemperatureField>(velocity_np1);
     // buoy: T ---> -T*e_y (acts only in y-direction)
-    auto buoy_T =
-        samurai::make_buoyancy<VelocityField, TemperatureField>();
+    auto buoy_T = samurai::make_buoyancy<VelocityField, TemperatureField>();
     // used for the assembly of the Jacobian matrix: it fills the block
     // ∂(conv_T)/∂V
     auto conv_dual =
@@ -258,11 +242,8 @@ int main(int argc, char* argv[])
     // Non-linear solver //
     //-------------------//
 
-    auto nonlin_solver =
-        samurai::petsc::make_solver(navier_stokes_euler(dt));
-    nonlin_solver.set_unknowns(velocity_np1,
-                               pressure_np1,
-                               temperature_np1);
+    auto nonlin_solver = samurai::petsc::make_solver(navier_stokes_euler(dt));
+    nonlin_solver.set_unknowns(velocity_np1, pressure_np1, temperature_np1);
 
     nonlin_solver.configure = [&](SNES& snes, KSP& ksp, PC& pc)
     {
@@ -277,9 +258,8 @@ int main(int argc, char* argv[])
         // (equiv. '-pc_factor_mat_solver_type mumps')
         PCFactorSetMatSolverType(pc, MATSOLVERMUMPS);
         // We set the same tolerance as that of the multiresolution
-        PetscReal atol = mesh.min_level() == mesh.max_level()
-                           ? 1e-4
-                           : mra_config.epsilon();
+        PetscReal atol =
+            mesh.min_level() == mesh.max_level() ? 1e-4 : mra_config.epsilon();
         // (equiv. '-snes_atol [atol]')
         SNESSetTolerances(snes,
                           atol,
@@ -289,8 +269,7 @@ int main(int argc, char* argv[])
                           PETSC_DETERMINE);
     };
 
-    nonlin_solver.after_matrix_assembly =
-        [&](SNES&, KSP&, PC& pc, Mat& A)
+    nonlin_solver.after_matrix_assembly = [&](SNES&, KSP&, PC& pc, Mat& A)
     {
         // Set the null space (constant pressure) so that iterative
         // solvers can orthogonalize residuals against it
@@ -350,8 +329,7 @@ int main(int argc, char* argv[])
 
     nonlin_solver.stop_program_on_divergence(false);
 
-    double dt_save    = nfiles == 0 ? dt
-                                    : Tf / static_cast<double>(nfiles);
+    double dt_save    = nfiles == 0 ? dt : Tf / static_cast<double>(nfiles);
     std::size_t nsave = 0, nt = 0;
 
     if (nfiles != 1)
@@ -429,10 +407,9 @@ int main(int argc, char* argv[])
         samurai::for_each_cell(mesh,
                                [&](const auto& cell)
                                {
-                                   velocity_np1[cell] = velocity[cell];
-                                   pressure_np1[cell] = pressure[cell];
-                                   temperature_np1[cell] =
-                                       temperature[cell];
+                                   velocity_np1[cell]    = velocity[cell];
+                                   pressure_np1[cell]    = pressure[cell];
+                                   temperature_np1[cell] = temperature[cell];
                                });
         // Solve the non-linear system
         //     F(V_np1, P_np1, T_np1) = (V_n, 0, T_n)
@@ -457,14 +434,13 @@ int main(int argc, char* argv[])
         // Remove the average pressure to avoid drift
         double avg_pressure = 0.0;
         double sum_volumes  = 0.0;
-        samurai::for_each_cell(
-            mesh,
-            [&](const auto& cell)
-            {
-                double volume = std::pow(cell.length, dim);
-                avg_pressure += volume * pressure_np1[cell];
-                sum_volumes += volume;
-            });
+        samurai::for_each_cell(mesh,
+                               [&](const auto& cell)
+                               {
+                                   double volume = std::pow(cell.length, dim);
+                                   avg_pressure += volume * pressure_np1[cell];
+                                   sum_volumes += volume;
+                               });
         avg_pressure /= sum_volumes;
         pressure_np1 = pressure_np1 - avg_pressure;
 
@@ -478,21 +454,18 @@ int main(int argc, char* argv[])
         {
             if (nfiles != 1)
             {
-                samurai::save(
-                    path,
-                    fmt::format("dhc_velocity_ite_{}", nsave),
-                    mesh,
-                    velocity);
-                samurai::save(
-                    path,
-                    fmt::format("dhc_temperature_ite_{}", nsave),
-                    mesh,
-                    temperature);
-                samurai::save(
-                    path,
-                    fmt::format("dhc_pressure_ite_{}", nsave),
-                    mesh,
-                    pressure);
+                samurai::save(path,
+                              fmt::format("dhc_velocity_ite_{}", nsave),
+                              mesh,
+                              velocity);
+                samurai::save(path,
+                              fmt::format("dhc_temperature_ite_{}", nsave),
+                              mesh,
+                              temperature);
+                samurai::save(path,
+                              fmt::format("dhc_pressure_ite_{}", nsave),
+                              mesh,
+                              pressure);
             }
             else
             {

@@ -52,8 +52,7 @@ auto init(Mesh& mesh, Case& c)
                     u(level, i, j) = exp(-100 * (x * x + y * y));
                     break;
                 case Case::tanh:
-                    u(level, i, j) =
-                        tanh(50 * (abs(x) + std::abs(y))) - 1;
+                    u(level, i, j) = tanh(50 * (abs(x) + std::abs(y))) - 1;
                     break;
             }
         });
@@ -73,9 +72,8 @@ auto init(Mesh& mesh, Case& c)
                 u,
                 [](auto, auto, const auto& coords)
                 {
-                    return std::exp(-100
-                                    * (coords[0] * coords[0]
-                                       + coords[1] * coords[1]));
+                    return std::exp(
+                        -100 * (coords[0] * coords[0] + coords[1] * coords[1]));
                 });
             break;
         case Case::tanh:
@@ -83,9 +81,8 @@ auto init(Mesh& mesh, Case& c)
                 u,
                 [](auto, auto, const auto& coords)
                 {
-                    return std::tanh(50
-                                     * (std::abs(coords[0])
-                                        + std::abs(coords[1])))
+                    return std::tanh(
+                               50 * (std::abs(coords[0]) + std::abs(coords[1])))
                          - 1;
                 });
             break;
@@ -96,11 +93,10 @@ auto init(Mesh& mesh, Case& c)
 
 int main(int argc, char* argv[])
 {
-    auto& app =
-        samurai::initialize("2d reconstruction of an adapted solution "
-                            "using multiresolution",
-                            argc,
-                            argv);
+    auto& app = samurai::initialize("2d reconstruction of an adapted solution "
+                                    "using multiresolution",
+                                    argc,
+                                    argv);
 
     constexpr size_t dim = 2;
 
@@ -155,8 +151,7 @@ int main(int argc, char* argv[])
     auto mra_config   = samurai::mra_config().regularity(2);
     MRadaptation(mra_config);
 
-    auto level_ =
-        samurai::make_scalar_field<std::size_t>("level", mrmesh);
+    auto level_ = samurai::make_scalar_field<std::size_t>("level", mrmesh);
     samurai::for_each_cell(mrmesh[mrmesh_id_t::cells],
                            [&](const auto& cell)
                            {
@@ -172,8 +167,7 @@ int main(int argc, char* argv[])
     std::cout << "execution time " << elapsed.count() << std::endl;
 
     auto error =
-        samurai::make_scalar_field<double>("error",
-                                           u_reconstruct.mesh());
+        samurai::make_scalar_field<double>("error", u_reconstruct.mesh());
     samurai::for_each_interval(
         u_reconstruct.mesh(),
         [&](std::size_t level, const auto& i, const auto& index)

@@ -27,16 +27,15 @@ void make_graduation(Field& tag)
          *        |===========|-----------| |===========|-----------|
          */
 
-        auto ghost_subset = samurai::intersection(
-                                mesh[mesh_id_t::cells][level],
-                                mesh[mesh_id_t::reference][level - 1])
-                                .on(level - 1);
+        auto ghost_subset =
+            samurai::intersection(mesh[mesh_id_t::cells][level],
+                                  mesh[mesh_id_t::reference][level - 1])
+                .on(level - 1);
 
         ghost_subset(
             [&](const auto& i, const auto&)
             {
-                tag(level - 1, i) |=
-                    static_cast<int>(samurai::CellFlag::keep);
+                tag(level - 1, i) |= static_cast<int>(samurai::CellFlag::keep);
             });
 
         /**
@@ -50,9 +49,8 @@ void make_graduation(Field& tag)
         leaves(
             [&](const auto& i, const auto&)
             {
-                auto mask =
-                    (tag(level, i)
-                     & static_cast<int>(samurai::CellFlag::refine));
+                auto mask = (tag(level, i)
+                             & static_cast<int>(samurai::CellFlag::refine));
 
                 for (int ii = -1; ii <= 1; ++ii)
                 {
@@ -61,8 +59,7 @@ void make_graduation(Field& tag)
                         mask,
                         [](auto& e)
                         {
-                            e |= static_cast<int>(
-                                samurai::CellFlag::keep);
+                            e |= static_cast<int>(samurai::CellFlag::keep);
                         });
                 }
             });
@@ -77,11 +74,10 @@ void make_graduation(Field& tag)
         leaves.on(level - 1)(
             [&](const auto& i, const auto&)
             {
-                auto mask =
-                    (tag(level, 2 * i)
-                     & static_cast<int>(samurai::CellFlag::keep))
-                    | (tag(level, 2 * i + 1)
-                       & static_cast<int>(samurai::CellFlag::keep));
+                auto mask = (tag(level, 2 * i)
+                             & static_cast<int>(samurai::CellFlag::keep))
+                          | (tag(level, 2 * i + 1)
+                             & static_cast<int>(samurai::CellFlag::keep));
 
                 samurai::apply_on_masked(
                     tag(level, 2 * i),
@@ -120,8 +116,7 @@ void make_graduation(Field& tag)
         {
             auto subset =
                 samurai::intersection(
-                    samurai::translate(mesh[mesh_id_t::cells][level],
-                                       s),
+                    samurai::translate(mesh[mesh_id_t::cells][level], s),
                     mesh[mesh_id_t::cells][level - 1])
                     .on(level);
 
@@ -137,20 +132,17 @@ void make_graduation(Field& tag)
                         mask_refine,
                         [](auto& e)
                         {
-                            e |= static_cast<int>(
-                                samurai::CellFlag::refine);
+                            e |= static_cast<int>(samurai::CellFlag::refine);
                         });
 
-                    auto mask_keep =
-                        tag(level, interval - s)
-                        & static_cast<int>(samurai::CellFlag::keep);
+                    auto mask_keep = tag(level, interval - s)
+                                   & static_cast<int>(samurai::CellFlag::keep);
                     samurai::apply_on_masked(
                         tag(level - 1, half_i),
                         mask_keep,
                         [](auto& e)
                         {
-                            e |= static_cast<int>(
-                                samurai::CellFlag::keep);
+                            e |= static_cast<int>(samurai::CellFlag::keep);
                         });
                 });
         }

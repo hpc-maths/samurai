@@ -11,8 +11,7 @@
 #include <samurai/subset/node.hpp>
 
 template <std::size_t dim, class TInterval>
-class my_projection_op
-    : public samurai::field_operator_base<dim, TInterval>
+class my_projection_op : public samurai::field_operator_base<dim, TInterval>
 {
   public:
 
@@ -22,19 +21,17 @@ class my_projection_op
     SAMURAI_INLINE void operator()(samurai::Dim<1>, T& field) const
     {
         field(level, i) =
-            .5
-            * (field(level + 1, 2 * i) + field(level + 1, 2 * i + 1));
+            .5 * (field(level + 1, 2 * i) + field(level + 1, 2 * i + 1));
     }
 
     template <class T>
     SAMURAI_INLINE void operator()(samurai::Dim<2>, T& field) const
     {
-        field(level, i, j) =
-            .25
-            * (field(level + 1, 2 * i, 2 * j)
-               + field(level + 1, 2 * i, 2 * j + 1)
-               + field(level + 1, 2 * i + 1, 2 * j)
-               + field(level + 1, 2 * i + 1, 2 * j + 1));
+        field(level, i, j) = .25
+                           * (field(level + 1, 2 * i, 2 * j)
+                              + field(level + 1, 2 * i, 2 * j + 1)
+                              + field(level + 1, 2 * i + 1, 2 * j)
+                              + field(level + 1, 2 * i + 1, 2 * j + 1));
     }
 
     template <class T>
@@ -109,8 +106,7 @@ int main()
                                u[cell] = cell.indices[0];
                            });
 
-    auto subset1 =
-        samurai::intersection(ca[0], samurai::contract(ca[1], 1));
+    auto subset1 = samurai::intersection(ca[0], samurai::contract(ca[1], 1));
     subset1.on(0)(
         [&](const auto& i, auto)
         {

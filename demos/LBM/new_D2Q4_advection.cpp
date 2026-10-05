@@ -28,10 +28,10 @@ namespace fs = std::filesystem;
 
 int main(int argc, char* argv[])
 {
-    auto& app = samurai::initialize(
-        "D2Q4 scalar advection (schemes/lbm, N-D stream)",
-        argc,
-        argv);
+    auto& app =
+        samurai::initialize("D2Q4 scalar advection (schemes/lbm, N-D stream)",
+                            argc,
+                            argv);
 
     static constexpr std::size_t dim = 2;
     using Box                        = samurai::Box<double, dim>;
@@ -52,8 +52,7 @@ int main(int argc, char* argv[])
     fs::path path         = fs::current_path();
     std::string filename  = "new_D2Q4_advection";
 
-    app.add_option("--level", max_level, "Finest level")
-        ->capture_default_str();
+    app.add_option("--level", max_level, "Finest level")->capture_default_str();
     app.add_option("--min-lvl", min_level, "Coarsest level (adaptive)")
         ->capture_default_str();
     app.add_flag("--adapt", adapt, "Enable multiresolution adaptation")
@@ -62,13 +61,10 @@ int main(int argc, char* argv[])
         ->capture_default_str();
     app.add_option("--lambda", lambda, "Lattice velocity")
         ->capture_default_str();
-    app.add_option("--ax", ax, "Advection velocity (x)")
-        ->capture_default_str();
-    app.add_option("--ay", ay, "Advection velocity (y)")
-        ->capture_default_str();
+    app.add_option("--ax", ax, "Advection velocity (x)")->capture_default_str();
+    app.add_option("--ay", ay, "Advection velocity (y)")->capture_default_str();
     app.add_option("--Tf", Tf, "Final time")->capture_default_str();
-    app.add_option("--path", path, "Output path")
-        ->capture_default_str();
+    app.add_option("--path", path, "Output path")->capture_default_str();
     app.add_option("--filename", filename, "File name prefix")
         ->capture_default_str();
     SAMURAI_PARSE(argc, argv);
@@ -102,8 +98,7 @@ int main(int argc, char* argv[])
     samurai::for_each_cell(mesh,
                            [&](const auto& cell)
                            {
-                               m[cell](0) =
-                                   u0(cell.center(0), cell.center(1));
+                               m[cell](0) = u0(cell.center(0), cell.center(1));
                            });
 
     // D2Q4 scheme
@@ -122,8 +117,7 @@ int main(int argc, char* argv[])
          {0.25, -0.5 / l, 0., 0.25 / l2},
          {0.25, 0., -0.5 / l, -0.25 / l2}}
     };
-    auto eq = [ax, ay](std::array<double, 4>& meq,
-                       std::span<const double> mm)
+    auto eq = [ax, ay](std::array<double, 4>& meq, std::span<const double> mm)
     {
         meq[0] = mm[0];      // conserved
         meq[1] = ax * mm[0]; // x-flux
@@ -144,11 +138,10 @@ int main(int argc, char* argv[])
             eq));
     scheme.init_equilibrium(f, m);
 
-    const double dx_fine =
-        L / static_cast<double>(std::size_t{1} << max_level);
-    const double dt = dx_fine / lambda;
-    const auto nt   = static_cast<std::size_t>(std::round(Tf / dt));
-    const double Tf_eff = static_cast<double>(nt) * dt;
+    const double dx_fine = L / static_cast<double>(std::size_t{1} << max_level);
+    const double dt      = dx_fine / lambda;
+    const auto nt        = static_cast<std::size_t>(std::round(Tf / dt));
+    const double Tf_eff  = static_cast<double>(nt) * dt;
 
     auto MRadaptation = samurai::make_MRAdapt(f);
     auto mra_config   = samurai::mra_config().epsilon(eps);
@@ -161,15 +154,15 @@ int main(int argc, char* argv[])
     auto mass = [&]()
     {
         double s = 0.;
-        samurai::for_each_cell(
-            mesh,
-            [&](const auto& cell)
-            {
-                const double area = cell.length * cell.length;
-                const double u =
-                    f[cell](0) + f[cell](1) + f[cell](2) + f[cell](3);
-                s += u * area;
-            });
+        samurai::for_each_cell(mesh,
+                               [&](const auto& cell)
+                               {
+                                   const double area =
+                                       cell.length * cell.length;
+                                   const double u = f[cell](0) + f[cell](1)
+                                                  + f[cell](2) + f[cell](3);
+                                   s += u * area;
+                               });
         return s;
     };
     const double mass0 = mass();
@@ -184,15 +177,11 @@ int main(int argc, char* argv[])
         scheme(f, m);
     }
 
-    std::cout << "case = D2Q4 advection, "
-              << (adapt ? "adaptive" : "uniform")
+    std::cout << "case = D2Q4 advection, " << (adapt ? "adaptive" : "uniform")
               << ", max_level = " << max_level
-              << (adapt
-                      ? (", min_level = " + std::to_string(min_level))
-                      : "")
+              << (adapt ? (", min_level = " + std::to_string(min_level)) : "")
               << ", cells = " << mesh.nb_cells() << ", dt = " << dt
-              << ", nt = " << nt << ", Tf_eff = " << Tf_eff
-              << std::endl;
+              << ", nt = " << nt << ", Tf_eff = " << Tf_eff << std::endl;
 
     // Error vs exact u(x,y,t) = u0(x - ax t, y - ay t) (periodic
     // wrap), area-weighted
@@ -208,11 +197,10 @@ int main(int argc, char* argv[])
     samurai::for_each_cell(mesh,
                            [&](const auto& cell)
                            {
-                               const double area =
-                                   cell.length * cell.length;
-                               const double exact = u0(
-                                   wrap(cell.center(0) - ax * Tf_eff),
-                                   wrap(cell.center(1) - ay * Tf_eff));
+                               const double area = cell.length * cell.length;
+                               const double exact =
+                                   u0(wrap(cell.center(0) - ax * Tf_eff),
+                                      wrap(cell.center(1) - ay * Tf_eff));
                                const double diff = m[cell](0) - exact;
                                err_l2 += diff * diff * area;
                                norm += exact * exact * area;
@@ -221,9 +209,8 @@ int main(int argc, char* argv[])
                            });
     err_l2 = std::sqrt(err_l2 / norm);
 
-    std::cout << "mass drift = " << std::abs(mass() - mass0)
-              << ", u in [" << umin << ", " << umax << "]"
-              << std::endl;
+    std::cout << "mass drift = " << std::abs(mass() - mass0) << ", u in ["
+              << umin << ", " << umax << "]" << std::endl;
     std::cout << "relative L2 error = " << err_l2 << std::endl;
 
     samurai::save(path, filename, mesh, m);

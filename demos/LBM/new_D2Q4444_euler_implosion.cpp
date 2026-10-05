@@ -38,11 +38,10 @@ namespace fs = std::filesystem;
 
 int main(int argc, char* argv[])
 {
-    auto& app =
-        samurai::initialize("D2Q4444 Euler implosion in a closed box "
-                            "(schemes/lbm, reflecting walls)",
-                            argc,
-                            argv);
+    auto& app = samurai::initialize("D2Q4444 Euler implosion in a closed box "
+                                    "(schemes/lbm, reflecting walls)",
+                                    argc,
+                                    argv);
 
     static constexpr std::size_t dim = 2;
     using Box                        = samurai::Box<double, dim>;
@@ -64,9 +63,7 @@ int main(int argc, char* argv[])
     app.add_option("--gamma", gamma, "Ratio of specific heats")
         ->capture_default_str()
         ->group("Simulation parameters");
-    app.add_option("--s",
-                   s_x,
-                   "Relaxation parameter of the flux moments")
+    app.add_option("--s", s_x, "Relaxation parameter of the flux moments")
         ->capture_default_str()
         ->group("Simulation parameters");
     app.add_option("--Tf", Tf, "Final time")
@@ -138,16 +135,15 @@ int main(int argc, char* argv[])
         {{1, 0}, {0, 1}, {-1, 0}, {0, -1}}
     };
 
-    auto eq_rho =
-        [](std::array<double, 4>& meq, std::span<const double> mm)
+    auto eq_rho = [](std::array<double, 4>& meq, std::span<const double> mm)
     {
         meq[0] = mm[0];
         meq[1] = mm[4];
         meq[2] = mm[8];
         meq[3] = 0.;
     };
-    auto eq_qx = [gamma, gm1](std::array<double, 4>& meq,
-                              std::span<const double> mm)
+    auto eq_qx =
+        [gamma, gm1](std::array<double, 4>& meq, std::span<const double> mm)
     {
         const double r = mm[0], qx = mm[4], qy = mm[8], E = mm[12];
         meq[0] = qx;
@@ -156,8 +152,8 @@ int main(int argc, char* argv[])
         meq[2] = qx * qy / r;
         meq[3] = 0.;
     };
-    auto eq_qy = [gamma, gm1](std::array<double, 4>& meq,
-                              std::span<const double> mm)
+    auto eq_qy =
+        [gamma, gm1](std::array<double, 4>& meq, std::span<const double> mm)
     {
         const double r = mm[0], qx = mm[4], qy = mm[8], E = mm[12];
         meq[0] = qy;
@@ -166,13 +162,12 @@ int main(int argc, char* argv[])
                + (0.5 - 0.5 * gamma) * qx * qx / r + gm1 * E;
         meq[3] = 0.;
     };
-    auto eq_E =
-        [gamma](std::array<double, 4>& meq, std::span<const double> mm)
+    auto eq_E = [gamma](std::array<double, 4>& meq, std::span<const double> mm)
     {
         const double r = mm[0], qx = mm[4], qy = mm[8], E = mm[12];
         const double h = 0.5 * (gamma - 1.);
         meq[0]         = E;
-        meq[1] = gamma * qx * E / r - h * qx * qx * qx / (r * r)
+        meq[1]         = gamma * qx * E / r - h * qx * qx * qx / (r * r)
                - h * qx * qy * qy / (r * r);
         meq[2] = gamma * qy * E / r - h * qy * qy * qy / (r * r)
                - h * qy * qx * qx / (r * r);
@@ -217,21 +212,18 @@ int main(int argc, char* argv[])
     // mesh level at a given output index.
     auto save_solution = [&](const std::string& suffix)
     {
-        auto level =
-            samurai::make_scalar_field<std::size_t>("level", mesh);
-        auto rho = samurai::make_scalar_field<double>("rho", mesh);
-        auto velocity =
-            samurai::make_vector_field<double, 2>("velocity", mesh);
-        auto p = samurai::make_scalar_field<double>("p", mesh);
+        auto level    = samurai::make_scalar_field<std::size_t>("level", mesh);
+        auto rho      = samurai::make_scalar_field<double>("rho", mesh);
+        auto velocity = samurai::make_vector_field<double, 2>("velocity", mesh);
+        auto p        = samurai::make_scalar_field<double>("p", mesh);
         samurai::for_each_cell(
             mesh,
             [&](const auto& cell)
             {
                 // kinetic energy
-                const double ek = 0.5
-                                * (m[cell](4) * m[cell](4)
-                                   + m[cell](8) * m[cell](8))
-                                / m[cell](0);
+                const double ek =
+                    0.5 * (m[cell](4) * m[cell](4) + m[cell](8) * m[cell](8))
+                    / m[cell](0);
 
                 level[cell]       = cell.level;
                 rho[cell]         = m[cell](0);
@@ -261,15 +253,15 @@ int main(int argc, char* argv[])
     auto mass = [&]()
     {
         double s = 0.;
-        samurai::for_each_cell(
-            mesh,
-            [&](const auto& cell)
-            {
-                const double area = cell.length * cell.length;
-                const double rho =
-                    f[cell](0) + f[cell](1) + f[cell](2) + f[cell](3);
-                s += rho * area;
-            });
+        samurai::for_each_cell(mesh,
+                               [&](const auto& cell)
+                               {
+                                   const double area =
+                                       cell.length * cell.length;
+                                   const double rho = f[cell](0) + f[cell](1)
+                                                    + f[cell](2) + f[cell](3);
+                                   s += rho * area;
+                               });
         return s;
     };
     const double mass0 = mass();
@@ -288,11 +280,11 @@ int main(int argc, char* argv[])
             t = Tf;
         }
 
-        std::cout << fmt::format(
-            "iteration {}: t = {:.4f}, dt = {:.4e}",
-            nt++,
-            t,
-            dt) << std::endl;
+        std::cout << fmt::format("iteration {}: t = {:.4f}, dt = {:.4e}",
+                                 nt++,
+                                 t,
+                                 dt)
+                  << std::endl;
 
         scheme(f, m);
 
@@ -315,16 +307,14 @@ int main(int argc, char* argv[])
             const double qx = m[cell](4);
             const double qy = m[cell](8);
             const double E  = m[cell](12);
-            const double p =
-                (gamma - 1.) * (E - 0.5 * (qx * qx + qy * qy) / r);
-            rhomin = std::min(rhomin, r);
-            rhomax = std::max(rhomax, r);
-            pmin   = std::min(pmin, p);
+            const double p = (gamma - 1.) * (E - 0.5 * (qx * qx + qy * qy) / r);
+            rhomin         = std::min(rhomin, r);
+            rhomax         = std::max(rhomax, r);
+            pmin           = std::min(pmin, p);
         });
     std::cout << "cells = " << mesh.nb_cells()
-              << ", mass drift = " << std::abs(mass() - mass0)
-              << ", rho in [" << rhomin << ", " << rhomax
-              << "], p_min = " << pmin << std::endl;
+              << ", mass drift = " << std::abs(mass() - mass0) << ", rho in ["
+              << rhomin << ", " << rhomax << "], p_min = " << pmin << std::endl;
 
     samurai::finalize();
     return 0;

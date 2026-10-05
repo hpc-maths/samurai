@@ -48,17 +48,14 @@ auto init(Mesh& mesh, Case& c)
             switch (c)
             {
                 case Case::abs:
-                    u(level, i, j, k) =
-                        abs(x) + std::abs(y) + std::abs(z);
+                    u(level, i, j, k) = abs(x) + std::abs(y) + std::abs(z);
                     break;
                 case Case::exp:
-                    u(level, i, j, k) =
-                        exp(-100 * (x * x + y * y + z * z));
+                    u(level, i, j, k) = exp(-100 * (x * x + y * y + z * z));
                     break;
                 case Case::tanh:
                     u(level, i, j, k) =
-                        tanh(50 * (abs(x) + std::abs(y) + std::abs(z)))
-                        - 1;
+                        tanh(50 * (abs(x) + std::abs(y) + std::abs(z))) - 1;
                     break;
             }
         });
@@ -104,11 +101,10 @@ auto init(Mesh& mesh, Case& c)
 
 int main(int argc, char* argv[])
 {
-    auto& app =
-        samurai::initialize("3d reconstruction of an adapted solution "
-                            "using multiresolution",
-                            argc,
-                            argv);
+    auto& app = samurai::initialize("3d reconstruction of an adapted solution "
+                                    "using multiresolution",
+                                    argc,
+                                    argv);
 
     constexpr size_t dim = 3;
 
@@ -163,8 +159,7 @@ int main(int argc, char* argv[])
     auto mra_config   = samurai::mra_config().regularity(2);
     MRadaptation(mra_config);
 
-    auto level_ =
-        samurai::make_scalar_field<std::size_t>("level", mrmesh);
+    auto level_ = samurai::make_scalar_field<std::size_t>("level", mrmesh);
     samurai::for_each_cell(mrmesh[mrmesh_id_t::cells],
                            [&](const auto& cell)
                            {
@@ -180,16 +175,15 @@ int main(int argc, char* argv[])
     std::cout << "execution time " << elapsed.count() << std::endl;
 
     auto error =
-        samurai::make_scalar_field<double>("error",
-                                           u_reconstruct.mesh());
+        samurai::make_scalar_field<double>("error", u_reconstruct.mesh());
     samurai::for_each_interval(
         u_reconstruct.mesh(),
         [&](std::size_t level, const auto& i, const auto& index)
         {
-            auto j                = index[0];
-            auto k                = index[1];
-            error(level, i, j, k) = abs(u_reconstruct(level, i, j, k)
-                                        - u_exact(level, i, j, k));
+            auto j = index[0];
+            auto k = index[1];
+            error(level, i, j, k) =
+                abs(u_reconstruct(level, i, j, k) - u_exact(level, i, j, k));
         });
     samurai::save(path,
                   fmt::format("uniform_{}", filename),

@@ -17,9 +17,8 @@ void save(const fs::path& path,
           const Field& u,
           const std::string& suffix = "")
 {
-    auto mesh = u.mesh();
-    auto level_ =
-        samurai::make_scalar_field<std::size_t>("level", mesh);
+    auto mesh   = u.mesh();
+    auto level_ = samurai::make_scalar_field<std::size_t>("level", mesh);
 
     if (!fs::exists(path))
     {
@@ -32,11 +31,7 @@ void save(const fs::path& path,
                                level_[cell] = cell.level;
                            });
 
-    samurai::save(path,
-                  fmt::format("{}{}", filename, suffix),
-                  mesh,
-                  u,
-                  level_);
+    samurai::save(path, fmt::format("{}{}", filename, suffix), mesh, u, level_);
 }
 
 int main(int argc, char* argv[])
@@ -112,9 +107,7 @@ int main(int argc, char* argv[])
         {
             const auto& x = coords(0);
             const auto& y = coords(1);
-            return (x >= -0.8 && x <= -0.3 && y >= 0.3 && y <= 0.8)
-                     ? 1.
-                     : 0.;
+            return (x >= -0.8 && x <= -0.3 && y >= 0.3 && y <= 0.8) ? 1. : 0.;
         });
 
     auto unp1 = samurai::make_scalar_field<>("unp1", mesh);
@@ -157,13 +150,12 @@ int main(int argc, char* argv[])
     auto mra_config   = samurai::mra_config().epsilon(1e-3);
     MRadaptation(mra_config, velocity);
 
-    double dt_save    = nfiles == 0 ? dt
-                                    : Tf / static_cast<double>(nfiles);
+    double dt_save    = nfiles == 0 ? dt : Tf / static_cast<double>(nfiles);
     std::size_t nsave = 0, nt = 0;
     if (nfiles != 1)
     {
-        std::string suffix =
-            (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
+        std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++)
+                                           : "";
         save(path, filename, u, suffix);
     }
 
@@ -209,14 +201,12 @@ int main(int argc, char* argv[])
         samurai::swap(u, unp1);
 
         // Save the result
-        if (nfiles == 0 || t >= static_cast<double>(nsave) * dt_save
-            || t == Tf)
+        if (nfiles == 0 || t >= static_cast<double>(nsave) * dt_save || t == Tf)
         {
             if (nfiles != 1)
             {
                 std::string suffix =
-                    (nfiles != 1) ? fmt::format("_ite_{}", nsave++)
-                                  : "";
+                    (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
                 save(path, filename, u, suffix);
             }
             else

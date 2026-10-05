@@ -25,9 +25,8 @@ namespace fs = std::filesystem;
 
 int main(int argc, char* argv[])
 {
-    auto& app = samurai::initialize("Tutorial AMR Burgers 1D step 1",
-                                    argc,
-                                    argv);
+    auto& app =
+        samurai::initialize("Tutorial AMR Burgers 1D step 1", argc, argv);
 
     // Output parameters
     fs::path path        = fs::current_path();
@@ -46,7 +45,7 @@ int main(int argc, char* argv[])
         fs::create_directory(path);
     }
 
-    constexpr std::size_t dim = 1; // cppcheck-suppress unreadVariable
+    constexpr std::size_t dim    = 1; // cppcheck-suppress unreadVariable
     const std::size_t init_level = 6;
 
     const samurai::Box<double, dim> box({-3}, {3});

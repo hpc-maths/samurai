@@ -34,7 +34,7 @@ enum class MeshID
     cells            = 0, // Leaves (where the computation is done)
     cells_and_ghosts = 1, // Leaves + ghosts
     count            = 2, // Total number of cells categories
-    reference = cells_and_ghosts // Largest ID: includes all others
+    reference        = cells_and_ghosts // Largest ID: includes all others
 };
 
 template <class Config>
@@ -56,8 +56,8 @@ class Mesh : public samurai::Mesh_base<Mesh<Config>, Config>
   public:
 
     // Importing all the types used in what follows
-    using base_type = samurai::Mesh_base<Mesh<Config>, Config>;
-    using config_t  = typename base_type::config_t;
+    using base_type                  = samurai::Mesh_base<Mesh<Config>, Config>;
+    using config_t                   = typename base_type::config_t;
     static constexpr std::size_t dim = config_t::dim;
 
     using mesh_id_t = typename base_type::mesh_id_t;
@@ -75,8 +75,7 @@ class Mesh : public samurai::Mesh_base<Mesh<Config>, Config>
     // Constructor from a given box (domain)
     SAMURAI_INLINE
     Mesh(const samurai::Box<double, dim>& b, const config_t& cfg)
-        : base_type(b,
-                    config_t(cfg).approx_box_tol(0).scaling_factor(1))
+        : base_type(b, config_t(cfg).approx_box_tol(0).scaling_factor(1))
     {
     }
 
@@ -89,8 +88,7 @@ class Mesh : public samurai::Mesh_base<Mesh<Config>, Config>
             [&](std::size_t level, const auto& interval, auto)
             {
                 lcl_type& lcl = cl[level];
-                lcl[{}].add_interval(
-                    {interval.start - 1, interval.end + 1});
+                lcl[{}].add_interval({interval.start - 1, interval.end + 1});
             });
         // Put into the cells_and_ghosts category
         this->cells()[mesh_id_t::cells_and_ghosts] = {cl, false};
