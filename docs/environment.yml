@@ -5,7 +5,9 @@ channels:
 
 dependencies:
   - breathe=5.0.0
-  - doxygen
+  # Pinned: the docs build fails on Doxygen warnings, and a new Doxygen
+  # release can add some.
+  - doxygen=1.18.0
   - myst-parser=5.1.0
   - pip
   - pydata-sphinx-theme=0.22.0
