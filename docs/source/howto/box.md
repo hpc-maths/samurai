@@ -8,7 +8,7 @@ This guide shows how to define it with boxes: one box for a rectangle or a cuboi
 - samurai is installed: see the [installation guide](installation.md).
 - Your program builds against samurai: see the [CMake guide](cmake.md).
 - The domain is made of axis-aligned boxes.
-  For a domain read from a surface file (OBJ), see the geometry links at the end of this page.
+  For obstacles given by a level-set function or read from a surface file (OBJ), see the {doc}`geometry how-to guide <geometry>`.
 
 ## Create a single box
 
@@ -66,6 +66,8 @@ This excerpt from the [linear convection with obstacle demo](https://github.com/
   :dedent: 4
 ```
 
+To build and run the whole demo, see the section "Run a scheme around an obstacle" of the {doc}`geometry how-to guide <geometry>`.
+
 `max_stencil_size(6)` sets the stencil size that the WENO5 scheme of the demo needs.
 The stencil also sets the minimum size of a hole: see the troubleshooting section below.
 
@@ -91,7 +93,13 @@ The [save guide](save.md) describes the output files.
 
 ## Troubleshooting
 
-### `The hole ... is too small to apply the BC at level ...`
+### A hole too small for the boundary conditions
+
+The program stops with this message:
+
+```text
+The hole ... is too small to apply the BC at level ...
+```
 
 samurai places ghost cells inside each hole to apply the boundary conditions.
 Each side of a hole must therefore be at least $2 r$ cells of the minimum level long, where $r$ is the stencil radius set in the mesh configuration (`max_stencil_radius`, or half of `max_stencil_size`, rounded up).
@@ -104,6 +112,4 @@ Lower `scaling_factor`, raise `min_level`, or make the hole larger.
 - [Mesh guide](mesh.md): uniform, multiresolution and AMR meshes.
 - [Save guide](save.md): write the mesh and its fields to HDF5.
 - {doc}`Box class reference <../api/box>`.
-- Geometries beyond boxes:
-  - the [mesh from OBJ demo](https://github.com/hpc-maths/samurai/blob/main/demos/from_obj/main.cpp) builds a 3D mesh from a surface file with `samurai::from_geometry` (header [`samurai/io/from_geometry.hpp`](https://github.com/hpc-maths/samurai/blob/main/include/samurai/io/from_geometry.hpp)); it needs CGAL and the CMake option `WITH_CGAL`;
-  - the [linear convection with obstacle demo](https://github.com/hpc-maths/samurai/blob/main/demos/FiniteVolume/linear_convection_obstacle.cpp) runs a finite volume scheme on a domain with a hole.
+- {doc}`Geometry how-to guide <geometry>`: obstacles given by a level-set function, a 3D mesh from an OBJ surface with `samurai::from_geometry`, and a finite volume scheme run on a domain with a hole.

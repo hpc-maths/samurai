@@ -143,6 +143,8 @@ The benchmark `benchmark/benchmark_dynamic_set.cpp` measures each pattern in bot
 On an Apple silicon machine running Linux (aarch64), with GCC 15.3, a Release build and one thread, the dynamic form was 7 to 27 times slower than the static form across its eleven patterns: 12 to 18 times on three fixed boxes, 7 to 27 times on 2D and 3D multiresolution-adapted meshes.
 Use the dynamic form when the structure is only known at run time; keep the static form everywhere else.
 
+(philosophy-mr-amr)=
+
 ## Multiresolution and AMR: two adaptation strategies
 
 Both strategies adapt the same kind of mesh.
