@@ -20,6 +20,19 @@ interval
 cell
 ```
 
+## Meshes and fields
+
+- {doc}`mesh`: the uniform, multiresolution and AMR meshes, their configuration, and the cell arrays and cell lists they are made of.
+- {doc}`field`: `samurai::ScalarField`, `samurai::VectorField` and the functions that create them.
+
+```{toctree}
+:caption: Meshes and fields
+:hidden:
+
+mesh
+field
+```
+
 ## Sets and loops
 
 - {doc}`subset`: `samurai::SetBase` and the functions that build set expressions.
@@ -33,13 +46,32 @@ subset
 algorithm
 ```
 
+## Adaptation and output
+
+- {doc}`mr`: `samurai::make_MRAdapt`, `samurai::mra_config` and the multiresolution adaptation they run.
+- {doc}`io`: `samurai::save`, `samurai::dump` and `samurai::load`, with the HDF5 options and the metadata callbacks.
+- {doc}`timers`: `samurai::ScopedTimer` and the `samurai::Timers` registry behind the `--timers` report.
+
+```{toctree}
+:caption: Adaptation and output
+:hidden:
+
+mr
+io
+timers
+```
+
 ## Numerical schemes
 
+- {doc}`schemes`: the finite volume discrete operators, the configuration of user-defined schemes and the functions that combine them.
 - {doc}`bc`: the boundary condition types and `samurai::make_bc`.
+- {doc}`petsc`: `samurai::petsc::solve`, `samurai::petsc::make_solver` and the linear, non-linear and block solvers.
 
 ```{toctree}
 :caption: Numerical schemes
 :hidden:
 
+schemes
 bc
+petsc
 ```
