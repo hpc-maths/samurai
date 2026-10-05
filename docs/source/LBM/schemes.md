@@ -81,13 +81,12 @@ $$
 c_0 = (1, 0), \quad c_1 = (0, 1), \quad c_2 = (-1, 0), \quad c_3 = (0, -1).
 $$
 
-```{figure} ./figures/d2q4_stream.svg
-:width: 90%
+```{figure} ./figures/d2q4_velocities.svg
+:width: 50%
 :align: center
-:alt: Two diagrams. On the left, a cell with four arrows to its east, north, west and south neighbors, labeled 0 (1, 0), 1 (0, 1), 2 (-1, 0) and 3 (0, -1). On the right, a row of fine cells; a coarse cell C covers a two by two block of them, and the block shifted one fine cell to the left is shaded; four arrows carry the shaded fine cells one fine cell to the right, into C.
+:alt: A cell with four arrows to its east, north, west and south neighbors, labeled 0 (1, 0), 1 (0, 1), 2 (-1, 0) and 3 (0, -1).
 
-Left: the four velocities of the D2Q4 scheme and their indices in the code.
-Right: the stream of $f_0$ into a cell $C$ one level coarser than the finest level.
+The four velocities of the D2Q4 scheme and their indices in the code.
 ```
 
 ### Moments
@@ -240,10 +239,15 @@ A third argument, the time step, is used only by a source term (see [](#several-
 
 ## Stream on the adapted mesh
 
-At the finest level, the stream is the shift {eq}`lbm-stream`.
-A cell $C$ at a coarser level $\ell$ covers $2^{d j}$ cells of level $L$, with $j = L - \ell$.
-{{ project }} applies the reconstructed stream of {ref}`Bellotti et al. (2022a) <ref-lbm-mr-1d>`:
-it predicts the post-collision distributions down to level $L$, streams them there, and averages the result over the cells covered by $C$:
+At the finest level $L$, the stream is the shift {eq}`lbm-stream`: every value moves by a whole number of cells.
+On a coarser cell, $c_\alpha \Delta x$ is only a fraction of the cell length.
+During one time step, part of the content of the cell leaves it and part of the content of its upstream neighbors enters it.
+{{ project }} measures these portions at level $L$, with the reconstructed stream of {ref}`Bellotti et al. (2022a) <ref-lbm-mr-1d>`.
+Take a cell $C$ at level $\ell < L$; it covers $2^{d j}$ cells of level $L$, with $j = L - \ell$.
+
+1. It predicts the post-collision distribution $f^\star_\alpha$ from level $\ell$ down to level $L$, on the cells of level $L$ inside $C$ and on those from which the stream reaches $C$. We write $\hat{f}^\star_\alpha$ for these predicted values.
+2. It streams them at level $L$: each predicted value moves by $c_\alpha$, as on a uniform mesh at level $L$.
+3. It averages: the new value of $C$ is the mean of the values that land in its cells of level $L$:
 
 ```{math}
 :label: lbm-stream-mr
@@ -252,9 +256,38 @@ f_\alpha(t + \Delta t, C)
 = \frac{1}{2^{d j}} \sum_{k \subset C} \hat{f}_\alpha^\star(t, k - c_\alpha),
 ```
 
-where the sum runs over the cells $k$ of level $L$ inside $C$, and $\hat{f}^\star_\alpha$ is the prediction of $f^\star_\alpha$ at level $L$.
-The right panel of the figure above shows this for $f_0$ and $j = 1$: the four shaded donor cells are $C$ shifted by $-c_0$.
+where the sum runs over the cells $k$ of level $L$ inside $C$.
+The figure below follows these three steps for $f_0$ and $j = 1$, where $C$ covers $2 \times 2$ fine cells.
 
+```{figure} ./figures/d2q4_stream.svg
+:width: 100%
+:align: center
+:alt: Three panels on a row of three coarse cells W, C and E. Panel 1 shows the coarse cells. In panel 2 each coarse cell is split into 2 by 2 fine cells; the east column of W is blue, the west column of C is gray, the east column of C is red. In panel 3 every column has moved one fine cell to the right: blue now fills the west column of C, gray its east column, and red the west column of E. A legend reads blue enters C, gray stays in C, red leaves C, and the formula reads f0(C) at t + dt equals f0 star of C plus one quarter of the sum of the blue values minus the sum of the red values.
+
+The stream of $f_0$ into a cell $C$ one level coarser than the finest level.
+```
+
+The prediction keeps the mean: the average of $\hat{f}^\star_\alpha$ over the fine cells of $C$ is $f^\star_\alpha(t, C)$.
+The values that move from one fine cell of $C$ to another, in gray in the figure, leave this average unchanged.
+Equation {eq}`lbm-stream-mr` is therefore a balance between what enters $C$ and what leaves it:
+
+```{math}
+:label: lbm-stream-balance
+
+f_\alpha(t + \Delta t, C)
+= f^\star_\alpha(t, C)
++ \frac{1}{2^{d j}} \Bigl(
+  \sum_{k \in I_\alpha} \hat{f}_\alpha^\star(t, k)
+  - \sum_{k \in O_\alpha} \hat{f}_\alpha^\star(t, k)
+\Bigr),
+```
+
+where $O_\alpha$ holds the fine cells of $C$ whose value leaves $C$ ($k \subset C$, $k + c_\alpha \not\subset C$), and $I_\alpha$ the fine cells outside $C$ whose value enters it ($k \not\subset C$, $k + c_\alpha \subset C$).
+For $f_0$ in the figure, $O_0$ is the east column of $C$, in red, and $I_0$ the east column of $W$, in blue.
+Only these two portions change the value of $C$.
+Both lie along the edges of $C$ that $c_\alpha$ crosses.
+
+The code does not loop over the fine cells.
 The prediction is linear, so the right-hand side of {eq}`lbm-stream-mr` is a fixed linear combination of the values of $f_\alpha$ around $C$ at level $\ell$.
 Its coefficients depend only on $j$ and $c_\alpha$.
 The scheme computes them once per level and per velocity, and applies them to every cell of the level.
