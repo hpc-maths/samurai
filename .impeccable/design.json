@@ -277,8 +277,8 @@
       {
         "family": "Source Serif 4",
         "files": [
-          "SourceSerif4Variable-Roman.woff2",
-          "SourceSerif4Variable-Italic.woff2"
+          "SourceSerif4Variable-Roman.otf.woff2",
+          "SourceSerif4Variable-Italic.otf.woff2"
         ],
         "weights": "200 900",
         "role": "reading"
@@ -286,7 +286,7 @@
       {
         "family": "Source Sans 3",
         "files": [
-          "SourceSans3VF-Upright.ttf.woff2"
+          "SourceSans3VF-Upright.otf.woff2"
         ],
         "weights": "200 900",
         "role": "labels"
@@ -294,8 +294,8 @@
       {
         "family": "Source Code Pro",
         "files": [
-          "SourceCodeVF-Upright.ttf.woff2",
-          "SourceCodeVF-Italic.ttf.woff2"
+          "SourceCodeVF-Upright.otf.woff2",
+          "SourceCodeVF-Italic.otf.woff2"
         ],
         "weights": "200 900",
         "role": "code"
