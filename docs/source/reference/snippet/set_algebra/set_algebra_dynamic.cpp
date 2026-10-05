@@ -14,7 +14,7 @@ int main(int argc, char* argv[])
 
     constexpr std::size_t dim = 1;
     using lca_t               = samurai::LevelCellArray<dim>;
-    using set_t = samurai::DynamicSet<dim, lca_t::interval_t>;
+    using set_t               = samurai::DynamicSet<dim, lca_t::interval_t>;
 
     std::vector<lca_t> blocks;
     for (int start : {0, 6, 12})

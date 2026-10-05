@@ -12,8 +12,7 @@ void print(const char* name, const Set& set)
     set(
         [](const auto& interval, const auto& index)
         {
-            std::cout << "    y = " << index[0] << ": " << interval
-                      << std::endl;
+            std::cout << "    y = " << index[0] << ": " << interval << std::endl;
         });
 }
 
