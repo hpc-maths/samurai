@@ -18,7 +18,7 @@
  * and each interface yields one edge. Global vertex indices are resolved with a
  * map keyed on (level, indices) covering the local cells and every neighbour's
  * cells (obtained from update_mesh_neighbour, which gathers the full neighbour
- * meshes) — so no field ghost-update is needed. The distributed graph is then
+ * meshes), so no field ghost-update is needed. The distributed graph is then
  * symmetrized (PT-Scotch requires an undirected graph).
  *
  * Communication: one all_gather (vtxdist), the neighbour-mesh exchange, and one

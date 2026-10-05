@@ -3,16 +3,6 @@
 
 #pragma once
 
-/**
- * Morton (Z-order) curve: the key interleaves the bits of the coordinates
- * (bit b of coordinate d lands at key bit b*dim + d).
- *
- * Properties: O(1) key computation with pure bit tricks, good (not optimal)
- * locality — the curve jumps at power-of-two boundaries, unlike Hilbert.
- * Range: 32 bits per coordinate in 2D, 21 bits in 3D (key fits in 64 bits).
- * The inverse mapping is provided (`decode_2d` / `decode_3d`).
- */
-
 #include <cassert>
 #include <cstdint>
 
@@ -22,6 +12,15 @@
 
 namespace samurai::load_balancing
 {
+    /**
+     * Morton (Z-order) curve: the key interleaves the bits of the coordinates
+     * (bit b of coordinate d lands at key bit b*dim + d).
+     *
+     * The key costs O(1) bit operations. The locality is good but not optimal:
+     * unlike Hilbert, the curve jumps at power-of-two boundaries.
+     * Range: 32 bits per coordinate in 2D, 21 bits in 3D, so that the key fits
+     * in 64 bits. The inverse mapping is provided (`decode_2d`, `decode_3d`).
+     */
     class Morton : public SFCCurve<Morton>
     {
       public:
@@ -48,7 +47,7 @@ namespace samurai::load_balancing
 
         /// Rectangle-aware overloads: Morton interleaving is independent of the
         /// bounding box, so the extent `n` is ignored (the curve is allowed to
-        /// be spatially disconnected -- only Hilbert exploits `n`).
+        /// be spatially disconnected; only Hilbert uses `n`).
         template <class Coord, class Extent>
         sfc_key_t key_2d(const Coord& p, const Extent& /*n*/) const
         {

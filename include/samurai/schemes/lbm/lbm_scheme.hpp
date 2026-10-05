@@ -22,12 +22,12 @@ namespace samurai
     /**
      * @class LBMScheme
      *
-     * A Lattice Boltzmann scheme, expressed as a compile-time list of elementary
+     * A lattice Boltzmann scheme, expressed as a compile-time list of elementary
      * velocity schemes (@ref VelocityScheme). It carries two fields on the same
      * adapted mesh: the distributions @a f (the numerical unknowns) and the
      * moments @a m (the physical variables, on which adaptation and I/O are done).
      *
-     * A single time step is @c stream then @c collide:
+     * A single time step runs @c stream, then @c collide, as in
      *
      *     stream(f)  ->  f2m  ->  relax (MRT)  ->  m2f
      *
@@ -51,6 +51,7 @@ namespace samurai
         static_assert(((Blocks::dim == dim) && ...), "all velocity schemes must share the field dimension");
         static_assert((Blocks::q + ...) == n_comp, "the sum of the block sizes must equal the field n_comp");
 
+        /// Builds the scheme from its name, its lattice velocity and its velocity schemes.
         LBMScheme(std::string name, double lambda, Blocks... blocks)
             : m_name(std::move(name))
             , m_lambda(lambda)
@@ -58,20 +59,22 @@ namespace samurai
         {
         }
 
+        /// Name of the scheme, also used in the names of its timers.
         const std::string& name() const
         {
             return m_name;
         }
 
+        /// Lattice velocity given at construction; the time step does not read it.
         double lambda() const
         {
             return m_lambda;
         }
 
         /**
-         * Initialise the distributions @a f from a moment field @a m: the user sets
-         * the conserved moments (s_k == 0) in @a m, this fills the non-conserved
-         * moments with their equilibrium value and sets f = M^{-1} m.
+         * Initialize the distributions @a f from a moment field @a m: the user sets
+         * the conserved moments (s_k == 0) in @a m; the non-conserved moments are
+         * replaced by their equilibrium value and f = M^{-1} m. @a m is not modified.
          */
         template <class MField>
         void init_equilibrium(field_t& f, const MField& m) const
@@ -99,8 +102,8 @@ namespace samurai
         /**
          * Equilibrium distribution f^eq from a full moment vector: the conserved moments (s_k == 0)
          * are kept, the non-conserved ones are set to their equilibrium value, then f^eq = M^{-1} m.
-         * Public so that a wall boundary condition (e.g. anti-bounce-back, see @ref AntiBounceBack)
-         * can build the equilibrium distribution to impose at the wall.
+         * Public so that a wall boundary condition, such as anti-bounce-back (see
+         * @ref AntiBounceBack), can build the equilibrium distribution to impose at the wall.
          */
         std::array<double, n_comp> equilibrium_f(const std::array<double, n_comp>& mall) const
         {
@@ -138,9 +141,9 @@ namespace samurai
 
         /**
          * Moments m = M.f from a full distribution vector (all blocks concatenated). Public so that a
-         * velocity-consistent wall boundary condition can read the LOCAL flow state from the inner
-         * cell distribution (e.g. anti-bounce-back imposing a height/pressure while letting the
-         * momentum float, see @ref AntiBounceBack).
+         * wall boundary condition with a callable wall equilibrium can read the local flow from the
+         * distribution of the inner cell, such as anti-bounce-back imposing a height or a pressure
+         * while the momentum stays free (see @ref AntiBounceBack).
          */
         std::array<double, n_comp> moments(const std::array<double, n_comp>& fall) const
         {
@@ -163,13 +166,16 @@ namespace samurai
             return mall;
         }
 
+        /// Type of a source term: receives the moments of a cell, writable, and the time step.
         using source_t = std::function<void(std::span<double> m_all, double dt)>;
 
         /**
-         * Register a body-force source term (e.g. gravity). It is applied once per time step,
-         * after the MRT relaxation and before the moment-to-distribution transform, and receives
-         * the full moment vector (writable, all blocks concatenated) and the time step @a dt.
-         * Forward-Euler: the source usually adds @c dt * force to the conserved momenta / energy.
+         * Register a body-force source term, such as gravity.
+         *
+         * The source is applied once per time step in every cell, after the MRT relaxation and
+         * before the moments are mapped back to distributions. It receives the full moment vector
+         * (writable, all blocks concatenated) and the time step @a dt. With a forward Euler step,
+         * the source usually adds @c dt times the force to the conserved momenta and energy.
          * @a dt must then be passed to @c operator().
          */
         void set_source(source_t source)
@@ -478,8 +484,14 @@ namespace samurai
     };
 
     /**
-     * Factory: build an @ref LBMScheme from a list of velocity blocks.
-     * @c Field is the (vector) field type of the distributions / moments.
+     * Factory: build an @ref LBMScheme from a list of velocity schemes.
+     *
+     * @tparam Field the vector field type of the distributions and of the moments: the
+     *         dimension of every velocity scheme must be its dimension, and the sum of their
+     *         @c q its number of components
+     * @param name the name of the scheme
+     * @param lambda the lattice velocity, returned by @c LBMScheme::lambda()
+     * @param blocks the velocity schemes, built with @c velocity_scheme
      */
     template <class Field, class... Blocks>
     LBMScheme<Field, Blocks...> make_lbm_scheme(const std::string& name, double lambda, Blocks... blocks)

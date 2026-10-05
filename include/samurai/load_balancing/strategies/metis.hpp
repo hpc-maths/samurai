@@ -3,21 +3,6 @@
 
 #pragma once
 
-/**
- * @file metis.hpp
- * @brief ParMETIS graph partitioning strategy.
- *
- * Partitions the cell graph using ParMETIS_V3_PartGeomKway (geometric k-way)
- * or ParMETIS_V3_AdaptiveRepart (minimises data redistribution between
- * successive partitions). The latter is recommended for AMR.
- *
- * Communication: build_cell_graph (one all_gather + neighbour exchanges) then
- * ParMETIS (collective).
- *
- * Reference: G. Karypis & V. Kumar, "Parallel multilevel k-way partitioning
- * scheme for irregular graphs", Proc. SC'96.
- */
-
 #ifndef SAMURAI_WITH_PARMETIS
 #error "samurai/metis.hpp requires SAMURAI_WITH_PARMETIS=ON"
 #endif
@@ -47,7 +32,7 @@ namespace samurai::load_balancing
      */
     struct MetisOptions
     {
-        /// Use adaptive repartitioning (minimises data migration). Recommended
+        /// Use adaptive repartitioning (minimizes data migration). Recommended
         /// for AMR: the previous partition is reused as a hint.
         bool adaptive = false;
 
@@ -56,26 +41,48 @@ namespace samurai::load_balancing
     };
 
     /**
-     * ParMETIS partitioning strategy. Satisfies the PartitionStrategy concept.
+     * ParMETIS strategy: partitions the distributed graph of the cells, whose
+     * edges join face-adjacent cells, into one part per MPI process.
+     *
+     * By default it calls `ParMETIS_V3_PartGeomKway` (geometric k-way
+     * partitioning) and falls back to `ParMETIS_V3_PartKway` when that call
+     * fails. With `MetisOptions::adaptive`, it calls
+     * `ParMETIS_V3_AdaptiveRepart`, which starts from the current partition
+     * and limits the data that moves between successive partitions. It throws
+     * `std::runtime_error` when ParMETIS fails.
+     *
+     * The header requires `SAMURAI_WITH_PARMETIS`: including it without this
+     * option is a compile error.
+     *
+     * Communication: the construction of the cell graph (one all_gather and
+     * exchanges with the MPI neighbours), then ParMETIS (collective).
+     *
+     * Reference: G. Karypis and V. Kumar,
+     * "Parallel multilevel k-way partitioning scheme for irregular graphs",
+     * Proc. SC'96.
      */
     class Metis
     {
       public:
 
+        /// Builds the strategy with the default options.
         Metis() = default;
 
+        /// Builds the strategy with the given options.
         explicit Metis(MetisOptions options)
             : m_options(options)
         {
         }
 
+        /// Returns `"metis"`, or `"metis-adaptive"` with adaptive
+        /// repartitioning.
         std::string name() const
         {
             return m_options.adaptive ? "metis-adaptive" : "metis";
         }
 
         /**
-         * Partition the mesh using ParMETIS and return the flags field.
+         * Returns the destination rank of each cell, computed by ParMETIS.
          * @note MPI: collective on the world communicator.
          */
         template <class Mesh, class Weight>

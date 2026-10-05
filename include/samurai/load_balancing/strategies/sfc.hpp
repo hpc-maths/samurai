@@ -3,45 +3,6 @@
 
 #pragma once
 
-/**
- * Weighted space-filling curve partitioning (p4est-like).
- *
- * Algorithm:
- *  1. every cell gets the SFC key of its position normalized to the global
- *     max level (`indices << (max_level - level)`), after a global shift
- *     making all coordinates non-negative (curves require >= 0);
- *  2. local cells are sorted by key: the mesh becomes a set of P chunks of
- *     one global 1D sequence;
- *  3. the curve is cut into P segments of equal weight by locating the P-1 cut
- *     keys s_r = smallest key c such that the *global* weight of the cells with
- *     key < c reaches r * (W_total / P). They are found with a vectorised
- *     binary search over the key space (one all_reduce per bisection step), so
- *     no gather of keys or cells is needed;
- *  4. a cell of key k goes to rank #{ r : s_r <= k }, i.e. floor(c / (W_total /
- *     P)) where c is its global exclusive-prefix weight along the curve.
- *
- * Guarantees:
- *  - weighted balance up to the heaviest single cell per rank;
- *  - partitions are contiguous segments of the curve: compact for Hilbert
- *    (continuous curve), good for Morton (jumps at power-of-two boundaries);
- *  - deterministic: keys are unique (cells do not overlap), so the global
- *    order is total and two consecutive calls produce the same partition
- *    (second call migrates nothing);
- *  - correct from *any* initial decomposition: the cut keys depend only on the
- *    global cumulative weight, never on which rank currently owns a cell.
- *
- * Why a global search and not an MPI scan: a scan over the rank index yields
- * the weight of the lower-index ranks, which equals the curve prefix only if
- * each rank already owns a curve-contiguous segment. The default decomposition
- * (mesh.hpp::partition_mesh) splits the intervals row-major, so the ranks'
- * key chunks interleave on the curve; a scan-based offset would then mis-assign
- * cells and fracture every rank into disconnected islands -- even for Hilbert.
- *
- * Communication: 3 all_reduce for the setup (2 for the coordinate shift bound,
- * 1 for the total weight + 1 for the key bound) plus <= 64 all_reduce of P-1
- * doubles for the cut search. No data gather.
- */
-
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -129,15 +90,20 @@ namespace samurai::load_balancing
     }
 
     /**
-     * P-1 equal-weight cut keys via a gather-free vectorised binary search over
-     * the key space: each step evaluates W_<(mid) locally (prefix sum +
-     * lower_bound on the sorted keys) and sums it across ranks with one
-     * all_reduce. Used for cell atoms (too many to gather). Deterministic and
-     * exact from any initial decomposition.
+     * P-1 equal-weight cut keys, found by a gather-free vectorised binary
+     * search over the key space: each step evaluates W_<(mid) locally (prefix
+     * sum and lower_bound on the sorted keys) and sums it across ranks with one
+     * all_reduce. Used for cell atoms, which are too many to gather.
+     * Deterministic and exact from any initial decomposition.
      *
-     * @param sorted_keys local atom keys, ascending; @param weights aligned with
-     * them. @param chunk = W_total / P. Returns the P-1 cut keys, identical on
-     * every rank: an atom of key k goes to rank #{ r : lo[r] <= k }.
+     * @param sorted_keys local atom keys, in ascending order
+     * @param weights weights of the atoms, aligned with `sorted_keys`
+     * @param P number of ranks, that is of segments of the curve
+     * @param chunk target weight of one segment, W_total / P
+     * @param world communicator over which the weights are summed
+     * @return the P-1 cut keys, identical on every rank: an atom of key k goes
+     *         to the rank equal to the number of cut keys lower than or equal
+     *         to k.
      */
     inline std::vector<sfc_key_t> sfc_equal_weight_cuts_search(const std::vector<sfc_key_t>& sorted_keys,
                                                                const std::vector<double>& weights,
@@ -203,13 +169,20 @@ namespace samurai::load_balancing
     }
 
     /**
-     * Same P-1 cut keys as sfc_equal_weight_cuts_search, but a single all_gatherv
-     * of every (key, weight) replaces the iterated collective: all ranks build
+     * Same P-1 cut keys as sfc_equal_weight_cuts_search, but all_gatherv calls
+     * of every (key, weight) replace the iterated collective: all ranks build
      * the global key-sorted sequence and find the cuts in one local sweep. For
-     * interval atoms only, where the global atom count is small enough to gather.
-     * Atoms sharing a key are accumulated as one block so the result is
-     * bit-identical to the search. @param keys / @param weights need not be
-     * locally sorted; @param counts holds each rank's atom count.
+     * interval atoms only, where the global atom count is small enough to
+     * gather. Atoms sharing a key are accumulated as one block, so the result
+     * is bit-identical to the search.
+     *
+     * @param keys local atom keys, in any order
+     * @param weights weights of the atoms, aligned with `keys`
+     * @param counts number of atoms of each rank
+     * @param P number of ranks, that is of segments of the curve
+     * @param chunk target weight of one segment, W_total / P
+     * @param world communicator over which the atoms are gathered
+     * @return the P-1 cut keys, identical on every rank
      */
     inline std::vector<sfc_key_t> sfc_equal_weight_cuts_gather(const std::vector<sfc_key_t>& keys,
                                                                const std::vector<double>& weights,
@@ -261,13 +234,63 @@ namespace samurai::load_balancing
         return lo;
     }
 
+    /**
+     * Space-filling curve strategy: cuts a curve through the cells into one
+     * segment of equal weight per rank, in the manner of p4est.
+     *
+     * `Curve` is `Morton` or `Hilbert`. The algorithm:
+     *
+     * 1. Every cell gets the key of its position on the curve. Its
+     *    coordinates are brought to the maximum level, as
+     *    `indices << (max_level - level)`, and shifted so that they are
+     *    non-negative, as the curves require.
+     * 2. The local cells are sorted by key: each rank holds pieces of one
+     *    global 1D sequence.
+     * 3. The curve is cut into P segments of equal weight by locating P-1 cut
+     *    keys: s_r is the smallest key c such that the global weight of the
+     *    cells of key lower than c reaches r * W_total / P.
+     * 4. A cell of key k goes to the rank equal to the number of cut keys
+     *    lower than or equal to k.
+     *
+     * Guarantees:
+     *
+     * - the weights are balanced up to the weight of one atom (a cell, or an
+     *   x-interval with `with_interval_atoms()`) per rank;
+     * - each rank receives a contiguous segment of the curve: compact with
+     *   Hilbert, whose curve is continuous, and less so with Morton, whose
+     *   curve jumps at power-of-two boundaries;
+     * - the result is deterministic: keys are unique because cells do not
+     *   overlap, so two consecutive calls give the same partition and the
+     *   second one moves nothing;
+     * - the result does not depend on the initial decomposition: the cut keys
+     *   depend only on the global cumulative weight, never on which rank owns
+     *   a cell.
+     *
+     * The cut keys come from a global search and not from an MPI scan over the
+     * rank index. A scan gives the weight of the lower ranks, which equals the
+     * prefix along the curve only if every rank already owns a contiguous
+     * segment of the curve. The default decomposition splits the intervals
+     * row by row, so the key ranges of the ranks interleave on the curve, and
+     * a scan would split every subdomain into disconnected islands.
+     *
+     * Communication: one all_reduce for the total weight. With cell atoms, the
+     * cut keys come from a binary search: one all_reduce for the largest key,
+     * then at most 64 all_reduce of P-1 doubles. With interval atoms, one
+     * all_gather of the atom counts and two all_gatherv of the keys and
+     * weights replace the search, unless the global number of atoms exceeds
+     * 4,000,000. When the mesh has no `domain()`, the shift of the coordinates
+     * adds two all_reduce per direction.
+     */
     template <class Curve>
     class SFC
     {
       public:
 
+        /// Builds the strategy with a default-constructed curve and cell atoms.
         SFC() = default;
 
+        /// Builds the strategy from a curve; `by_interval` selects interval
+        /// atoms (see `with_interval_atoms()`).
         explicit SFC(Curve curve, bool by_interval = false)
             : m_curve(std::move(curve))
             , m_by_interval(by_interval)
@@ -275,14 +298,19 @@ namespace samurai::load_balancing
         }
 
         /**
-         * Choose the partition atom.
-         *  - false (default): one atom per cell.
-         *  - true: one atom per x-interval, keyed on its first cell and weighted
-         *    by the whole interval; the interval is never split across ranks.
-         * Interval atoms are ~10-20x fewer (advection 2D ~11x, 3D ~19x), so the
-         * cut search runs on far fewer keys; the trade-off is a coarser
-         * granularity (an interval is indivisible -- harmless until the heaviest
-         * interval approaches W_total / P, i.e. very large process counts).
+         * Chooses the partition atom.
+         *
+         * - `false` (default): one atom per cell.
+         * - `true`: one atom per x-interval, keyed on its first cell and
+         *   weighted by the whole interval; the interval is never split
+         *   between ranks.
+         *
+         * There are about 10 to 20 times fewer interval atoms than cells
+         * (about 11 times in the 2D advection case, 19 times in 3D), so the
+         * cut search runs on far fewer keys. The cost is a coarser
+         * granularity: an interval cannot be split, which matters only when
+         * the heaviest interval approaches W_total / P, at very large process
+         * counts.
          */
         SFC& with_interval_atoms(bool v = true)
         {
@@ -290,20 +318,24 @@ namespace samurai::load_balancing
             return *this;
         }
 
+        /// Tells whether each atom is an x-interval rather than a cell.
         bool uses_interval_atoms() const
         {
             return m_by_interval;
         }
 
+        /// Returns `sfc-<curve>-cell`, or `sfc-<curve>-interval` with interval
+        /// atoms, where `<curve>` is `morton` or `hilbert`.
         std::string name() const
         {
             return "sfc-" + m_curve.name() + (m_by_interval ? "-interval" : "-cell");
         }
 
         /**
-         * Destination rank of each cell by equal-weight cuts of the curve.
-         * @note MPI: O(1) all_reduce for the setup + <= 64 all_reduce of P-1
-         *       doubles for the cut search (collective), no data gather.
+         * Returns the destination rank of each cell, from equal-weight cuts
+         * of the curve.
+         * @note MPI: collective; see the description of the class for the
+         *       communication.
          */
         template <class Mesh, class Weight>
         auto partition(Mesh& mesh, const Weight& weight) const

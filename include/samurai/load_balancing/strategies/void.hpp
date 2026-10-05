@@ -3,19 +3,6 @@
 
 #pragma once
 
-/**
- * Void strategy: every cell stays where it is.
- *
- * Purpose: baseline. Running the driver with this strategy measures the fixed
- * overhead of the load balancing infrastructure (partition + routing
- * discovery) without moving anything, and gives the reference run for the
- * "load balancing must never change the numerical result" tests.
- *
- * Guarantees: no migration, no change of mesh or fields.
- * Communication: none in partition(); the driver still performs its single
- * all_to_all, then stops (no migration detected anywhere).
- */
-
 #include "../../field.hpp"
 
 #ifdef SAMURAI_WITH_MPI
@@ -23,11 +10,26 @@
 
 namespace samurai::load_balancing
 {
+    /**
+     * Void strategy: every cell stays on its rank.
+     *
+     * It is a baseline. Running the driver with this strategy measures the
+     * fixed cost of the load balancing (partition and routing discovery)
+     * without moving anything, and gives the reference run for the tests that
+     * check that load balancing never changes the numerical result.
+     *
+     * No cell moves, and neither the mesh nor the fields change. `partition()`
+     * does not communicate; the driver still runs its `all_to_all`, then stops
+     * because no rank sends any cell.
+     */
     class Void
     {
       public:
 
-        /// flags = current rank for every cell. @note MPI: no communication.
+        /**
+         * Returns a field that holds the current rank for every cell.
+         * @note MPI: no communication.
+         */
         template <class Mesh, class Weight>
         auto partition(Mesh& mesh, const Weight& /*weight*/) const
         {
@@ -37,6 +39,7 @@ namespace samurai::load_balancing
             return flags;
         }
 
+        /// Returns `"void"`.
         std::string name() const
         {
             return "void";

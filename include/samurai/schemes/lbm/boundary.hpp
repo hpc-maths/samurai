@@ -13,74 +13,6 @@
 
 namespace samurai
 {
-    /**
-     * Lattice-Boltzmann wall boundary conditions, attached to the distribution field @a f the
-     * same way as the finite-volume boundary conditions (see @c make_bc), and applied by
-     * @c update_ghost_mr before the stream reads the ghosts.
-     *
-     * Both are half-way schemes realised as the SAME ghost fill: the outer ghost cell holds the
-     * inner cell's distribution with every velocity reversed (c -> -c), so that after streaming the
-     * incoming populations equal the reflected outgoing ones. The reflection is a fixed permutation
-     * @c opposite[alpha] (the index of the velocity -c_alpha), independent of the boundary
-     * direction. Bounce-back and anti-bounce-back differ ONLY by the reflection sign s in
-     *
-     *   f_ghost(alpha) = s * f_inner(opposite[alpha]) + rhs(alpha)
-     *
-     *   s = +1  (bounce-back)      closes the antisymmetric/odd part -> imposes the odd moments
-     *                              (velocity / momentum), even moments left free: a no-slip wall.
-     *                              rhs is the moving-wall momentum term
-     *                              -2 w_alpha rho (c_alpha . u_wall) / c_s^2, and vanishes for a
-     *                              wall at rest.
-     *   s = -1  (anti-bounce-back) closes the symmetric/even part -> imposes the even moments
-     *                              (density / pressure / height / temperature), odd moments left
-     *                              free: a Dirichlet condition on that scalar.
-     *
-     * Given an equilibrium @c f^eq(m_wall) to reflect around, the rhs keeps exactly the parity that
-     * @c s imposes:
-     *
-     *   rhs(alpha) = f^eq_alpha(m_wall) - s * f^eq_opposite(alpha)(m_wall)
-     *
-     * i.e. twice the EVEN part for anti-bounce-back (imposed density/height incl. its kinetic q^2/h
-     * energy) and twice the ODD part for bounce-back (moving-wall momentum). It vanishes for a
-     * homogeneous condition (wall at rest / zero scalar) and, when @c f^eq is symmetric (fluid at
-     * rest), reduces to the familiar 2 f^eq_alpha. This matches Ginzburg & d'Humieres / Kruger,
-     * where bounce-back and anti-bounce-back are the odd and even link-wise closures of the very
-     * same reflection.
-     *
-     * @c m_wall is provided to @c make_bc either as a CONSTANT equilibrium distribution (fluid at
-     * rest at the wall, e.g. @c LBMScheme::equilibrium_f({h_wall, 0, ...})) or as a CALLABLE
-     * @c inner_f -> f^eq rebuilt every step from the LOCAL cell (@c LBMScheme::moments then
-     * @c equilibrium_f with the imposed moment overridden). The velocity-consistent callable keeps
-     * the imposed even part in step with the through-flow and is what makes an open "reservoir"
-     * boundary stable under a sustained current.
-     *
-     * A single implementation @c LbmReflectionImpl realises the formula: the @c BounceBack /
-     * @c AntiBounceBack tag fixes the base sign (+1 / -1), the optional per-block odd axes flip it
-     * (slip wall, see below) and the optional @c m_wall sets the rhs. @c BounceBack therefore also
-     * accepts an @c m_wall (moving wall) and @c AntiBounceBack a homogeneous form (zero scalar).
-     *
-     * Usage (velocities are the same list passed to @c velocity_scheme):
-     *   samurai::make_bc<samurai::BounceBack>(f, velocities)->on(left, right);
-     *   samurai::make_bc<samurai::AntiBounceBack>(f, velocities, f_wall)->on(right);         // constant
-     *   samurai::make_bc<samurai::AntiBounceBack>(f, velocities, reservoir)->on(right);      // callable
-     *
-     * @par Multi-block reflecting (slip) wall
-     *   For a multi-block scheme (D1Q222, D2Q4444, ... compressible Euler) the opposite velocity
-     *   must be searched WITHIN each block, and a slip wall reverses the normal momentum: the block
-     *   that carries the momentum component normal to the wall is reflected with @c sign = -1, all
-     *   the others (density, energy, tangential momentum) with @c sign = +1. Pass the block sizes
-     *   and, per block, the axis of the momentum it carries (or -1 for a scalar such as density or
-     *   energy):
-     *     samurai::make_bc<samurai::BounceBack>(f, velocities, block_sizes, block_odd_axis);
-     *   With a single block and @c block_odd_axis = {-1} this is exactly the no-slip wall above
-     *   (@c sign = +1 everywhere), so the single-argument overload is unchanged.
-     *
-     *   Note on the sign vs the single-population picture above: here each conserved variable is the
-     *   ZEROTH moment (the sum) of its own block, so negating it requires @c sign = -1. In the usual
-     *   single-population fluid the velocity is instead a FIRST moment, which plain bounce-back
-     *   (@c sign = +1, reversing every c) already negates; the two conventions therefore look
-     *   opposite but impose the same physics (zero normal velocity at the wall).
-     */
     namespace detail
     {
         // opposite[a] = index b such that velocities[b] == -velocities[a], searched WITHIN the block
@@ -146,13 +78,65 @@ namespace samurai
     struct AntiBounceBack;
 
     /**
-     * Unified half-way reflection filling the outer ghost as
+     * Half-way reflection shared by the lattice Boltzmann wall boundary conditions @ref BounceBack
+     * and @ref AntiBounceBack.
      *
-     *   f_ghost(a) = sign(a) * f_inner(opposite[a]) + add(a)
+     * It is attached to the distribution field @a f with @c make_bc, like the finite volume
+     * boundary conditions, and @c update_ghost_mr applies it before the stream reads the ghosts.
+     * The outer ghost cell holds the distribution of the inner cell with every velocity reversed
+     * (c to -c), so that after the stream the incoming populations equal the reflected outgoing
+     * ones. The reflection is a fixed permutation @c opposite[a], the index of the velocity -c_a
+     * (or @c a itself when there is none, such as the rest velocity), independent of the boundary
+     * direction. Bounce-back and anti-bounce-back differ only by the reflection sign s in
      *
-     * with sign(a) = base_sign * (odd-axis flip) and add(a) = 2 f^eq(m_wall) (0 when homogeneous).
-     * The @c bc_type tag (@ref BounceBack / @ref AntiBounceBack) selects @c base_sign (+1 / -1);
-     * bounce-back and anti-bounce-back are otherwise the same operation (see the file header).
+     *     f_ghost(a) = s * f_inner(opposite[a]) + rhs(a)
+     *
+     * - s = +1 (@ref BounceBack) closes the odd part and imposes the odd moments, such as the
+     *   momentum, leaving the even moments free: a no-slip wall.
+     * - s = -1 (@ref AntiBounceBack) closes the even part and imposes the even moments, such as
+     *   the density, the pressure, the water height or the temperature, leaving the odd moments
+     *   free: a Dirichlet condition on that scalar.
+     *
+     * The @c bc_type tag sets the base sign, +1 or -1.
+     *
+     * Given a wall equilibrium distribution f^eq to reflect around, the right-hand side keeps the
+     * parity that s imposes:
+     *
+     *     rhs(a) = f^eq(a) - s * f^eq(opposite[a])
+     *
+     * that is twice the even part of f^eq for anti-bounce-back (the imposed density or height,
+     * with its kinetic energy) and twice its odd part for bounce-back (the momentum of a moving
+     * wall, 2 w_a rho (c_a . u_wall) / c_s^2 for the usual equilibrium). Without a wall
+     * equilibrium, rhs is zero: a wall at rest for bounce-back, a zero scalar for
+     * anti-bounce-back. When f^eq is symmetric (fluid at rest), rhs is 2 f^eq(a) for
+     * anti-bounce-back and 0 for bounce-back. Bounce-back and anti-bounce-back are the odd and
+     * even link-wise closures of the same reflection, as in Ginzburg and d'Humieres, and in
+     * Kruger et al.
+     *
+     * The wall equilibrium is either a constant distribution, such as
+     * `LBMScheme::equilibrium_f({h_wall, 0, ...})` for a fluid at rest at the wall, or a callable
+     * that takes the distribution of the inner cell and returns the equilibrium to reflect
+     * around. The callable is evaluated at every step from the local flow, for example with
+     * @c LBMScheme::moments, then @c LBMScheme::equilibrium_f with the imposed moment replaced. It
+     * keeps the imposed even part consistent with the flow through the boundary, which keeps an
+     * open "reservoir" boundary stable under a sustained current.
+     *
+     * Multi-block reflecting (slip) wall: for a scheme with several blocks (D1Q222, D2Q4444, and
+     * the other compressible Euler schemes) the opposite velocity is searched within each block,
+     * and a slip wall reverses the normal momentum. The block that carries the momentum component
+     * normal to the wall is reflected with the sign flipped, the others (density, energy,
+     * tangential momentum) with the base sign. Each block gives the axis of the momentum it
+     * carries, or -1 for a scalar such as the density or the energy. With a single block and
+     * @c block_odd_axis = {-1}, this is the no-slip wall above.
+     *
+     * In a multi-block scheme each conserved variable is the zeroth moment (the sum) of its own
+     * block, so negating it flips the sign of the whole block. In a single-population fluid the
+     * velocity is a first moment, which plain bounce-back already negates by reversing every
+     * velocity. The two conventions look opposite but impose the same physics: zero normal
+     * velocity at the wall.
+     *
+     * When the velocity set has a diagonal velocity, such as in D2Q9, the reflection also fills
+     * the ghosts across the corners of the domain.
      */
     template <class Field, class bc_type>
     struct LbmReflectionImpl : public Bc<Field>
@@ -225,7 +209,7 @@ namespace samurai
         }
 
         // Multi-block reflecting (slip) wall: opposite within each block; the block carrying the
-        // momentum normal to the wall is flipped (see the file header).
+        // momentum normal to the wall is flipped (see the description of the class).
         template <class Vel>
         LbmReflectionImpl(const typename base_t::lca_t& domain,
                           const BcValue<Field>& bcv,
@@ -297,7 +281,8 @@ namespace samurai
 
         // rhs from the equilibrium to reflect around: add(a) = f^eq_a - base_sign f^eq_opposite(a),
         // i.e. twice the EVEN part for anti-bounce-back (base_sign = -1) and twice the ODD part for
-        // bounce-back (base_sign = +1). Reduces to 2 f^eq_a when f^eq is symmetric (fluid at rest).
+        // bounce-back (base_sign = +1). When f^eq is symmetric (fluid at rest), it is 2 f^eq_a for
+        // anti-bounce-back and 0 for bounce-back.
         static std::array<double, n_comp> symmetrise(const std::array<double, n_comp>& feq, const std::array<std::size_t, n_comp>& opposite)
         {
             std::array<double, n_comp> add{};
@@ -329,12 +314,15 @@ namespace samurai
     };
 
     /**
-     * Imposed-distribution inflow: the outer ghost holds a fixed distribution (typically the
-     * free-stream equilibrium @c LBMScheme::equilibrium_f({rho, rho u, rho v, ...})), so streaming
-     * pulls that distribution into the domain. This is the LBM counterpart of a Dirichlet inflow;
-     * combine it with a homogeneous @c Neumann outflow on the opposite side.
+     * Imposed-distribution inflow, selected by the @ref ImposedDistribution tag: the outer ghost
+     * holds a fixed distribution, typically the free-stream equilibrium
+     * `LBMScheme::equilibrium_f({rho, rho u, rho v, ...})`, so the stream pulls that distribution
+     * into the domain. It is the lattice Boltzmann counterpart of a Dirichlet inflow; combine it
+     * with a homogeneous @c Neumann outflow on the opposite side:
      *
-     *   samurai::make_bc<samurai::ImposedDistribution>(f, f_in)->on(left, top, bottom);
+     * @code
+     * samurai::make_bc<samurai::ImposedDistribution>(f, f_in)->on(left, top, bottom);
+     * @endcode
      */
     template <class Field>
     struct ImposedDistributionImpl : public Bc<Field>
@@ -368,9 +356,14 @@ namespace samurai
         }
     };
 
-    // Tags selecting the implementation (mirrors samurai::Dirichlet / samurai::Neumann). Both map
-    // to the same LbmReflectionImpl, which reads the base reflection sign from the tag type (+1 for
-    // BounceBack, -1 for AntiBounceBack; see the file header).
+    // Tags selecting the implementation, like samurai::Dirichlet and samurai::Neumann. BounceBack
+    // and AntiBounceBack map to the same LbmReflectionImpl, which reads the base reflection sign
+    // from the tag type (+1 for BounceBack, -1 for AntiBounceBack).
+
+    /**
+     * Tag of the bounce-back wall boundary condition, passed to @c make_bc: imposes the odd
+     * moments, such as the momentum (see @ref LbmReflectionImpl).
+     */
     struct BounceBack
     {
         using lbm_bc_tag = void; // marks the LBM make_bc overloads below
@@ -379,6 +372,10 @@ namespace samurai
         using impl_t = LbmReflectionImpl<Field, BounceBack>;
     };
 
+    /**
+     * Tag of the anti-bounce-back wall boundary condition, passed to @c make_bc: imposes the even
+     * moments, such as the density, the pressure or the water height (see @ref LbmReflectionImpl).
+     */
     struct AntiBounceBack
     {
         using lbm_bc_tag = void;
@@ -387,6 +384,10 @@ namespace samurai
         using impl_t = LbmReflectionImpl<Field, AntiBounceBack>;
     };
 
+    /**
+     * Tag of the imposed-distribution inflow boundary condition, passed to @c make_bc with the
+     * distribution to impose (see @ref ImposedDistributionImpl).
+     */
     struct ImposedDistribution
     {
         using lbm_bc_tag = void;
@@ -396,10 +397,18 @@ namespace samurai
     };
 
     /**
-     * make_bc for a homogeneous LBM reflection (@ref BounceBack no-slip wall, @ref AntiBounceBack
-     * zero even moment): pass the lattice velocities (same list as the scheme). Constrained to LBM
-     * boundary conditions (via @c lbm_bc_tag) so it never competes with the generic finite-volume
-     * @c make_bc overloads.
+     * Attaches a lattice Boltzmann boundary condition without wall equilibrium to the
+     * distribution field.
+     *
+     * With @ref BounceBack it is a no-slip wall, with @ref AntiBounceBack a zero even moment.
+     * With @ref ImposedDistribution, the second argument is the distribution to impose instead of
+     * the lattice velocities. The overload applies only to tags that declare @c lbm_bc_tag, so it
+     * never competes with the @c make_bc overloads of the finite volume boundary conditions.
+     *
+     * @tparam bc_type @ref BounceBack, @ref AntiBounceBack or @ref ImposedDistribution
+     * @param field the distribution field @a f
+     * @param velocities the lattice velocities, the same list as in @c velocity_scheme
+     * @return a pointer to the attached boundary condition, whose @c on(...) selects the boundaries
      */
     template <class bc_type, class Field, class Vel>
         requires requires { typename bc_type::lbm_bc_tag; }
@@ -411,11 +420,20 @@ namespace samurai
     }
 
     /**
-     * make_bc for an LBM reflection with an imposed value: the lattice velocities and @c wall, the
-     * equilibrium to reflect around. @c wall is either a CONSTANT distribution (fluid at rest at the
-     * wall, e.g. @c scheme.equilibrium_f({h_wall, 0, ...})) or a CALLABLE @c inner_f -> f^eq rebuilt
-     * from the local flow (velocity-consistent, see the file header). @ref AntiBounceBack imposes the
-     * even moment (density / pressure / height), @ref BounceBack the odd one (a moving wall).
+     * Attaches a lattice Boltzmann reflection with a wall equilibrium to the distribution field.
+     *
+     * @ref AntiBounceBack imposes the even moments of the wall equilibrium, such as the density,
+     * the pressure or the water height; @ref BounceBack imposes its odd moments, for a moving
+     * wall (see @ref LbmReflectionImpl).
+     *
+     * @tparam bc_type @ref BounceBack or @ref AntiBounceBack
+     * @param field the distribution field @a f
+     * @param velocities the lattice velocities, the same list as in @c velocity_scheme
+     * @param f_wall the equilibrium to reflect around: either a constant distribution, such as
+     *        `scheme.equilibrium_f({h_wall, 0, ...})` for a fluid at rest at the wall, or a
+     *        callable that takes the distribution of the inner cell and returns the equilibrium,
+     *        evaluated at every step from the local flow
+     * @return a pointer to the attached boundary condition, whose @c on(...) selects the boundaries
      */
     template <class bc_type, class Field, class Vel, class Feq>
         requires requires { typename bc_type::lbm_bc_tag; }
@@ -427,9 +445,21 @@ namespace samurai
     }
 
     /**
-     * make_bc for the multi-block LBM reflecting (slip) wall: the lattice velocities, the block
-     * sizes (q per block, summing to n_comp) and, per block, the axis of the momentum it carries
-     * (or -1 for a scalar block such as density / energy). See the file header.
+     * Attaches a lattice Boltzmann reflection for a scheme with several blocks, such as a slip
+     * wall, to the distribution field.
+     *
+     * The opposite velocity is searched within each block, and the sign of the block that
+     * carries the momentum normal to the wall is flipped (see @ref LbmReflectionImpl).
+     *
+     * @tparam bc_type @ref BounceBack or @ref AntiBounceBack
+     * @param field the distribution field @a f
+     * @param velocities the lattice velocities of all blocks, the same lists as in
+     *        @c velocity_scheme, concatenated
+     * @param block_sizes the number of velocities q of each block; they sum to the number of
+     *        components of @a field
+     * @param block_odd_axis for each block, the axis of the momentum component it carries, or -1
+     *        for a scalar such as the density or the energy
+     * @return a pointer to the attached boundary condition, whose @c on(...) selects the boundaries
      */
     template <class bc_type, class Field, class Vel>
         requires requires { typename bc_type::lbm_bc_tag; }
@@ -441,8 +471,21 @@ namespace samurai
     }
 
     /**
-     * make_bc for the multi-block LBM reflection with an imposed value: as the multi-block slip wall
-     * above, plus the equilibrium distribution @c f_wall to impose.
+     * Attaches a lattice Boltzmann reflection with a wall equilibrium for a scheme with several
+     * blocks to the distribution field.
+     *
+     * It combines the wall equilibrium of the overload with @a f_wall and the blocks of the
+     * multi-block overload (see @ref LbmReflectionImpl).
+     *
+     * @tparam bc_type @ref BounceBack or @ref AntiBounceBack
+     * @param field the distribution field @a f
+     * @param velocities the lattice velocities of all blocks, concatenated
+     * @param f_wall the equilibrium to reflect around, a constant distribution or a callable
+     *        that takes the distribution of the inner cell
+     * @param block_sizes the number of velocities q of each block
+     * @param block_odd_axis for each block, the axis of the momentum component it carries, or -1
+     *        for a scalar
+     * @return a pointer to the attached boundary condition, whose @c on(...) selects the boundaries
      */
     template <class bc_type, class Field, class Vel, class Feq>
         requires requires { typename bc_type::lbm_bc_tag; }

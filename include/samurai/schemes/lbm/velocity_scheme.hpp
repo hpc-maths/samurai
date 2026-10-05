@@ -26,7 +26,7 @@ namespace samurai
      *  - s is the per-moment relaxation vector (s_k = 0 for a conserved moment);
      *  - equilibrium fills the q equilibrium moments meq of this block from the full
      *    moment vector m_all (all blocks concatenated), which allows inter-block
-     *    coupling (e.g. the Euler equilibria).
+     *    coupling, as in the Euler equilibria.
      */
     template <std::size_t dim_, std::size_t q_>
     struct VelocityScheme
@@ -39,12 +39,13 @@ namespace samurai
         using moments_t     = std::array<double, q>;
         using equilibrium_t = std::function<void(moments_t& meq, std::span<const double> m_all)>;
 
-        std::array<velocity_t, q> velocities;
-        matrix_t M;    // f -> m
-        matrix_t invM; // m -> f
-        moments_t s;   // relaxation
-        equilibrium_t equilibrium;
+        std::array<velocity_t, q> velocities; ///< lattice velocities c_alpha
+        matrix_t M;                           ///< maps the distributions to the moments: m = M.f
+        matrix_t invM;                        ///< inverse of M: f = invM.m
+        moments_t s;                          ///< relaxation rate of each moment, 0 for a conserved moment
+        equilibrium_t equilibrium;            ///< fills the q equilibrium moments of this block
 
+        /// Number of velocities q.
         static constexpr std::size_t size()
         {
             return q;
@@ -52,9 +53,12 @@ namespace samurai
     };
 
     /**
-     * Helper to build a @ref VelocityScheme. Template arguments (dim, q) are
-     * usually deduced from the braced velocities/matrices at the call site,
-     * e.g. @c velocity_scheme<1, 2>(...).
+     * Helper to build a @ref VelocityScheme.
+     *
+     * The template arguments @c dim and @c q can be deduced only from arguments
+     * passed as @c std::array objects; a braced list, such as
+     * `{{1}, {-1}}`, deduces nothing. Pass them explicitly, as in
+     * `velocity_scheme<1, 2>(...)`.
      */
     template <std::size_t dim, std::size_t q>
     VelocityScheme<dim, q> velocity_scheme(std::array<std::array<int, dim>, q> velocities,

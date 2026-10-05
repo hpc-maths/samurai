@@ -179,9 +179,13 @@ namespace samurai
     ////////////////////////////////////////////////////////////////////////
 
     /**
-     * A cheap value handle over a runtime set expression. Mirrors the static
-     * set surface (`on`, `operator()`, `to_lca`, `level`) and is the natural
-     * type to expose to bindings.
+     * A cheap value handle over a set expression built at runtime. Mirrors part
+     * of the static set interface (`on`, `operator()`, `to_lca`, `level`) and is
+     * the natural type to expose to bindings.
+     *
+     * Copying a `DynamicSet` shares the expression and the scratch memory of
+     * its traversal: two threads must not traverse the same expression at the
+     * same time. Give each thread its own `clone()`.
      */
     template <std::size_t dim_, class TInterval>
     class DynamicSet
@@ -191,16 +195,19 @@ namespace samurai
         using interval_t = TInterval;
         using iset_t     = ISet<dim_, TInterval>;
 
+        /// Wraps a node of a runtime set expression.
         explicit DynamicSet(std::shared_ptr<iset_t> set)
             : m_set(std::move(set))
         {
         }
 
+        /// The underlying node; `as_static_set(ptr())` gives a static set expression.
         const std::shared_ptr<iset_t>& ptr() const
         {
             return m_set;
         }
 
+        /// Level of the set expression.
         std::size_t level() const
         {
             return m_set->level();
@@ -212,14 +219,17 @@ namespace samurai
             return DynamicSet(m_set->clone());
         }
 
+        /// The set expression brought to `level`, like `dyn::on(*this, level)`.
         DynamicSet on(std::size_t level) const; // defined below, once `dyn::on` is available
 
+        /// Traversal: calls `func(interval, index)` for each interval of the set.
         template <class Func>
         void operator()(Func&& func) const
         {
             apply(as_static_set(m_set), std::forward<Func>(func));
         }
 
+        /// A `LevelCellArray` holding the cells of the set.
         auto to_lca() const
         {
             return as_static_set(m_set).to_lca();
@@ -238,6 +248,7 @@ namespace samurai
         return DynamicSet<dim_, TInterval>(std::move(node));
     }
 
+    /// Tells whether `T` is a `DynamicSet`.
     template <class T>
     struct is_dynamic_set : std::false_type
     {
@@ -252,8 +263,16 @@ namespace samurai
     //// Dynamic DSL - mirrors the static free functions
     ////////////////////////////////////////////////////////////////////////
 
+    /**
+     * Functions that build a `DynamicSet`, mirroring the static set algebra.
+     */
     namespace dyn
     {
+        /**
+         * The cells of the level cell array `lca`.
+         *
+         * The expression keeps a pointer to `lca`, which must outlive it.
+         */
         template <std::size_t Dim, class TInterval>
         DynamicSet<Dim, TInterval> self(const LevelCellArray<Dim, TInterval>& lca)
         {
@@ -265,6 +284,11 @@ namespace samurai
                                              });
         }
 
+        /**
+         * The cells of the box `b` at `level`.
+         *
+         * The expression keeps a pointer to `b`, which must outlive it.
+         */
         template <class TValue, std::size_t Dim>
         DynamicSet<Dim, Interval<TValue>> box(std::size_t level, const Box<TValue, Dim>& b)
         {
@@ -316,12 +340,14 @@ namespace samurai
         // Runtime overloads: the number of operands is a std::vector known at
         // runtime (the natural entry point for bindings).
 
+        /// The union of the sets of `sets`, which must not be empty.
         template <std::size_t dim, class TInterval>
         DynamicSet<dim, TInterval> union_(const std::vector<DynamicSet<dim, TInterval>>& sets)
         {
             return detail::fold<SetOperator::UNION>(sets);
         }
 
+        /// The intersection of the sets of `sets`, which must hold two sets or more.
         template <std::size_t dim, class TInterval>
         DynamicSet<dim, TInterval> intersection(const std::vector<DynamicSet<dim, TInterval>>& sets)
         {
@@ -329,6 +355,8 @@ namespace samurai
             return detail::fold<SetOperator::INTERSECTION>(sets);
         }
 
+        /// The cells of the first set of `sets` that belong to none of the others;
+        /// `sets` must hold two sets or more.
         template <std::size_t dim, class TInterval>
         DynamicSet<dim, TInterval> difference(const std::vector<DynamicSet<dim, TInterval>>& sets)
         {
@@ -340,6 +368,7 @@ namespace samurai
         // from the arguments. Constrained to DynamicSet so a single std::vector
         // argument routes to the runtime overloads above.
 
+        /// The union of one `DynamicSet` or more, all of the same type.
         template <class Set, class... Sets>
             requires(is_dynamic_set<Set>::value && (std::same_as<Set, Sets> && ...))
         Set union_(const Set& first, const Sets&... rest)
@@ -347,6 +376,7 @@ namespace samurai
             return union_(std::vector<Set>{first, rest...});
         }
 
+        /// The intersection of two `DynamicSet` or more, all of the same type.
         template <class Set, class... Sets>
             requires(is_dynamic_set<Set>::value && (std::same_as<Set, Sets> && ...) && sizeof...(Sets) >= 1)
         Set intersection(const Set& first, const Sets&... rest)
@@ -354,6 +384,8 @@ namespace samurai
             return intersection(std::vector<Set>{first, rest...});
         }
 
+        /// The cells of `first` that belong to none of `rest`: two `DynamicSet`
+        /// or more, all of the same type.
         template <class Set, class... Sets>
             requires(is_dynamic_set<Set>::value && (std::same_as<Set, Sets> && ...) && sizeof...(Sets) >= 1)
         Set difference(const Set& first, const Sets&... rest)
@@ -361,6 +393,7 @@ namespace samurai
             return difference(std::vector<Set>{first, rest...});
         }
 
+        /// `set` brought to `level`, like `set.on(level)`.
         template <std::size_t dim, class TInterval>
         DynamicSet<dim, TInterval> on(const DynamicSet<dim, TInterval>& set, std::size_t level)
         {
@@ -371,6 +404,7 @@ namespace samurai
                                              });
         }
 
+        /// `set` shifted by the translation vector `t`, with one integer per direction.
         template <std::size_t dim, class TInterval, class Translation>
         DynamicSet<dim, TInterval> translate(const DynamicSet<dim, TInterval>& set, const Translation& t)
         {
@@ -381,6 +415,7 @@ namespace samurai
                                              });
         }
 
+        /// `set` expanded by `width` cells in every direction.
         template <std::size_t dim, class TInterval>
         DynamicSet<dim, TInterval> expand(const DynamicSet<dim, TInterval>& set, int width)
         {
@@ -391,6 +426,7 @@ namespace samurai
                                              });
         }
 
+        /// `set` contracted by `width` cells in every direction.
         template <std::size_t dim, class TInterval>
         DynamicSet<dim, TInterval> contract(const DynamicSet<dim, TInterval>& set, std::size_t width)
         {
@@ -401,6 +437,8 @@ namespace samurai
                                              });
         }
 
+        /// `set` contracted by `width` cells in the directions `d` where
+        /// `directions[d]` is `true`.
         template <std::size_t dim, class TInterval>
         DynamicSet<dim, TInterval> contract(const DynamicSet<dim, TInterval>& set, std::size_t width, const std::array<bool, dim>& directions)
         {

@@ -6,18 +6,17 @@
 #include <cassert>
 #include <utility>
 
+/**
+ * Weight policies.
+ *
+ * A weight policy is any callable `double(const cell_t&)` that returns the
+ * non-negative cost of a cell, so that the strategies balance work instead of
+ * cell counts. It is evaluated on local cells only and never communicates.
+ */
 namespace samurai::load_balancing::weight
 {
-    /**
-     * Weight policies.
-     *
-     * A weight policy is any callable `double(const cell_t&)` returning a
-     * non-negative cost; it abstracts the computational cost of a cell so
-     * that strategies balance *work* instead of cell counts. The policy is
-     * evaluated on local cells only: a policy never communicates.
-     */
-
-    /// Uniform weight: every cell costs 1 (balancing work == balancing cell counts).
+    /// Uniform weight: every cell costs 1, so balancing work means balancing
+    /// cell counts.
     inline auto uniform()
     {
         return [](const auto& /*cell*/)
@@ -29,8 +28,8 @@ namespace samurai::load_balancing::weight
     /**
      * Level-dependent weight: the cost of a cell is `f(cell.level)`.
      *
-     * Canonical example — explicit time scheme with local time stepping where
-     * a cell of level `l` is updated `2^(l - min_level)` times more often than
+     * For example, with an explicit time scheme and local time stepping, a
+     * cell of level `l` is updated `2^(l - min_level)` times more often than
      * a cell at `min_level`:
      * @code
      * auto w = lb::weight::per_level([&](std::size_t l) {
@@ -54,12 +53,13 @@ namespace samurai::load_balancing::weight
     }
 
     /**
-     * Application-defined weight read from a scalar field (e.g. number of
-     * particles per cell, local operator cost).
+     * Application-defined weight read from a scalar field, such as the number
+     * of particles per cell or the measured cost of a cell.
      *
-     * The field is captured *by reference*: it must outlive every use of the
-     * returned policy (typically the call to `load_balance()` / `required()`),
-     * and must be non-negative (checked by assertion in Debug).
+     * The field is captured by reference: it must outlive every use of the
+     * returned policy (typically the call to `load_balance()` or
+     * `required()`). Its values must be non-negative, which an assertion
+     * checks in Debug builds.
      */
     template <class Field>
     auto from_field(const Field& w)

@@ -3,14 +3,18 @@
 
 #pragma once
 
+/**
+ * Load balancing: the driver `LoadBalancer`, its strategies, the weight
+ * policies and the imbalance metrics.
+ */
 namespace samurai::load_balancing
 {
     /**
      * Configuration of the load balancing *driver* (`LoadBalancer`).
      *
      * Only the parameters the driver itself reads live here. Each strategy
-     * carries its own options struct (e.g. `DiffusionOptions`, `MetisOptions`,
-     * `ScotchOptions`) so the two never silently overlap.
+     * carries its own options struct, such as `DiffusionOptions`,
+     * `MetisOptions` or `ScotchOptions`, so the two never overlap.
      */
     struct LoadBalanceConfig
     {
@@ -18,8 +22,7 @@ namespace samurai::load_balancing
         /// `max(load)/avg(load) - 1` exceeds this threshold.
         double imbalance_threshold = 0.05;
 
-        /// When true, the driver traces its decisions on std::clog, prefixed
-        /// by the MPI rank. Never use std::cout in library code.
+        /// Not read by any code of the module: setting it has no effect.
         bool verbose = false;
     };
 
