@@ -1,0 +1,514 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-05T18:57:01+00:00",
+  "title": "Design System: samurai documentation",
+  "extensions": {
+    "colorMeta": {
+      "paper": {
+        "role": "neutral",
+        "displayName": "Paper",
+        "cssVariable": "--sm-paper",
+        "canonical": "#ffffff",
+        "dark": "#131a21",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#7d7d7d",
+          "#9e9e9e",
+          "#c4c4c4",
+          "#eeeeee"
+        ]
+      },
+      "margin-grey": {
+        "role": "neutral",
+        "displayName": "Margin Grey",
+        "cssVariable": "--sm-side",
+        "canonical": "#f3f4f6",
+        "dark": "#171f28",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#232425",
+          "#3f4041",
+          "#5d5e5f",
+          "#7c7d7f",
+          "#9d9ea0",
+          "#c3c4c6",
+          "#edeef0"
+        ]
+      },
+      "slate-ink": {
+        "role": "neutral",
+        "displayName": "Slate Ink",
+        "cssVariable": "--sm-ink",
+        "canonical": "#1e2832",
+        "dark": "#d8dfe6",
+        "tonalRamp": [
+          "#040c15",
+          "#1b252f",
+          "#36414c",
+          "#545f6b",
+          "#737f8b",
+          "#94a0ad",
+          "#b9c6d3",
+          "#e3f0fe"
+        ]
+      },
+      "secondary-ink": {
+        "role": "neutral",
+        "displayName": "Secondary Ink",
+        "cssVariable": "--sm-ink-2",
+        "canonical": "#4f5b67",
+        "dark": "#a6b1bc",
+        "tonalRamp": [
+          "#040c15",
+          "#1b2530",
+          "#36414c",
+          "#535f6b",
+          "#727f8c",
+          "#93a0ad",
+          "#b8c6d4",
+          "#e2f0ff"
+        ]
+      },
+      "muted-ink": {
+        "role": "neutral",
+        "displayName": "Muted Ink",
+        "cssVariable": "--sm-ink-3",
+        "canonical": "#5f6a75",
+        "dark": "#8b97a3",
+        "tonalRamp": [
+          "#050c14",
+          "#1c252e",
+          "#37414b",
+          "#545f6a",
+          "#737f8a",
+          "#94a0ac",
+          "#b9c6d2",
+          "#e3f0fd"
+        ]
+      },
+      "rule-grey": {
+        "role": "neutral",
+        "displayName": "Rule Grey",
+        "cssVariable": "--sm-rule",
+        "canonical": "#d5dae0",
+        "dark": "#2e3843",
+        "tonalRamp": [
+          "#080b0f",
+          "#212429",
+          "#3c4045",
+          "#5a5e63",
+          "#797e83",
+          "#9a9fa5",
+          "#c0c5ca",
+          "#eaeff5"
+        ]
+      },
+      "soft-rule": {
+        "role": "neutral",
+        "displayName": "Soft Rule",
+        "cssVariable": "--sm-rule-soft",
+        "canonical": "#e7eaee",
+        "dark": "#222b35",
+        "tonalRamp": [
+          "#090b0e",
+          "#222427",
+          "#3e4043",
+          "#5b5e61",
+          "#7b7d81",
+          "#9c9fa2",
+          "#c1c4c8",
+          "#eceff3"
+        ]
+      },
+      "logo-red": {
+        "role": "primary",
+        "displayName": "Logo Red",
+        "cssVariable": "--sm-red",
+        "canonical": "#af0000",
+        "dark": "#f0736a",
+        "tonalRamp": [
+          "#1f0000",
+          "#490403",
+          "#7d0100",
+          "#b10603",
+          "#d83d30",
+          "#fa6a59",
+          "#feac9f",
+          "#fee9e5"
+        ]
+      },
+      "red-wash": {
+        "role": "primary",
+        "displayName": "Red Wash",
+        "cssVariable": "--sm-red-wash",
+        "canonical": "#f8e4e4",
+        "dark": "#3f2023",
+        "tonalRamp": [
+          "#130708",
+          "#2e2020",
+          "#4b3b3b",
+          "#6a5959",
+          "#8a7878",
+          "#ac9999",
+          "#d2bfbf",
+          "#fde9e9"
+        ]
+      },
+      "red-selection": {
+        "role": "primary",
+        "displayName": "Red Selection",
+        "cssVariable": "--sm-red-select",
+        "canonical": "#f3d0d0",
+        "dark": "#5e2a2a",
+        "tonalRamp": [
+          "#190405",
+          "#351c1d",
+          "#533738",
+          "#725555",
+          "#937474",
+          "#b69595",
+          "#ddbaba",
+          "#fee8e8"
+        ]
+      },
+      "figure-line": {
+        "role": "neutral",
+        "displayName": "Figure Line",
+        "cssVariable": "--sm-fig-line",
+        "canonical": "#bfc7cf",
+        "dark": "#6e7b88",
+        "tonalRamp": [
+          "#070c11",
+          "#1f252b",
+          "#3a4147",
+          "#575e65",
+          "#777e86",
+          "#989fa7",
+          "#bdc5cd",
+          "#e7f0f8"
+        ]
+      },
+      "ink-wash": {
+        "role": "neutral",
+        "displayName": "Ink Wash",
+        "cssVariable": "--sm-ink-wash",
+        "canonical": "#e8ebef",
+        "dark": "#2e3a47",
+        "tonalRamp": [
+          "#090b0e",
+          "#222427",
+          "#3e4043",
+          "#5b5e61",
+          "#7b7d81",
+          "#9c9fa2",
+          "#c1c4c8",
+          "#eceff3"
+        ]
+      },
+      "literal-blue": {
+        "role": "secondary",
+        "displayName": "Literal Blue",
+        "cssVariable": "--sm-tok-str",
+        "canonical": "#2d5872",
+        "dark": "#93bfd8",
+        "tonalRamp": [
+          "#000d17",
+          "#02273b",
+          "#18445d",
+          "#38637e",
+          "#58839f",
+          "#78a5c2",
+          "#9dcbe9",
+          "#dff2fe"
+        ]
+      },
+      "comment-grey": {
+        "role": "neutral",
+        "displayName": "Comment Grey",
+        "cssVariable": "--sm-tok-com",
+        "canonical": "#5c6773",
+        "dark": "#8d99a5",
+        "tonalRamp": [
+          "#050c15",
+          "#1c252f",
+          "#37414c",
+          "#545f6b",
+          "#737f8b",
+          "#94a0ad",
+          "#b9c6d3",
+          "#e3f0fe"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The page title (h1), 2.42em of the body, balanced, over a heavy ink rule."
+      },
+      "headline": {
+        "displayName": "Section Head",
+        "purpose": "h2 in spaced capitals, followed by a short red stroke and a rule."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Subsections (h3), 1.16em of the body."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "The text column; 1.0625rem below 46em."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Figure and diagram captions in italics, 0.84em of the body; plate legends at 0.816em upright."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Navigation parts, On this page, previous and next, table headers, plate and legend titles; uppercase, tracking 0.10 to 0.16em."
+      },
+      "code": {
+        "displayName": "Code",
+        "purpose": "Listings at 0.74em of the body, no ligatures; inline code at 0.84em with no box."
+      }
+    },
+    "fontFaces": [
+      {
+        "family": "Source Serif 4",
+        "files": [
+          "SourceSerif4Variable-Roman.otf.woff2",
+          "SourceSerif4Variable-Italic.otf.woff2"
+        ],
+        "weights": "200 900",
+        "role": "reading"
+      },
+      {
+        "family": "Source Sans 3",
+        "files": [
+          "SourceSans3VF-Upright.otf.woff2"
+        ],
+        "weights": "200 900",
+        "role": "labels"
+      },
+      {
+        "family": "Source Code Pro",
+        "files": [
+          "SourceCodeVF-Upright.otf.woff2",
+          "SourceCodeVF-Italic.otf.woff2"
+        ],
+        "weights": "200 900",
+        "role": "code"
+      },
+      {
+        "family": "samurai math",
+        "files": [
+          "NotoSansMath-Regular.woff2"
+        ],
+        "unicodeRange": "U+2200-2211, U+2213-22FF, U+27E6-27EF",
+        "role": "math operators missing from Source Serif 4"
+      }
+    ],
+    "strokes": [
+      {
+        "name": "hair",
+        "cssVariable": "--sm-w-hair",
+        "value": "0.5px",
+        "purpose": "Callout leaders, hatched result cells, fill rules."
+      },
+      {
+        "name": "rule",
+        "cssVariable": "--sm-w-rule",
+        "value": "1px",
+        "purpose": "Every structural line and the default figure stroke."
+      },
+      {
+        "name": "heavy",
+        "cssVariable": "--sm-w-heavy",
+        "value": "1.5px",
+        "purpose": "Under the page title, table top and bottom, outer plate frame, compared outlines in figures."
+      },
+      {
+        "name": "empty-cell",
+        "value": "0.75px",
+        "purpose": "Faint outline of empty cells in figures, in Figure Line."
+      }
+    ],
+    "figurePatterns": [
+      {
+        "name": "red hatching",
+        "value": "Red Wash ground, 0.8px red lines every 3.4 units at 45 degrees",
+        "purpose": "The cells a figure points out."
+      },
+      {
+        "name": "constant region",
+        "value": "0.5px Muted Ink horizontal lines every 3 units",
+        "purpose": "Where the solution is constant."
+      },
+      {
+        "name": "half-open bracket",
+        "value": "1px line, filled start dot r=3, open paper end dot, mono label [a, b) on paper",
+        "purpose": "Every interval."
+      },
+      {
+        "name": "callout",
+        "value": "1.8 dot on the target, hairline leader, 15-unit italic serif letter with a 4px paper halo",
+        "purpose": "Points explained by the plate legend."
+      }
+    ],
+    "figureSizes": {
+      "diagramWidth": 680,
+      "plateWidth": 711,
+      "unit": "1 drawing unit = 1 CSS px at natural width",
+      "narrowScrollWidth": {
+        "plate": 640,
+        "diagram": 560
+      }
+    },
+    "shadows": [],
+    "motion": [],
+    "breakpoints": [
+      {
+        "name": "header",
+        "value": "67em",
+        "purpose": "At or below, the site header is hidden and Furo's mobile header shows."
+      },
+      {
+        "name": "narrow",
+        "value": "46em",
+        "purpose": "At or below, smaller body, plates fit the column and stack their panels, wide figures scroll sideways."
+      }
+    ],
+    "darkImageSheet": {
+      "value": "#f2efe8",
+      "purpose": "Light sheet behind raster figures in dark mode; not used by drawn plates and diagrams."
+    }
+  },
+  "components": [
+    {
+      "name": "Search Field",
+      "kind": "input",
+      "refersTo": "search-field",
+      "description": "The header search: paper, 1px rule border, 3px radius, a key hint in mono.",
+      "html": "<form class=\"ds-search\" role=\"search\"><svg width=\"15\" height=\"15\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.4\" aria-hidden=\"true\"><circle cx=\"7\" cy=\"7\" r=\"5\"/><path d=\"M11 11l3.5 3.5\"/></svg><input type=\"search\" placeholder=\"Search the documentation\" aria-label=\"Search the documentation\"><kbd>/</kbd></form>",
+      "css": ":host{--sm-paper:#fff;--sm-side:#f3f4f6;--sm-ink:#1e2832;--sm-ink-2:#4f5b67;--sm-ink-3:#5f6a75;--sm-rule:#d5dae0;--sm-rule-soft:#e7eaee;--sm-red:#af0000;--sm-red-wash:#f8e4e4;--sm-fig-line:#bfc7cf;--sm-ink-wash:#e8ebef;--sm-tok-str:#2d5872;--sm-tok-com:#5c6773;} .ds-search{display:flex;align-items:center;gap:.625rem;width:21rem;height:2.25rem;padding:0 .625rem 0 .75rem;border:1px solid var(--sm-rule);border-radius:3px;color:var(--sm-ink-3);background:var(--sm-paper);} .ds-search:focus-within{border-color:var(--sm-ink-3);} .ds-search input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--sm-ink);font:400 .9375rem/1 \"Source Sans 3\", system-ui, sans-serif;} .ds-search input::placeholder{color:var(--sm-ink-2);} .ds-search kbd{font:500 .72rem/1 \"Source Code Pro\", ui-monospace, Menlo, monospace;padding:3px 6px;border:1px solid var(--sm-rule);border-radius:2px;color:var(--sm-ink-2);}"
+    },
+    {
+      "name": "Header Links and Version",
+      "kind": "nav",
+      "refersTo": "version-badge",
+      "description": "Sans links in secondary ink, the version in a bordered badge.",
+      "html": "<nav class=\"ds-bar\"><a href=\"#\">Gallery</a><a href=\"#\">Hands-on course</a><span class=\"ds-version\">v0.33.0</span></nav>",
+      "css": ":host{--sm-paper:#fff;--sm-side:#f3f4f6;--sm-ink:#1e2832;--sm-ink-2:#4f5b67;--sm-ink-3:#5f6a75;--sm-rule:#d5dae0;--sm-rule-soft:#e7eaee;--sm-red:#af0000;--sm-red-wash:#f8e4e4;--sm-fig-line:#bfc7cf;--sm-ink-wash:#e8ebef;--sm-tok-str:#2d5872;--sm-tok-com:#5c6773;} .ds-bar{display:flex;align-items:center;gap:1.375rem;font:400 .875rem/1 \"Source Sans 3\", system-ui, sans-serif;} .ds-bar a{color:var(--sm-ink-2);text-decoration:none;} .ds-bar a:hover{color:var(--sm-ink);} .ds-bar a:focus-visible{outline:2px solid var(--sm-red);outline-offset:2px;} .ds-version{display:inline-flex;align-items:center;height:2.125rem;padding:0 .625rem;border:1px solid var(--sm-rule);border-radius:3px;font:600 .875rem/1 \"Source Sans 3\", system-ui, sans-serif;color:var(--sm-ink);}"
+    },
+    {
+      "name": "Sidebar Navigation",
+      "kind": "nav",
+      "description": "Parts in spaced capitals with roman numerals, chapters in serif with arabic numbers, the current chapter marked by a red left stroke.",
+      "html": "<nav class=\"ds-nav\"><p class=\"ds-part\"><span>I</span>Tutorials</p><a class=\"ds-ch ds-current\" href=\"#\"><span>1</span>Getting started: a first adaptive simulation</a><a class=\"ds-ch\" href=\"#\"><span>2</span>Hands-on samurai course</a></nav>",
+      "css": ":host{--sm-paper:#fff;--sm-side:#f3f4f6;--sm-ink:#1e2832;--sm-ink-2:#4f5b67;--sm-ink-3:#5f6a75;--sm-rule:#d5dae0;--sm-rule-soft:#e7eaee;--sm-red:#af0000;--sm-red-wash:#f8e4e4;--sm-fig-line:#bfc7cf;--sm-ink-wash:#e8ebef;--sm-tok-str:#2d5872;--sm-tok-com:#5c6773;} .ds-nav{background:var(--sm-side);padding:1rem;width:15rem;} .ds-part{margin:0 0 .5rem;font:600 .72rem/1.3 \"Source Sans 3\", system-ui, sans-serif;letter-spacing:.13em;text-transform:uppercase;color:var(--sm-ink-2);} .ds-part span{display:inline-block;min-width:1.75rem;color:var(--sm-ink-3);} .ds-ch{display:flex;margin:0 0 .6rem 1rem;padding-left:.75rem;border-left:1px solid transparent;font:400 .9375rem/1.35 \"Source Serif 4\", Georgia, serif;color:var(--sm-ink-2);text-decoration:none;} .ds-ch span{flex:none;width:1.4rem;padding-top:.2em;font:400 .78rem/1 \"Source Sans 3\", system-ui, sans-serif;color:var(--sm-ink-3);} .ds-ch:hover{color:var(--sm-ink);} .ds-ch:focus-visible{outline:2px solid var(--sm-red);outline-offset:2px;} .ds-current{color:var(--sm-ink);font-weight:600;border-left-color:var(--sm-red);}"
+    },
+    {
+      "name": "Section Head",
+      "kind": "custom",
+      "refersTo": "section-head",
+      "description": "An h2: small spaced capitals, a short red stroke, then a rule to the end of the column.",
+      "html": "<h2 class=\"ds-h2\">Before you start</h2>",
+      "css": ":host{--sm-paper:#fff;--sm-side:#f3f4f6;--sm-ink:#1e2832;--sm-ink-2:#4f5b67;--sm-ink-3:#5f6a75;--sm-rule:#d5dae0;--sm-rule-soft:#e7eaee;--sm-red:#af0000;--sm-red-wash:#f8e4e4;--sm-fig-line:#bfc7cf;--sm-ink-wash:#e8ebef;--sm-tok-str:#2d5872;--sm-tok-com:#5c6773;} .ds-h2{display:flex;align-items:center;gap:.875rem;font:600 .8125rem/1.3 \"Source Sans 3\", system-ui, sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--sm-ink);} .ds-h2::after{content:\"\";flex:1;height:2px;background:linear-gradient(var(--sm-red),var(--sm-red)) 0 0/26px 2px no-repeat,linear-gradient(var(--sm-rule),var(--sm-rule)) 34px 50%/100% 1px no-repeat;}"
+    },
+    {
+      "name": "Listing",
+      "kind": "custom",
+      "refersTo": "listing",
+      "description": "Code between two thin rules, no box, ink highlighting, the file name under the bottom rule.",
+      "html": "<figure class=\"ds-listing\"><pre><span class=\"k\">auto</span> mesh = samurai::mra::make_mesh(box, config); <span class=\"c\">// levels 4 to 8</span></pre><figcaption>main.cpp</figcaption></figure>",
+      "css": ":host{--sm-paper:#fff;--sm-side:#f3f4f6;--sm-ink:#1e2832;--sm-ink-2:#4f5b67;--sm-ink-3:#5f6a75;--sm-rule:#d5dae0;--sm-rule-soft:#e7eaee;--sm-red:#af0000;--sm-red-wash:#f8e4e4;--sm-fig-line:#bfc7cf;--sm-ink-wash:#e8ebef;--sm-tok-str:#2d5872;--sm-tok-com:#5c6773;} .ds-listing{margin:0;} .ds-listing pre{margin:0;padding:.7rem 0 .75rem;border-top:1px solid var(--sm-ink-3);border-bottom:1px solid var(--sm-ink-3);font:400 .879rem/1.6 \"Source Code Pro\", ui-monospace, Menlo, monospace;color:var(--sm-ink);} .ds-listing .k{font-weight:600;} .ds-listing .c{color:var(--sm-tok-com);font-style:italic;} .ds-listing figcaption{padding-top:.45rem;text-align:right;font:400 .8rem/1.4 \"Source Code Pro\", ui-monospace, Menlo, monospace;color:var(--sm-ink-3);}"
+    },
+    {
+      "name": "Definition",
+      "kind": "custom",
+      "refersTo": "statement-label",
+      "description": "A numbered statement: a rule above, a red small-capitals label, the term in italics, a short closing rule.",
+      "html": "<div class=\"ds-statement\"><p><span class=\"ds-label\">Definition 1.</span> <em>(level)</em> A cell at level l has a side of 2<sup>-l</sup>.</p></div>",
+      "css": ":host{--sm-paper:#fff;--sm-side:#f3f4f6;--sm-ink:#1e2832;--sm-ink-2:#4f5b67;--sm-ink-3:#5f6a75;--sm-rule:#d5dae0;--sm-rule-soft:#e7eaee;--sm-red:#af0000;--sm-red-wash:#f8e4e4;--sm-fig-line:#bfc7cf;--sm-ink-wash:#e8ebef;--sm-tok-str:#2d5872;--sm-tok-com:#5c6773;} .ds-statement{padding-top:.65em;border-top:1px solid var(--sm-ink-3);font:400 1.1875rem/1.62 \"Source Serif 4\", Georgia, serif;color:var(--sm-ink);} .ds-statement p{margin:0;} .ds-statement::after{content:\"\";display:block;width:3.2em;margin-top:.65em;border-bottom:1px solid var(--sm-ink-3);} .ds-label{font-weight:600;font-variant-caps:all-small-caps;letter-spacing:.07em;font-kerning:none;color:var(--sm-red);}"
+    },
+    {
+      "name": "Book Table",
+      "kind": "custom",
+      "refersTo": "table-header",
+      "description": "Heavy rules above and below, a rule under the header, soft rules between rows, no fills.",
+      "html": "<table class=\"ds-table\"><thead><tr><th>Function</th><th>Result</th></tr></thead><tbody><tr><td><code>union_(a, ...)</code></td><td>the cells that belong to at least one of the sets</td></tr><tr><td><code>intersection(a, b, ...)</code></td><td>the cells that belong to all the sets</td></tr></tbody></table>",
+      "css": ":host{--sm-paper:#fff;--sm-side:#f3f4f6;--sm-ink:#1e2832;--sm-ink-2:#4f5b67;--sm-ink-3:#5f6a75;--sm-rule:#d5dae0;--sm-rule-soft:#e7eaee;--sm-red:#af0000;--sm-red-wash:#f8e4e4;--sm-fig-line:#bfc7cf;--sm-ink-wash:#e8ebef;--sm-tok-str:#2d5872;--sm-tok-com:#5c6773;} .ds-table{border-collapse:collapse;border-top:1.5px solid var(--sm-ink);border-bottom:1.5px solid var(--sm-ink);font:400 1.033rem/1.5 \"Source Serif 4\", Georgia, serif;color:var(--sm-ink);font-variant-numeric:lining-nums tabular-nums;} .ds-table th{border-bottom:1px solid var(--sm-ink);font:600 .806rem/1.3 \"Source Sans 3\", system-ui, sans-serif;letter-spacing:.1em;text-transform:uppercase;text-align:left;} .ds-table td{border-bottom:1px solid var(--sm-rule-soft);} .ds-table th,.ds-table td{padding:.55em 1.1em .55em 0;} .ds-table code{font:400 .84em \"Source Code Pro\", ui-monospace, Menlo, monospace;}"
+    },
+    {
+      "name": "Plate",
+      "kind": "card",
+      "refersTo": "plate-frame",
+      "description": "The signature illustration: double frame, spaced-capitals title with \"Plate N\" in italics, the drawing, then \"Explanation of Plate N\" in two columns.",
+      "html": "<figure class=\"ds-plate\"><div class=\"ds-frame\"><div class=\"ds-inner\"><div class=\"ds-head\"><span class=\"ds-title\">One time step of the solver</span><span class=\"ds-num\">Plate 2</span></div><svg viewBox=\"0 0 220 70\" width=\"100%\" role=\"img\" aria-label=\"A coarse cell refined in one quadrant\"><defs><pattern id=\"ds-r\" patternUnits=\"userSpaceOnUse\" width=\"3.4\" height=\"3.4\" patternTransform=\"rotate(45)\"><rect width=\"3.4\" height=\"3.4\" fill=\"var(--sm-red-wash)\"/><line x1=\"0\" y1=\"0\" x2=\"0\" y2=\"3.4\" stroke=\"var(--sm-red)\" stroke-width=\"0.8\"/></pattern></defs><rect x=\"80\" y=\"4\" width=\"60\" height=\"60\" fill=\"none\" stroke=\"var(--sm-ink)\" stroke-width=\"1.5\"/><rect x=\"110\" y=\"4\" width=\"30\" height=\"30\" fill=\"url(#ds-r)\" stroke=\"var(--sm-red)\" stroke-width=\"0.5\"/><line x1=\"40\" y1=\"70\" x2=\"180\" y2=\"70\" stroke=\"var(--sm-ink)\"/><circle cx=\"40\" cy=\"70\" r=\"3\" fill=\"var(--sm-ink)\"/><circle cx=\"180\" cy=\"70\" r=\"3\" fill=\"var(--sm-paper)\" stroke=\"var(--sm-ink)\"/></svg></div></div><figcaption class=\"ds-legend\"><p class=\"ds-legend-title\">Explanation of Plate 2</p><p><span class=\"ds-fig\">Fig. 1.</span> <em>adapt</em>: the cells the adaptation creates are hatched in <span style=\"color:var(--sm-red)\">red</span>.</p></figcaption></figure>",
+      "css": ":host{--sm-paper:#fff;--sm-side:#f3f4f6;--sm-ink:#1e2832;--sm-ink-2:#4f5b67;--sm-ink-3:#5f6a75;--sm-rule:#d5dae0;--sm-rule-soft:#e7eaee;--sm-red:#af0000;--sm-red-wash:#f8e4e4;--sm-fig-line:#bfc7cf;--sm-ink-wash:#e8ebef;--sm-tok-str:#2d5872;--sm-tok-com:#5c6773;} .ds-plate{margin:0;font-size:1.1875rem;color:var(--sm-ink);} .ds-frame{border:1.5px solid var(--sm-ink);padding:4px;} .ds-inner{border:1px solid var(--sm-ink-3);padding:0 18px 20px;} .ds-head{display:flex;justify-content:space-between;align-items:baseline;gap:1.25rem;margin-bottom:18px;padding:13px 4px 9px;border-bottom:1px solid var(--sm-ink-3);} .ds-title{font:600 .605em/1.3 \"Source Sans 3\", system-ui, sans-serif;letter-spacing:.16em;text-transform:uppercase;} .ds-num{font:italic 400 .842em/1 \"Source Serif 4\", Georgia, serif;} .ds-legend{margin:18px 40px 0;font:400 .816em/1.55 \"Source Serif 4\", Georgia, serif;color:var(--sm-ink-2);} .ds-legend-title{margin:0 0 12px;text-align:center;font:600 .71em/1.3 \"Source Sans 3\", system-ui, sans-serif;letter-spacing:.16em;text-transform:uppercase;color:var(--sm-ink);} .ds-fig{font-weight:600;font-variant-caps:all-small-caps;letter-spacing:.06em;color:var(--sm-ink);}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Illustrated Monograph",
+    "overview": "The documentation is set like a scientific book: a serif text column on white paper, numbered parts and chapters in the margin, definitions and remarks set as a textbook sets them, and plates that a reader studies the way they would study a figure in a treatise.\n\nEvery page is ink on paper with one red, taken from the logo. Color never fills an area for decoration; it marks the one thing a reader must find (the current chapter, a section head, a statement label, the cells a figure points out). Structure comes from rules, not boxes: thin rules above and below a listing, a heavy rule under the page title, a ruled double frame around a plate. All lines share three stroke weights, in the page and in the drawings, so text and figures read as one printed object.\n\nThe figures are drawn from code and true to the library: graded meshes, half-open intervals, the cells the program of the page prints. Their faces, strokes and colors are the page's own, so a plate follows the light and the dark themes like the text around it. Bold primary color fields with heavy black rules (a neoplastic look) are off-brand.",
+    "keyCharacteristics": [
+      "One serif for reading, one sans for labels in spaced capitals, one mono for code, plus a math face for operators.",
+      "Ink in three tones, one red, no other hue outside syntax highlighting.",
+      "Flat paper: no shadows, no tinted boxes, no rounded cards.",
+      "Three stroke weights: hairline (0.5px), rule (1px), heavy rule (1.5px).",
+      "Plates in a double frame with a centered legend, \"Explanation of Plate N\".",
+      "Light and dark themes from one set of tokens, `--sm-*` in `docs/source/_static/css/samurai.css`."
+    ],
+    "rules": [
+      {
+        "name": "The One Red Rule",
+        "body": "Red marks things and never fills an area. It appears as a stroke, a label, a marker or a hatched wash on the cells a figure is about, never as a background block or a button.",
+        "section": "colors"
+      },
+      {
+        "name": "The Token Only Rule",
+        "body": "No color is written as a literal in a page or a figure. A figure that needs a new color adds a `--sm-*` variable to `samurai.css`, in the light block and in both dark blocks. The one literal in the stylesheet is the light sheet (#f2efe8) placed behind raster images in dark mode, because those images are drawn on white.",
+        "section": "colors"
+      },
+      {
+        "name": "The Small Capitals Rule",
+        "body": "Statement labels (\"Definition 1.\", \"Remark 2.\"), admonition titles, \"Fig. N.\" in legends and in drawings are serif in all small capitals, tracking 0.06 to 0.07em, with kerning turned off so spaced capitals stay even. Definitions and their admonition titles are red; figure labels are ink.",
+        "section": "typography"
+      },
+      {
+        "name": "The Three Voices Rule",
+        "body": "Serif for what is read, sans for what labels, mono for what is typed. A label is never set in the serif and body text never in the sans.",
+        "section": "typography"
+      },
+      {
+        "name": "The Printed Page Rule",
+        "body": "If it could not be printed with ink on paper, it does not belong: no shadow, no blur, no gradient fill, no glow.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Closing Stroke Rule",
+        "body": "A block of text set apart (a definition, a remark, a note, a warning) opens with a full rule in Muted Ink and closes with a short 3.2em rule, like a theorem in a book. A block that ends on a listing closes with the listing's own rule instead.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "**Do** take every color in a page or a figure from a `--sm-*` variable, and add a new variable in the light block and both dark blocks when one is missing.",
+      "**Do** draw with the three stroke weights (0.5px, 1px, 1.5px), plus 0.75px Figure Line for empty cells.",
+      "**Do** draw every interval as a half-open bracket with a filled start and an open end, labeled `[a, b)` in the mono.",
+      "**Do** keep red for what the figure or the page is about: a result, a current position, a statement label.",
+      "**Do** label structure in Source Sans 3 spaced capitals, and set \"Fig. N.\", \"Definition N.\" and admonition titles in serif small capitals.",
+      "**Do** give every plate its panels so it stacks on narrow screens, and say in the legend when the drawing uses fewer levels than the program.",
+      "**Do** describe every drawing in its `label` for screen readers."
+    ],
+    "donts": [
+      "**Don't** write a hex or rgb value in a figure function or a page.",
+      "**Don't** add shadows, rounded cards, tinted boxes or gradients; set things apart with rules.",
+      "**Don't** add a second accent hue; Literal Blue stays inside code listings.",
+      "**Don't** use admonition icons or colored admonition backgrounds.",
+      "**Don't** draw a figure in a drawing program or ship a hand-edited SVG; write a figure function.",
+      "**Don't** draw a mesh that is not graded, or an interval with two filled ends.",
+      "**Don't** use bold primary color fields with heavy black rules, or Japanese folklore motifs (brush strokes, ink washes, katanas)."
+    ]
+  }
+}
