@@ -48,16 +48,36 @@ Pick one of the forms below, or fill the field yourself before you read it.
 
 Both functions take extra arguments that set the initial values.
 The forms are the same for scalar and vector fields.
+The examples of this section build a mesh with levels 0 and 1, which has 4 cells after creation, and print the field so that you can see its values.
 
 ### Set a constant
 
 Pass the constant after the mesh.
 Every value of the field, ghost cells included, gets this constant:
 
-```c++
-auto u = samurai::make_scalar_field<double>("u", mesh, 0.);
-auto v = samurai::make_vector_field<double, 3>("v", mesh, 1.);
+```{literalinclude} snippet/field/init_constant.cpp
+  :language: c++
 ```
+
+The program prints:
+
+```text
+Field u
+    level: 1 coords: { 0.25,  0.25} index: 23, value: 0
+    level: 1 coords: { 0.75,  0.25} index: 24, value: 0
+    level: 1 coords: { 0.25,  0.75} index: 29, value: 0
+    level: 1 coords: { 0.75,  0.75} index: 30, value: 0
+
+Field v
+    level: 1 coords: { 0.25,  0.25} index: 23, value: { 1.,  1.,  1.}
+    level: 1 coords: { 0.75,  0.25} index: 24, value: { 1.,  1.,  1.}
+    level: 1 coords: { 0.25,  0.75} index: 29, value: { 1.,  1.,  1.}
+    level: 1 coords: { 0.75,  0.75} index: 30, value: { 1.,  1.,  1.}
+```
+
+Each line is a cell: its level, the coordinates of its center, its index in the field storage and its value.
+For a vector field, the value lists the components.
+The program indents each line with a tab, shown here as four spaces.
 
 ### Evaluate a function at the cell centers
 
@@ -66,14 +86,24 @@ It receives the coordinates of the cell center and returns the value of the cell
 The ghost cells are set to 0.
 Use this form for a point value of an analytical initial condition:
 
-```c++
-auto u = samurai::make_scalar_field<double>("u",
-                                            mesh,
-                                            [](const auto& x)
-                                            {
-                                                return (x[0] < 0.5) ? 1. : 0.;
-                                            });
+```{literalinclude} snippet/field/init_function.cpp
+  :language: c++
+  :start-at: // 1 on the left half
+  :end-at: std::cout << u
+  :dedent:
 ```
+
+The cells of the left half get 1, the others 0:
+
+```text
+Field u
+    level: 1 coords: { 0.25,  0.25} index: 23, value: 1
+    level: 1 coords: { 0.75,  0.25} index: 24, value: 0
+    level: 1 coords: { 0.25,  0.75} index: 29, value: 1
+    level: 1 coords: { 0.75,  0.75} index: 30, value: 0
+```
+
+The complete program is in `docs/source/howto/snippet/field/init_function.cpp`; the mesh is the same as in the previous example.
 
 ### Average a function over each cell
 
@@ -81,42 +111,49 @@ Pass a `samurai::GaussLegendre<degree>` object after the function to store the c
 The quadrature is exact for polynomials up to `degree`, and the ghost cells are set to 0.
 Use this form when your scheme works on cell averages, as finite volume schemes do:
 
-```c++
-samurai::GaussLegendre<2> gl;
-
-auto u = samurai::make_scalar_field<double>("u",
-                                            mesh,
-                                            [](const auto& x)
-                                            {
-                                                return x[0] * x[1];
-                                            },
-                                            gl);
+```{literalinclude} snippet/field/init_gauss_legendre.cpp
+  :language: c++
+  :start-at: auto f =
+  :end-at: std::cout << u
+  :dedent:
 ```
+
+For $f(x, y) = x^2$, the average over a cell of center $x_c$ and side $h$ is $x_c^2 + h^2 / 12$.
+With $h = 0.5$, the cells centered at $x_c = 0.25$ get $0.0625 + 0.0208 = 0.0833$ instead of the center value $0.0625$:
+
+```text
+Field u
+    level: 1 coords: { 0.25,  0.25} index: 23, value: 0.0833333
+    level: 1 coords: { 0.75,  0.25} index: 24, value: 0.583333
+    level: 1 coords: { 0.25,  0.75} index: 29, value: 0.0833333
+    level: 1 coords: { 0.75,  0.75} index: 30, value: 0.583333
+```
+
+The complete program is in `docs/source/howto/snippet/field/init_gauss_legendre.cpp`.
 
 ### Fill an existing field
 
 To set or reset the values of an existing field, call `fill`:
 
-```c++
-u.fill(0.);
+```{literalinclude} snippet/field/fill_field.cpp
+  :language: c++
+  :start-at: u.fill
+  :end-at: u.fill
+  :dedent:
 ```
 
+Every value of the field, ghost cells included, gets the value you pass.
 To set values cell by cell, see the [loop how-to guide](loop.md).
 
 ## Check the result
 
-Print the field to see the value of every cell:
-
-```c++
-#include <iostream>
-
-std::cout << u << std::endl;
-```
-
-The output starts with `Field u`, followed by one line per cell with its level, the coordinates of its center, its index and its value.
-On the mesh of the examples above, all cells are at level 5 after creation, which gives 1024 lines.
+Print the field with `std::cout << u`, as the examples above do, to see the value of every cell.
+The output starts with `Field u`, followed by one line per cell.
+It lists the cells of the mesh, without the ghost cells.
+On a multiresolution mesh with levels 2 to 5, as in the first examples of this guide, all cells are at level 5 after creation, which gives 1024 lines.
 
 If you build with the `SAMURAI_CHECK_NAN` option, the two-argument forms fill floating-point fields with NaN instead of leaving them uninitialized, so that a value you forgot to set shows up as `nan`.
+With this option, printing a field also lists the ghost cells.
 See the [CMake how-to guide](cmake.md) to turn this option on.
 
 ## Next steps

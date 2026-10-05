@@ -37,9 +37,10 @@ int main(int argc, char* argv[])
     print("intersection.on(3)", set.on(3));
 
     set.on(0).apply_op(
-        [](std::size_t level, const auto& interval, const auto& /* index */)
+        [](auto level, const auto& interval, const auto& /* index */)
         {
-            std::cout << "apply_op: level " << level << ", interval " << interval << std::endl;
+            std::cout << "apply_op: level " << level;
+            std::cout << ", interval " << interval << std::endl;
         });
 
     samurai::finalize();

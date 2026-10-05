@@ -114,8 +114,17 @@ The mesh options (`--min-level`, `--max-level`, `--start-level`, `--graduation-w
 
 To keep the values of a `mesh_config` whatever the command line says, call `disable_args_parse()` on it:
 
-```cpp
-auto config = samurai::mesh_config<dim>().min_level(2).max_level(5).disable_args_parse();
+```{literalinclude} snippet/options/disable_args_parse.cpp
+  :language: c++
+  :start-at: auto config
+  :end-at: disable_args_parse();
+  :dedent:
+```
+
+With this configuration, `./disable_args_parse --max-level 7` prints:
+
+```text
+min level: 2, max level: 5
 ```
 
 The multiresolution options work the same way: `--mr-eps`, `--mr-reg` and `--mr-rel-detail` override the `mra_config` you pass to the adaptation, each time the mesh is adapted.

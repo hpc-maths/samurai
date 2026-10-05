@@ -31,7 +31,8 @@ int main(int argc, char* argv[])
 
     print("plus", samurai::self(plus));
     print("expand(plus, 1)", samurai::expand(plus, 1));
-    print("expand(plus, 1, {false, true})", samurai::expand(plus, 1, {false, true}));
+    print("expand(plus, 1, {false, true})",
+          samurai::expand(plus, 1, {false, true}));
     print("contract(plus, 1)", samurai::contract(plus, 1));
 
     xt::xtensor_fixed<int, xt::xshape<dim>> shift{1, -1};

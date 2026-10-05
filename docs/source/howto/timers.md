@@ -25,15 +25,11 @@ Without `--timers`, timers are disabled: starting and stopping them does nothing
 ## Time a block of code with `ScopedTimer`
 
 To time a block, create a `samurai::ScopedTimer` at its start.
-The timer starts when it is constructed and stops when it goes out of scope:
+The timer starts when it is constructed and stops when it goes out of scope.
+The following program times the initialization of a field:
 
-```cpp
-#include <samurai/timers.hpp>
-
-{
-    samurai::ScopedTimer loop_timer("time loop");
-    // ... the code to time
-} // loop_timer stops here
+```{literalinclude} snippet/timers/scoped_timer.cpp
+:language: c++
 ```
 
 Prefer `ScopedTimer` over explicit calls: the timer stops on every exit from the scope, including an early `return`.
@@ -41,11 +37,16 @@ Prefer `ScopedTimer` over explicit calls: the timer stops on every exit from the
 ## Start and stop a timer explicitly
 
 When the code to time does not fit in one scope, call `start` and `stop` on the global registry `samurai::times::timers` with the same name.
-The following example times the initialization of a field:
+The following lines time the same initialization as above:
 
 ```{literalinclude} snippet/timers/custom_timer.cpp
 :language: c++
+:start-at: samurai::times::timers.start
+:end-at: samurai::times::timers.stop
+:dedent:
 ```
+
+The rest of the program, in `docs/source/howto/snippet/timers/custom_timer.cpp`, is the same as the `ScopedTimer` example.
 
 `stop` must match a timer that was started with the same name and is still running.
 Otherwise, when you run with `--timers`, the program writes `[Timers::stop] No active timer named '<name>' on the stack!` to the standard error and terminates.
@@ -56,24 +57,11 @@ A timer started while another timer is running becomes its child in the report.
 The order of the calls defines the nesting, with nothing to configure.
 Every timer of your program is a child of `total runtime`, because `samurai::initialize` starts that timer first.
 
-The following time loop times the whole loop and two stages inside it:
+The following program solves $\partial_t u = u (1 - u)$ with the explicit Euler method.
+It times the initialization, the whole time loop, and two stages inside the loop:
 
-```cpp
-{
-    samurai::ScopedTimer loop_timer("time loop");
-    for (std::size_t nt = 0; nt < nb_steps; ++nt)
-    {
-        {
-            samurai::ScopedTimer flux_timer("flux computation");
-            // ... compute the fluxes
-            flux_timer.set_cells(mesh.nb_cells());
-        }
-
-        samurai::times::timers.start("update");
-        // ... update the solution
-        samurai::times::timers.stop("update", mesh.nb_cells());
-    }
-}
+```{literalinclude} snippet/timers/nested_timers.cpp
+:language: c++
 ```
 
 A timer with the same name started under two different parents gives two separate rows, one under each parent.
@@ -86,34 +74,48 @@ To see how many cells per second a stage processes, give the number of cells it 
 - with explicit calls, use `samurai::times::timers.stop(name, nb_cells)`;
 - with a `ScopedTimer`, call `set_cells(nb_cells)` before the end of the scope.
 
+Count the cells with `mesh.nb_cells(mesh_id_t::cells)`, as the example does.
+Without an argument, `mesh.nb_cells()` returns the size of the field storage, which includes the ghost cells.
+
 The counts add up over all calls.
 If at least one timer has a non-zero count, the report adds a `Mcells/s` column: the total number of cells divided by the total time, in millions of cells per second.
 Timers without a count leave that column empty.
 
 ## Read the report
 
-The report of the time loop above, run on one process, has this shape:
+Run the program of the previous section with `--timers` on one process:
 
-```{note}
-This output was not measured.
-It was built from the printing code in `include/samurai/timers.hpp` to show the format, with made-up times.
-A real run also lists the built-in samurai timers that ran (for example `mesh adaptation` or `ghost update`), and the terminal shows the rows in color.
+```bash
+./nested_timers --timers
 ```
+
+It prints this report (the times change from run to run):
 
 ```text
  Timers
-Timer                       Elapsed (s)  % total   % parent   Calls   Mcells/s
-------------------------------------------------------------------------------
-total runtime                     2.000   100.0%                  1
-+-- time loop                     1.704    85.2%      85.2%       1
-|   +-- flux computation          1.138    56.9%      66.8%     100        1.4
-|   `-- update                    0.431    21.6%      25.3%     100        3.8
-`-- init field                    0.052     2.6%       2.6%       1
-------------------------------------------------------------------------------
-(untimed)                         0.244    12.2%
-------------------------------------------------------------------------------
-total runtime                     2.000   100.0%
+Timer                              Elapsed (s)  % total   % parent   Calls   Mcells/s
+-------------------------------------------------------------------------------------
+total runtime                            0.170   100.0%                  1
++-- time loop                            0.167    98.2%      98.2%       1
+|   +-- update                           0.091    53.5%      54.5%     100     1152.2
+|   `-- rhs computation                  0.076    44.6%      45.5%     100     1380.0
++-- init field                           0.002     1.4%       1.4%       1
++-- update_sub_mesh                      0.000     0.2%       0.2%       1
+|   `-- update_meshid_neighbour          0.000     0.0%       0.0%       1
++-- construct_union                      0.000     0.1%       0.1%       1
++-- construct_corners                    0.000     0.0%       0.0%       1
++-- renumbering                          0.000     0.0%       0.0%       1
++-- construct_subdomain                  0.000     0.0%       0.0%       1
++-- exchange neighbour meshes            0.000     0.0%       0.0%       1
++-- update_mesh_neighbour                0.000     0.0%       0.0%       1
+`-- update_meshid_neighbour              0.000     0.0%       0.0%       1
+-------------------------------------------------------------------------------------
+(untimed)                                0.000     0.1%
+-------------------------------------------------------------------------------------
+total runtime                            0.170   100.0%
 ```
+
+The rows `update_sub_mesh`, `construct_union` and the others below `init field` are built-in samurai timers: `samurai::mra::make_mesh` runs them when it builds the mesh.
 
 - `Elapsed (s)`: total time spent in the timer, over all its calls.
 - `% total`: share of `total runtime`.
@@ -135,24 +137,33 @@ The `[r]` columns give the rank that reached the minimum and the maximum, which 
 Run the program with `mpirun` and `--timers`:
 
 ```bash
-mpirun -np 4 ./my_program --timers
+mpirun -np 4 ./nested_timers --timers
 ```
 
-The same time loop on 4 ranks gives a report of this shape (not measured either, built the same way as the sequential one):
+The same program on 4 ranks prints:
 
 ```text
  Timers
-Timer                         Min (s)   [r]    Max (s)   [r]    Ave (s)  % total   % parent   Calls
----------------------------------------------------------------------------------------------------
-total runtime                   0.802   [2]      0.806   [0]      0.804   100.0%                  1
-+-- time loop                   0.517   [1]      0.524   [3]      0.521    64.8%      64.8%       1
-|   +-- flux computation        0.271   [2]      0.312   [0]      0.290    36.1%      55.7%     100
-|   `-- update                  0.104   [1]      0.121   [3]      0.112    13.9%      21.5%     100
-`-- init field                  0.011   [3]      0.016   [1]      0.013     1.6%       1.6%       1
----------------------------------------------------------------------------------------------------
-(untimed)                                              0.270    33.6%
----------------------------------------------------------------------------------------------------
-total runtime (ave)                                    0.804   100.0%
+Timer                                Min (s)   [r]    Max (s)   [r]    Ave (s)  % total   % parent   Calls
+----------------------------------------------------------------------------------------------------------
+total runtime                          0.047   [1]      0.054   [0]      0.051   100.0%                  1
++-- time loop                          0.046   [1]      0.052   [0]      0.050    96.9%      96.9%       1
+|   +-- update                         0.025   [1]      0.029   [2]      0.027    52.6%      54.3%     100
+|   `-- rhs computation                0.020   [1]      0.025   [0]      0.023    44.2%      45.6%     100
++-- init field                         0.001   [2]      0.001   [3]      0.001     1.6%       1.6%       1
++-- update_mesh_neighbour              0.000   [0]      0.000   [2]      0.000     0.6%       0.6%       1
++-- exchange neighbour meshes          0.000   [3]      0.000   [1]      0.000     0.2%       0.2%       1
++-- update_sub_mesh                    0.000   [1]      0.000   [0]      0.000     0.2%       0.2%       1
+|   `-- update_meshid_neighbour        0.000   [0]      0.000   [2]      0.000     0.1%      28.1%       1
++-- construct_corners                  0.000   [0]      0.000   [3]      0.000     0.1%       0.1%       1
++-- update_meshid_neighbour            0.000   [1]      0.000   [3]      0.000     0.1%       0.1%       1
++-- construct_subdomain                0.000   [0]      0.000   [2]      0.000     0.0%       0.0%       1
++-- construct_union                    0.000   [2]      0.000   [3]      0.000     0.0%       0.0%       1
+`-- renumbering                        0.000   [3]      0.000   [2]      0.000     0.0%       0.0%       1
+----------------------------------------------------------------------------------------------------------
+(untimed)                                                     0.000     0.1%
+----------------------------------------------------------------------------------------------------------
+total runtime (ave)                                           0.051   100.0%
 ```
 
 The MPI report has no `Mcells/s` column, even when you pass cell counts.

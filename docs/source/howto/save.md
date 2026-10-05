@@ -11,6 +11,7 @@ To write a checkpoint that your program can read back, use `dump` and `load` ins
 - Include `samurai/io/hdf5.hpp`.
 - Call `samurai::initialize(argc, argv)` at the start of `main` and `samurai::finalize()` at the end if your build uses MPI or if you want the `--save-debug-fields` option.
   `initialize` starts MPI and reads the samurai command-line options.
+  The examples of this guide call both.
 - For an MPI build, HDF5 must be built with parallel (MPI-IO) support.
 
 ## Save a mesh
@@ -79,6 +80,7 @@ To write the sub-meshes as well, pass a `samurai::Hdf5Options` object after the 
 
 ```{literalinclude} snippet/save/save_all_submeshes.cpp
     :language: c++
+    :end-before: // Without a directory
 ```
 
 The arguments of `Hdf5Options` depend on the mesh type:
@@ -94,12 +96,14 @@ Both arguments default to `false`.
 
 When you leave out the directory, pass the options as a named object and not as a braced list:
 
-```cpp
-samurai::Hdf5Options<decltype(mesh)> options(true, true);
-samurai::save("fields", options, mesh, field_1, field_2);
+```{literalinclude} snippet/save/save_all_submeshes.cpp
+    :language: c++
+    :start-after: // Without a directory
+    :end-at: samurai::save("submesh", options
+    :dedent:
 ```
 
-The call `samurai::save("fields", {true, true}, mesh, ...)` also matches the overload that takes a directory and a file name (`{true, true}` converts to a `std::string`), so the call is either ambiguous or resolved to the wrong overload.
+The call `samurai::save("submesh", {true, true}, mesh, ...)` also matches the overload that takes a directory and a file name (`{true, true}` converts to a `std::string`), so the call is either ambiguous or resolved to the wrong overload.
 With a directory, as in the snippet above, the braced list works.
 
 ## If you run with MPI
@@ -120,7 +124,22 @@ With a directory, as in the snippet above, the braced list works.
    h5ls -r output_path/fields.h5
    ```
 
-   For a run on one process, the file holds the datasets `/mesh/points`, `/mesh/connectivity`, `/mesh/fields/u` and `/mesh/fields/v_0` to `/mesh/fields/v_2`.
+   For a run of `save_field` on one process, it prints:
+
+   ```text
+   /                        Group
+   /mesh                    Group
+   /mesh/connectivity       Dataset {1024, 4}
+   /mesh/fields             Group
+   /mesh/fields/u           Dataset {1024}
+   /mesh/fields/v_0         Dataset {1024}
+   /mesh/fields/v_1         Dataset {1024}
+   /mesh/fields/v_2         Dataset {1024}
+   /mesh/points             Dataset {1089, 3}
+   ```
+
+   The mesh has its 1024 cells at level 5, and $33 \times 33 = 1089$ cell corners.
+
 3. Open `fields.xdmf` (not the `.h5` file) in ParaView with **File > Open**. The fields `u`, `v_0`, `v_1` and `v_2` appear in the list of cell arrays.
 
 ## Related

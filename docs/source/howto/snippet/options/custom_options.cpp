@@ -9,13 +9,16 @@ int main(int argc, char** argv)
     int my_option = 42;
     bool my_flag  = false;
 
-    app.add_option("--my-option", my_option, "An example of custom option")->capture_default_str()->group("Custom");
-    app.add_flag("--my-flag", my_flag, "An example of custom flag")->group("Custom");
+    app.add_option("--my-option", my_option, "Custom option")
+        ->capture_default_str()
+        ->group("Custom");
+    app.add_flag("--my-flag", my_flag, "Custom flag")->group("Custom");
 
     SAMURAI_PARSE(argc, argv);
 
     std::cout << "my-option = " << my_option << std::endl;
-    std::cout << "my-flag = " << std::boolalpha << my_flag << std::endl;
+    std::cout << std::boolalpha;
+    std::cout << "my-flag = " << my_flag << std::endl;
 
     samurai::finalize();
     return 0;

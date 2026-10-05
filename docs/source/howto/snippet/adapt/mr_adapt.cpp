@@ -14,11 +14,13 @@ template <class Mesh>
 void print_cells_per_level(const Mesh& mesh)
 {
     using mesh_id_t = typename Mesh::mesh_id_t;
-    for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
+    for (auto l = mesh.min_level(); l <= mesh.max_level(); ++l)
     {
-        std::cout << "  level " << level << ": " << mesh.nb_cells(level, mesh_id_t::cells) << " cells\n";
+        const auto n = mesh.nb_cells(l, mesh_id_t::cells);
+        std::cout << "  level " << l << ": " << n << " cells\n";
     }
-    std::cout << "  total: " << mesh.nb_cells(mesh_id_t::cells) << " cells" << std::endl;
+    const auto n = mesh.nb_cells(mesh_id_t::cells);
+    std::cout << "  total: " << n << " cells" << std::endl;
 }
 
 int main(int argc, char** argv)
@@ -30,20 +32,22 @@ int main(int argc, char** argv)
 
     // Create the mesh and the field
     samurai::Box<double, dim> box({0.0, 0.0}, {1.0, 1.0});
-    auto config = samurai::mesh_config<dim>().min_level(3).max_level(7);
-    auto mesh   = samurai::mra::make_mesh(box, config);
+    auto config = samurai::mesh_config<dim>();
+    config.min_level(3).max_level(7);
+    auto mesh = samurai::mra::make_mesh(box, config);
 
-    auto u = samurai::make_scalar_field<double>("u", mesh);
-    samurai::for_each_cell(mesh,
-                           [&](const auto& cell)
-                           {
-                               const auto x    = cell.center();
-                               const double r2 = (x[0] - 0.5) * (x[0] - 0.5) + (x[1] - 0.5) * (x[1] - 0.5);
-                               u[cell]         = std::exp(-200. * r2);
-                           });
+    auto u    = samurai::make_scalar_field<double>("u", mesh);
+    auto init = [&](const auto& cell)
+    {
+        const auto x    = cell.center();
+        const double dx = x[0] - 0.5;
+        const double dy = x[1] - 0.5;
+        u[cell]         = std::exp(-200. * (dx * dx + dy * dy));
+    };
+    samurai::for_each_cell(mesh, init);
     samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
 
-    // A second field that follows the mesh without driving the adaptation
+    // A field that follows the mesh but does not drive the adaptation
     auto v = samurai::make_scalar_field<double>("v", mesh);
     v.fill(1.);
 
@@ -52,7 +56,8 @@ int main(int argc, char** argv)
 
     // Adapt the mesh
     auto MRadaptation = samurai::make_MRAdapt(u);
-    auto mra_config   = samurai::mra_config().epsilon(1e-3).regularity(1.).relative_detail(false);
+    auto mra_config   = samurai::mra_config();
+    mra_config.epsilon(1e-3).regularity(1.).relative_detail(false);
     MRadaptation(mra_config, v);
 
     std::cout << "After adaptation:\n";
