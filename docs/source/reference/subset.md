@@ -60,10 +60,10 @@ It prints:
   :language: text
 ```
 
-```{image} ./figures/set_algebra_boolean.svg
-:alt: Two 1D sets on cells 0 to 13. A holds [0, 5) and [10, 13), B holds [4, 8). Their union is [0, 8) and [10, 13), their intersection is the single cell [4, 5), A minus B is [0, 4) and [10, 13), and B minus A is [5, 8).
-:width: 100%
-:align: center
+```{diagram}
+:figure: boolean_operations
+
+The four results on the cells 0 to 13 of level 0, under the two operands.
 ```
 
 The arguments have these types, with `value_t` the integer type of the interval bounds (`int` by default) and `dim` the dimension:
@@ -95,13 +95,26 @@ It prints the intervals of each result, row by row:
   :language: text
 ```
 
-```{image} ./figures/set_algebra_expand_contract.svg
-:alt: Five 2D grids of x from -1 to 4 and y from 0 to 4. The plus sign holds the cell (1, 2) and its four axis neighbors. expand(plus, 1) fills a 5 by 5 square without its four corners. Expanding only along y gives a column of 5 cells at x = 1 and a column of 3 cells at x = 0 and x = 2. contract(plus, 1) keeps only the center cell (1, 2). translate(plus, {1, -1}) moves the plus sign one cell right and one cell down.
-:width: 100%
-:align: center
+```{plate} Expansion, contraction and translation of a plus sign
+:figure: plus_sign_operations
+:label: plate-plus
+
+**Fig. 1.** The operand, a plus sign of five cells of level 0 centered on $(1, 2)$.
+
+**Fig. 2.** `expand(plus, 1)`: every cell within one cell of the plus sign, diagonals included.
+*b*, a corner of the 5 by 5 square is missing, because it is two cells away from the plus sign.
+
+**Fig. 3.** `expand(plus, 1, {false, true})`: the same, along $y$ only.
+
+**Fig. 4.** `contract(plus, 1)`.
+*a*, the center cell survives, although its four diagonal neighbors are not in the set: `contract` checks only the neighbors along the axes.
+
+**Fig. 5.** `translate(plus, {1, -1})`: one cell right, one cell down.
+
+In Figs. 2 to 5 the results are hatched in [red]{.sm-red}, under the outline of the plus sign.
 ```
 
-The cell $(1, 2)$ survives `contract(plus, 1)` although its four diagonal neighbors are not in the set.
+The cell $(1, 2)$ survives `contract(plus, 1)` although its four diagonal neighbors are not in the set ({ref}`plate-plus`, Fig. 4).
 
 ## Level of a set expression
 
@@ -128,10 +141,11 @@ The level does not have to exist in the mesh.
 The operands are compared at the finest level of the expression, and `on` applies to the result.
 In the following figure, level 1 holds the interval $[0, 4)$ and level 0 the interval $[1, 3)$:
 
-```{image} ./figures/subset_level.png
-:alt: Two levels of a 1D mesh. Level 1 has the cells 0 to 3. Level 0 has the cells 1 and 2, each one twice as wide as a cell of level 1, so that the cell 1 of level 0 covers the cells 2 and 3 of level 1.
-:width: 60%
-:align: center
+```{diagram}
+:figure: set_projection
+
+Level 1 holds $[0, 4)$, level 0 holds $[1, 3)$.
+Their intersection is computed on level 1, then brought to levels 0 and 3 by `on`.
 ```
 
 Compared without a set projection, the two intervals would give the intersection $[1, 3)$, which is wrong: the cell 1 of level 0 covers the cells 2 and 3 of level 1, and the cell 2 of level 0 is outside level 1.

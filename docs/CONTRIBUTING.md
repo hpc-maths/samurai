@@ -254,6 +254,7 @@ Keep to these conventions so that the pages build and read the same way:
 - Set the definition of a term with ```` ```{definition} term ```` and a side remark with ```` ```{remark} ````, not with `{note}`.
   The definitions and remarks of a page are numbered in one sequence ("Definition 1.", "Remark 2.").
   Give a definition a `:label:` to link to it with `{ref}`: the link reads "Definition 1 (term)".
+- Draw a figure with code, not with a drawing program: write it as a function in `docs/source/_ext/samurai_figures/figures.py`, register it with the `@figure` decorator, and show it with a `plate` or a `diagram` directive.
 
 The Markdown files follow the rules in `.markdownlint.json`.
 pre-commit does not run markdownlint, so run it yourself; it needs Node.js:
@@ -261,6 +262,48 @@ pre-commit does not run markdownlint, so run it yourself; it needs Node.js:
 ```bash
 npx --yes markdownlint-cli2 "docs/**/*.md"
 ```
+
+### Plates and diagrams
+
+A diagram is an inline drawing with a caption.
+A plate is a larger illustration in a frame, numbered in the page ("Plate 1"), with a legend that explains each of its figures:
+
+````markdown
+```{diagram}
+:figure: boolean_operations
+
+The four results on the cells 0 to 13 of level 0.
+```
+
+```{plate} One time step of the solver
+:figure: time_step
+:label: plate-time-step
+
+**Fig. 1.** *adapt*: the adaptation rebuilds the mesh.
+*a*, the face between a coarse cell and two fine cells.
+
+*The plate is drawn with levels 3 to 6; the program uses levels 4 to 8.*
+```
+````
+
+`:figure:` is the name of the figure function.
+In a legend, start the paragraph of each figure with `**Fig. 1.**`, write the callout letters of the drawing in italics, and write a note as a paragraph all in italics.
+`:columns: 1` sets the legend in one column instead of two.
+`{ref}` on the label of a plate reads "Plate 1 (title)"; a diagram is not numbered, so link to its label with an explicit text, ``{ref}`the diagram <label>` ``.
+
+A figure function takes the prefix of its SVG ids and returns a `Drawing`.
+Several figures share a page, so every id it creates (patterns, markers, clip paths) starts with that prefix.
+A plate also gives its `panels`: the region of each figure, which narrow screens show one under the other.
+Build on `draw.py` for the primitives and on `mesh.py` for meshes.
+
+A figure must stay true to samurai:
+
+- Draw what the code of the page does: the cells, intervals and levels of a figure are the ones its program prints or uses.
+- Draw meshes with `build_mesh`: it makes them graded, like samurai meshes, and `check_graded` fails the build otherwise.
+- Draw intervals half-open, with `bracket`: a filled dot at the start, an open dot at the end.
+- When a figure uses fewer levels than the program, so that the cells stay visible, say so in the legend.
+- Take every colour from the theme variables of `_static/css/samurai.css` (`var(--sm-ink)`, `var(--sm-red)`, ...), never a fixed colour, so that the figure follows the light and the dark themes.
+  Add a variable there, in the light and in both dark blocks, when a figure needs a new colour.
 
 ## Check your changes with pre-commit
 
