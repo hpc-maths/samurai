@@ -51,8 +51,9 @@ namespace samurai
     };
 
     /**
-     * @class NormalFluxDefinition defines how to compute a normal flux.
-     * This struct inherits from @class NormalFluxDefinitionBase and is specialized for all flux types (see below).
+     * Defines how to compute a normal flux.
+     * The primary template is empty: it is specialized for each scheme type (see below),
+     * and each specialization inherits from @ref NormalFluxDefinitionBase.
      */
     template <class cfg, class enable = void>
     struct NormalFluxDefinition
@@ -87,7 +88,7 @@ namespace samurai
     };
 
     /**
-     * Specialization of @class NormalFluxDefinition.
+     * Specialization of @ref NormalFluxDefinition.
      * Defines how to compute a NON-LINEAR normal flux.
      */
     template <class cfg>
@@ -172,7 +173,7 @@ namespace samurai
     using FluxStencilCoeffs = StencilJacobian<cfg>;
 
     /**
-     * Specialization of @class NormalFluxDefinition.
+     * Specialization of @ref NormalFluxDefinition.
      * Defines how to compute a LINEAR and HETEROGENEOUS normal flux.
      */
     template <class cfg>
@@ -196,7 +197,7 @@ namespace samurai
     //----------------------------------//
 
     /**
-     * Specialization of @class NormalFluxDefinition.
+     * Specialization of @ref NormalFluxDefinition.
      * Defines how to compute a LINEAR and HOMOGENEOUS normal flux.
      */
     template <class cfg>
@@ -236,8 +237,7 @@ namespace samurai
     //----------------------------------//
 
     /**
-     * @class FluxDefinition:
-     * Stores one object of @class NormalFluxDefinition for each positive Cartesian direction.
+     * Stores one @ref NormalFluxDefinition for each positive Cartesian direction.
      */
     template <class cfg>
     class FluxDefinition

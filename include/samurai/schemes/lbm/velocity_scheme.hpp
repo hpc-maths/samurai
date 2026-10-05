@@ -10,7 +10,7 @@
 namespace samurai
 {
     /**
-     * @class VelocityScheme
+     * @struct VelocityScheme
      *
      * Elementary velocity scheme (one "sub-scheme" in the pylbm sense): a group
      * of @a q lattice velocities that share the same moment matrices and

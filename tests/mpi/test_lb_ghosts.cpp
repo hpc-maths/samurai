@@ -163,7 +163,7 @@ namespace
     /// have them in its own reference). Their garbage content depends on the
     /// heap history, which would make this test order-dependent; scrubbing
     /// restores a deterministic state identical for both variants. The
-    /// underlying coverage gap is documented in the roadmap (§ 5bis residue).
+    /// underlying coverage gap is tracked in issue #506.
     template <class Field>
     void scrub_ghosts(Field& u)
     {

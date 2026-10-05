@@ -51,7 +51,7 @@ namespace samurai
     /////////////////////////////
 
     /**
-     * Default contructor which sets the level for each LevelCellArray.
+     * Default constructor which sets the level for each LevelCellArray.
      */
     template <std::size_t dim_, class TInterval, std::size_t max_size_>
     SAMURAI_INLINE CellList<dim_, TInterval, max_size_>::CellList()

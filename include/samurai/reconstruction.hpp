@@ -25,23 +25,25 @@
  * keeps only the cells actually present in the adapted mesh; the value of an
  * absent finer cell is @e predicted from its coarser neighbours through the
  * wavelet interpolation of half-width @c prediction_stencil_radius (the
- * @ref prediction_coefficients of numeric/prediction_coefficients.hpp). Prediction is linear,
+ * @ref samurai::prediction_coefficients "prediction_coefficients" of
+ * numeric/prediction_coefficients.hpp). Prediction is linear,
  * so the predicted value is a fixed linear combination of coarse-cell values
  * that depends only on the level gap and on the child position inside its coarse
  * cell, never on the field. Three layers build on that fact:
  *
- *   - @ref prediction_map        the combination itself: a sparse map
+ *   - @ref samurai::prediction_map "prediction_map"
+ *                                the combination itself: a sparse map
  *                                {coarse-cell offset -> weight}.
- *   - @ref prediction "prediction(delta_l, ii)"
+ *   - @ref samurai::prediction(std::size_t, index_t...) "prediction(delta_l, ii)"
  *                                builds and memoises the map predicting child
  *                                @c ii, @c delta_l levels below its coarse cell.
- *   - @ref portion "portion(f, ...)"
+ *   - @ref samurai::portion "portion(f, ...)"
  *                                applies such a map to a field @c f, vectorised
  *                                over a whole x-interval of coarse cells.
  *
- * Two higher-level operations consume them: @ref reconstruction projects an
- * adapted field onto a uniform fine mesh (I/O, post-processing), and
- * @ref transfer moves a field from one adapted mesh to another.
+ * Two higher-level operations consume them: @ref samurai::reconstruction "reconstruction"
+ * rebuilds an adapted field onto a uniform fine mesh (I/O, post-processing), and
+ * @ref samurai::transfer "transfer" moves a field from one adapted mesh to another.
  */
 
 namespace samurai
@@ -72,7 +74,7 @@ namespace samurai
      * the weights of matching offsets, @c *= and the scalar @c += scale or shift
      * every weight. Because prediction is linear, summing the maps of several
      * children yields the map of their sum in one object (used by the slice form
-     * of @ref get_prediction). The single-offset constructor is the identity
+     * of @c detail::get_prediction). The single-offset constructor is the identity
      * combination @c value(reference + k) (weight 1).
      */
     template <std::size_t dim, class index_t = default_config::value_t>
@@ -366,7 +368,7 @@ namespace samurai
     }
 
     /**
-     * Prediction stencil of a single fine child, as a @ref prediction_map.
+     * Prediction stencil of a single fine child, as a @ref samurai::prediction_map "prediction_map".
      *
      * Returns the linear combination of coarse-cell values that predicts the child
      * whose integer position is @c indices, sitting @c level levels below a
@@ -377,9 +379,10 @@ namespace samurai
      * crossing coarse-cell boundaries).
      *
      * @tparam order  half-width of the wavelet interpolation, i.e.
-     *                @c prediction_stencil_radius (uses @ref prediction_coefficients).
+     *                @c prediction_stencil_radius (uses @ref samurai::prediction_coefficients "prediction_coefficients").
      * @param  level  the level gap @c delta_l (NOT an absolute level). @c 0 is the
      *                identity map @c {indices: 1} (the cell itself).
+     * @param  indices the integer position of the child, one index per direction.
      *
      * Built by recursion on the gap: the child's parent is @c indices>>1 one level up,
      * and the odd/even parity @c indices&1 picks the interpolation sign per direction.
@@ -576,8 +579,8 @@ namespace samurai
     /**
      * Reconstruct an adapted field onto the uniform grid at the domain (finest) level
      * and return it as a new field on that grid. Every coarse cell is expanded into its
-     * fine children by @ref reconstruction_op_. Mainly for I/O and post-processing, where
-     * a single-resolution image of the solution is wanted.
+     * fine children by @ref samurai::reconstruction_op_ "reconstruction_op_". Mainly for I/O and
+     * post-processing, where a single-resolution image of the solution is wanted.
      *
      * Requires at least two boundary ghosts (the prediction stencil reaches two coarse
      * cells); throws otherwise. Ghosts are refreshed first via @c update_ghost_if_needed.
@@ -794,6 +797,7 @@ namespace samurai
      * Reconstructed value of the child(ren) @a ii of the coarse cell(s) @a i, for a field
      * @a f stored @a delta_l levels coarser than those children.
      *
+     * @param result  (accumulating overloads only) buffer the reconstructed values are added to.
      * @param f       the field, read at @a level.
      * @param element (per-component overloads only) reconstruct just this component.
      * @param level   coarse level where @a f is read.
@@ -802,7 +806,7 @@ namespace samurai
      *                vectorised over that whole row of coarse cells), the rest are the
      *                transverse coarse indices.
      * @param ii      one child index per direction: a @c value_t picks a single child, an
-     *                @c interval_t sums the whole child slice at once (see @ref get_prediction).
+     *                @c interval_t sums the whole child slice at once (see @c detail::get_prediction).
      *
      * The @c (result, ...) overloads accumulate into a caller-provided buffer; the returning
      * overloads allocate a zeroed result first. The stencil half-width defaults to the mesh's
@@ -924,8 +928,8 @@ namespace samurai
         }
     }
 
-    /// Single-cell @ref portion taking plain index arrays (a coarse cell and one of its
-    /// children) instead of the interval tuples; convenience for @ref transfer. Reconstructs
+    /// Single-cell @ref samurai::portion "portion" taking plain index arrays (a coarse cell and one of its
+    /// children) instead of the interval tuples; convenience for @ref samurai::transfer "transfer". Reconstructs
     /// component 0 for a vector field.
     template <class Field>
     void portion(auto& result,
@@ -962,7 +966,7 @@ namespace samurai
      * the two meshes differ in resolution. For each destination level, a cell is filled from
      * the source by one of three cases: an exact copy where the source has the same cell; a
      * projection (average of the @c 2^{shift.dim} finer source cells) where the source is finer;
-     * or a @ref portion prediction where the source is coarser. Requires at least two boundary
+     * or a @ref samurai::portion "portion" prediction where the source is coarser. Requires at least two boundary
      * ghosts on the source (prediction stencil); throws otherwise.
      */
     template <class Field_src, class Field_dst>

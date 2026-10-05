@@ -1,13 +1,13 @@
 # Copyright 2018-2025 the samurai's authors
 # SPDX-License-Identifier:  BSD-3-Clause
 #
-# Comparative integration tests for the load balancing module (roadmap step 6).
+# Comparative integration tests for the load balancing module.
 #
 # The MPI demo ``mpi-load-balancing-2d`` advects a disk on an adaptive mesh:
 # the work per process drifts at every adaptation, which is exactly what the
 # balancing strategies are meant to absorb. The contract these tests enforce
-# is the one stated in the roadmap: **load balancing must never change the
-# physics, only the distribution of cells across processes**. We therefore:
+# is: **load balancing must never change the physics, only the distribution
+# of cells across processes**. We therefore:
 #
 #   1. run the sequential baseline (``void`` on a single process) as reference;
 #   2. run every available strategy on several process counts;
@@ -38,7 +38,7 @@ OPTIONAL = ["metis", "scotch"]
 # (max_level 6 vs 10), so it advances in far fewer time steps for a given final
 # time; the horizon is stretched and the period shortened so that the
 # incremental Diffusion strategy gets enough passes to converge (it balances
-# asymptotically, see the roadmap).
+# asymptotically, see include/samurai/load_balancing/strategies/diffusion.hpp).
 TF = {2: "0.02", 3: "0.06"}
 PERIOD = {2: "5", 3: "2"}
 

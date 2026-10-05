@@ -43,12 +43,12 @@ namespace samurai
                     // LAYER: the ghost at distance `layer` from the boundary
                     // belongs to the rank owning the inner cell facing it, i.e.
                     // whose subdomain translated by layer*direction covers it.
-                    // Using a single translation of ghost_width for all layers
-                    // (historic behaviour) designated the rank owning the cell
-                    // at distance ghost_width instead: wrong as soon as the
-                    // partition splits the columns adjacent to the boundary
-                    // (e.g. SFC partitions), and the wrong owner then spread an
-                    // unfilled value over the correctly filled one.
+                    // A single translation of ghost_width for all layers would
+                    // designate the rank owning the cell at distance ghost_width
+                    // instead: wrong as soon as the partition splits the columns
+                    // adjacent to the boundary (e.g. SFC partitions), and the
+                    // wrong owner would then spread an unfilled value over the
+                    // correctly filled one.
                     for (int layer = 1; layer <= ghost_width; ++layer)
                     {
                         // exact ghost layer `layer` in this direction

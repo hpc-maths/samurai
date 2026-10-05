@@ -117,10 +117,13 @@ namespace samurai
      *    --------->
      *    direction
      *
-     * The provided callback @param f has the following signature:
-     *           void f(auto& interface_cells, auto& comput_cells)
-     * where
-     *       'interface_cells' = [cell_{l}, cell_{l+1}].
+     * @param mesh           the mesh.
+     * @param level          the coarse level l of the level jumps.
+     * @param direction      the direction of the level jumps.
+     * @param comput_stencil the computational stencil, defining the set of cells (all of the same level)
+     *                       passed as second argument of @a f.
+     * @param f              callback with the signature `void f(auto& interface_cells, auto& comput_cells)`,
+     *                       where 'interface_cells' = [cell_{l}, cell_{l+1}].
      */
     template <Run run_type = Run::Sequential, Get get_type = Get::Cells, bool include_periodic = true, class Mesh, std::size_t comput_stencil_size, class Func>
     void for_each_interior_interface__level_jump_direction(const Mesh& mesh,
@@ -206,17 +209,20 @@ namespace samurai
     }
 
     /**
-     * Iterates over the level jumps (level --> level+1) that occur in the OPPOSITE direction of @param direction.
+     * Iterates over the level jumps (level --> level+1) that occur in the OPPOSITE direction of @a direction.
      *
      *    |__|        l+1
      *       |____|   l
      *    --------->
      *    direction
      *
-     * The provided callback @param f has the following signature:
-     *           void f(auto& interface_cells, auto& comput_cells)
-     * where
-     *       'interface_cells' = [cell_{l+1}, cell_{l}].
+     * @param mesh           the mesh.
+     * @param level          the coarse level l of the level jumps.
+     * @param direction      the opposite of the direction of the level jumps.
+     * @param comput_stencil the computational stencil, defining the set of cells (all of the same level)
+     *                       passed as second argument of @a f.
+     * @param f              callback with the signature `void f(auto& interface_cells, auto& comput_cells)`,
+     *                       where 'interface_cells' = [cell_{l+1}, cell_{l}].
      */
     template <Run run_type = Run::Sequential, Get get_type = Get::Cells, bool include_periodic = true, class Mesh, std::size_t comput_stencil_size, class Func>
     void for_each_interior_interface__level_jump_opposite_direction(const Mesh& mesh,
@@ -316,16 +322,19 @@ namespace samurai
 
     /**
      * Iterates over the interior interfaces of the mesh level in the chosen direction.
-     * @param level: the browsed interfaces will be defined by two cells of same level,
-     *               or one cell of that level and another one level higher.
-     * @param direction: positive Cartesian direction defining, for each cell, which neighbour defines the desired interface.
-     *                   In 2D: {1,0} to browse horizontal interfaces, {0,1} to browse vertical interfaces.
      *
-     * The provided callback @param f has the following signature:
-     *           void f(auto& interface_cells, auto& comput_cells)
-     * where
-     *       'interface_cells' is an array containing the two real cells on both sides of the interface (might be of different levels).
-     *       'comput_cells'    is an array containing the set of cells/ghosts defined by @param comput_stencil (all of same level).
+     * @param mesh           the mesh.
+     * @param level          the browsed interfaces are defined by two cells of this level,
+     *                       or by one cell of this level and another one level higher.
+     * @param direction      positive Cartesian direction: for each cell, the neighbour in this direction
+     *                       defines the interface. In 2D, {1,0} gives the interfaces with the right
+     *                       neighbour, {0,1} the interfaces with the top neighbour.
+     * @param comput_stencil the computational stencil, defining the set of cells (all of the same level)
+     *                       passed as second argument of @a f.
+     * @param f              callback with the signature `void f(auto& interface_cells, auto& comput_cells)`, where
+     *                       'interface_cells' is an array containing the two real cells on both sides of the
+     *                       interface (might be of different levels), and 'comput_cells' is an array containing
+     *                       the set of cells/ghosts defined by @a comput_stencil (all of same level).
      */
     template <Run run_type = Run::Sequential, Get get_type = Get::Cells, bool include_periodic = true, class Mesh, std::size_t comput_stencil_size, class Func>
     void for_each_interior_interface(const Mesh& mesh,
@@ -353,16 +362,17 @@ namespace samurai
 
     /**
      * Iterates over the interior interfaces of the mesh in the chosen direction.
-     * @param direction: positive Cartesian direction defining, for each cell, which neighbour defines the desired interface.
-     *                   In 2D: {1,0} to browse horizontal interfaces, {0,1} to browse vertical interfaces.
-     * @param comput_stencil: the computational stencil, defining the set of cells (of same level)
-     *                        captured in second argument of the callback function.
      *
-     * The provided callback @param f has the following signature:
-     *           void f(auto& interface_cells, auto& comput_cells)
-     * where
-     *       'interface_cells' is an array containing the two real cells on both sides of the interface (might be of different levels),
-     *       'comput_cells'    is an array containing the set of cells/ghosts defined by @param comput_stencil (all of same level).
+     * @param mesh           the mesh.
+     * @param direction      positive Cartesian direction: for each cell, the neighbour in this direction
+     *                       defines the interface. In 2D, {1,0} gives the interfaces with the right
+     *                       neighbour, {0,1} the interfaces with the top neighbour.
+     * @param comput_stencil the computational stencil, defining the set of cells (all of the same level)
+     *                       passed as second argument of @a f.
+     * @param f              callback with the signature `void f(auto& interface_cells, auto& comput_cells)`, where
+     *                       'interface_cells' is an array containing the two real cells on both sides of the
+     *                       interface (might be of different levels), and 'comput_cells' is an array containing
+     *                       the set of cells/ghosts defined by @a comput_stencil (all of same level).
      */
     template <Run run_type = Run::Sequential, Get get_type = Get::Cells, bool include_periodic = true, class Mesh, std::size_t comput_stencil_size, class Func>
     void for_each_interior_interface(const Mesh& mesh,
@@ -388,17 +398,17 @@ namespace samurai
 
     /**
      * Iterates over the interior interfaces of the mesh in the chosen direction.
-     * @param direction: positive Cartesian direction defining, for each cell, which neighbour defines the desired interface.
-     *                   In 2D: {1,0} to browse horizontal interfaces, {0,1} to browse vertical interfaces.
      *
-     * The provided callback @param f has the following signature:
-     *           void f(auto& interface_cells, auto& comput_cells)
-     * where
-     *       'interface_cells' is an array containing the two real cells on both sides of the interface,
-     *       'comput_cells'    is an array containing the two cells that must be used for the computation.
-     * If there is no level jump, then 'interface_cells' = 'comput_cells'.
-     * In case of level jump l/l+1, the cells of 'interface_cells' are of different levels,
-     * while both cells of 'comput_cells' are at level l+1 and one of them is a ghost.
+     * @param mesh           the mesh.
+     * @param direction      positive Cartesian direction: for each cell, the neighbour in this direction
+     *                       defines the interface. In 2D, {1,0} gives the interfaces with the right
+     *                       neighbour, {0,1} the interfaces with the top neighbour.
+     * @param f              callback with the signature `void f(auto& interface_cells, auto& comput_cells)`, where
+     *                       'interface_cells' is an array containing the two real cells on both sides of the
+     *                       interface, and 'comput_cells' is an array containing the two cells that must be used
+     *                       for the computation. If there is no level jump, then 'interface_cells' = 'comput_cells'.
+     *                       In case of level jump l/l+1, the cells of 'interface_cells' are of different levels,
+     *                       while both cells of 'comput_cells' are at level l+1 and one of them is a ghost.
      */
     template <Run run_type = Run::Sequential, Get get_type = Get::Cells, bool include_periodic, class Mesh, class Func>
     void for_each_interior_interface(const Mesh& mesh, const DirectionVector<Mesh::dim>& direction, Func&& f)
@@ -412,14 +422,14 @@ namespace samurai
 
     /**
      * Iterates over the interior interfaces of the mesh.
-     * The provided callback @param f has the following signature:
-     *           void f(auto& interface_cells, auto& comput_cells)
-     * where
-     *       'interface_cells' is an array containing the two real cells on both sides of the interface,
-     *       'comput_cells'    is an array containing the two cells that must be used for the computation.
-     * If there is no level jump, then 'interface_cells' = 'comput_cells'.
-     * In case of level jump l/l+1, the cells of 'interface_cells' are of different levels,
-     * while both cells of 'comput_cells' are at level l+1 and one of them is a ghost.
+     *
+     * @param mesh           the mesh.
+     * @param f              callback with the signature `void f(auto& interface_cells, auto& comput_cells)`, where
+     *                       'interface_cells' is an array containing the two real cells on both sides of the
+     *                       interface, and 'comput_cells' is an array containing the two cells that must be used
+     *                       for the computation. If there is no level jump, then 'interface_cells' = 'comput_cells'.
+     *                       In case of level jump l/l+1, the cells of 'interface_cells' are of different levels,
+     *                       while both cells of 'comput_cells' are at level l+1 and one of them is a ghost.
      */
     template <Run run_type = Run::Sequential, Get get_type = Get::Cells, bool include_periodic = true, class Mesh, class Func>
     void for_each_interior_interface(const Mesh& mesh, Func&& f)
@@ -555,16 +565,16 @@ namespace samurai
 
     /**
      * Iterates over the boundary interfaces in a given direction and its opposite direction.
-     * @param direction: positive Cartesian direction defining, for each cell, which neighbour defines the desired interface.
-     *                   In 2D: {1,0} to browse horizontal interfaces, {0,1} to browse vertical interfaces.
-     * @param comput_stencil: the computational stencil, defining the set of cells (of same level)
-     *                        captured in second argument of the callback function.
      *
-     * The provided callback @param f has the following signature:
-     *           void f(auto& cell, auto& comput_cells)
-     * where
-     *       'cell'         is the inner cell at the boundary.
-     *       'comput cells' is the set of cells/ghosts defined by @param comput_stencil.
+     * @param mesh           the mesh.
+     * @param direction      positive Cartesian direction: for each cell, the neighbour in this direction
+     *                       defines the interface. In 2D, {1,0} gives the interfaces with the right
+     *                       neighbour, {0,1} the interfaces with the top neighbour.
+     * @param comput_stencil the computational stencil, defining the set of cells (all of the same level)
+     *                       passed as second argument of @a f.
+     * @param f              callback with the signature `void f(auto& cell, auto& comput_cells)`, where
+     *                       'cell' is the inner cell at the boundary and 'comput_cells' is the set of
+     *                       cells/ghosts defined by @a comput_stencil.
      */
     template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, std::size_t comput_stencil_size, class Func>
     void for_each_boundary_interface__both_directions(const Mesh& mesh,
@@ -582,16 +592,16 @@ namespace samurai
 
     /**
      * Iterates over the boundary interfaces in a given direction and its opposite direction.
-     * @param direction: positive Cartesian direction defining, for each cell, which neighbour defines the desired interface.
-     *                   In 2D: {1,0} to browse horizontal interfaces, {0,1} to browse vertical interfaces.
-     * @param comput_stencil: the computational stencil, defining the set of cells (of same level)
-     *                        captured in second argument of the callback function.
      *
-     * The provided callback @param f has the following signature:
-     *           void f(auto& cell, auto& comput_cells)
-     * where
-     *       'cell'         is the inner cell at the boundary.
-     *       'comput cells' is the set of cells/ghosts defined by @param comput_stencil.
+     * @param mesh           the mesh.
+     * @param direction      positive Cartesian direction: for each cell, the neighbour in this direction
+     *                       defines the interface. In 2D, {1,0} gives the interfaces with the right
+     *                       neighbour, {0,1} the interfaces with the top neighbour.
+     * @param comput_stencil the computational stencil, defining the set of cells (all of the same level)
+     *                       passed as second argument of @a f.
+     * @param f              callback with the signature `void f(auto& cell, auto& comput_cells)`, where
+     *                       'cell' is the inner cell at the boundary and 'comput_cells' is the set of
+     *                       cells/ghosts defined by @a comput_stencil.
      */
     template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, std::size_t comput_stencil_size, class Func>
     void for_each_boundary_interface__both_directions(const Mesh& mesh,
@@ -605,14 +615,14 @@ namespace samurai
 
     /**
      * Iterates over the boundary interfaces in a given direction and its opposite direction.
-     * @param direction: positive Cartesian direction defining, for each cell, which neighbour defines the desired interface.
-     *                   In 2D: {1,0} to browse horizontal interfaces, {0,1} to browse vertical interfaces.
      *
-     * The provided callback @param f has the following signature:
-     *           void f(auto& cell, auto& comput_cells)
-     * where
-     *       'cell'         is the inner cell at the boundary.
-     *       'comput cells' is the array containing the inner cell and the outside ghost.
+     * @param mesh           the mesh.
+     * @param direction      positive Cartesian direction: for each cell, the neighbour in this direction
+     *                       defines the interface. In 2D, {1,0} gives the interfaces with the right
+     *                       neighbour, {0,1} the interfaces with the top neighbour.
+     * @param f              callback with the signature `void f(auto& cell, auto& comput_cells)`, where
+     *                       'cell' is the inner cell at the boundary and 'comput_cells' is the array containing
+     *                       the inner cell and the outside ghost.
      */
     template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, class Func>
     void for_each_boundary_interface__both_directions(const Mesh& mesh, const DirectionVector<Mesh::dim>& direction, Func&& f)
@@ -627,11 +637,10 @@ namespace samurai
     /**
      * Iterates over the boundary interfaces.
      *
-     * The provided callback @param f has the following signature:
-     *           void f(auto& cell, auto& comput_cells)
-     * where
-     *       'cell'         is the inner cell at the boundary.
-     *       'comput cells' is the array containing the inner cell and the outside ghost.
+     * @param mesh           the mesh.
+     * @param f              callback with the signature `void f(auto& cell, auto& comput_cells)`, where
+     *                       'cell' is the inner cell at the boundary and 'comput_cells' is the array containing
+     *                       the inner cell and the outside ghost.
      */
     template <Run run_type = Run::Sequential, Get get_type = Get::Cells, class Mesh, class Func>
     void for_each_boundary_interface(const Mesh& mesh, Func&& f)

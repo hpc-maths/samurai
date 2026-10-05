@@ -30,7 +30,7 @@ namespace samurai
         {
         }
 
-        /// Constructor for the visualization case (HDF5 + XDMF <Domain> node).
+        /// Constructor for the visualization case (HDF5 + XDMF `<Domain>` node).
         MetadataWriter(HighFive::File& file, const pugi::xml_node& domain)
             : m_file(file)
             , m_domain(domain)
@@ -54,7 +54,7 @@ namespace samurai
         }
 
         /// Store the simulation time as the HDF5 attribute "time" and, when an
-        /// XDMF document is attached, add a <Time> node to every top-level grid
+        /// XDMF document is attached, add a `<Time>` node to every top-level grid
         /// (so that ParaView/VisIt expose a time cursor).
         MetadataWriter& time(double t)
         {
@@ -67,7 +67,7 @@ namespace samurai
             return *this;
         }
 
-        /// Add a human-readable <Information> node under the XDMF <Domain>.
+        /// Add a human-readable `<Information>` node under the XDMF `<Domain>`.
         /// No-op when no XDMF document is attached.
         MetadataWriter& information(const std::string& name, const std::string& value)
         {

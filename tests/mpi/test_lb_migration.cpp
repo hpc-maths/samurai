@@ -1,7 +1,7 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-// Tests of the load balancing migration infrastructure (roadmap step 1).
+// Tests of the load balancing migration infrastructure.
 // The strategies here are synthetic flag generators: the point is to validate
 // the fused cells+fields migration of the driver, not a real partitioner.
 

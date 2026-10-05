@@ -71,8 +71,9 @@ namespace samurai
     };
 
     /**
-     * @class CellBasedSchemeDefinition defines how to compute the scheme.
-     * This struct inherits from @class CellBasedSchemeDefinitionBase and is specialized for all scheme types (see below).
+     * Defines how to compute a cell-based scheme.
+     * The primary template is empty: it is specialized for each scheme type (see below),
+     * and each specialization inherits from @ref CellBasedSchemeDefinitionBase.
      */
     template <class cfg, class enable = void>
     struct CellBasedSchemeDefinition
@@ -83,7 +84,7 @@ namespace samurai
     using SchemeValue = CollapsArray<typename cfg::output_field_t::value_type, cfg::output_field_t::n_comp, cfg::output_field_t::is_scalar>;
 
     /**
-     * Specialization of @class CellBasedSchemeDefinition.
+     * Specialization of @ref CellBasedSchemeDefinition.
      * Defines how to compute a NON-LINEAR cell-based scheme.
      */
     template <class cfg>
@@ -117,7 +118,7 @@ namespace samurai
     };
 
     /**
-     * Specialization of @class CellBasedSchemeDefinition.
+     * Specialization of @ref CellBasedSchemeDefinition.
      * Defines how to compute a LINEAR and HETEROGENEOUS cell-based scheme.
      */
     template <class cfg>
@@ -135,7 +136,7 @@ namespace samurai
     };
 
     /**
-     * Specialization of @class CellBasedSchemeDefinition.
+     * Specialization of @ref CellBasedSchemeDefinition.
      * Defines how to compute a LINEAR and HOMOGENEOUS cell-based scheme.
      */
     template <class cfg>

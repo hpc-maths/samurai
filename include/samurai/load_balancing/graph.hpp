@@ -22,7 +22,8 @@
  * symmetrized (PT-Scotch requires an undirected graph).
  *
  * Communication: one all_gather (vtxdist), the neighbour-mesh exchange, and one
- * all_to_all to symmetrize the boundary edges.
+ * point-to-point exchange (isend/recv) with each MPI neighbour to symmetrize the
+ * boundary edges.
  */
 
 #include <algorithm>

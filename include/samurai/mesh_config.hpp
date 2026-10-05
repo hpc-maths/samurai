@@ -40,7 +40,7 @@ namespace samurai
         /**
          * @brief set max stencil radius in chained config
          *
-         * @param stencil_radius
+         * @param stencil_radius largest stencil radius of the schemes run on the mesh, in cells
          * @return auto& returns this object
          */
         auto& max_stencil_radius(int stencil_radius)
@@ -66,9 +66,9 @@ namespace samurai
         }
 
         /**
-         * @brief set stencil radius from a size (size is twice the size of the radius)
+         * @brief set max stencil radius from a stencil size: the radius is the size divided by 2, rounded up
          *
-         * @param stencil_size
+         * @param stencil_size number of cells of the largest stencil along one direction
          * @return auto& returns this object
          */
         auto& max_stencil_size(int stencil_size)
@@ -94,7 +94,7 @@ namespace samurai
         /**
          * @brief set graduation width in chained config
          *
-         * @param grad_width
+         * @param grad_width graduation width of the mesh, in cells
          * @return auto& returns this object
          */
         auto& graduation_width(std::size_t grad_width)
@@ -134,7 +134,7 @@ namespace samurai
         /**
          * @brief set min level in chained config
          *
-         * @param level
+         * @param level coarsest level the mesh can hold
          * @return auto& returns this object
          */
         auto& min_level(std::size_t level)
@@ -164,7 +164,7 @@ namespace samurai
         /**
          * @brief set max level in chained config
          *
-         * @param level
+         * @param level finest level the mesh can hold
          * @return auto& returns this object
          */
         auto& max_level(std::size_t level)
@@ -194,7 +194,7 @@ namespace samurai
         /**
          * @brief set start level in chained config
          *
-         * @param level
+         * @param level level of the cells of the initial mesh
          * @return auto& returns this object
          */
         auto& start_level(std::size_t level)
@@ -216,7 +216,7 @@ namespace samurai
         /**
          * @brief set approximation box tolerance in chained config
          *
-         * @param tol
+         * @param tol relative tolerance allowed when the domain box cannot be represented exactly with cells
          * @return auto& returns this object
          */
         auto& approx_box_tol(double tol)
@@ -246,7 +246,7 @@ namespace samurai
         /**
          * @brief set scaling factor in chained config
          *
-         * @param factor
+         * @param factor cell length at level 0; 0 (the default) lets the mesh compute it from the domain
          * @return auto& returns this object
          */
         auto& scaling_factor(double factor)
@@ -276,7 +276,7 @@ namespace samurai
         /**
          * @brief set periodicity in chained config
          *
-         * @param periodicity
+         * @param periodicity one flag per direction, true for a periodic direction
          * @return auto& returns this object
          */
         auto& periodic(const std::array<bool, dim>& periodicity)
@@ -288,7 +288,7 @@ namespace samurai
         /**
          * @brief set periodicity in chained config with a value to fill in each direction
          *
-         * @param periodicity
+         * @param periodicity true to make every direction periodic
          * @return auto& returns this object
          */
         auto& periodic(bool periodicity)

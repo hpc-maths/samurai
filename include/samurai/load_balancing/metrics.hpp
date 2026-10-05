@@ -22,7 +22,7 @@ namespace samurai::load_balancing
      * The loads are weighted by the policy given to the balancer; the
      * imbalances are global quantities (identical on every rank). Comparing
      * `imbalance_before` and `imbalance_after` across strategies on the same
-     * scenario is the basis of the comparative benchmark (roadmap step 6).
+     * scenario compares the strategies (see demos/mpi/load_balancing.cpp).
      */
     struct LoadBalanceStats
     {

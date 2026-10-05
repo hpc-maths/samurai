@@ -8,7 +8,8 @@
 namespace samurai
 {
     /**
-     * This is the base class of @class Explicit<CellBasedScheme> and @class Explicit<FluxBasedScheme>.
+     * Base class of the specializations of `Explicit` that apply a @ref CellBasedScheme,
+     * a @ref FluxBasedScheme or an @ref OperatorSum explicitly.
      */
     template <class Scheme>
     class ExplicitFVScheme

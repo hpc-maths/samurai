@@ -1,7 +1,7 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-// Metrics and statistics of the load balancing module (roadmap step 2):
+// Metrics and statistics of the load balancing module:
 // global imbalance, collective require_balance decision, LoadBalanceStats
 // consistency, weighted loads through load_balance.
 

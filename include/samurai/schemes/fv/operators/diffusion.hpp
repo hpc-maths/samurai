@@ -6,8 +6,7 @@
 namespace samurai
 {
     /**
-     * @class DiffusionFV:
-     * implements the operator -Laplacian.
+     * Finite volume discretization of the -Laplacian, defined by its fluxes.
      */
     template <class cfg, class bdry_cfg = BoundaryConfigFV<cfg::stencil_size / 2>>
     class DiffusionFV : public FluxBasedScheme<cfg, bdry_cfg>

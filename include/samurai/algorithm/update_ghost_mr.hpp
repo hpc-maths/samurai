@@ -189,7 +189,7 @@ namespace samurai::detail
     // Aggregated counterpart of update_ghost_mr. Same multiresolution
     // top-down / bottom-up structure; only the subdomain exchange is
     // field-merged and non-blocking. The periodic exchange keeps its
-    // historic per-dimension ordering (see header note) by delegating to
+    // per-dimension ordering (see header note) by delegating to
     // update_ghost_periodic.
     template <class Field, class... Fields>
     void update_ghost_mr_aggregated(Field& field, Fields&... other_fields)

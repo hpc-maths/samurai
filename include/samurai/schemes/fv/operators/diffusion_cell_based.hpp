@@ -5,7 +5,6 @@
 namespace samurai
 {
     /**
-     * @class DiffusionFV
      * Assemble the matrix for the problem -Lap(u)=f.
      * The matrix corresponds to the discretization of the operator -Lap by the Finite-Volume method.
      */

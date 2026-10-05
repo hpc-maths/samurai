@@ -1,7 +1,7 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-// ParMETIS partitioning strategy tests (roadmap step 4).
+// ParMETIS partitioning strategy tests.
 // Only compiled when SAMURAI_WITH_PARMETIS=ON.
 
 #ifdef SAMURAI_WITH_PARMETIS

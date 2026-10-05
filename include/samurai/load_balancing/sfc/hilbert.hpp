@@ -15,11 +15,10 @@
  * two consecutive keys are always face-adjacent cells (Manhattan distance 1),
  * which gives the best locality of all practical SFCs.
  *
- * Range: `max_bits(dim)` bits per coordinate so the key fits in 64 bits —
- * 32 bits in 2D, 21 bits in 3D (deepest usable level: 21 in 3D). The historic
- * implementation used 32 bits per coordinate in all dimensions and overflowed
- * the 64-bit key in 3D (`1 << 95`); bounding the bit count both fixes the
- * overflow and shortens the transposition loop.
+ * Range: `max_bits(dim)` bits per coordinate so the key fits in 64 bits:
+ * 32 bits in 2D, 21 bits in 3D (deepest usable level: 21 in 3D). With 32 bits
+ * per coordinate, a 3D key would need 96 bits. The transposition loop runs
+ * over these `max_bits(dim)` bit planes only.
  *
  * Rectangular domains (2D): the square `key_2d(p)` above maps a 2^k x 2^k grid;
  * restricted to a thin strip its locality breaks (the curve leaves and re-enters

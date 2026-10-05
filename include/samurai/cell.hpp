@@ -19,7 +19,7 @@ namespace samurai
         return scaling_factor / (1 << level);
     }
 
-    /** @class Cell
+    /** @struct Cell
      *  @brief Define a mesh cell in multi dimensions.
      *
      *  A cell is defined by its level, its integer coordinates,
@@ -124,7 +124,7 @@ namespace samurai
     }
 
     /**
-     * The minimum corner of the cell.
+     * The center of the cell.
      */
     template <std::size_t dim_, class TInterval>
     SAMURAI_INLINE auto Cell<dim_, TInterval>::center() const -> coords_t

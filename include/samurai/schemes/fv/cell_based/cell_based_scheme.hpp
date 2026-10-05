@@ -6,7 +6,9 @@
 namespace samurai
 {
     /**
-     * @class CellBasedScheme
+     * Scheme defined cell by cell.
+     * The primary template only fails at compile time: it is specialized for each scheme type
+     * (non-linear, linear heterogeneous, linear homogeneous).
      */
     template <class cfg, class bdry_cfg, class check = void>
     class CellBasedScheme

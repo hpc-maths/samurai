@@ -189,7 +189,7 @@ namespace
         // Periodic domain: the advected blob wraps around, so the test is free
         // of boundary-condition complications and the same setup runs in 2D and
         // 3D. (Dirichlet on an adaptive 3D distributed mesh currently trips a
-        // core ghost-protocol limitation, see docs/load_balancing_roadmap.md.)
+        // core ghost-protocol limitation.)
         const samurai::Box<double, dim> box(opt.min_corner, opt.max_corner);
         auto config = samurai::mesh_config<dim>()
                           .min_level(demo_min_level)

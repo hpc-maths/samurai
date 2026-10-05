@@ -20,7 +20,7 @@
 namespace samurai::mpi_neighbor
 {
 
-    /** @class SubdomainBoundingBox
+    /** @struct SubdomainBoundingBox
      *  @brief Compact representation of a subdomain for scalable neighbor discovery.
      *
      * Contains essential geometric information for the screening phase of
