@@ -40,7 +40,8 @@ We build the initial mesh in the domain $[0, 1] \times [0, 1]$ by adding cells a
 
 ```{literalinclude} ../../../demos/tutorial/graduation_case_2.cpp
 :language: c++
-:lines: 20-38
+:start-at: auto generate_mesh
+:end-before: int main(
 ```
 
 `min_level` and `max_level` bound the levels of the added cells, and `nsamples` is the number of cells added.
@@ -74,7 +75,8 @@ As in case 1, a boolean field `tag` marks the cells to refine, and only the subs
 
 ```{literalinclude} ../../../demos/tutorial/graduation_case_2.cpp
 :language: c++
-:lines: 69-113
+:start-at: std::size_t ite = 0;
+:end-before: samurai::save(path, fmt::format("{}_without_intersection"
 :dedent:
 ```
 
@@ -97,7 +99,8 @@ The mesh has no overlap left, so we grade it with the loop of {doc}`graduation c
 
 ```{literalinclude} ../../../demos/tutorial/graduation_case_2.cpp
 :language: c++
-:lines: 137-185
+:start-after: // Make the mesh graded
+:end-before: samurai::save(path, fmt::format("{}_graduated"
 :dedent:
 ```
 

@@ -381,7 +381,7 @@ It starts {{ project }} with `samurai::initialize`, adds the intervals level by 
 
 ```{literalinclude} ../../../demos/tutorial/2D_mesh.cpp
 :language: c++
-:lines: 4-
+:start-after: SPDX-License-Identifier
 ```
 
 Build and run it from the build directory of your source build of {{ project }}:

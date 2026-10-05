@@ -35,7 +35,8 @@ We build the initial mesh in the domain $[0, 1] \times [0, 1]$ with this functio
 
 ```{literalinclude} ../../../demos/tutorial/graduation_case_1.cpp
 :language: c++
-:lines: 20-57
+:start-at: auto generate_mesh
+:end-before: int main(
 ```
 
 `start_level` is the level of the uniform mesh we start from, and `max_level` is the finest level a cell can reach.
@@ -44,7 +45,8 @@ The function starts with a uniform mesh at `start_level`:
 
 ```{literalinclude} ../../../demos/tutorial/graduation_case_1.cpp
 :language: c++
-:lines: 22-28
+:start-at: constexpr std::size_t dim = 2;
+:end-at: ca[start_level] = {start_level, box};
 :dedent:
 ```
 
@@ -59,7 +61,8 @@ Each pass browses the intervals of the mesh:
 
 ```{literalinclude} ../../../demos/tutorial/graduation_case_1.cpp
 :language: c++
-:lines: 34-53
+:start-at: samurai::for_each_interval(ca,
+:end-at: ca = {cl, true};
 :dedent:
 ```
 
@@ -94,7 +97,8 @@ We store this decision in a field named `tag`, with one boolean per cell:
 
 ```{literalinclude} ../../../demos/tutorial/graduation_case_1.cpp
 :language: c++
-:lines: 113-114
+:start-at: auto tag = samurai::make_scalar_field<bool>
+:end-at: tag.fill(false);
 :dedent:
 ```
 
@@ -105,7 +109,8 @@ The intersection is computed for each pair of levels and each direction of a ste
 
 ```{literalinclude} ../../../demos/tutorial/graduation_case_1.cpp
 :language: c++
-:lines: 116-131
+:start-at: for (std::size_t level = min_level + 2;
+:end-before: // Build the refined mesh
 :dedent:
 ```
 
@@ -125,7 +130,8 @@ The demo uses the four diagonal directions as stencil by default:
 
 ```{literalinclude} ../../../demos/tutorial/graduation_case_1.cpp
 :language: c++
-:lines: 91-109
+:start-at: xt::xtensor_fixed<int, xt::xshape<4, dim>> stencil;
+:end-before: while (true)
 :dedent:
 ```
 
@@ -140,7 +146,8 @@ When the `tag` field is filled, we build the new mesh from it:
 
 ```{literalinclude} ../../../demos/tutorial/graduation_case_1.cpp
 :language: c++
-:lines: 133-149
+:start-after: // Build the refined mesh
+:end-at: samurai::CellArray<dim> new_ca = {cl, true};
 :dedent:
 ```
 
@@ -156,7 +163,8 @@ So we repeat the tagging and the refinement until the mesh no longer changes:
 
 ```{literalinclude} ../../../demos/tutorial/graduation_case_1.cpp
 :language: c++
-:lines: 111-157
+:start-at: while (true)
+:end-before: samurai::save(path, fmt::format("{}_after_graduation"
 :dedent:
 ```
 
