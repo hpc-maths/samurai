@@ -13,7 +13,7 @@ The same steps cover linear schemes, non-linear schemes (Newton's method) and bl
 
   Run your program with `--info`: the `Build configuration` section must show `PETSc : ON`.
   Without PETSc support, the namespace `samurai::petsc` does not exist and the solver calls fail to compile.
-- You include `samurai/schemes/fv.hpp` and have a discrete operator to invert, built as in the {doc}`finite volume schemes reference <../reference/finite_volume_schemes>` or the {doc}`local schemes reference <../reference/local_schemes>`.
+- You include `samurai/schemes/fv.hpp` and have a discrete operator to invert: a built-in one from the {doc}`finite volume schemes reference <../reference/finite_volume_schemes>` or the {doc}`local schemes reference <../reference/local_schemes>`, or one you wrote as in the {doc}`finite volume scheme how-to guide <fv_scheme>`.
 
 The examples of this guide live in `docs/source/howto/snippet/petsc/`.
 Each one solves three backward Euler steps of a heat equation on a uniform 2D mesh of the unit square, and prints the iterations and the residual of each solve.
@@ -47,8 +47,8 @@ The function `solve_heat` solves $u_{n+1} + \Delta t\, \mathcal{D}(u_{n+1}) = u_
   :end-before: int main
 ```
 
-1. Attach boundary conditions to the unknown field, here `unp1`.
-   The solver reads them to write the equations of the ghosts outside the domain.
+1. Attach boundary conditions to the unknown field, here `unp1`, as the {doc}`boundary conditions how-to guide <bc>` explains.
+   The solver reads them to write the equations of the ghosts outside the domain; it handles `samurai::Dirichlet` and `samurai::Neumann` only.
    The right-hand side `u` needs none.
 2. Build the operator to invert, here `A = id + dt * diff`.
    It is not a matrix: the solver assembles the PETSc matrix from it.
@@ -336,7 +336,7 @@ Rank 0 owns the global rows 0 to 31 and rank 1 the rows 32 to 63; each rank also
 ## Related
 
 - The {doc}`reaction-diffusion tutorial <../tutorial/reaction_diffusion>`, which solves linear and non-linear implicit schemes step by step.
-- The {doc}`finite volume schemes reference <../reference/finite_volume_schemes>` and the {doc}`local schemes reference <../reference/local_schemes>`, to build the operators you solve.
+- The {doc}`finite volume schemes reference <../reference/finite_volume_schemes>` and the {doc}`local schemes reference <../reference/local_schemes>`, to build the operators you solve, and {doc}`fv_scheme`, to write your own.
 - The {doc}`PETSc API reference <../api/petsc>`, for the solver classes and their members.
 - {doc}`cmake`, to turn on PETSc and MPI in your project, and {doc}`options`, for the samurai command-line options.
 - The demos `demos/FiniteVolume/heat.cpp`, `heat_nonlinear.cpp`, `nagumo.cpp`, `stokes_2d.cpp` and `lid_driven_cavity.cpp`.

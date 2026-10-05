@@ -2,6 +2,7 @@
 
 The finite volume module of {{ project }} builds finite volume schemes on adapted meshes.
 It provides ready-made discrete operators (diffusion, convection, gradient, divergence and others, listed in [Available implementations](#available-implementations)) and lets you define your own flux functions.
+To write your own scheme step by step, follow the {doc}`finite volume scheme how-to guide <../howto/fv_scheme>`.
 
 To use it, include
 
@@ -10,6 +11,10 @@ To use it, include
 ```
 
 The PETSc-based solvers (`samurai::petsc::solve`, `samurai::petsc::make_solver`) are available when the program is compiled with `SAMURAI_WITH_PETSC` defined.
+
+(fv-principle)=
+
+## Finite volume principle
 
 In the finite volume method (FVM), the computed values are average values of the physical variables over control volumes.
 The system of equations is therefore integrated over each control volume $V$.
@@ -37,7 +42,7 @@ that can be called like a function in an explicit context, or passed to a solver
 When it runs, it iterates over all cell interfaces $F$ and computes the flux $\mathcal{F}_h(u_h)_{|F}$ through each of them.
 
 ```{figure} ./figures/flux.svg
-:width: 8%
+:width: 25%
 :align: center
 ```
 
@@ -63,7 +68,7 @@ see {ref}`non-conservative schemes <non_conservative_schemes>`.
 Where a level jump occurs, ghosts take part in the computation of $\mathcal{F}_h(u_h)_{|F}$, so that the flux is always computed between two cells of the same length.
 
 ```{figure} ./figures/flux_level_jump.svg
-:width: 8%
+:width: 25%
 :align: center
 ```
 
@@ -75,659 +80,153 @@ Instead of $\int_V \mathcal{D}(u)$, the discrete operator computes $\frac{1}{|V|
 so that discrete source terms do not have to be multiplied by the cell measures.
 ```
 
-## Implementing a finite volume scheme
+## Flux-based schemes
 
-Consider a differential term $\mathcal{D}$ applied to a field $u$, and let $v$ denote the resulting field:
+A flux-based scheme is described by a scheme type (`samurai::SchemeType`), a static configuration (`samurai::FluxConfig`) and the flux through the faces of each Cartesian direction (`samurai::FluxDefinition`).
+`samurai::make_flux_based_scheme` turns the flux definition into a discrete operator.
+The {doc}`finite volume scheme how-to guide <../howto/fv_scheme>` writes such schemes step by step and checks them against the built-in ones.
 
-$$
-v = \mathcal{D}(u).
-$$
-
-### Static configuration
-
-The structure of the scheme is declared first, in a `samurai::FluxConfig` type.
-Its template parameters are, in this order:
-
-1. `scheme_type`: one of the values of `samurai::SchemeType`:
-
-   ```c++
-   enum class SchemeType
-   {
-       NonLinear,
-       LinearHeterogeneous,
-       LinearHomogeneous
-   };
-   ```
-
-2. `stencil_size`: the number of cells the flux computation reads.
-   A typical low-order scheme reads two cells, one on each side of the face.
-3. `output_field_type`: the C++ type of the resulting field $v$.
-   For instance, if $u$ is a scalar field, $\nabla u$ has as many components as the space dimension.
-4. `input_field_type`: the C++ type of the field $u$.
-5. `parameter_field_type` (optional, defaults to `void*`): the type of a field the flux function reads in addition to $u$, such as a velocity field.
-   See {ref}`parameter fields <parameter_field>`.
-
-Here is the configuration of the vector Laplace operator:
+### samurai::SchemeType
 
 ```c++
-// Creation of a field 'u' with 2 components
-auto u = samurai::make_vector_field<2>("u", mesh);
-
-// Configuration for the Laplace operator
-using cfg = samurai::FluxConfig<samurai::SchemeType::LinearHomogeneous, // scheme_type
-                                2,                                      // stencil_size (for the Laplacian of order 2)
-                                decltype(u),                            // output_field_type (here identical to the input field)
-                                decltype(u)>;                           // input_field_type
+enum class SchemeType
+{
+    NonLinear,
+    LinearHeterogeneous,
+    LinearHomogeneous
+};
 ```
+
+| Value | Flux | Flux function returns | Implicit solver |
+| --- | --- | --- | --- |
+| `LinearHomogeneous` | linear in the field, coefficients that depend on the cell length only | the coefficients of the stencil values | linear (KSP) |
+| `LinearHeterogeneous` | linear in the field, coefficients that vary in space | the coefficients of the stencil values | linear (KSP) |
+| `NonLinear` | any function of the stencil values | the value of the flux | Newton (SNES) |
+
+The coefficients of a `LinearHomogeneous` scheme are computed once per mesh level and reused for every face of that level.
+The coefficients of a `LinearHeterogeneous` scheme are computed for each face.
+
+### samurai::FluxConfig
+
+```c++
+template <SchemeType scheme_type,
+          std::size_t stencil_size,
+          class output_field_type,
+          class input_field_type,
+          class parameter_field_type = void*>
+struct FluxConfig;
+```
+
+| Template parameter | Meaning |
+| --- | --- |
+| `scheme_type` | a value of `samurai::SchemeType` |
+| `stencil_size` | the number of cells the flux of one face reads, 2 for a flux between the two cells of the face |
+| `output_field_type` | the type of the field the scheme returns |
+| `input_field_type` | the type of the field the scheme applies to |
+| `parameter_field_type` | the type of a field the flux function reads in addition to the input field, such as a velocity field; `void*` for none. See [Parameter fields](#parameter-fields). |
+
+`FluxConfig` exposes these parameters as `scheme_type`, `stencil_size`, `output_field_t`, `input_field_t` and `parameter_field_t`, plus `has_parameter_field` and the space dimension `dim`.
+The output and input fields can have different numbers of components: the gradient of a scalar field has as many components as the space dimension.
 
 The stencil size bounds the stencil radius the mesh must provide ghosts for.
 A discrete operator whose `stencil_size` is larger than `max_stencil_size()` of the mesh configuration fails when it is applied (see [Errors](#errors)).
 
 (stencil-configuration)=
 
-### Stencil configuration
+### Stencils
 
-From `cfg`, declare a `samurai::FluxDefinition` object, which holds how the flux is computed:
-
-```c++
-samurai::FluxDefinition<cfg> my_flux;
-```
-
-In each direction, the flux is computed between one cell and its neighbour along the associated Cartesian unit vector:
-in 2D, from left to right and from bottom to top.
+The flux in direction `d` is computed between one cell and its neighbour along the Cartesian unit vector of `d`: in 2D, from left to right and from bottom to top.
 The stencil is an array of direction vectors from the origin cell.
-The origin cell is the left cell in the horizontal direction, and the bottom cell in the vertical direction.
-It is represented by the zero vector `{0,0}` (or `{0,0,0}` in 3D).
-A neighbour is selected by inserting into the stencil the direction vector that reaches it from the origin cell.
+The origin cell is the left cell of the face in the horizontal direction and the bottom cell in the vertical direction, and is represented by the zero vector `{0,0}` (or `{0,0,0}` in 3D).
 For instance, in the x-direction, the stencil `{{0,0}, {1,0}}` captures the origin cell and its right neighbour.
-Larger stencils follow the same rule:
 
 ```{figure} ./figures/flux_stencils.svg
-:width: 20%
+:width: 60%
 :align: center
 ```
 
 In this figure, the flux at the red interface reads four cells, and the blue arrow shows its orientation.
-Each cell is labelled with the direction vector that captures it.
-The examples of this section use a non-linear scheme on a scalar field with a 4-cell stencil:
+Each cell is labelled with the direction vector that captures it: the stencils are `{{-1,0}, {0,0}, {1,0}, {2,0}}` in the x-direction and `{{0,-1}, {0,0}, {0,1}, {0,2}}` in the y-direction.
+The flux function receives the cells and the values of the stencil in the order of the configured stencil.
 
-```c++
-auto u = samurai::make_scalar_field<double>("u", mesh);
+Two helpers build line stencils in any direction:
 
-using cfg = samurai::FluxConfig<samurai::SchemeType::NonLinear, 4, decltype(u), decltype(u)>;
-```
+| Helper | Stencil |
+| --- | --- |
+| `samurai::line_stencil<dim, d>(i_0, i_1, ...)` | the cells at offsets `i_0, i_1, ...` from the origin cell along direction `d` |
+| `samurai::line_stencil_from<dim, d, size>(i_0)` | `size` consecutive cells along direction `d`, from offset `i_0` |
 
-The stencils of the figure are configured by
+`samurai::line_stencil<dim, 0>(-1, 0, 1, 2)` and `samurai::line_stencil_from<dim, 0, 4>(-1)` both build the x-direction stencil of the figure.
 
-```c++
-samurai::FluxDefinition<cfg> my_flux;
+If the stencil is not set, `FluxDefinition` uses `samurai::line_stencil_from<dim, d, stencil_size>(-stencil_size / 2 + 1)`.
+If `stencil_size` is even, the cells are evenly distributed on both sides of the face; if it is odd, there is one more cell on the positive side.
 
-// x-direction
-my_flux[0].stencil            = {{-1, 0}, {0, 0}, {1, 0}, {2, 0}};
-my_flux[0].cons_flux_function = my_flux_function_x;
-// y-direction
-my_flux[1].stencil            = {{0, -1}, {0, 0}, {0, 1}, {0, 2}};
-my_flux[1].cons_flux_function = my_flux_function_y;
-```
+If the cells a flux reads depend on a value known only at run time (for instance the sign of the velocity in the upwind or WENO schemes), the stencil holds every cell the flux may read and the flux function selects the cells it uses.
 
-One stencil and one flux function must be defined for each positive Cartesian direction.
-The flux function receives the values captured by the stencil as an array, in the order of the configured stencil:
+### samurai::FluxDefinition
 
-```c++
-my_flux[0].stencil            = {{-1, 0}, {0, 0}, {1, 0}, {2, 0}};
-my_flux[0].cons_flux_function = [](samurai::FluxValue<cfg>& flux,
-                                   const samurai::StencilData<cfg>& /* data */,
-                                   const samurai::StencilValues<cfg>& field_values)
-{
-    const auto& value_L2 = field_values[0]; // {-1,0}
-    const auto& value_L1 = field_values[1]; // { 0,0}
-    const auto& value_R1 = field_values[2]; // { 1,0}
-    const auto& value_R2 = field_values[3]; // { 2,0}
+`samurai::FluxDefinition<cfg>` holds one normal flux definition per positive Cartesian direction; `flux[d]` is the definition in direction `d`.
+Each one has the members:
 
-    flux = (-value_L2 + 7 * value_L1 + 7 * value_R1 - value_R2) / 12;
-};
-```
+| Member | Scheme types | Content |
+| --- | --- | --- |
+| `direction` | all | the unit vector of direction `d`, set by the constructor |
+| `stencil` | all | the stencil of the flux, see [Stencils](#stencils) |
+| `cons_flux_function` | all | the conservative flux function |
+| `cons_jacobian_function` | `NonLinear` | the derivative of the conservative flux with respect to the stencil values |
+| `flux_function` | `NonLinear` | the non-conservative flux function, see [Non-conservative fluxes](#non-conservative-fluxes) |
+| `jacobian_function` | `NonLinear` | the derivative of the non-conservative flux |
 
-The helper `samurai::line_stencil` builds line stencils, such as the one above, in any direction:
+The default constructor sets the default stencil and no function.
+`FluxDefinition<cfg>(f)` also sets `f` as `cons_flux_function` in every direction.
 
-```c++
-// x-direction
-my_flux[0].stencil = samurai::line_stencil<dim, 0>(-1, 0, 1, 2); // {{-1,0}, {0,0}, {1,0}, {2,0}}
-// y-direction
-my_flux[1].stencil = samurai::line_stencil<dim, 1>(-1, 0, 1, 2); // {{0,-1}, {0,0}, {0,1}, {0,2}}
-```
-
-The second template parameter is the direction index.
-In the arguments, `0` is the origin cell and the other numbers are its neighbours along that direction.
-`samurai::line_stencil_from` takes the first neighbour of the sequence and the stencil size instead:
-
-```c++
-// x-direction
-my_flux[0].stencil = samurai::line_stencil_from<dim, 0, 4>(-1); // {{-1,0}, {0,0}, {1,0}, {2,0}}
-// y-direction
-my_flux[1].stencil = samurai::line_stencil_from<dim, 1, 4>(-1); // {{0,-1}, {0,0}, {0,1}, {0,2}}
-```
-
-This code is equivalent to the previous one.
-The second template parameter is the direction index, and the third one is the stencil size.
-The argument, here `-1`, is the first neighbour of the sequence.
-
-With these helpers, a static loop over the directions gives dimension-independent code:
-
-```c++
-samurai::static_for<0, dim>::apply( // for each Cartesian direction 'd'
-    [&](auto _d)
-    {
-        static constexpr std::size_t d = _d();
-
-        my_flux[d].stencil = samurai::line_stencil<dim, d>(-1, 0, 1, 2);
-    });
-```
-
-If the stencil is not specified, `FluxDefinition` uses the line stencil `samurai::line_stencil_from<dim, d, stencil_size>(-stencil_size / 2 + 1)`.
-If `stencil_size` is even, the selected cells are evenly distributed on both sides of the interface.
-If it is odd, there is one more cell on the positive side.
-
-```{note}
-If the stencil depends on a value known only at run time (for instance, in the upwind or WENO schemes, the sign of the local velocity component),
-configure a fixed stencil that contains all the cells the scheme may use,
-and select the cells actually used inside the flux function.
-See the {ref}`upwind operator <upwind_conv_operator>` for an example.
-```
-
-### Flux definition
-
-A flux function must be defined for each positive Cartesian direction. In 2D:
-
-```c++
-samurai::FluxDefinition<cfg> my_flux;
-my_flux[0].cons_flux_function = my_flux_function_x; // flux in the x-direction
-my_flux[1].cons_flux_function = my_flux_function_y; // flux in the y-direction
-```
-
-The signature of the flux functions depends on the `SchemeType` declared in `cfg`, and is described in the next sections.
-If the flux functions differ only by the direction index, a static loop replaces this sequence of assignments:
-
-```c++
-samurai::FluxDefinition<cfg> my_flux;
-samurai::static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
-    [&](auto _d)
-    {
-        static constexpr std::size_t d = _d(); // get the static direction index
-
-        my_flux[d].cons_flux_function = my_flux_function_d;
-    });
-```
-
-If the flux function is the same in all directions, pass it to the constructor:
-
-```c++
-samurai::FluxDefinition<cfg> my_flux(my_flux_function);
-```
-
-### Discrete operator creation and usage
-
-Once the `FluxDefinition` object is built, create the discrete operator with
-
-```c++
-auto D = samurai::make_flux_based_scheme(my_flux);
-```
-
-and use it in an explicit context
-
-```c++
-auto v = D(u);
-```
-
-or in an implicit context
-
-```c++
-auto rhs = samurai::make_scalar_field<double>("rhs", mesh, 0.); // right-hand side
-samurai::petsc::solve(D, u, rhs);                               // solves the equation D(u) = rhs
-```
-
-`samurai::petsc::solve` uses a linear solver for the linear scheme types and a non-linear (Newton) solver for `SchemeType::NonLinear`.
-Both solvers require boundary conditions attached to the unknown field.
-The discrete operator is named "(unnamed)" unless you call `D.set_name("...")`; the name appears in error messages and timers.
-
-```{note}
-The cells and field values passed to the flux function are those of the *computational* stencil, not the two real cells around the face.
-Where a level jump occurs, at least one of the computational cells is a ghost.
-The ghosts of the input field must therefore hold values.
-`D(u)` updates them before it computes the fluxes, if they are out of date:
-it calls `samurai::update_ghost` on an AMR mesh and `samurai::update_ghost_mr` on the other meshes.
-The implicit assembly of a non-linear or heterogeneous scheme does the same for the unknown field.
-The ghosts of any other field the flux function reads are updated only if this field is declared as a {ref}`parameter field <parameter_field>`.
-```
-
-The next sections describe the flux functions of each `SchemeType`.
+`samurai::make_flux_based_scheme` copies the flux definition into the discrete operator, so the discrete operator can outlive the `FluxDefinition` object.
+The functions are copied too, with what they capture: a function that captures a local variable by reference must not outlive that variable.
 
 (lin_homog_operators)=
 
-## Linear, homogeneous discrete operators
+### Flux functions
 
-This section covers discrete operators configured with `SchemeType::LinearHomogeneous`.
-To handle explicit and implicit schemes with the same definition,
-the flux function does not compute the discrete flux $\mathcal{F}_h(u_h)$ itself:
-it returns a set of coefficients.
-Given a face $F$ and its stencil $(V_i)_i$,
-the discrete flux is a linear combination of the field values in the stencil cells:
+The signature of `cons_flux_function` depends on the scheme type:
+
+| Scheme type | Signature |
+| --- | --- |
+| `LinearHomogeneous` | `void(samurai::FluxStencilCoeffs<cfg>& c, double h)` |
+| `LinearHeterogeneous` | `void(samurai::FluxStencilCoeffs<cfg>& c, const samurai::StencilData<cfg>& data)` |
+| `NonLinear` | `void(samurai::FluxValue<cfg>& flux, const samurai::StencilData<cfg>& data, const samurai::StencilValues<cfg>& u)` |
+
+#### Linear schemes
+
+A linear flux function does not compute the flux itself: it returns the coefficients $(c_i)_i$ of the linear combination
 
 ```{math}
 :label: linear_comb
 
-\mathcal{F}_h(u_h)_{|F} := \sum_i c_i u_i, \qquad \text{ where } u_i := (u_h)_{|V_i}.
+\mathcal{F}_h(u_h)_{|F} := \sum_i c_i u_i, \qquad \text{ where } u_i := (u_h)_{|V_i},
 ```
 
-The flux function returns the coefficients $(c_i)_i$:
-
-```c++
-auto my_flux_function = [](samurai::FluxStencilCoeffs<cfg>& c, double h)
-{
-    // Assuming a 2-cell stencil:
-    c[0] = -1 / h;
-    c[1] = 1 / h;
-};
-```
-
-`samurai::FluxStencilCoeffs<cfg>` is a fixed-size array whose size is the `stencil_size` declared in `cfg`.
-Each `c[i]` is a matrix of size `output_n_comp x input_n_comp`,
-where `output_n_comp` (resp. `input_n_comp`) is the number of components of the `output_field_type` (resp. `input_field_type`) declared in `cfg`.
-The matrix type is an `xtensor` object:
-the $k$-th row of `c[0]` is `xt::row(c[0], k)`,
-its $l$-th column is `xt::col(c[0], l)`, and its coefficient at indices $(k, l)$ is `c[0](k, l)`.
-
-```{note}
-When both `output_field_type` and `input_field_type` are scalar fields,
-the coefficient type reduces to a scalar type (typically `double`), with no accessor and no `xtensor` function.
-Dimension-independent code therefore usually needs a separate branch for this case.
-```
-
-As the discrete operator is homogeneous over the mesh, the coefficients do not depend on cell values.
-They can depend on the cell length $h$, which is the only parameter of the flux function.
-The coefficients are computed once per mesh level and reused for all interfaces of that level.
-Other constant parameters can be captured by the lambda function.
-
-Because the flux is given as coefficients rather than as a formula,
-the same coefficients serve both contexts:
-
-- in an explicit context, they are the coefficients of the linear combination {eq}`linear_comb` of the stencil values;
-- in an implicit context, they are inserted into the matrix of the linear system.
-
-The next sections implement standard discrete operators as examples.
-
-### Scalar Laplacian
-
-Since
-
-$$
-\int_V \Delta u = \int_{\partial V} \nabla u\cdot \mathbf{n},
-$$
-
-the flux function is a discrete version of $\nabla u\cdot \mathbf{n}$.
-Here, we choose the first-order normal gradient, which reads two cells.
-The static configuration is
-
-```c++
-auto u = samurai::make_scalar_field<double>("u", mesh);
-
-using cfg = samurai::FluxConfig<samurai::SchemeType::LinearHomogeneous,
-                                2,            // stencil_size
-                                decltype(u),  // output_field_type
-                                decltype(u)>; // input_field_type
-```
-
-Let $V_L$ (left) and $V_R$ (right) be the stencil cells and $F$ their interface. The discrete flux from $V_L$ to $V_R$ is
-
-$$
-\mathcal{F}_h(u_h)_{|F} := \frac{u_R-u_L}{h},
-$$
-
-where $u_L$ and $u_R$ are the finite volume approximations of $u$ in these cells, and $h$ is the cell length.
-In formula {eq}`linear_comb`, the coefficients of $(u_L, u_R)$ are $(-1/h, 1/h)$.
-The flux function is:
-
-```c++
-samurai::FluxDefinition<cfg> gradient(
-    [](samurai::FluxStencilCoeffs<cfg>& c, double h)
-    {
-        static constexpr std::size_t L = 0; // left
-        static constexpr std::size_t R = 1; // right
-
-        c[L] = -1 / h;
-        c[R] = 1 / h;
-    });
-```
-
-Only one flux function is declared, for all directions.
-Writing one function per direction would give identical functions,
-except that the constants `L=0, R=1` would be renamed `B=0, T=1` (bottom, top) and `B=0, F=1` (back, front) to reflect the direction.
-The indices 0 and 1 refer to the configured stencil.
-No stencil is configured here, so the default one applies: in the x-direction of a 3D space,
-it is `{{0,0,0}, {1,0,0}}`, the current cell at index 0 (`L`) and its right neighbour at index 1 (`R`).
-
-The discrete operator is built from the flux definition by
-
-```c++
-auto laplacian = samurai::make_flux_based_scheme(gradient);
-```
-
-The Laplace operator is also the divergence of the gradient, so the following definition is equivalent:
-
-```c++
-auto laplacian = samurai::make_divergence(gradient);
-```
-
-By the divergence theorem,
-
-$$
-\int_V \nabla\cdot f(u) = \int_{\partial V} f(u) \cdot \mathbf{n},
-$$
-
-so `samurai::make_divergence(flux_definition)` is an alias of `samurai::make_flux_based_scheme`, provided for readability.
-
-### Vector Laplacian
-
-Formula {eq}`linear_comb` generalizes to a vector field $\mathbf{u}_h$ with `n_comp` components:
-
-$$
-\mathcal{F}_h(\mathbf{u}_h)_{|F} := \sum_i \mathbf{c}_i \mathbf{u}_i, \qquad \text{ where } \mathbf{u}_i := (\mathbf{u}_h)_{|V_i}.
-$$
-
-$(\mathbf{u}_i)_i$ are vectors of size `n_comp` and $(\mathbf{c}_i)_i$ are matrices of size `n_comp` $\times$ `n_comp`.
-For `n_comp = 2`, the scheme of the scalar Laplacian reads
-
-$$
-\mathcal{F}_h(\mathbf{u}_h)_{|F} :=
-\begin{bmatrix} -1/h & 0 \\ 0 & -1/h \end{bmatrix} \mathbf{u}_L +
-\begin{bmatrix}  1/h & 0 \\ 0 &  1/h \end{bmatrix} \mathbf{u}_R.
-$$
-
-The matrices are `xtensor` objects, so the `xtensor` syntax and functions apply.
-The vector Laplace operator is
-
-```c++
-static constexpr std::size_t n_comp = 3;
-auto u                              = samurai::make_vector_field<n_comp>("u", mesh); // vector field
-
-using cfg = samurai::FluxConfig<samurai::SchemeType::LinearHomogeneous,
-                                2,            // stencil_size
-                                decltype(u),  // output_field_type
-                                decltype(u)>; // input_field_type
-
-samurai::FluxDefinition<cfg> gradient(
-    [](samurai::FluxStencilCoeffs<cfg>& c, double h)
-    {
-        static constexpr std::size_t L = 0;
-        static constexpr std::size_t R = 1;
-
-        c[L].fill(0);
-        c[R].fill(0);
-        for (std::size_t i = 0; i < n_comp; ++i)
-        {
-            c[L](i, i) = -1 / h;
-            c[R](i, i) = 1 / h;
-        }
-    });
-
-auto laplacian = samurai::make_divergence(gradient);
-```
-
-Compared to the scalar Laplacian, the coefficients for each stencil cell are now matrices:
-diagonal matrices holding the coefficients of the scalar Laplacian.
-
-When `u` is a scalar field, the matrix type reduces to a scalar type, and instructions such as `c[L](i, i)` do not compile.
-To handle both cases with one code, write
-
-```c++
-if constexpr (Field::is_scalar)
-{
-    c[L] = -1 / h;
-    c[R] = 1 / h;
-}
-else
-{
-    c[L].fill(0);
-    c[R].fill(0);
-    for (std::size_t i = 0; i < n_comp; ++i)
-    {
-        c[L](i, i) = -1 / h;
-        c[R](i, i) = 1 / h;
-    }
-}
-```
-
-where `Field` is the field type (`decltype(u)`) and `n_comp` is `Field::n_comp`.
-
-### Gradient
-
-The gradient of a scalar field is written as a finite volume scheme through
-
-$$
-\int_V \nabla u = \int_{\partial V} u\, \mathbf{n}.
-$$
-
-The flux function is a discrete version of $u\, \mathbf{n}$.
-Here, we choose
-
-$$
-\mathcal{F}_h(u_h)_{|F} := \frac{u_L+u_R}{2} \, \mathbf{n}
-$$
-
-in all directions, that is, in 2D,
-
-$$
-\mathcal{F}_h(u_h)_{|F} :=
-\begin{cases}
-    \begin{bmatrix}
-        \frac{u_L+u_R}{2} \\ 0
-    \end{bmatrix}
-    & \text{if } \mathbf{n} = \begin{bmatrix} 1 \\ 0 \end{bmatrix} \\
-    \begin{bmatrix}
-        0 \\ \frac{u_B+u_T}{2}
-    \end{bmatrix}
-    & \text{if } \mathbf{n} = \begin{bmatrix} 0 \\ 1 \end{bmatrix}
-\end{cases},
-$$
-
-where $B$ and $T$ are the bottom and top cells.
-
-In the configuration, the output field has as many components as the space dimension:
-
-```c++
-static constexpr std::size_t dim = decltype(mesh)::dim;
-
-auto u = samurai::make_scalar_field<double>("u", mesh);
-
-using input_field_t  = decltype(u);
-using output_field_t = samurai::VectorField<typename input_field_t::mesh_t, typename input_field_t::value_type, dim>;
-
-using cfg = samurai::FluxConfig<samurai::SchemeType::LinearHomogeneous,
-                                2,              // stencil_size
-                                output_field_t, // output_field_type
-                                input_field_t>; // input_field_type
-```
-
-This time, the flux functions differ from one direction to the other.
-In 2D, they are:
-
-```c++
-static constexpr std::size_t x = 0;
-static constexpr std::size_t y = 1;
-
-samurai::FluxDefinition<cfg> flux;
-
-flux[x].cons_flux_function = [](samurai::FluxStencilCoeffs<cfg>& c, double /* h */)
-{
-    static constexpr std::size_t L = 0;
-    static constexpr std::size_t R = 1;
-
-    xt::row(c[L], x) = 0.5;
-    xt::row(c[L], y) = 0;
-
-    xt::row(c[R], x) = 0.5;
-    xt::row(c[R], y) = 0;
-};
-
-flux[y].cons_flux_function = [](samurai::FluxStencilCoeffs<cfg>& c, double /* h */)
-{
-    static constexpr std::size_t B = 0;
-    static constexpr std::size_t T = 1;
-
-    xt::row(c[B], x) = 0;
-    xt::row(c[B], y) = 0.5;
-
-    xt::row(c[T], x) = 0;
-    xt::row(c[T], y) = 0.5;
-};
-```
-
-Here, `samurai::FluxStencilCoeffs<cfg>` holds, for each stencil cell, a matrix of size `dim x 1`, where `dim` is the space dimension.
-The flux in the x-direction has a non-zero value only in its $x$ coordinate,
-and the flux in the y-direction only in its $y$ coordinate.
-
-The dimension-independent version is
-
-```c++
-samurai::FluxDefinition<cfg> flux;
-samurai::static_for<0, dim>::apply(
-    [&](auto _d)
-    {
-        static constexpr std::size_t d = _d(); // direction index
-
-        flux[d].cons_flux_function = [](samurai::FluxStencilCoeffs<cfg>& c, double /* h */)
-        {
-            static constexpr std::size_t L = 0;
-            static constexpr std::size_t R = 1;
-
-            c[L].fill(0);
-            xt::row(c[L], d) = 0.5;
-
-            c[R].fill(0);
-            xt::row(c[R], d) = 0.5;
-        };
-    });
-```
-
-The discrete operator is then
-
-```c++
-auto grad = samurai::make_flux_based_scheme(flux);
-```
-
-### Divergence
-
-The divergence of a vector field $\mathbf{u}$ is written as a finite volume scheme through
-
-$$
-\int_V \nabla \cdot \mathbf{u} = \int_{\partial V} \mathbf{u} \cdot \mathbf{n}.
-$$
-
-The flux function is a discrete version of $\mathbf{u} \cdot \mathbf{n}$.
-As for the gradient, we approximate $\mathbf{u}$ by the average of the two cell values.
-In 2D, this gives
-
-$$
-\mathcal{F}_h(u_h)_{|F} :=
-\begin{cases}
-    \frac{(u_L)_x+(u_R)_x}{2} & \text{if } \mathbf{n} = \begin{bmatrix} 1 \\ 0 \end{bmatrix}, \\
-    \frac{(u_B)_y+(u_T)_y}{2} & \text{if } \mathbf{n} = \begin{bmatrix} 0 \\ 1 \end{bmatrix}.
-\end{cases}
-$$
-
-The linear combination {eq}`linear_comb` reads
-
-$$
-\mathcal{F}_h(u_h)_{|F} :=
-\begin{cases}
-    \mathbf{c}_L \mathbf{u}_L + \mathbf{c}_R \mathbf{u}_R & \text{if } \mathbf{n} = \begin{bmatrix} 1 \\ 0 \end{bmatrix}, \\
-    \mathbf{c}_B \mathbf{u}_B + \mathbf{c}_T \mathbf{u}_T & \text{if } \mathbf{n} = \begin{bmatrix} 0 \\ 1 \end{bmatrix}.
-\end{cases}
-$$
-
-In this formula, $\mathcal{F}_h(u_h)_{|F}$ is a scalar and $\mathbf{u}_L, \mathbf{u}_R$ (resp. $\mathbf{u}_B, \mathbf{u}_T$) are column vectors.
-Consequently, $\mathbf{c}_L$ and $\mathbf{c}_R$ (resp. $\mathbf{c}_B$ and $\mathbf{c}_T$) are row vectors:
-their C++ type is a matrix of size `1 x dim`.
-The scheme is
-
-$$
-\begin{cases}
-    \mathbf{c}_L := \begin{bmatrix} 1/2 &  0  \end{bmatrix}, & \mathbf{c}_R := \begin{bmatrix} 1/2 &  0  \end{bmatrix}, & \text{if } \mathbf{n} = \begin{bmatrix} 1 \\ 0 \end{bmatrix}, \\
-    \mathbf{c}_B := \begin{bmatrix}  0  & 1/2 \end{bmatrix}, & \mathbf{c}_T := \begin{bmatrix}  0  & 1/2 \end{bmatrix}, & \text{if } \mathbf{n} = \begin{bmatrix} 0 \\ 1 \end{bmatrix}.
-\end{cases}
-$$
-
-The dimension-independent code is
-
-```c++
-static constexpr std::size_t dim = decltype(mesh)::dim;
-
-auto u = samurai::make_vector_field<double, dim>("u", mesh);
-
-using input_field_t  = decltype(u);
-using output_field_t = samurai::ScalarField<typename input_field_t::mesh_t, typename input_field_t::value_type>;
-using cfg            = samurai::FluxConfig<samurai::SchemeType::LinearHomogeneous,
-                                           2,              // stencil_size
-                                           output_field_t, // output_field_type
-                                           input_field_t>; // input_field_type
-
-samurai::FluxDefinition<cfg> flux;
-
-samurai::static_for<0, dim>::apply(
-    [&](auto _d)
-    {
-        static constexpr std::size_t d = _d();
-
-        flux[d].cons_flux_function = [](samurai::FluxStencilCoeffs<cfg>& c, double /* h */)
-        {
-            static constexpr std::size_t L = 0;
-            static constexpr std::size_t R = 1;
-
-            if constexpr (input_field_t::is_scalar)
-            {
-                c[L] = 0.5;
-                c[R] = 0.5;
-            }
-            else
-            {
-                c[L].fill(0);
-                xt::col(c[L], d) = 0.5;
-
-                c[R].fill(0);
-                xt::col(c[R], d) = 0.5;
-            }
-        };
-    });
-
-auto div = samurai::make_flux_based_scheme(flux);
-```
-
-It is the code of the gradient operator with the `xt::row` functions replaced by `xt::col`.
+where $(V_i)_i$ are the cells of the stencil.
+In an explicit context they are the coefficients of this combination; in an implicit context they are inserted into the matrix of the linear system.
+
+`samurai::FluxStencilCoeffs<cfg>` is a fixed-size array with one coefficient per stencil cell.
+Each `c[i]` is an `xtensor` matrix of size `output_n_comp x input_n_comp`, the numbers of components of the output and input fields: `c[i](k, l)` is the coefficient of component `l` of the input in component `k` of the flux.
+When both fields are scalar fields, `c[i]` reduces to a scalar (typically `double`), with no accessor and no `xtensor` function.
+
+A `LinearHomogeneous` flux function receives the cell length `h`, the only quantity its coefficients may depend on.
+Other constant parameters are captured by the function.
 
 (lin_heter_operators)=
 
-## Linear, heterogeneous discrete operators
+#### Linear heterogeneous schemes
 
-This section covers discrete operators configured with `SchemeType::LinearHeterogeneous`.
-Heterogeneous discrete operators implement linear fluxes that depend on parameters varying in space.
-The flux function looks like that of the {ref}`homogeneous linear discrete operators <lin_homog_operators>`, except that it receives the stencil data instead of the cell length:
+A `LinearHeterogeneous` flux function receives a `samurai::StencilData<cfg>` instead of the cell length:
 
-```c++
-auto param = samurai::make_scalar_field<double>("param", mesh);
+| Member of `StencilData` | Content |
+| --- | --- |
+| `cells` | the cells of the computational stencil, in the order of the configured stencil |
+| `cell_length` | the length of these cells |
 
-auto my_flux_function = [&](samurai::FluxStencilCoeffs<cfg>& c, const samurai::StencilData<cfg>& data)
-{
-    // Assuming a 2-cell stencil:
-    double h = data.cell_length;
-    c[0]     = -param[data.cells[0]] / h;
-    c[1]     = param[data.cells[1]] / h;
-};
-```
-
-`samurai::StencilData<cfg>` holds the cells of the computational stencil (`data.cells`), in the order of the configured stencil,
-and their length (`data.cell_length`).
-The cells are used to read the values of the parameters.
-Here, the lambda function captures the parameter field by reference.
+The flux function reads its parameters in these cells.
 
 ````{warning}
 The cells are those of the *computational* stencil, not the two real cells around the face.
@@ -736,24 +235,46 @@ so the parameters must hold values in the ghosts.
 A material parameter can be set on all cells, ghosts included, with a loop over the `reference` cells:
 
 ```c++
-samurai::for_each_cell(mesh[decltype(mesh)::mesh_id_t::reference],
-                       [&](auto& cell)
-                       {
-                           if (cell.center(0) < 0 && cell.center(1) > 0.5)
-                           {
-                               param[cell] = 1.;
-                           }
-                           else
-                           {
-                               param[cell] = 10.;
-                           }
-                       });
+using mesh_id_t = decltype(mesh)::mesh_id_t;
+
+auto set_param = [&](auto& cell)
+{
+    param[cell] = cell.center(0) < 0 ? 1. : 10.;
+};
+samurai::for_each_cell(mesh[mesh_id_t::reference], set_param);
 ```
 
 For a computed field used as a parameter (for instance, a velocity field computed from the Navier-Stokes equations),
 update its ghosts with `samurai::update_ghost_mr(param);` (or `samurai::update_ghost(param);` on an AMR mesh),
-or declare it as a {ref}`parameter field <parameter_field>` so that the discrete operator updates them.
+or declare it as a [parameter field](#parameter-fields) so that the discrete operator updates them.
 ````
+
+#### Non-linear schemes
+
+A `NonLinear` flux function computes the flux from the stencil values:
+
+| Type | Content |
+| --- | --- |
+| `samurai::FluxValue<cfg>` | the flux, an array of `output_n_comp` values, or a scalar if the output field is a scalar field |
+| `samurai::StencilData<cfg>` | the cells of the computational stencil and their length, as for the heterogeneous schemes |
+| `samurai::StencilValues<cfg>` | the values of the input field in the stencil cells, in the order of the configured stencil |
+
+### Jacobian function
+
+An implicit non-linear scheme is solved by a Newton method, which needs the Jacobian matrix of the flux with respect to the stencil values.
+It is given by `cons_jacobian_function`, next to `cons_flux_function`.
+Its signature is
+
+```c++
+void(samurai::StencilJacobian<cfg>& jac,
+     const samurai::StencilData<cfg>& data,
+     const samurai::StencilValues<cfg>& field)
+```
+
+`jac[i]` is the derivative of the flux with respect to the values of the `i`-th stencil cell:
+a matrix of size `output_n_comp x input_n_comp`, which reduces to a scalar when both fields are scalar fields.
+Without a Jacobian function, the explicit application works, but the implicit assembly fails (see [Errors](#errors)).
+The PETSc option `-snes_mf` (matrix-free Jacobian) solves without it. `-snes_fd` (finite-difference Jacobian) does not work with the default direct solver: the residual does not depend on the ghost unknowns, so the matrix has zero rows there and the factorization fails with a zero pivot ([#625](https://github.com/hpc-maths/samurai/issues/625)).
 
 (parameter_field)=
 
@@ -764,7 +285,7 @@ After the discrete operator is created, `set_parameter_field` registers the fiel
 
 ```c++
 auto conv = samurai::make_flux_based_scheme(upwind);
-conv.set_parameter_field(a); // the operator keeps the ghosts of 'a' up to date
+conv.set_parameter_field(a); // conv keeps the ghosts of a up to date
 ```
 
 The discrete operator then updates the ghosts of the parameter field, if they are out of date, before it applies the scheme explicitly,
@@ -772,341 +293,12 @@ and before the implicit assembly of a non-linear or heterogeneous scheme.
 The update fills the ghosts from the cell values and applies the boundary conditions attached to the parameter field.
 A discrete operator has at most one parameter field.
 
-(upwind_conv_operator)=
-
-### Upwind convection
-
-Let $u$ be a scalar field and $\mathbf{a}$ a velocity field.
-We implement the differential operator $\mathbf{a} \cdot \nabla u$.
-Assuming that $\mathbf{a}$ is divergence-free ($\nabla \cdot \mathbf{a} = 0$),
-
-$$
-\int_V \mathbf{a} \cdot \nabla u = \int_{\partial V} u(\mathbf{a} \cdot \mathbf{n}).
-$$
-
-The flux function is a discrete version of $u(\mathbf{a} \cdot \mathbf{n})$.
-Here, we choose the upwind scheme.
-In each direction $d$,
-
-$$
-\mathcal{F}_h(u_h)_{|F} :=
-\begin{cases}
-    (\mathbf{a})_d \, u_L & \text{if } (\mathbf{a})_d \geq 0, \\
-    (\mathbf{a})_d \, u_R & \text{otherwise,}
-\end{cases}
-$$
-
-where $(\mathbf{a})_d$ is the $d$-th component of $\mathbf{a}$.
-Here, $\mathbf{a}$ is constant in time and varies in space.
-It is stored in a field with as many components as the space dimension, set on every cell and ghost:
-
-```c++
-static constexpr std::size_t dim = 2;
-
-auto a = samurai::make_vector_field<dim>("velocity", mesh);
-
-samurai::for_each_cell(mesh[decltype(mesh)::mesh_id_t::reference],
-                       [&](auto& cell)
-                       {
-                           if (cell.center(0) < 0)
-                           {
-                               a[cell] = samurai::Array<double, dim>{1, -1};
-                           }
-                           else
-                           {
-                               a[cell] = samurai::Array<double, dim>{-1, 1};
-                           }
-                       });
-```
-
-The discrete operator is then built by
-
-```c++
-auto u = samurai::make_scalar_field<double>("u", mesh); // scalar field
-
-using cfg = samurai::FluxConfig<samurai::SchemeType::LinearHeterogeneous,
-                                2,            // stencil_size
-                                decltype(u),  // output_field_type
-                                decltype(u),  // input_field_type
-                                decltype(a)>; // parameter_field_type
-
-samurai::FluxDefinition<cfg> upwind;
-
-samurai::static_for<0, dim>::apply(
-    [&](auto _d)
-    {
-        static constexpr std::size_t d = _d();
-
-        upwind[d].cons_flux_function = [&](samurai::FluxStencilCoeffs<cfg>& c, const samurai::StencilData<cfg>& data)
-        {
-            static constexpr std::size_t L = 0;
-            static constexpr std::size_t R = 1;
-
-            auto cell = data.cells[L]; // arbitrary choice
-
-            if (a[cell](d) >= 0)
-            {
-                c[L] = a[cell](d);
-                c[R] = 0;
-            }
-            else
-            {
-                c[L] = 0;
-                c[R] = a[cell](d);
-            }
-        };
-    });
-
-auto conv = samurai::make_flux_based_scheme(upwind);
-conv.set_parameter_field(a); // the operator keeps the ghosts of 'a' up to date
-```
-
-## Non-linear discrete operators
-
-This section covers discrete operators configured with `SchemeType::NonLinear`.
-The flux function computes the flux from the stencil values:
-
-```c++
-auto my_flux_function = [](samurai::FluxValue<cfg>& flux, const samurai::StencilData<cfg>& data, const samurai::StencilValues<cfg>& field)
-{
-    // Compute your flux using the stencil values of the field
-    flux = (field[1] - field[0]) / data.cell_length;
-};
-```
-
-`samurai::FluxValue<cfg>` is an array of size `output_field_type::n_comp`.
-If the output field is a scalar field, it reduces to a scalar.
-`samurai::StencilValues<cfg>` holds the values of the input field in the stencil cells, in the order of the configured stencil.
-
-### Jacobian function
-
-An implicit non-linear scheme is solved by a Newton method, which needs the Jacobian matrix of the flux with respect to the stencil values.
-It is given by `cons_jacobian_function`, next to `cons_flux_function`.
-Its signature is
-
-```c++
-void(samurai::StencilJacobian<cfg>& jac, const samurai::StencilData<cfg>& data, const samurai::StencilValues<cfg>& field)
-```
-
-`jac[i]` is the derivative of the flux with respect to the values of the `i`-th stencil cell:
-a matrix of size `output_n_comp x input_n_comp`, which reduces to a scalar when both fields are scalar fields.
-The [flux divergence](#flux-divergence) example below defines one.
-Without a Jacobian function, the explicit application works, but the implicit assembly fails (see [Errors](#errors)).
-The PETSc option `-snes_mf` (matrix-free Jacobian) solves without it. `-snes_fd` (finite-difference Jacobian) does not work with the default direct solver: the residual does not depend on the ghost unknowns, so the matrix has zero rows there and the factorization fails with a zero pivot ([#625](https://github.com/hpc-maths/samurai/issues/625)).
-
-### Flux divergence
-
-Since
-
-$$
-\int_V \nabla \cdot f(u) = \int_{\partial V} f(u)\cdot \mathbf{n},
-$$
-
-the flux to implement is
-
-$$
-\mathcal{F}_h(u_h)_{|F} := f_h(u_h),
-$$
-
-where $f_h$ is a discrete version of $f(\cdot)\cdot \mathbf{n}$.
-The centered scheme is
-
-$$
-f_h(u_h) := \frac{f(u_L) + f(u_R)}{2}.
-$$
-
-With the Burgers flux $f(u) = u^2/2$ on a scalar field `u`, a 2-cell stencil and `SchemeType::NonLinear`, the code is
-
-```c++
-samurai::FluxDefinition<cfg> f_h;
-
-samurai::static_for<0, dim>::apply(
-    [&](auto _d)
-    {
-        static constexpr std::size_t d = _d();
-
-        auto f = [](double v) -> samurai::FluxValue<cfg>
-        {
-            return v * v / 2; // Burgers flux
-        };
-
-        f_h[d].cons_flux_function = [f](samurai::FluxValue<cfg>& flux,
-                                        const samurai::StencilData<cfg>& /* data */,
-                                        const samurai::StencilValues<cfg>& u)
-        {
-            static constexpr std::size_t L = 0;
-            static constexpr std::size_t R = 1;
-
-            flux = (f(u[L]) + f(u[R])) / 2;
-        };
-
-        f_h[d].cons_jacobian_function = [](samurai::StencilJacobian<cfg>& jac,
-                                           const samurai::StencilData<cfg>& /* data */,
-                                           const samurai::StencilValues<cfg>& u)
-        {
-            static constexpr std::size_t L = 0;
-            static constexpr std::size_t R = 1;
-
-            jac[L] = u[L] / 2; // derivative of the flux w.r.t. u[L]
-            jac[R] = u[R] / 2; // derivative of the flux w.r.t. u[R]
-        };
-    });
-```
-
-```{warning}
-If the flux function `f_h` calls a function `f`, `f` must still exist when `f_h` is called.
-If the discrete operator is created and returned by a function, and `f` is a local variable of that function, `f` is destroyed before it is used.
-In that case, `f_h` must capture `f` **by value**, as the capture `[f]` does in the example above.
-If `f_h` also captures other fields or parameters by reference, write `[&, f]`.
-```
-
-The discrete operator is built by either
-
-```c++
-auto my_flux_op = samurai::make_flux_based_scheme(f_h);
-```
-
-or
-
-```c++
-auto my_flux_op = samurai::make_divergence(f_h);
-```
-
-The second function is an alias of `make_flux_based_scheme`, which states that the discrete operator is a flux divergence.
-
-### Convection
-
-We implement the differential operator $\nabla \cdot (\mathbf{u}\otimes\mathbf{u})$ for a vector field $\mathbf{u}$.
-If $\nabla \cdot \mathbf{u} = 0$, it equals $\mathbf{u} \cdot \nabla\mathbf{u}$.
-We have
-
-$$
-\int_V \nabla \cdot (\mathbf{u}\otimes\mathbf{u}) = \int_{\partial V} (\mathbf{u}\otimes\mathbf{u})\mathbf{n}.
-$$
-
-In 2D, with $\mathbf{u} := [u\;v]$, it reads
-
-$$
-(\mathbf{u}\otimes\mathbf{u})\mathbf{n} =
-\begin{bmatrix}
-    u^2 & uv \\
-    uv  & v^2
-\end{bmatrix}
-\mathbf{n}
-=
-\begin{cases}
-    \begin{bmatrix} u^2 \\ uv \end{bmatrix} & \text{if } \mathbf{n} = \begin{bmatrix} 1 \\ 0 \end{bmatrix}, \\
-    \begin{bmatrix} uv \\ v^2 \end{bmatrix} & \text{if } \mathbf{n} = \begin{bmatrix} 0 \\ 1 \end{bmatrix}.
-\end{cases}
-$$
-
-Both cases are implemented as functions, where `cfg` is a `SchemeType::NonLinear` configuration with a 2-cell stencil on a 2-component vector field:
-
-```c++
-auto f_x = [](auto u)
-{
-    samurai::FluxValue<cfg> f_u;
-    f_u(0) = u(0) * u(0);
-    f_u(1) = u(0) * u(1);
-    return f_u;
-};
-
-auto f_y = [](auto u)
-{
-    samurai::FluxValue<cfg> f_u;
-    f_u(0) = u(1) * u(0);
-    f_u(1) = u(1) * u(1);
-    return f_u;
-};
-```
-
-With the upwind scheme, the discrete operator is built inside a function by:
-
-```c++
-samurai::FluxDefinition<cfg> upwind_f;
-
-// x-direction
-upwind_f[0].cons_flux_function = [f_x](samurai::FluxValue<cfg>& flux,
-                                       const samurai::StencilData<cfg>& /* data */,
-                                       const samurai::StencilValues<cfg>& u)
-{
-    static constexpr std::size_t L = 0; // left
-    static constexpr std::size_t R = 1; // right
-
-    flux = u[L](0) >= 0 ? f_x(u[L]) : f_x(u[R]);
-};
-
-// y-direction
-upwind_f[1].cons_flux_function = [f_y](samurai::FluxValue<cfg>& flux,
-                                       const samurai::StencilData<cfg>& /* data */,
-                                       const samurai::StencilValues<cfg>& u)
-{
-    static constexpr std::size_t B = 0; // bottom
-    static constexpr std::size_t T = 1; // top
-
-    flux = u[B](1) >= 0 ? f_y(u[B]) : f_y(u[T]);
-};
-
-return samurai::make_flux_based_scheme(upwind_f);
-```
-
-Since, for each direction $d$,
-
-$$
-(\mathbf{u}\otimes\mathbf{u})\mathbf{n} = u_d\, \mathbf{u},
-$$
-
-where $u_d$ is the $d$-th component of $\mathbf{u}$, the code generalizes to any dimension:
-
-```c++
-samurai::FluxDefinition<cfg> upwind_f;
-
-samurai::static_for<0, dim>::apply(
-    [&](auto _d)
-    {
-        static constexpr std::size_t d = _d();
-
-        auto f_d = [](auto u) -> samurai::FluxValue<cfg>
-        {
-            return u(d) * u;
-        };
-
-        upwind_f[d].cons_flux_function = [f_d](samurai::FluxValue<cfg>& flux,
-                                               const samurai::StencilData<cfg>& /* data */,
-                                               const samurai::StencilValues<cfg>& u)
-        {
-            static constexpr std::size_t L = 0;
-            static constexpr std::size_t R = 1;
-
-            flux = u[L](d) >= 0 ? f_d(u[L]) : f_d(u[R]);
-        };
-    });
-
-return samurai::make_flux_based_scheme(upwind_f);
-```
-
-These discrete operators have no Jacobian function: they can be applied explicitly, and solved implicitly only with `-snes_mf`.
-
 (non_conservative_schemes)=
 
-## Implementing a non-conservative scheme
+### Non-conservative fluxes
 
-Flux-based schemes can also be non-conservative.
-Two-phase flow simulations give examples: the scheme is conservative within each phase, but non-conservative fluxes can be computed at the interface between phases.
-
-Let $V_L$ and $V_R$ be the two cells sharing the face $F$, ordered along the corresponding Cartesian direction
-(in the x-direction, $V_L$ and $V_R$ are the left and right cells).
-In a conservative scheme, the contributions of $F$ to $V_L$ and $V_R$ are
-
-$$
-\begin{aligned}
-\mathcal{C}_L &:= \;\;\; \frac{|F|}{|V_L|} \mathcal{F}_h(u_h)_{|F}, \\
-\mathcal{C}_R &:=      - \frac{|F|}{|V_R|} \mathcal{F}_h(u_h)_{|F},
-\end{aligned}
-$$
-
-and the flux $\mathcal{F}_h(u_h)_{|F}$ is computed once and used for both contributions.
-The contributions of a non-conservative scheme are
+Two-phase flow simulations give examples of non-conservative schemes: the scheme is conservative within each phase, but non-conservative fluxes can be computed at the interface between phases.
+The contributions of a face $F$ to its cells $V_L$ and $V_R$ are then
 
 $$
 \begin{aligned}
@@ -1118,37 +310,53 @@ $$
 where $\mathcal{F}_h^-(u_h)_{|F} = -\mathcal{F}_h^+(u_h)_{|F}$ does not necessarily hold.
 
 A conservative scheme sets $\mathcal{F}_h(u_h)_{|F}$ through `cons_flux_function`.
-A non-conservative scheme sets both $\mathcal{F}_h^+(u_h)_{|F}$ and $\mathcal{F}_h^-(u_h)_{|F}$ through `flux_function`.
+A non-conservative scheme sets both $\mathcal{F}_h^+(u_h)_{|F}$ and $\mathcal{F}_h^-(u_h)_{|F}$ through `flux_function`, whose signature is that of `cons_flux_function` with a `samurai::FluxValuePair<cfg>` instead of a `samurai::FluxValue<cfg>`:
+`flux[0]` is $\mathcal{F}_h^+(u_h)_{|F}$, added to $V_L$, and `flux[1]` is $\mathcal{F}_h^-(u_h)_{|F}$, added to $V_R$.
 Non-conservative fluxes are available only with `SchemeType::NonLinear`: the flux definitions of the linear scheme types have no `flux_function` member.
-The signature of `flux_function` is that of `cons_flux_function`, except that it sets two values, in a `samurai::FluxValuePair<cfg>`, instead of one:
 
-```c++
-samurai::FluxDefinition<cfg> my_flux;
-
-my_flux[0].flux_function = [](samurai::FluxValuePair<cfg>& flux,
-                              const samurai::StencilData<cfg>& /* data */,
-                              const samurai::StencilValues<cfg>& u)
-{
-    flux[0] = u[0];  // left --> right (direction '+')
-    flux[1] = -u[1]; // right --> left (direction '-')
-};
-```
-
-For instance, a conservative flux written in this form is
-
-```c++
-my_flux[0].flux_function = [](samurai::FluxValuePair<cfg>& flux,
-                              const samurai::StencilData<cfg>& /* data */,
-                              const samurai::StencilValues<cfg>& u)
-{
-    flux[0] = (u[0] + u[1]) / 2;
-    flux[1] = -flux[0];
-};
-```
-
-If `flux_function` is not set, it is derived from `cons_flux_function`.
+If `flux_function` is not set, it is derived from `cons_flux_function`, with `flux[1] = -flux[0]`.
 For implicit schemes, the Jacobian counterpart is `jacobian_function`, which fills a `samurai::StencilJacobianPair<cfg>`;
 if it is not set, it is derived from `cons_jacobian_function`.
+
+### Discrete operator creation and usage
+
+`samurai::make_flux_based_scheme(flux_definition)` creates the discrete operator.
+`samurai::make_divergence(flux_definition)` is an alias, provided for readability when the scheme is the divergence of a flux, since
+
+$$
+\int_V \nabla\cdot f(u) = \int_{\partial V} f(u) \cdot \mathbf{n}.
+$$
+
+The discrete operator `D` applies in an explicit context
+
+```c++
+auto v = D(u);
+```
+
+or in an implicit context
+
+```c++
+// Right-hand side
+auto rhs = samurai::make_scalar_field<double>("rhs", mesh, 0.);
+// Solves the equation D(u) = rhs
+samurai::petsc::solve(D, u, rhs);
+```
+
+`samurai::petsc::solve` uses a linear solver for the linear scheme types and a non-linear (Newton) solver for `SchemeType::NonLinear`.
+Both solvers require boundary conditions attached to the unknown field; the {doc}`PETSc how-to guide <../howto/petsc>` describes the solvers.
+The discrete operator is named "(unnamed)" unless you call `D.set_name("...")`; the name appears in error messages and timers.
+
+```{note}
+The cells and field values passed to the flux function are those of the *computational* stencil, not the two real cells around the face.
+Where a level jump occurs, at least one of the computational cells is a ghost.
+The ghosts of the input field must therefore hold values.
+`D(u)` updates them before it computes the fluxes, if they are out of date:
+it calls `samurai::update_ghost` on an AMR mesh and `samurai::update_ghost_mr` on the other meshes.
+The implicit assembly of a non-linear or heterogeneous scheme does the same for the unknown field.
+The ghosts of any other field the flux function reads are updated only if this field is declared as a [parameter field](#parameter-fields).
+```
+
+(fv-available-implementations)=
 
 ## Available implementations
 
@@ -1213,14 +421,17 @@ Heterogeneous, diagonal tensor coefficient, stored in a scalar field whose value
 ```c++
 static constexpr std::size_t dim = 2;
 
-auto K = samurai::make_scalar_field<samurai::DiffCoeff<dim>>("K", mesh);
+using coeff_t   = samurai::DiffCoeff<dim>;
+using mesh_id_t = decltype(mesh)::mesh_id_t;
 
-samurai::for_each_cell(mesh[decltype(mesh)::mesh_id_t::reference],
-                       [&](auto& cell)
-                       {
-                           double x = cell.center(0);
-                           K[cell]  = x < 0 ? samurai::DiffCoeff<dim>{1, 2} : samurai::DiffCoeff<dim>{2, 1};
-                       });
+auto K = samurai::make_scalar_field<coeff_t>("K", mesh);
+
+auto set_K = [&](auto& cell)
+{
+    double x = cell.center(0);
+    K[cell]  = x < 0 ? coeff_t{1, 2} : coeff_t{2, 1};
+};
+samurai::for_each_cell(mesh[mesh_id_t::reference], set_K);
 
 auto diff = samurai::make_diffusion_order2<FieldType>(K);
 ```
@@ -1263,13 +474,15 @@ Linear convection with a constant velocity (`upwind` and `weno5`):
 
 ```c++
 samurai::VelocityVector<dim> a = {1, -2};
-auto conv                      = samurai::make_convection_upwind<FieldType>(a);
+
+auto conv = samurai::make_convection_upwind<FieldType>(a);
 ```
 
 Linear convection with a velocity field (`upwind`, `weno5` and `smooth_rusanov_incompressible`):
 
 ```c++
-auto a    = samurai::make_vector_field<double, dim>("velocity", mesh); // the size must correspond to the space dimension
+// One component per space dimension
+auto a    = samurai::make_vector_field<double, dim>("a", mesh);
 auto conv = samurai::make_convection_upwind<FieldType>(a);
 ```
 
@@ -1331,7 +544,8 @@ auto unp1 = samurai::make_scalar_field<double>("unp1", mesh);
 auto diff = samurai::make_diffusion_order2<decltype(u)>();
 auto id   = samurai::make_identity<decltype(u)>();
 
-samurai::petsc::solve(id + dt * diff, unp1, u); // solves the linear equation [id + dt*diff](unp1) = u
+// Solves the linear equation [id + dt * diff](unp1) = u
+samurai::petsc::solve(id + dt * diff, unp1, u);
 ```
 
 Discrete operators combine with `+`, `-` and the multiplication by a scalar.
@@ -1346,8 +560,8 @@ For the Stokes system:
 
 ```c++
 // Unknowns
-auto velocity = samurai::make_vector_field<double, dim>("velocity", mesh);
-auto pressure = samurai::make_scalar_field<double>("pressure", mesh);
+auto velocity = samurai::make_vector_field<double, dim>("u", mesh);
+auto pressure = samurai::make_scalar_field<double>("p", mesh);
 
 // Stokes operator
 auto diff = samurai::make_diffusion_order2<decltype(velocity)>();
@@ -1355,7 +569,8 @@ auto grad = samurai::make_gradient_order2<decltype(pressure)>();
 auto div  = samurai::make_divergence_order2<decltype(velocity)>();
 auto zero = samurai::make_zero_operator<decltype(pressure)>();
 
-auto stokes = samurai::make_block_operator<2, 2>(diff, grad, -div, zero);
+auto stokes = samurai::make_block_operator<2, 2>(diff, grad,
+                                                  -div, zero);
 // Right-hand side
 auto f = samurai::make_vector_field<double, dim>("f", mesh);
 auto z = samurai::make_scalar_field<double>("z", mesh, 0.);
@@ -1373,7 +588,8 @@ stokes_solver.solve(f, z);
 The discrete operator is not implemented in 1D.
 
 ```c++
-auto buoyancy = samurai::make_buoyancy<VelocityField, TemperatureField>(9.81);
+auto buoyancy =
+    samurai::make_buoyancy<VelocityField, TemperatureField>(9.81);
 ```
 
 ## Errors
