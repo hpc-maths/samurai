@@ -122,7 +122,7 @@ These demos need no extra CMake option.
 | `finite-volume-level-set-amr` | 2D level-set transport in a vortex, on an AMR mesh. See {doc}`tutorial/level_set`. |
 | `finite-volume-level-set-mra` | The same problem on a multiresolution mesh. See {doc}`tutorial/level_set`. |
 | `finite-volume-level-set-from-scratch` | The same problem with the schemes written in the program. |
-| `finite-volume-linear-convection-obstacle` | 2D convection in a domain with a hole. See {doc}`howto/box`. |
+| `finite-volume-linear-convection-obstacle` | 2D convection in a domain with a hole. See {doc}`howto/geometry`. |
 
 Run commands, from `build/demos/FiniteVolume`:
 
@@ -291,7 +291,7 @@ Run commands, from `build/demos/from_obj`:
 ./mesh-from-obj --input ../../../demos/from_obj/apple.obj --max-level 7
 ```
 
-{doc}`howto/box` shows how the demo is built.
+{doc}`howto/geometry` shows how the demo is built.
 
 ## Comparisons with other AMR libraries
 

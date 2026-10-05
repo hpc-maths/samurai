@@ -9,9 +9,11 @@ Before you start, you need:
 
 samurai provides three mesh types:
 
-- **Uniform mesh** (`samurai::UniformMesh`): all cells have the same size, at a single level.
+- **Uniform mesh** ({cpp:class}`samurai::UniformMesh`): all cells have the same size, at a single level.
 - **Multiresolution mesh** (`samurai::mra::make_mesh`): cells can have different sizes, between a minimum and a maximum level, and multiresolution adapts the mesh to the solution.
 - **Adaptive mesh refinement (AMR) mesh** (`samurai::amr::make_mesh`): cells can have different sizes, and you refine or coarsen them with your own criterion.
+
+To choose between multiresolution and AMR, read {ref}`philosophy-mr-amr`: it explains how each one decides where the cells go.
 
 ## Create a uniform mesh
 
@@ -34,7 +36,7 @@ using config_t = samurai::UniformConfig<dim, 2>; // 2 ghost cells
 
 ## Create a multiresolution mesh
 
-Describe the mesh with `samurai::mesh_config`, then pass it to `samurai::mra::make_mesh` with the box:
+Describe the mesh with {cpp:class}`samurai::mesh_config`, then pass it to `samurai::mra::make_mesh` with the box:
 
 ```{literalinclude} snippet/mesh/mrmesh.cpp
   :language: c++
@@ -43,6 +45,7 @@ Describe the mesh with `samurai::mesh_config`, then pass it to `samurai::mra::ma
 
 This example creates a 2D multiresolution mesh on the box from $(0.0, 0.0)$ to $(1.0, 1.0)$ with a minimum level of 2 and a maximum level of 5.
 All cells start at the maximum level, because multiresolution needs the solution at the finest level before it can coarsen the mesh.
+The {doc}`adaptation how-to guide <adapt>` shows how to adapt it to your solution from there.
 
 ## Create an AMR mesh
 
@@ -158,3 +161,5 @@ Its lines are long: one line holds all the intervals of a level along one direct
 - Create fields on the mesh with the [field how-to guide](field.md).
 - Loop over the cells of the mesh with the [loop how-to guide](loop.md).
 - Save the mesh for visualization with the [save how-to guide](save.md).
+- Adapt a multiresolution mesh to your solution with the {doc}`adaptation how-to guide <adapt>`.
+- Look up the mesh classes and the members of `samurai::mesh_config` in the {doc}`mesh API reference <../api/mesh>`.
