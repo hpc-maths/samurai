@@ -1,6 +1,7 @@
 // "/" focuses the search field of the header, as on most documentation sites.
 document.addEventListener("keydown", (event) => {
-  if (event.key !== "/" || event.ctrlKey || event.metaKey || event.altKey) return;
+  if (event.key !== "/" || event.ctrlKey || event.metaKey || event.altKey)
+    return;
   const target = event.target;
   if (target.closest("input, textarea, select, [contenteditable]")) return;
   const field = document.querySelector(".sm-search input");
@@ -27,7 +28,9 @@ document.addEventListener("readthedocs-addons-data-ready", (event) => {
     }
     select.addEventListener("change", () => {
       const base = current.urls.documentation;
-      const page = window.location.href.startsWith(base) ? window.location.href.slice(base.length) : "";
+      const page = window.location.href.startsWith(base)
+        ? window.location.href.slice(base.length)
+        : "";
       window.location.href = select.value + page;
     });
     cell.replaceChildren(select);
