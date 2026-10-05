@@ -4,25 +4,70 @@
  * labels and navigation (Source Sans 3), one mono for code (Source Code Pro), one red
  * taken from the logo, one ink. Rules, code listings and figures share three stroke
  * weights. Every colour is a variable defined once for light and once for dark, and
- * Furo's own variables are mapped onto them. */
+ * Furo's own variables are mapped onto them in conf.py. */
+
+/* The header, the navigation and the text style links and list items with selectors of
+ * different weights in different parts of the page; stylelint compares them as if they
+ * could match the same element, so its ordering rule is turned off for this file. */
+/* stylelint-disable no-descending-specificity */
 
 /* --- faces ---------------------------------------------------------------------------
    The Source fonts are Adobe's variable WOFF2 releases, unmodified (SIL Open Font
    License 1.1, Reserved Font Name "Source"); Noto Sans Math is under the same licence
    without a reserved name. The licences are in _static/fonts/. */
 
-@font-face { font-family: "Source Serif 4"; src: url(../fonts/SourceSerif4Variable-Roman.woff2) format("woff2"); font-weight: 200 900; font-style: normal; font-display: swap; }
-@font-face { font-family: "Source Serif 4"; src: url(../fonts/SourceSerif4Variable-Italic.woff2) format("woff2"); font-weight: 200 900; font-style: italic; font-display: swap; }
-@font-face { font-family: "Source Sans 3"; src: url(../fonts/SourceSans3VF-Upright.ttf.woff2) format("woff2"); font-weight: 200 900; font-style: normal; font-display: swap; }
-@font-face { font-family: "Source Code Pro"; src: url(../fonts/SourceCodeVF-Upright.ttf.woff2) format("woff2"); font-weight: 200 900; font-style: normal; font-display: swap; }
-@font-face { font-family: "Source Code Pro"; src: url(../fonts/SourceCodeVF-Italic.ttf.woff2) format("woff2"); font-weight: 200 900; font-style: italic; font-display: swap; }
+@font-face {
+  font-family: "Source Serif 4";
+  src: url("../fonts/SourceSerif4Variable-Roman.woff2") format("woff2");
+  font-weight: 200 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Source Serif 4";
+  src: url("../fonts/SourceSerif4Variable-Italic.woff2") format("woff2");
+  font-weight: 200 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Source Sans 3";
+  src: url("../fonts/SourceSans3VF-Upright.ttf.woff2") format("woff2");
+  font-weight: 200 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Source Code Pro";
+  src: url("../fonts/SourceCodeVF-Upright.ttf.woff2") format("woff2");
+  font-weight: 200 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Source Code Pro";
+  src: url("../fonts/SourceCodeVF-Italic.ttf.woff2") format("woff2");
+  font-weight: 200 900;
+  font-style: italic;
+  font-display: swap;
+}
+
 /* Source Serif 4 has no ∇ and no ∪: the mathematical operators come from Noto Sans Math. */
-@font-face { font-family: "samurai math"; src: url(../fonts/NotoSansMath-Regular.woff2) format("woff2"); unicode-range: U+2200-2211, U+2213-22FF, U+27E6-27EF; font-display: swap; }
+@font-face {
+  font-family: "samurai math";
+  src: url("../fonts/NotoSansMath-Regular.woff2") format("woff2");
+  unicode-range: U+2200-2211, U+2213-22FF, U+27E6-27EF;
+  font-display: swap;
+}
 
 /* --- tokens -------------------------------------------------------------------------- */
 
 body {
-  --sm-paper: #ffffff;
+  --sm-paper: #fff;
   --sm-side: #f3f4f6;
   --sm-ink: #1e2832;
   --sm-ink-2: #4f5b67;
@@ -34,15 +79,17 @@ body {
   --sm-red-select: #f3d0d0;
   --sm-tok-str: #2d5872;
   --sm-tok-com: #5c6773;
-
   --sm-w-hair: 0.5px;
   --sm-w-rule: 1px;
   --sm-w-heavy: 1.5px;
-
-  --sm-serif: "samurai math", "Source Serif 4", Georgia, serif;
+  --sm-serif: "samurai math", "Source Serif 4", georgia, serif;
   --sm-sans: "samurai math", "Source Sans 3", system-ui, sans-serif;
-  --sm-mono: "Source Code Pro", "samurai math", ui-monospace, Menlo, monospace;
+  --sm-mono: "Source Code Pro", "samurai math", ui-monospace, menlo, monospace;
   --sm-header: 4.75rem;
+
+  font-optical-sizing: auto;
+  font-kerning: normal;
+  text-rendering: optimizelegibility;
 }
 
 @media not print {
@@ -51,6 +98,7 @@ body {
     --sm-rule: #2e3843; --sm-rule-soft: #222b35; --sm-red: #f0736a; --sm-red-wash: #3f2023; --sm-red-select: #5e2a2a;
     --sm-tok-str: #93bfd8; --sm-tok-com: #8d99a5;
   }
+
   @media (prefers-color-scheme: dark) {
     body:not([data-theme="light"]) {
       --sm-paper: #131a21; --sm-side: #171f28; --sm-ink: #d8dfe6; --sm-ink-2: #a6b1bc; --sm-ink-3: #8b97a3;
@@ -59,114 +107,6 @@ body {
     }
   }
 }
-
-/* Furo's variables, mapped once onto the tokens so both themes follow. */
-body,
-body[data-theme="dark"],
-body:not([data-theme="light"]) {
-  --font-stack: var(--sm-serif);
-  --font-stack--headings: var(--sm-serif);
-  --font-stack--monospace: var(--sm-mono);
-
-  --color-foreground-primary: var(--sm-ink);
-  --color-foreground-secondary: var(--sm-ink-2);
-  --color-foreground-muted: var(--sm-ink-3);
-  --color-foreground-border: var(--sm-rule);
-  --color-background-primary: var(--sm-paper);
-  --color-background-secondary: var(--sm-side);
-  --color-background-border: var(--sm-rule);
-  --color-background-hover: var(--sm-rule-soft);
-  --color-background-hover--transparent: transparent;
-  --color-background-item: var(--sm-ink-3);
-
-  --color-brand-primary: var(--sm-ink);
-  --color-brand-content: var(--sm-ink);
-  --color-brand-visited: var(--sm-ink);
-  --color-link: var(--sm-ink);
-  --color-link--hover: var(--sm-red);
-  --color-link--visited: var(--sm-ink);
-  --color-link-underline: var(--sm-red);
-  --color-link-underline--hover: var(--sm-red);
-  --color-link-underline--visited: var(--sm-red);
-
-  --color-announcement-background: var(--sm-paper);
-  --color-announcement-text: var(--sm-ink);
-  --color-header-background: var(--sm-paper);
-  --color-header-border: var(--sm-rule);
-  --color-header-text: var(--sm-ink);
-
-  --color-sidebar-background: var(--sm-side);
-  --color-sidebar-background-border: var(--sm-rule);
-  --color-sidebar-brand-text: var(--sm-ink);
-  --color-sidebar-caption-text: var(--sm-ink-2);
-  --color-sidebar-link-text: var(--sm-ink-2);
-  --color-sidebar-link-text--top-level: var(--sm-ink-2);
-  --color-sidebar-item-background: transparent;
-  --color-sidebar-item-background--current: transparent;
-  --color-sidebar-item-background--hover: transparent;
-  --color-sidebar-item-expander-background: transparent;
-  --color-sidebar-item-expander-background--hover: transparent;
-  --color-sidebar-search-text: var(--sm-ink);
-  --color-sidebar-search-background: var(--sm-paper);
-  --color-sidebar-search-background--focus: var(--sm-paper);
-  --color-sidebar-search-border: var(--sm-rule);
-  --color-sidebar-search-icon: var(--sm-ink-3);
-
-  --color-toc-background: var(--sm-paper);
-  --color-toc-title-text: var(--sm-ink-2);
-  --color-toc-item-text: var(--sm-ink-2);
-  --color-toc-item-text--hover: var(--sm-ink);
-  --color-toc-item-text--active: var(--sm-ink);
-
-  --color-code-background: transparent;
-  --color-code-foreground: var(--sm-ink);
-  --color-inline-code-background: transparent;
-  --color-highlighted-background: var(--sm-red-wash);
-  --color-highlighted-text: var(--sm-ink);
-  --color-highlight-on-target: var(--sm-red-wash);
-
-  --color-admonition-background: transparent;
-  /* Notes and warnings are set as remarks: no tinted title bar, whatever their kind. */
-  --color-admonition-title-background: transparent;
-  --color-admonition-title-background--caution: transparent;
-  --color-admonition-title-background--warning: transparent;
-  --color-admonition-title-background--danger: transparent;
-  --color-admonition-title-background--attention: transparent;
-  --color-admonition-title-background--error: transparent;
-  --color-admonition-title-background--hint: transparent;
-  --color-admonition-title-background--tip: transparent;
-  --color-admonition-title-background--important: transparent;
-  --color-admonition-title-background--note: transparent;
-  --color-admonition-title-background--seealso: transparent;
-  --color-admonition-title-background--admonition-todo: transparent;
-  --color-table-header-background: transparent;
-  --color-table-border: var(--sm-rule);
-  --color-card-border: var(--sm-rule);
-  --color-card-background: var(--sm-paper);
-
-  --color-api-background: transparent;
-  --color-api-background-hover: var(--sm-rule-soft);
-  --color-api-name: var(--sm-ink);
-  --color-api-pre-name: var(--sm-ink-2);
-  --color-api-keyword: var(--sm-ink-2);
-}
-
-/* --- page ---------------------------------------------------------------------------- */
-
-body {
-  font-optical-sizing: auto;
-  font-kerning: normal;
-  text-rendering: optimizeLegibility;
-}
-::selection { background: var(--sm-red-select); color: var(--sm-ink); }
-:focus-visible { outline: 2px solid var(--sm-red); outline-offset: 2px; border-radius: 1px; }
-
-article {
-  font-size: 1.1875rem;
-  line-height: 1.62;
-}
-article a { text-decoration-thickness: 1px; text-underline-offset: 3px; }
-article a:hover { color: var(--sm-red); }
 
 /* --- header (in Furo's announcement bar) --------------------------------------------- */
 
@@ -179,6 +119,7 @@ article a:hover { color: var(--sm-red); }
   padding: 0;
   border-bottom: var(--sm-w-rule) solid var(--sm-rule);
 }
+
 .announcement-content {
   min-width: 100%;
   height: 100%;
@@ -186,7 +127,13 @@ article a:hover { color: var(--sm-red); }
   text-align: left;
   white-space: normal;
 }
-.sm-header { display: flex; height: 100%; font-family: var(--sm-sans); }
+
+.sm-header {
+  display: flex;
+  height: 100%;
+  font-family: var(--sm-sans);
+}
+
 /* The logo cell is exactly as wide as Furo's navigation column below it. */
 .sm-brand {
   flex: none;
@@ -200,7 +147,12 @@ article a:hover { color: var(--sm-red); }
   background: var(--sm-side);
   border-right: var(--sm-w-rule) solid var(--sm-rule);
 }
-.sm-brand img { height: 3.25rem; width: auto; }
+
+.sm-brand img {
+  height: 3.25rem;
+  width: auto;
+}
+
 .sm-bar {
   flex: 1;
   display: flex;
@@ -211,6 +163,7 @@ article a:hover { color: var(--sm-red); }
   font-size: 0.875rem;
   color: var(--sm-ink-2);
 }
+
 .sm-search {
   display: flex;
   align-items: center;
@@ -225,6 +178,7 @@ article a:hover { color: var(--sm-red); }
 }
 .sm-search:focus-within { border-color: var(--sm-ink-3); }
 .sm-search svg { flex: none; }
+
 .sm-search input {
   flex: 1;
   min-width: 0;
@@ -235,6 +189,7 @@ article a:hover { color: var(--sm-red); }
   font: 400 0.9375rem/1 var(--sm-sans);
 }
 .sm-search input::placeholder { color: var(--sm-ink-2); }
+
 .sm-search kbd {
   font: 500 0.72rem/1 var(--sm-mono);
   padding: 3px 6px;
@@ -243,13 +198,19 @@ article a:hover { color: var(--sm-red); }
   color: var(--sm-ink-2);
 }
 .sm-spacer { flex: 1; }
-.sm-bar > a { color: var(--sm-ink-2); text-decoration: none; }
+
+.sm-bar > a {
+  color: var(--sm-ink-2);
+  text-decoration: none;
+}
 .sm-bar > a:hover { color: var(--sm-ink); }
+
 .sm-version,
 .sm-version select {
   font: 600 0.875rem/1 var(--sm-sans);
   color: var(--sm-ink);
 }
+
 .sm-version {
   display: inline-flex;
   align-items: center;
@@ -258,6 +219,7 @@ article a:hover { color: var(--sm-red); }
   border: var(--sm-w-rule) solid var(--sm-rule);
   border-radius: 3px;
 }
+
 .sm-version select {
   appearance: none;
   border: 0;
@@ -265,6 +227,7 @@ article a:hover { color: var(--sm-red); }
   padding: 0 1.1rem 0 0;
   cursor: pointer;
 }
+
 .sm-icon {
   display: inline-flex;
   align-items: center;
@@ -278,32 +241,52 @@ article a:hover { color: var(--sm-red); }
   cursor: pointer;
 }
 .sm-icon:hover { color: var(--sm-ink); }
-.sm-icon svg { width: 1.125rem; height: 1.125rem; }
+
+.sm-icon svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
 .sm-header .theme-toggle { display: inline-flex; }
 
 /* The header carries the logo, the search and the theme toggle on wide screens. */
-@media (min-width: 67.01em) {
+@media (width >= 67.01em) {
   .sidebar-brand,
   .sidebar-search-container,
   .theme-toggle-content { display: none; }
+
   .sidebar-sticky,
-  .toc-sticky { top: var(--sm-header); height: calc(100vh - var(--sm-header)); }
+  .toc-sticky {
+    top: var(--sm-header);
+    height: calc(100vh - var(--sm-header));
+  }
 }
-@media (max-width: 67em) {
+
+@media (width <= 67em) {
   .announcement { display: none; }
 }
 
 /* --- navigation: parts in roman numerals, chapters numbered -------------------------- */
 
 .sidebar-scroll { padding-top: 2.125rem; }
-.sidebar-tree { counter-reset: part; font-family: var(--sm-sans); }
-.sidebar-tree .toctree-l1 { counter-increment: part; counter-reset: chapter; margin-bottom: 1rem; }
+
+.sidebar-tree {
+  counter-reset: part;
+  font-family: var(--sm-sans);
+}
+
+.sidebar-tree .toctree-l1 {
+  counter-increment: part;
+  counter-reset: chapter;
+  margin-bottom: 1rem;
+}
+
 .sidebar-tree .toctree-l1 > .reference {
   font: 600 0.72rem/1.3 var(--sm-sans);
   letter-spacing: 0.13em;
   text-transform: uppercase;
   color: var(--sm-ink-2);
 }
+
 .sidebar-tree .toctree-l1 > .reference::before {
   content: counter(part, upper-roman);
   display: inline-block;
@@ -311,6 +294,7 @@ article a:hover { color: var(--sm-red); }
   color: var(--sm-ink-3);
 }
 .sidebar-tree .toctree-l2 { counter-increment: chapter; }
+
 .sidebar-tree .toctree-l2 > .reference {
   display: flex;
   width: auto;
@@ -320,6 +304,7 @@ article a:hover { color: var(--sm-red); }
   font: 400 0.9375rem/1.35 var(--sm-serif);
   color: var(--sm-ink-2);
 }
+
 .sidebar-tree .toctree-l2 > .reference::before {
   content: counter(chapter);
   flex: none;
@@ -328,22 +313,85 @@ article a:hover { color: var(--sm-red); }
   font: 400 0.78rem/1 var(--sm-sans);
   color: var(--sm-ink-3);
 }
-.sidebar-tree .toctree-l3 > .reference { font: 400 0.875rem/1.35 var(--sm-serif); padding-left: calc(var(--sidebar-item-spacing-horizontal) + 3.4rem); }
+
+.sidebar-tree .toctree-l3 > .reference {
+  font: 400 0.875rem/1.35 var(--sm-serif);
+  padding-left: calc(var(--sidebar-item-spacing-horizontal) + 3.4rem);
+}
 .sidebar-tree .reference:hover { color: var(--sm-ink); }
-.sidebar-tree .current-page > .reference { color: var(--sm-ink); font-weight: 600; }
+
+.sidebar-tree .current-page > .reference {
+  color: var(--sm-ink);
+  font-weight: 600;
+}
+
 .sidebar-tree .toctree-l2.current-page > .reference,
 .sidebar-tree .toctree-l3.current-page > .reference { border-left-color: var(--sm-red); }
 .sidebar-tree label { color: var(--sm-ink-3); }
 
 /* --- on this page -------------------------------------------------------------------- */
 
-.toc-title { font: 600 0.72rem/1 var(--sm-sans); letter-spacing: 0.13em; text-transform: uppercase; }
-.toc-tree { border-left: var(--sm-w-rule) solid var(--sm-rule); font-family: var(--sm-serif); font-size: 0.9rem; }
-.toc-tree li.scroll-current > .reference { color: var(--sm-ink); font-weight: 400; box-shadow: -1px 0 0 var(--sm-red); }
+.toc-title {
+  font: 600 0.72rem/1 var(--sm-sans);
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.toc-tree {
+  border-left: var(--sm-w-rule) solid var(--sm-rule);
+  font-family: var(--sm-serif);
+  font-size: 0.9rem;
+}
+
+.toc-tree li.scroll-current > .reference {
+  color: var(--sm-ink);
+  font-weight: 400;
+  box-shadow: -1px 0 0 var(--sm-red);
+}
+
+/* --- previous / next, footer --------------------------------------------------------- */
+
+.related-pages a { font-family: var(--sm-serif); }
+
+.related-pages .context {
+  font: 600 0.7rem/1 var(--sm-sans);
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--sm-ink-3);
+}
+.bottom-of-page { font-family: var(--sm-sans); }
+
+/* --- page ---------------------------------------------------------------------------- */
+::selection {
+  background: var(--sm-red-select);
+  color: var(--sm-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--sm-red);
+  outline-offset: 2px;
+  border-radius: 1px;
+}
+
+article {
+  font-size: 1.1875rem;
+  line-height: 1.62;
+}
+
+article a {
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+article a:hover { color: var(--sm-red); }
 
 /* --- titles -------------------------------------------------------------------------- */
 
-article :is(h1, h2, h3, h4, h5, h6) { padding-left: 0; padding-right: 0; border-radius: 0; }
+article :is(h1, h2, h3, h4, h5, h6) {
+  padding-left: 0;
+  padding-right: 0;
+  border-radius: 0;
+}
+
 article h1 {
   font: 400 2.42em/1.12 var(--sm-serif);
   letter-spacing: -0.012em;
@@ -352,6 +400,7 @@ article h1 {
   border-bottom: var(--sm-w-heavy) solid var(--sm-ink);
   text-wrap: balance;
 }
+
 /* A section head is a small label in spaced capitals, then a short red stroke and a rule. */
 article h2 {
   display: flex;
@@ -363,6 +412,7 @@ article h2 {
   text-transform: uppercase;
   color: var(--sm-ink);
 }
+
 /* The red stroke is 2px tall so it stays red at any vertical offset; the rule is 1px. */
 article h2::after {
   content: "";
@@ -372,13 +422,30 @@ article h2::after {
     linear-gradient(var(--sm-red), var(--sm-red)) 0 0 / 26px 2px no-repeat,
     linear-gradient(var(--sm-rule), var(--sm-rule)) 34px 50% / 100% 1px no-repeat;
 }
-article h2 code { text-transform: none; letter-spacing: 0; }
-article h3 { margin: 2em 0 0.6em; font: 600 1.16em/1.3 var(--sm-serif); }
-article h4 { margin: 1.6em 0 0.5em; font: 600 1em/1.35 var(--sm-serif); }
+
+article h2 code {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+article h3 {
+  margin: 2em 0 0.6em;
+  font: 600 1.16em/1.3 var(--sm-serif);
+}
+
+article h4 {
+  margin: 1.6em 0 0.5em;
+  font: 600 1em/1.35 var(--sm-serif);
+}
 article :is(h2, h3, h4) .headerlink { color: var(--sm-ink-3); }
 
 article ul > li::marker { color: var(--sm-red); }
-article ol > li::marker { font-family: var(--sm-sans); font-weight: 600; color: var(--sm-ink-2); }
+
+article ol > li::marker {
+  font-family: var(--sm-sans);
+  font-weight: 600;
+  color: var(--sm-ink-2);
+}
 strong { font-weight: 600; }
 
 /* --- code ---------------------------------------------------------------------------- */
@@ -393,6 +460,13 @@ article code.literal {
 }
 article a code.literal { text-decoration: inherit; }
 
+/* Program output included with `:class: wrap-output`: wrap long lines instead of
+   scrolling, the text itself is unchanged. */
+.wrap-output pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 /* Listings sit between two thin rules, with no grey box. */
 article div.highlight {
   background: none;
@@ -400,27 +474,74 @@ article div.highlight {
   border-top: var(--sm-w-rule) solid var(--sm-ink-3);
   border-bottom: var(--sm-w-rule) solid var(--sm-ink-3);
 }
+
 article div.highlight pre {
   padding: 0.7rem 0 0.75rem;
   font: 400 0.74em/1.6 var(--sm-mono);
   font-variant-ligatures: none;
   tab-size: 4;
 }
+
 /* Furo prefixes the dark Pygments rules with body[data-theme="dark"]; the same weight here
    (body:is(...) counts as one attribute) lets these rules win in both themes. */
 body:is([data-theme], :not([data-theme])) .highlight,
-body:is([data-theme], :not([data-theme])) .highlight pre { background: none; color: var(--sm-ink); }
-body:is([data-theme], :not([data-theme])) .highlight :is(.k, .kc, .kd, .kn, .kp, .kr, .kt, .ow, .nb, .bp) { color: var(--sm-ink); font-weight: 600; font-style: normal; }
-body:is([data-theme], :not([data-theme])) .highlight :is(.s, .s1, .s2, .sa, .sb, .sc, .sd, .se, .sh, .si, .sx, .sr, .ss, .m, .mb, .mf, .mh, .mi, .mo, .il) { color: var(--sm-tok-str); font-style: normal; font-weight: 400; }
-body:is([data-theme], :not([data-theme])) .highlight :is(.c, .c1, .cm, .cs, .ch, .cpf) { color: var(--sm-tok-com); font-style: italic; font-weight: 400; }
-body:is([data-theme], :not([data-theme])) .highlight .cp { color: var(--sm-ink-2); font-style: normal; font-weight: 400; }
-body:is([data-theme], :not([data-theme])) .highlight :is(.p, .o) { color: var(--sm-ink-2); font-weight: 400; font-style: normal; }
-body:is([data-theme], :not([data-theme])) .highlight :is(.n, .na, .nc, .nf, .nn, .nv, .nl, .nx, .nd, .ni, .ne, .no, .nt, .w, .err) { color: var(--sm-ink); font-style: normal; font-weight: 400; border: 0; }
-body:is([data-theme], :not([data-theme])) .highlight .gp { color: var(--sm-ink-3); user-select: none; }
+body:is([data-theme], :not([data-theme])) .highlight pre {
+  background: none;
+  color: var(--sm-ink);
+}
+
+body:is([data-theme], :not([data-theme])) .highlight :is(.k, .kc, .kd, .kn, .kp, .kr, .kt, .ow, .nb, .bp) {
+  color: var(--sm-ink);
+  font-weight: 600;
+  font-style: normal;
+}
+
+body:is([data-theme], :not([data-theme])) .highlight :is(.s, .s1, .s2, .sa, .sb, .sc, .sd, .se, .sh, .si, .sx, .sr, .ss, .m, .mb, .mf, .mh, .mi, .mo, .il) {
+  color: var(--sm-tok-str);
+  font-style: normal;
+  font-weight: 400;
+}
+
+body:is([data-theme], :not([data-theme])) .highlight :is(.c, .c1, .cm, .cs, .ch, .cpf) {
+  color: var(--sm-tok-com);
+  font-style: italic;
+  font-weight: 400;
+}
+
+body:is([data-theme], :not([data-theme])) .highlight .cp {
+  color: var(--sm-ink-2);
+  font-style: normal;
+  font-weight: 400;
+}
+
+body:is([data-theme], :not([data-theme])) .highlight :is(.p, .o) {
+  color: var(--sm-ink-2);
+  font-weight: 400;
+  font-style: normal;
+}
+
+body:is([data-theme], :not([data-theme])) .highlight :is(.n, .na, .nc, .nf, .nn, .nv, .nl, .nx, .nd, .ni, .ne, .no, .nt, .w, .err) {
+  color: var(--sm-ink);
+  font-style: normal;
+  font-weight: 400;
+  border: 0;
+}
+
+body:is([data-theme], :not([data-theme])) .highlight .gp {
+  color: var(--sm-ink-3);
+  user-select: none;
+}
 body:is([data-theme], :not([data-theme])) .highlight .hll { background: var(--sm-red-wash); }
 
 /* A listing with a caption names its file under the bottom rule, on the right. */
-article .literal-block-wrapper { display: flex; flex-direction: column; margin: 0.6em 0 1.4em; border: 0; border-radius: 0; }
+article .literal-block-wrapper {
+  display: flex;
+  flex-direction: column;
+  margin: 0.6em 0 1.4em;
+  border: 0;
+  border-radius: 0;
+}
+
 article .literal-block-wrapper .code-block-caption {
   order: 2;
   padding: 0.45rem 0 0;
@@ -431,10 +552,6 @@ article .literal-block-wrapper .code-block-caption {
   color: var(--sm-ink-3);
 }
 article .literal-block-wrapper div.highlight { border-radius: 0; }
-
-/* Program output included with `:class: wrap-output`: wrap long lines instead of
-   scrolling, the text itself is unchanged. */
-.wrap-output pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* --- notes, warnings and the like, set as remarks ------------------------------------ */
 
@@ -449,7 +566,15 @@ article .topic {
   background: none;
   font-size: 1em;
 }
-article .admonition::after { content: ""; display: block; width: 3.2em; margin-top: 0.65em; border-bottom: var(--sm-w-rule) solid var(--sm-ink-3); }
+
+article .admonition::after {
+  content: "";
+  display: block;
+  width: 3.2em;
+  margin-top: 0.65em;
+  border-bottom: var(--sm-w-rule) solid var(--sm-ink-3);
+}
+
 article .admonition > .admonition-title {
   margin: 0 0 0.35em;
   padding: 0;
@@ -457,17 +582,26 @@ article .admonition > .admonition-title {
   font: 600 1em/1.4 var(--sm-serif);
   font-variant-caps: all-small-caps;
   letter-spacing: 0.07em;
+
   /* Spaced capitals are not kerned: at text size the W-A pair closes up and leaves a gap. */
   font-kerning: none;
   color: var(--sm-red);
 }
 article .admonition > .admonition-title::before { display: none; }
-article .admonition > :not(.admonition-title) { margin-left: 0; margin-right: 0; }
+
+article .admonition > :not(.admonition-title) {
+  margin-left: 0;
+  margin-right: 0;
+}
 article .admonition > p:last-child { margin-bottom: 0; }
 
 /* --- tables -------------------------------------------------------------------------- */
 
-article .table-wrapper { margin: 1em 0 1.5em; padding: 0; }
+article .table-wrapper {
+  margin: 1em 0 1.5em;
+  padding: 0;
+}
+
 article table.docutils {
   border: 0;
   border-collapse: collapse;
@@ -478,6 +612,7 @@ article table.docutils {
   font-size: 0.87em;
   font-variant-numeric: lining-nums tabular-nums;
 }
+
 article table.docutils th {
   border: 0;
   border-bottom: var(--sm-w-rule) solid var(--sm-ink);
@@ -487,40 +622,71 @@ article table.docutils th {
   text-transform: uppercase;
   text-align: left;
 }
-article table.docutils td { border: 0; border-bottom: var(--sm-w-rule) solid var(--sm-rule-soft); background: none; }
+
+article table.docutils td {
+  border: 0;
+  border-bottom: var(--sm-w-rule) solid var(--sm-rule-soft);
+  background: none;
+}
 article table.docutils :is(th, td) { padding: 0.55em 1.1em 0.55em 0; }
 article table.docutils :is(th, td):last-child { padding-right: 0; }
 
 /* --- figures ------------------------------------------------------------------------- */
 
 article figure { margin: 1.8em 0; }
+
 article figcaption,
-article .caption { font: italic 400 0.84em/1.5 var(--sm-serif); color: var(--sm-ink-2); }
-article figcaption .caption-number { font: 600 0.72em/1 var(--sm-sans); font-style: normal; letter-spacing: 0.13em; text-transform: uppercase; color: var(--sm-ink); margin-right: 0.5em; }
+article .caption {
+  font: italic 400 0.84em/1.5 var(--sm-serif);
+  color: var(--sm-ink-2);
+}
+
+article figcaption .caption-number {
+  font: 600 0.72em/1 var(--sm-sans);
+  font-style: normal;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--sm-ink);
+  margin-right: 0.5em;
+}
+
 /* Figures are drawn on white: in dark mode they sit on a light sheet so they stay legible. */
 body[data-theme="dark"] article :is(figure, .figure) img,
-body[data-theme="dark"] article img.align-center { background: #f2efe8; padding: 0.6rem; }
+body[data-theme="dark"] article img.align-center {
+  background: #f2efe8;
+  padding: 0.6rem;
+}
+
 @media (prefers-color-scheme: dark) {
   body:not([data-theme="light"]) article :is(figure, .figure) img,
-  body:not([data-theme="light"]) article img.align-center { background: #f2efe8; padding: 0.6rem; }
+  body:not([data-theme="light"]) article img.align-center {
+    background: #f2efe8;
+    padding: 0.6rem;
+  }
 }
 
 /* --- math ---------------------------------------------------------------------------- */
 
 mjx-container[display="true"] { margin: 1.1em 0 1.2em !important; }
 
-/* --- previous / next, footer --------------------------------------------------------- */
-
-.related-pages a { font-family: var(--sm-serif); }
-.related-pages .context { font: 600 0.7rem/1 var(--sm-sans); letter-spacing: 0.13em; text-transform: uppercase; color: var(--sm-ink-3); }
-.bottom-of-page { font-family: var(--sm-sans); }
-
 /* --- narrow screens ------------------------------------------------------------------ */
 
-@media (max-width: 67em) {
-  .mobile-header .brand { display: flex; align-items: center; gap: 0.5rem; font: 600 1.2rem/1 var(--sm-serif); }
-  .mobile-header .brand::before { content: ""; width: 2.25rem; height: 1.75rem; background: url(../logo-mark.png) center / contain no-repeat; }
+@media (width <= 67em) {
+  .mobile-header .brand {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font: 600 1.2rem/1 var(--sm-serif);
+  }
+
+  .mobile-header .brand::before {
+    content: "";
+    width: 2.25rem;
+    height: 1.75rem;
+    background: url("../logo-mark.png") center / contain no-repeat;
+  }
 }
-@media (max-width: 46em) {
+
+@media (width <= 46em) {
   article { font-size: 1.0625rem; }
 }

@@ -24,8 +24,10 @@ project = "samurai"
 author = "samurai team"
 
 # Read version from version.txt
-with open(os.path.join(os.path.dirname(__file__), "../../version.txt")) as f:
-    full_version = f.read().strip()
+with open(
+    os.path.join(os.path.dirname(__file__), "../../version.txt"), encoding="utf-8"
+) as version_file:
+    full_version = version_file.read().strip()
 
 # The short X.Y version
 version = ".".join(full_version.split(".")[:2])
@@ -96,7 +98,105 @@ html_title = project
 
 # The colours, faces and sizes, Furo's own variables included, live in
 # _static/css/samurai.css.
+# The GitHub mark of the footer, drawn in the text colour.
+GITHUB_ICON = (
+    '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="'
+    "M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0"
+    "-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1."
+    "13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33"
+    ".66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-"
+    "2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27."
+    "68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51"
+    ".56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1"
+    ".07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.5"
+    "8-8-8-8z"
+    '"/></svg>'
+)
+
+# Furo's own colour and font variables, mapped onto the tokens of samurai.css
+# (--sm-*), which hold the light and the dark values; one mapping serves both.
+furo_variables = {
+    "font-stack": "var(--sm-serif)",
+    "font-stack--headings": "var(--sm-serif)",
+    "font-stack--monospace": "var(--sm-mono)",
+    "color-foreground-primary": "var(--sm-ink)",
+    "color-foreground-secondary": "var(--sm-ink-2)",
+    "color-foreground-muted": "var(--sm-ink-3)",
+    "color-foreground-border": "var(--sm-rule)",
+    "color-background-primary": "var(--sm-paper)",
+    "color-background-secondary": "var(--sm-side)",
+    "color-background-border": "var(--sm-rule)",
+    "color-background-hover": "var(--sm-rule-soft)",
+    "color-background-hover--transparent": "transparent",
+    "color-background-item": "var(--sm-ink-3)",
+    "color-brand-primary": "var(--sm-ink)",
+    "color-brand-content": "var(--sm-ink)",
+    "color-brand-visited": "var(--sm-ink)",
+    "color-link": "var(--sm-ink)",
+    "color-link--hover": "var(--sm-red)",
+    "color-link--visited": "var(--sm-ink)",
+    "color-link-underline": "var(--sm-red)",
+    "color-link-underline--hover": "var(--sm-red)",
+    "color-link-underline--visited": "var(--sm-red)",
+    "color-announcement-background": "var(--sm-paper)",
+    "color-announcement-text": "var(--sm-ink)",
+    "color-header-background": "var(--sm-paper)",
+    "color-header-border": "var(--sm-rule)",
+    "color-header-text": "var(--sm-ink)",
+    "color-sidebar-background": "var(--sm-side)",
+    "color-sidebar-background-border": "var(--sm-rule)",
+    "color-sidebar-brand-text": "var(--sm-ink)",
+    "color-sidebar-caption-text": "var(--sm-ink-2)",
+    "color-sidebar-link-text": "var(--sm-ink-2)",
+    "color-sidebar-link-text--top-level": "var(--sm-ink-2)",
+    "color-sidebar-item-background": "transparent",
+    "color-sidebar-item-background--current": "transparent",
+    "color-sidebar-item-background--hover": "transparent",
+    "color-sidebar-item-expander-background": "transparent",
+    "color-sidebar-item-expander-background--hover": "transparent",
+    "color-sidebar-search-text": "var(--sm-ink)",
+    "color-sidebar-search-background": "var(--sm-paper)",
+    "color-sidebar-search-background--focus": "var(--sm-paper)",
+    "color-sidebar-search-border": "var(--sm-rule)",
+    "color-sidebar-search-icon": "var(--sm-ink-3)",
+    "color-toc-background": "var(--sm-paper)",
+    "color-toc-title-text": "var(--sm-ink-2)",
+    "color-toc-item-text": "var(--sm-ink-2)",
+    "color-toc-item-text--hover": "var(--sm-ink)",
+    "color-toc-item-text--active": "var(--sm-ink)",
+    "color-code-background": "transparent",
+    "color-code-foreground": "var(--sm-ink)",
+    "color-inline-code-background": "transparent",
+    "color-highlighted-background": "var(--sm-red-wash)",
+    "color-highlighted-text": "var(--sm-ink)",
+    "color-highlight-on-target": "var(--sm-red-wash)",
+    "color-admonition-background": "transparent",
+    "color-admonition-title-background": "transparent",
+    "color-admonition-title-background--caution": "transparent",
+    "color-admonition-title-background--warning": "transparent",
+    "color-admonition-title-background--danger": "transparent",
+    "color-admonition-title-background--attention": "transparent",
+    "color-admonition-title-background--error": "transparent",
+    "color-admonition-title-background--hint": "transparent",
+    "color-admonition-title-background--tip": "transparent",
+    "color-admonition-title-background--important": "transparent",
+    "color-admonition-title-background--note": "transparent",
+    "color-admonition-title-background--seealso": "transparent",
+    "color-admonition-title-background--admonition-todo": "transparent",
+    "color-table-header-background": "transparent",
+    "color-table-border": "var(--sm-rule)",
+    "color-card-border": "var(--sm-rule)",
+    "color-card-background": "var(--sm-paper)",
+    "color-api-background": "transparent",
+    "color-api-background-hover": "var(--sm-rule-soft)",
+    "color-api-name": "var(--sm-ink)",
+    "color-api-pre-name": "var(--sm-ink-2)",
+    "color-api-keyword": "var(--sm-ink-2)",
+}
+
 html_theme_options = {
+    "light_css_variables": furo_variables,
+    "dark_css_variables": furo_variables,
     "light_logo": "light_logo.png",
     "dark_logo": "dark_logo.png",
     "sidebar_hide_name": True,
@@ -111,7 +211,7 @@ html_theme_options = {
         {
             "name": "GitHub",
             "url": "https://github.com/hpc-maths/samurai",
-            "html": '<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>',
+            "html": GITHUB_ICON,
             "class": "",
         },
     ],
@@ -322,7 +422,9 @@ def run_doxygen_if_xml_missing(app, config):
         use_placeholder_xml(app, config)
         return
     logger.info("running doxygen to generate %s", xml_dir)
-    result = subprocess.run([doxygen], cwd=docs_dir, check=False)  # nosec B603: fixed argument list, no shell
+    result = subprocess.run(  # nosec B603: fixed argument list, no shell
+        [doxygen], cwd=docs_dir, check=False
+    )
     if not os.path.isfile(os.path.join(xml_dir, "index.xml")):
         logger.warning(
             "doxygen failed (exit code %d): the API pages are empty.",
