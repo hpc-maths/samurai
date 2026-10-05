@@ -45,8 +45,10 @@ from sphinx.transforms import SphinxTransform
 from sphinx.util.docutils import SphinxDirective
 
 FIG_LABEL = re.compile(r"Figs?\. \d+")
+# Every module of the package, the page modules of pages/ included, so that a new
+# module is tracked without being listed here.
 FIGURE_SOURCES = sorted(
-    str(source) for source in Path(samurai_figures.__file__).parent.glob("*.py")
+    str(source) for source in Path(samurai_figures.__file__).parent.rglob("*.py")
 )
 
 
