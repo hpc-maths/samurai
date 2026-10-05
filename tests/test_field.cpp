@@ -5,6 +5,7 @@
 #include <samurai/box.hpp>
 #include <samurai/field.hpp>
 #include <samurai/mr/mesh.hpp>
+#include <samurai/numeric/gauss_legendre.hpp>
 #include <samurai/uniform_mesh.hpp>
 
 namespace samurai
@@ -186,6 +187,44 @@ namespace samurai
         EXPECT_FALSE(v1 != v2);
         EXPECT_FALSE(v1 == v3);
         EXPECT_TRUE(v1 != v3);
+    }
+
+    // The Gauss-Legendre overloads initialize each cell with the average of
+    // the function over the cell. With 3 points the quadrature is exact for
+    // x^2, whose average over [a, b) is (b^3 - a^3) / (3 (b - a)).
+    TEST(field, init_with_gauss_legendre)
+    {
+        Box<double, 1> box{{0}, {1}};
+        auto mesh = UniformMesh<UniformConfig<1>>(box, 2);
+
+        const GaussLegendre<2> gl;
+        auto u = make_scalar_field<double>(
+            "u",
+            mesh,
+            [](const auto& x)
+            {
+                return x[0] * x[0];
+            },
+            gl);
+        auto v = make_vector_field<double, 2>(
+            "v",
+            mesh,
+            [](const auto& x)
+            {
+                return Array<double, 2>{x[0], x[0] * x[0]};
+            },
+            gl);
+
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          const double a        = cell.corner(0);
+                          const double b        = a + cell.length;
+                          const double average2 = (b * b * b - a * a * a) / (3 * (b - a));
+                          EXPECT_NEAR(u[cell], average2, 1e-14);
+                          EXPECT_NEAR(v[cell][0], (a + b) / 2, 1e-14);
+                          EXPECT_NEAR(v[cell][1], average2, 1e-14);
+                      });
     }
 
 }
