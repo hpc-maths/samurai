@@ -128,6 +128,19 @@ body:not([data-theme="light"]) {
   --color-highlight-on-target: var(--sm-red-wash);
 
   --color-admonition-background: transparent;
+  /* Notes and warnings are set as remarks: no tinted title bar, whatever their kind. */
+  --color-admonition-title-background: transparent;
+  --color-admonition-title-background--caution: transparent;
+  --color-admonition-title-background--warning: transparent;
+  --color-admonition-title-background--danger: transparent;
+  --color-admonition-title-background--attention: transparent;
+  --color-admonition-title-background--error: transparent;
+  --color-admonition-title-background--hint: transparent;
+  --color-admonition-title-background--tip: transparent;
+  --color-admonition-title-background--important: transparent;
+  --color-admonition-title-background--note: transparent;
+  --color-admonition-title-background--seealso: transparent;
+  --color-admonition-title-background--admonition-todo: transparent;
   --color-table-header-background: transparent;
   --color-table-border: var(--sm-rule);
   --color-card-border: var(--sm-rule);
@@ -446,6 +459,8 @@ article .admonition > .admonition-title {
   font: 600 1em/1.4 var(--sm-serif);
   font-variant-caps: all-small-caps;
   letter-spacing: 0.07em;
+  /* Spaced capitals are not kerned: at text size the W-A pair closes up and leaves a gap. */
+  font-kerning: none;
   color: var(--sm-red);
 }
 article .admonition > .admonition-title::before { display: none; }
