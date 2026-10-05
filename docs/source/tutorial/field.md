@@ -159,15 +159,17 @@ The other difference with a uniform grid is that `i` is not a single index but a
 `i` must lie inside an interval of the mesh at this level.
 `u(level, i, j)` gives the values of all the cells of `i` at once.
 
-The following program, taken from the [loop how-to guide](../howto/loop.md), creates a 2D multiresolution mesh on $[-1, 1]^2$ and sets a scalar field to $u(x, y) = e^{-20\left((x - 0.5)^2 + (y - 0.5)^2\right)}$, one interval at a time:
+The following program, taken from the [loop how-to guide](../howto/loop.md), creates a 2D multiresolution mesh on $[0, 1]^2$ and sets a scalar field to $u(x, y) = e^{-20\left((x - 0.5)^2 + (y - 0.5)^2\right)}$, one interval at a time:
 
 ```{literalinclude} ../howto/snippet/loop/for_each_interval_field.cpp
 :language: c++
-:lines: 10-26
+:start-at: samurai::Box<double, dim> box
+:end-at: samurai::for_each_interval(mesh, init);
+:dedent:
 ```
 
 `samurai::for_each_interval` calls the function once per interval of the mesh, with the level, the interval `i` and the $y$ index `j = index[0]`.
-`x` holds the $x$ coordinates of the cell centers of the interval and `y` the $y$ coordinate of the row, a single number.
+`x` holds the $x$ coordinates of the cell centers of the interval and `y` the $y$ coordinate of the row, a single number, both measured from the center $(0.5, 0.5)$ of the box.
 
 The field values are stored in an xtensor container by default, so `u(level, i, j)` is an [xtensor view](https://xtensor.readthedocs.io/en/latest/view.html) on the field array.
 We can assign it an xtensor expression, which is evaluated when it is assigned, as the example does with `xt::arange` and `xt::exp`.
