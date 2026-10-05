@@ -16,6 +16,7 @@
 #
 import os
 import shutil
+import sys
 import subprocess  # nosec B404: runs the doxygen executable found by shutil.which
 
 from sphinx.util import logging
@@ -45,7 +46,11 @@ release = full_version
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
+# Project extensions live in _ext/.
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "_ext"))
+
 extensions = [
+    "statements",
     "sphinx.ext.todo",
     "sphinx.ext.mathjax",
     "breathe",

@@ -138,7 +138,12 @@ Every set expression has a level, returned by `level()`:
 
 ### Set projection with `on`
 
+```{definition} set projection
+:label: def-set-projection
+
 `a.on(level)` brings the set expression `a` to `level`: this is a set projection.
+```
+
 The level does not have to exist in the mesh.
 
 - To a finer level, each cell becomes $2^s$ cells per direction, with $s$ the difference of levels: `[2,4)` at level 1 becomes `[8,16)` at level 3.

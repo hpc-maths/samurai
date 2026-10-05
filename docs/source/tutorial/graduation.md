@@ -8,7 +8,12 @@ graduation_case_2
 graduation_case_3
 ```
 
+```{definition} graded mesh
+:label: def-graded-mesh
+
 A mesh is graded when two neighboring cells differ by at most one level: a cell at level $l$ only touches cells at levels $l - 1$, $l$ and $l + 1$.
+```
+
 Adaptive mesh refinement needs this property, because the values of the ghost cells at level $l$ are reconstructed from the next coarser or the next finer level.
 
 In this series of tutorials, we write the graduation ourselves with the set algebra of {{ project }}, on three 2D meshes built at random or from a criterion.

@@ -141,7 +141,7 @@ The animation loops until you close the window.
 
 `--mpi-size <number-of-ranks>` only changes how the script reads a time series: it then reads one file per rank and per step, named `<prefix><n>_rank_<r>.h5`.
 
-```{note}
+```{remark}
 `samurai::save` does not write files with these per-rank names, and a time series of files written by an MPI run fails with or without `--mpi-size`.
 To animate the results of an MPI run, write them with `samurai::dump` and open them with the ParaView reader or yt.
 ```

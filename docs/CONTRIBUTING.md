@@ -211,7 +211,10 @@ Keep to these conventions so that the pages build and read the same way:
 - Insert the project name with the `{{ project }}` substitution, not with the reStructuredText `|project|`.
 - Show C++ code with a `literalinclude` directive pointing to a compiled snippet or demo, not with a code block typed in the page, so that the code shown always compiles.
 - Write intervals as half-open `[a, b)`, the way samurai prints them.
-- Write directives as fenced blocks (```` ```{note} ````) and cross-references with roles such as `{doc}`, `{ref}` and `{cpp:class}`.
+- Write directives as fenced blocks (```` ```{remark} ````) and cross-references with roles such as `{doc}`, `{ref}` and `{cpp:class}`.
+- Set the definition of a term with ```` ```{definition} term ```` and a side remark with ```` ```{remark} ````, not with `{note}`.
+  The definitions and remarks of a page are numbered in one sequence ("Definition 1.", "Remark 2.").
+  Give a definition a `:label:` to link to it with `{ref}`: the link reads "Definition 1 (term)".
 
 The Markdown files follow the rules in `.markdownlint.json`.
 pre-commit does not run markdownlint, so run it yourself; it needs Node.js:

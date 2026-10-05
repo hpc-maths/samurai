@@ -18,7 +18,7 @@ Called on a mesh, a loop visits the `cells` collection of the mesh (`mesh[mesh_i
 
 `for_each_cell` and `for_each_meshinterval` also take a `samurai::Run` template argument: `Run::Parallel` calls the `parallel_` version, which spreads the work over OpenMP tasks, and `Run::Sequential` (the default) the sequential one.
 
-```{note}
+```{remark}
 The overload `for_each_cell(lca, subset_operator<F, CT...> set, f)` takes a `samurai::subset_operator`, a class that `algorithm.hpp` declares but no header defines: this overload cannot be called.
 To visit the cells of a set expression, pass the mesh and the expression: `for_each_cell(mesh, set, f)`.
 ```

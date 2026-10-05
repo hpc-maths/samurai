@@ -59,7 +59,7 @@ $$
 
 The flux $\mathcal{F}_h(u_h)_{|F}$ is computed once and used for both contributions.
 
-```{note}
+```{remark}
 Flux conservation requires the flux in one direction to be the opposite of the flux in the other direction.
 {{ project }} also accepts two fluxes $\mathcal{F}_h^+(u_h)_{|F}$ and $\mathcal{F}_h^-(u_h)_{|F}$ with $\mathcal{F}_h^-(u_h)_{|F} \neq -\mathcal{F}_h^+(u_h)_{|F}$:
 see {ref}`non-conservative schemes <non_conservative_schemes>`.
@@ -74,7 +74,7 @@ Where a level jump occurs, ghosts take part in the computation of $\mathcal{F}_h
 
 $V_L$ and $V_R$ still denote real cells in the formulas of $\mathcal{C}_L$ and $\mathcal{C}_R$.
 
-```{note}
+```{remark}
 The contributions are divided by the measure of the corresponding cell.
 Instead of $\int_V \mathcal{D}(u)$, the discrete operator computes $\frac{1}{|V|} \int_V \mathcal{D}(u)$,
 so that discrete source terms do not have to be multiplied by the cell measures.
@@ -346,7 +346,7 @@ samurai::petsc::solve(D, u, rhs);
 Both solvers require boundary conditions attached to the unknown field; the {doc}`PETSc how-to guide <../howto/petsc>` describes the solvers.
 The discrete operator is named "(unnamed)" unless you call `D.set_name("...")`; the name appears in error messages and timers.
 
-```{note}
+```{remark}
 The cells and field values passed to the flux function are those of the *computational* stencil, not the two real cells around the face.
 Where a level jump occurs, at least one of the computational cells is a ghost.
 The ghosts of the input field must therefore hold values.
