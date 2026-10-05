@@ -1,0 +1,28 @@
+# Prospector profile read by Codacy, which runs Prospector on the Python
+# files of the pull requests (docs/source/conf.py, docs/source/_ext,
+# cmake/*.py). Codacy runs Pylint and Bandit as tools of their own, so
+# Prospector only checks the docstrings and the errors pyflakes finds.
+strictness: medium
+test-warnings: false
+doc-warnings: true
+
+pylint:
+  run: false
+
+pycodestyle:
+  run: false
+
+mccabe:
+  run: false
+
+pyflakes:
+  run: true
+
+pydocstyle:
+  run: true
+  disable:
+    # D203 and D211 disagree on the blank line before a class docstring,
+    # D212 and D213 on the line where a multi-line docstring summary
+    # starts. Keep D211 and D212, the PEP 257 layout used in the repository.
+    - D203
+    - D213
