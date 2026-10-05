@@ -40,7 +40,9 @@ auto make_nonlinear_diffusion()
             static constexpr std::size_t d = _d();
 
             flux_definition[d].cons_flux_function =
-                [](samurai::FluxValue<cfg>& flux, const samurai::StencilData<cfg>& data, const samurai::StencilValues<cfg>& u)
+                [](samurai::FluxValue<cfg>& flux,
+                   const samurai::StencilData<cfg>& data,
+                   const samurai::StencilValues<cfg>& u)
             {
                 auto u_mean = (u[0] + u[1]) / 2;
                 auto grad_u = (u[0] - u[1]) / data.cell_length;
@@ -48,7 +50,9 @@ auto make_nonlinear_diffusion()
             };
 
             flux_definition[d].cons_jacobian_function =
-                [](samurai::StencilJacobian<cfg>& jac, const samurai::StencilData<cfg>& data, const samurai::StencilValues<cfg>& u)
+                [](samurai::StencilJacobian<cfg>& jac,
+                   const samurai::StencilData<cfg>& data,
+                   const samurai::StencilValues<cfg>& u)
             {
                 auto u_mean = (u[0] + u[1]) / 2;
                 auto grad_u = (u[0] - u[1]) / data.cell_length;
