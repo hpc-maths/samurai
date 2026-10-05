@@ -14,9 +14,13 @@ WARN_IF_UNDOCUMENTED = NO
 MACRO_EXPANSION = YES
 # Expand SAMURAI_INLINE to nothing so that signatures do not depend on the
 # inlining options (see include/samurai/samurai_config.hpp).
-PREDEFINED = SAMURAI_INLINE=
-# Implementation details are not part of the public API.
-EXCLUDE_SYMBOLS = detail *::detail
+# Define SAMURAI_WITH_MPI so that the reference covers the MPI-only API, such as
+# the load balancing driver and its strategies.
+PREDEFINED = SAMURAI_INLINE= SAMURAI_WITH_MPI
+# Implementation details are not part of the public API: the detail namespaces,
+# the cut search helpers of the SFC strategy, and the friend declarations that
+# Boost.Serialization needs in MPI builds.
+EXCLUDE_SYMBOLS = detail *::detail sfc_equal_weight_cuts_* boost::serialization::access
 # samurai/bc.hpp only includes the headers of samurai/bc/ and documents nothing.
 # Breathe finds a file by its base name, so leaving it in would make
 # `doxygenfile:: bc.hpp` ambiguous with samurai/bc/bc.hpp.
