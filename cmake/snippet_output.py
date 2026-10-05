@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Run a documentation snippet and write its output to a file.
+"""
+Run a documentation snippet and write its output to a file.
 
 The pages of the documentation include these files with `literalinclude`.
 CMake calls this script for each `samurai_snippet_output` declaration (see
@@ -8,8 +9,8 @@ cmake/snippetOutputs.cmake); do not edit the generated files by hand.
 The program runs in a temporary directory, so that the files it writes
 (HDF5, xdmf, ...) do not land in the source tree. It is started as
 `./<name>`, the way the pages show it, so that a program printing its own
-name prints the same text on every machine. Standard output and standard
-error are captured together.
+name prints the same text on every machine. Only the standard output is
+captured, unless --stderr is given.
 """
 
 import argparse
@@ -25,7 +26,7 @@ import tempfile
 
 def parse_args():
     """Read the command line, check the options that go together."""
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description=__doc__.strip().splitlines()[0])
     parser.add_argument("--output", required=True, help="file to write")
     parser.add_argument(
         "--exit-code", type=int, default=0, help="expected exit code of the program"
