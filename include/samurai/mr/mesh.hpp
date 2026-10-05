@@ -288,8 +288,8 @@ namespace samurai
         if (this->is_periodic())
         {
             std::array<int, dim> nb_cells_finest_level;
-            const auto& min_indices = this->domain().min_indices();
-            const auto& max_indices = this->domain().max_indices();
+            const auto& min_indices = this->domain_min_indices();
+            const auto& max_indices = this->domain_max_indices();
 
             for (size_t d = 0; d != max_indices.size(); ++d)
             {
