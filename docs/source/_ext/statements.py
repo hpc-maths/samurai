@@ -1,11 +1,11 @@
-"""Numbered definitions and remarks, set the way a textbook sets them.
+r"""Numbered definitions and remarks, set the way a textbook sets them.
 
 Two directives, written in MyST as fenced blocks::
 
     ```{definition} level
     :label: def-level
 
-    A cell at level $\\ell$ has a side of $2^{-\\ell}$.
+    A cell at level $\ell$ has a side of $2^{-\ell}$.
     ```
 
     ```{remark}
