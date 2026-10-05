@@ -38,15 +38,17 @@ field
 loop
 ```
 
-## Adaptation
+## Adaptation and solvers
 
 - {doc}`adapt`: make a multiresolution mesh follow your solution.
+- {doc}`petsc`: solve an implicit scheme with PETSc, sequentially or with MPI.
 
 ```{toctree}
-:caption: Adaptation
+:caption: Adaptation and solvers
 :hidden:
 
 adapt
+petsc
 ```
 
 ## Input and output
