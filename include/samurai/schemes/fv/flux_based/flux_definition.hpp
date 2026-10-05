@@ -38,7 +38,7 @@ namespace samurai
          *                     ------->
          *                    normal flux
          *
-         * An enlarged stencil would be {{-1,0}, {0,0}, {1,0}, {1,0}}, i.e. two cells on each side of the interface.
+         * An enlarged stencil would be {{-1,0}, {0,0}, {1,0}, {2,0}}, i.e. two cells on each side of the interface.
          *
          *       |-------|-------|-------|-------|
          *       |{-1,0} | {0,0} | {1,0} | {2,0} |
