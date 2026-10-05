@@ -1,0 +1,4 @@
+level 2: 0 cells
+level 3: 0 cells
+level 4: 256 cells
+level 5: 0 cells

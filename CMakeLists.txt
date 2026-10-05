@@ -271,6 +271,7 @@ if(BUILD_BENCHMARKS)
 endif()
 
 if(BUILD_SNIPPETS)
+  include(snippetOutputs)
   add_subdirectory(docs/source/howto/snippet)
   add_subdirectory(docs/source/tutorial/snippet)
   add_subdirectory(docs/source/reference/snippet)

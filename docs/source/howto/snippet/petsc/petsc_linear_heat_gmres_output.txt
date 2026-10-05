@@ -1,0 +1,6 @@
+  Linear solve converged due to CONVERGED_RTOL iterations 14
+step 1: 14 iterations, residual x.xxe-06
+  Linear solve converged due to CONVERGED_RTOL iterations 21
+step 2: 21 iterations, residual x.xxe-06
+  Linear solve converged due to CONVERGED_RTOL iterations 22
+step 3: 22 iterations, residual x.xxe-06

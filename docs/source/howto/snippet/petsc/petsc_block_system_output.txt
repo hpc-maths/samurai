@@ -1,0 +1,6 @@
+  Linear solve converged due to CONVERGED_RTOL iterations 2
+step 1: 2 iterations
+  Linear solve converged due to CONVERGED_RTOL iterations 2
+step 2: 2 iterations
+  Linear solve converged due to CONVERGED_RTOL iterations 2
+step 3: 2 iterations

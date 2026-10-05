@@ -1,0 +1,8 @@
+cells: 7668
+covered area: 1.87207
+exact area: 1.87434
+level 2: 8
+level 3: 24
+level 4: 112
+level 5: 356
+level 6: 868

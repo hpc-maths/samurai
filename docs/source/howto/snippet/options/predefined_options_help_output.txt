@@ -1,0 +1,14 @@
+Simple example
+Usage: ./predefined_options [OPTIONS]
+
+Options:
+  --config                    Read an ini file
+  -h,--help                   Print this help message and exit
+
+
+SAMURAI:
+  --min-level UINT            The minimum level of the mesh
+  --max-level UINT            The maximum level of the mesh
+  --start-level UINT          Start level of AMR
+  --graduation-width UINT     The graduation width of the mesh
+...

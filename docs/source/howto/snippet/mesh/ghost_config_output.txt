@@ -1,0 +1,2 @@
+ghost width: 3
+default ghost width: 2

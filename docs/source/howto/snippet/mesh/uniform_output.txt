@@ -1,0 +1,2 @@
+cells: 256
+cells and ghosts: 324

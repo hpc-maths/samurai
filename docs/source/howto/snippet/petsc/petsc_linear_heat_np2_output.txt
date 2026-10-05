@@ -1,0 +1,6 @@
+  Linear solve converged due to CONVERGED_ITS iterations 1
+step 1: 1 iterations, residual x.xxe-15
+  Linear solve converged due to CONVERGED_ITS iterations 1
+step 2: 1 iterations, residual x.xxe-15
+  Linear solve converged due to CONVERGED_ITS iterations 1
+step 3: 1 iterations, residual x.xxe-15

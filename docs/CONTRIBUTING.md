@@ -203,6 +203,45 @@ cmake --preset dev -B build/snippets -DBUILD_SNIPPETS=ON
 cmake --build build/snippets -j2
 ```
 
+### Show the output of a snippet
+
+A page never shows a program output typed by hand.
+The output of a snippet comes from a generated file next to its source, `<name>_output.txt`, which the page includes:
+
+````markdown
+```{literalinclude} snippet/mesh/uniform_output.txt
+  :language: text
+```
+````
+
+To show the output of a new snippet:
+
+1. Declare it in the `CMakeLists.txt` of the snippet tree, after the snippet targets:
+
+   ```cmake
+   samurai_snippet_output(uniform)
+   samurai_snippet_output(predefined_options OUTPUT predefined_options_help_output.txt ARGS --help HEAD 13)
+   ```
+
+   Give the command-line arguments with `ARGS`, and a file name with `OUTPUT` when the same program has several outputs.
+   `NP`, `EXIT_CODE`, `STDERR`, `INPUTS`, `REPLACE`, `HEAD` and `TAIL` cover MPI runs, programs that fail on purpose, error messages, input files, values that change from run to run, and long outputs.
+   `cmake/snippetOutputs.cmake` documents them.
+   Declare PETSc snippets inside the `if(WITH_PETSC)` block.
+2. Regenerate the files:
+
+   ```bash
+   cmake --build build/snippets --target update_snippet_outputs
+   ```
+
+   The target runs every declared snippet in a temporary directory and rewrites the `_output.txt` files that changed.
+   Outputs declared with `NP` are generated only in a build configured with `-DWITH_MPI=ON`, the others only in a build without MPI: run the target in both builds, with `-DWITH_PETSC=ON`, to regenerate them all.
+3. Include the file in the page with `literalinclude`; use `:start-at:`, `:end-before:` or `:lines:` to show part of it.
+4. Commit the `_output.txt` files with the snippet.
+
+Never edit an `_output.txt` file by hand: run `update_snippet_outputs` again when a library change alters an output.
+The `compile_snippets` CI job regenerates the files and fails if one of them differs from the committed one.
+The output of a snippet must be the same on every run and every machine. Leave out values that vary, such as timings or residuals near machine precision, or mask them with `REPLACE`.
+
 ### Documentation conventions
 
 Every page under `docs/source/` is MyST Markdown.

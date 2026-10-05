@@ -1,0 +1,14 @@
+Before adaptation:
+  level 3: 0 cells
+  level 4: 0 cells
+  level 5: 0 cells
+  level 6: 0 cells
+  level 7: 16384 cells
+  total: 16384 cells
+After adaptation:
+  level 3: 0 cells
+  level 4: 160 cells
+  level 5: 212 cells
+  level 6: 476 cells
+  level 7: 848 cells
+  total: 1696 cells

@@ -1,0 +1,2 @@
+my-option = 3
+my-flag = true

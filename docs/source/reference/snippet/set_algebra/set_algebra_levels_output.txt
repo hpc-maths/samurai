@@ -1,0 +1,4 @@
+intersection (level 1): [2,4)@0:1
+intersection.on(0) (level 0): [1,2)@0:1
+intersection.on(3) (level 3): [8,16)@0:1
+apply_op: level 0, interval [1,2)@0:1

@@ -1,0 +1,5 @@
+rank 0: 1445 cells
+rank 1: 134 cells
+total: 1579 cells
+integral of u: 1.570796323809259e-02
+rank 0 saved 1445 cells

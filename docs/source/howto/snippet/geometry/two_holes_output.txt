@@ -1,0 +1,3 @@
+cells: 30720
+cell length: 0.0078125
+covered area: 1.875

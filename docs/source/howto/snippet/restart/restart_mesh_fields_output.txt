@@ -1,0 +1,17 @@
+Dumped mesh:
+  level 3: 0 cells
+  level 4: 160 cells
+  level 5: 212 cells
+  level 6: 476 cells
+  level 7: 848 cells
+  total: 1696 cells
+Loaded mesh:
+  level 3: 0 cells
+  level 4: 160 cells
+  level 5: 212 cells
+  level 6: 476 cells
+  level 7: 848 cells
+  total: 1696 cells
+Same mesh: true
+Max difference of u and v: 0
+Time: 0.25, iteration: 10

@@ -1,0 +1,3 @@
+# Written by the update_snippet_outputs target (see docs/CONTRIBUTING.md):
+# regenerate them, never edit them by hand.
+docs/source/**/*_output.txt linguist-generated=true
