@@ -114,9 +114,8 @@ For the uniform mesh, `docs/source/howto/snippet/mesh/uniform.cpp` ends with:
 
 It prints the $16 \times 16$ cells at level 4, and the $18 \times 18$ cells once the layer of one ghost cell is added:
 
-```text
-cells: 256
-cells and ghosts: 324
+```{literalinclude} snippet/mesh/uniform_output.txt
+  :language: text
 ```
 
 The multiresolution and AMR programs count the cells of each level with `mesh.nb_cells(level, mesh_id_t::cells)`:
@@ -130,27 +129,20 @@ The multiresolution and AMR programs count the cells of each level with `mesh.nb
 
 The multiresolution mesh has all its cells at level 5:
 
-```text
-level 2: 0 cells
-level 3: 0 cells
-level 4: 0 cells
-level 5: 1024 cells
+```{literalinclude} snippet/mesh/mrmesh_output.txt
+  :language: text
 ```
 
 The AMR mesh has all its cells at level 4, its start level:
 
-```text
-level 2: 0 cells
-level 3: 0 cells
-level 4: 256 cells
-level 5: 0 cells
+```{literalinclude} snippet/mesh/amrmesh_output.txt
+  :language: text
 ```
 
 The program `docs/source/howto/snippet/mesh/ghost_config.cpp` of the previous section prints the ghost width of its mesh and of the same mesh with the default settings:
 
-```text
-ghost width: 3
-default ghost width: 2
+```{literalinclude} snippet/mesh/ghost_config_output.txt
+  :language: text
 ```
 
 To see every sub-mesh (`cells`, `cells and ghosts`, ...) interval by interval, print the mesh itself with `std::cout << mesh`.

@@ -1,0 +1,4 @@
+union_(a, b): [0,8)@0:1 [10,13)@0:1
+intersection(a, b): [4,5)@0:1
+difference(a, b): [0,4)@0:1 [10,13)@0:1
+difference(b, a): [5,8)@0:1

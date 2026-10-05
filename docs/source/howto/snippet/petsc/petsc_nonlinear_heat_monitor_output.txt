@@ -1,0 +1,6 @@
+  0 SNES Function norm 1.77185e+00
+  1 SNES Function norm 8.51167e-02
+  2 SNES Function norm 2.58951e-04
+  3 SNES Function norm 1.56775e-09
+step 1: 3 iterations, residual 6.32485e-10
+...

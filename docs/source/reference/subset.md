@@ -56,11 +56,8 @@ The following program combines two 1D sets of level 0, $A = [0, 5) \cup [10, 13)
 
 It prints:
 
-```text
-union_(a, b): [0,8)@0:1 [10,13)@0:1
-intersection(a, b): [4,5)@0:1
-difference(a, b): [0,4)@0:1 [10,13)@0:1
-difference(b, a): [5,8)@0:1
+```{literalinclude} snippet/set_algebra/set_algebra_boolean_output.txt
+  :language: text
 ```
 
 ```{image} ./figures/set_algebra_boolean.svg
@@ -94,29 +91,8 @@ The following program applies these operations to a 2D set of five cells shaped 
 
 It prints the intervals of each result, row by row:
 
-```text
-plus:
-    y = 1: [1,2)@0:1
-    y = 2: [0,3)@0:1
-    y = 3: [1,2)@0:1
-expand(plus, 1):
-    y = 0: [0,3)@0:1
-    y = 1: [-1,4)@0:1
-    y = 2: [-1,4)@0:1
-    y = 3: [-1,4)@0:1
-    y = 4: [0,3)@0:1
-expand(plus, 1, {false, true}):
-    y = 0: [1,2)@0:1
-    y = 1: [0,3)@0:1
-    y = 2: [0,3)@0:1
-    y = 3: [0,3)@0:1
-    y = 4: [1,2)@0:1
-contract(plus, 1):
-    y = 2: [1,2)@0:1
-translate(plus, {1, -1}):
-    y = 0: [2,3)@0:1
-    y = 1: [1,4)@0:1
-    y = 2: [2,3)@0:1
+```{literalinclude} snippet/set_algebra/set_algebra_expand_contract_output.txt
+  :language: text
 ```
 
 ```{image} ./figures/set_algebra_expand_contract.svg
@@ -165,11 +141,8 @@ The following program computes the intersection on its default level, then on le
 
 The output is:
 
-```text
-intersection (level 1): [2,4)@0:1
-intersection.on(0) (level 0): [1,2)@0:1
-intersection.on(3) (level 3): [8,16)@0:1
-apply_op: level 0, interval [1,2)@0:1
+```{literalinclude} snippet/set_algebra/set_algebra_levels_output.txt
+  :language: text
 ```
 
 The intersection is $[2, 4)$ on level 1, the finest level of its operands.
@@ -282,9 +255,8 @@ The following program builds the union of a list of level cell arrays whose leng
 
 Each thread gets the same intervals:
 
-```text
-thread 0: [0,6) [12,18) [24,30)
-thread 1: [0,6) [12,18) [24,30)
+```{literalinclude} snippet/set_algebra/set_algebra_dynamic_output.txt
+  :language: text
 ```
 
 ## See also

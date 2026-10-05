@@ -61,18 +61,9 @@ Every value of the field, ghost cells included, gets this constant:
 
 The program prints:
 
-```text
-Field u
-    level: 1 coords: { 0.25,  0.25} index: 23, value: 0
-    level: 1 coords: { 0.75,  0.25} index: 24, value: 0
-    level: 1 coords: { 0.25,  0.75} index: 29, value: 0
-    level: 1 coords: { 0.75,  0.75} index: 30, value: 0
-
-Field v
-    level: 1 coords: { 0.25,  0.25} index: 23, value: { 1.,  1.,  1.}
-    level: 1 coords: { 0.75,  0.25} index: 24, value: { 1.,  1.,  1.}
-    level: 1 coords: { 0.25,  0.75} index: 29, value: { 1.,  1.,  1.}
-    level: 1 coords: { 0.75,  0.75} index: 30, value: { 1.,  1.,  1.}
+```{literalinclude} snippet/field/init_constant_output.txt
+  :language: text
+  :tab-width: 4
 ```
 
 Each line is a cell: its level, the coordinates of its center, its index in the field storage and its value.
@@ -95,12 +86,9 @@ Use this form for a point value of an analytical initial condition:
 
 The cells of the left half get 1, the others 0:
 
-```text
-Field u
-    level: 1 coords: { 0.25,  0.25} index: 23, value: 1
-    level: 1 coords: { 0.75,  0.25} index: 24, value: 0
-    level: 1 coords: { 0.25,  0.75} index: 29, value: 1
-    level: 1 coords: { 0.75,  0.75} index: 30, value: 0
+```{literalinclude} snippet/field/init_function_output.txt
+  :language: text
+  :tab-width: 4
 ```
 
 The complete program is in `docs/source/howto/snippet/field/init_function.cpp`; the mesh is the same as in the previous example.
@@ -121,12 +109,9 @@ Use this form when your scheme works on cell averages, as finite volume schemes 
 For $f(x, y) = x^2$, the average over a cell of center $x_c$ and side $h$ is $x_c^2 + h^2 / 12$.
 With $h = 0.5$, the cells centered at $x_c = 0.25$ get $0.0625 + 0.0208 = 0.0833$ instead of the center value $0.0625$:
 
-```text
-Field u
-    level: 1 coords: { 0.25,  0.25} index: 23, value: 0.0833333
-    level: 1 coords: { 0.75,  0.25} index: 24, value: 0.583333
-    level: 1 coords: { 0.25,  0.75} index: 29, value: 0.0833333
-    level: 1 coords: { 0.75,  0.75} index: 30, value: 0.583333
+```{literalinclude} snippet/field/init_gauss_legendre_output.txt
+  :language: text
+  :tab-width: 4
 ```
 
 The complete program is in `docs/source/howto/snippet/field/init_gauss_legendre.cpp`.

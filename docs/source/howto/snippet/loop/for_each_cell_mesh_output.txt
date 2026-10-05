@@ -1,0 +1,4 @@
+Cell level: 5, center: { 0.015625,  0.015625}
+Cell level: 5, center: { 0.046875,  0.015625}
+...
+Cell level: 5, center: { 0.984375,  0.984375}

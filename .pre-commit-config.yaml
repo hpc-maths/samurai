@@ -1,3 +1,6 @@
+# The snippet outputs are written by the update_snippet_outputs target and must
+# stay byte-identical to the output of the programs (tabs, trailing spaces).
+exclude: _output\.txt$
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0

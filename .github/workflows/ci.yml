@@ -18,8 +18,9 @@ jobs:
     #
     # Decide which jobs this pull request needs. Documentation and project
     # metadata do not change the library, so they skip the build and test jobs.
-    # The documentation snippets are compiled only when they change. Any file
-    # not listed below runs the full CI.
+    # The documentation snippets are compiled, and their outputs checked, when
+    # they change or when the full CI runs: their outputs depend on the library.
+    # Any file not listed below runs the full CI.
     #
     #########################################################
     changes:
@@ -812,6 +813,17 @@ jobs:
             && needs.changes.outputs.snippets == 'true'
             && needs.pre-commit.result == 'success'
             && contains(fromJSON('["success", "skipped"]'), needs.cppcheck.result)
+        name: compile_snippets (MPI ${{ matrix.mpi }})
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    # The outputs of the programs run without mpiexec
+                    - mpi: "OFF"
+                      environment-file: conda/environment.yml
+                    # The outputs of the programs run with mpiexec
+                    - mpi: "ON"
+                      environment-file: conda/mpi-environment.yml
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
@@ -821,17 +833,17 @@ jobs:
               with:
                   path: |
                       ~/.cache/ccache
-                  key: ccache-compile-snippets-${{ github.run_id }}
+                  key: ccache-compile-snippets-mpi-${{ matrix.mpi }}-${{ github.run_id }}
                   restore-keys: |
-                      ccache-compile-snippets-
+                      ccache-compile-snippets-mpi-${{ matrix.mpi }}-
 
             - name: Mamba and samurai env installation
               uses: mamba-org/setup-micromamba@v2
               with:
-                  environment-file: conda/environment.yml
+                  environment-file: ${{ matrix.environment-file }}
                   environment-name: samurai-env
                   cache-environment: true
-                  cache-environment-key: ${{ runner.os }}-${{ hashFiles('conda/environment.yml') }}
+                  cache-environment-key: ${{ runner.os }}-${{ hashFiles(matrix.environment-file) }}
 
             - name: Compiler installation
               shell: bash -l {0}
@@ -846,6 +858,7 @@ jobs:
                   cmake \
                       . \
                       -Bbuild \
+                      -DWITH_MPI=${{ matrix.mpi }} \
                       -DWITH_PETSC=ON \
                       -DBUILD_SNIPPETS=ON
 
@@ -853,6 +866,18 @@ jobs:
               shell: bash -l {0}
               run: |
                   cmake --build build --target all --parallel 4
+
+            - name: Check the snippet outputs
+              shell: bash -l {0}
+              run: |
+                  cmake --build build --target update_snippet_outputs
+                  changes=$(git status --porcelain --untracked-files=all -- docs/)
+                  if [ -n "$changes" ]; then
+                      git --no-pager diff -- docs/
+                      echo "$changes"
+                      echo "::error::The snippet outputs are out of date: run 'cmake --build <build-dir> --target update_snippet_outputs' in a build configured like this job (-DBUILD_SNIPPETS=ON -DWITH_PETSC=ON -DWITH_MPI=${{ matrix.mpi }}) and commit the files it changes."
+                      exit 1
+                  fi
 
             - name: ccache statistics
               shell: bash -l {0}

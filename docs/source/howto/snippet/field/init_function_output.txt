@@ -1,0 +1,6 @@
+Field u
+	level: 1 coords: { 0.25,  0.25} index: 23, value: 1
+	level: 1 coords: { 0.75,  0.25} index: 24, value: 0
+	level: 1 coords: { 0.25,  0.75} index: 29, value: 1
+	level: 1 coords: { 0.75,  0.75} index: 30, value: 0
+

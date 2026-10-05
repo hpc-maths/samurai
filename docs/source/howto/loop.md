@@ -18,11 +18,8 @@ Called on a mesh, both loops visit the cells that hold the solution (`mesh[mesh_
 
 A multiresolution mesh starts with all its cells at the maximum level, so the program prints 1024 lines ($32 \times 32$ cells at level 5). The cells come row by row, from left to right in each row:
 
-```text
-Cell level: 5, center: { 0.015625,  0.015625}
-Cell level: 5, center: { 0.046875,  0.015625}
-...
-Cell level: 5, center: { 0.984375,  0.984375}
+```{literalinclude} snippet/loop/for_each_cell_mesh_output.txt
+  :language: text
 ```
 
 Besides `level` and `center()`, a cell gives its length (`cell.length`), the center along one direction (`cell.center(d)`) and its position in the field storage (`cell.index`). See the {doc}`Cell API page <../api/cell>` for the full list.
@@ -55,11 +52,8 @@ The following example prints the level, the interval and the $y$ index of each i
 
 All the cells are at level 5, so there is one interval per row: the program prints 32 lines, with `y` going from 0 to 31. An interval prints as `[start,end)@offset:step`, where `start` and `end` are the first index and one past the last index along $x$, `offset` is the shift that gives the position of the cells in the field storage, and `step` is the stride between indices. The first lines and the last one are:
 
-```text
-Level: 5, x: [0,32)@498:1, y: 0
-Level: 5, x: [0,32)@534:1, y: 1
-...
-Level: 5, x: [0,32)@1614:1, y: 31
+```{literalinclude} snippet/loop/for_each_interval_mesh_output.txt
+  :language: text
 ```
 
 ## Setting field values interval by interval
