@@ -3,39 +3,6 @@
 
 #pragma once
 
-/**
- * Load balancing driver.
- *
- * Design:
- *  - a *strategy* is an object exposing `partition(mesh, weight) -> flags`
- *    where `flags[cell]` is the destination rank of `cell`. It performs no
- *    migration itself (see the PartitionStrategy concept below);
- *  - the *driver* (`LoadBalancer<Strategy>`) owns the whole MPI machinery:
- *    a single fused migration moves the cells AND the field values in the
- *    same point-to-point message, routed by `flags` towards arbitrary ranks
- *    (destinations are NOT restricted to the geometric MPI neighbourhood).
- *
- * Migration scheme (normative):
- *  1. sort local cells: kept cells go to `new_cl`, leaving cells go to one
- *     CellList payload per destination rank;
- *  2. one single collective: all_to_all of pairs {cells for you, my total
- *     outgoing count}. The second member lets every rank decide *globally*
- *     whether any migration happens at all (mesh reconstruction is collective,
- *     so this decision must be identical everywhere) without an extra
- *     collective;
- *  3. isend one MigrationPayload (CellArray + one flat value vector per field,
- *     serialized in for_each_interval order) per destination; blocking recv
- *     from each announced source; wait_all;
- *  4. new mesh built from kept + received cells. The Mesh_base(cl, ref_mesh)
- *     constructor re-discovers the MPI neighbourhood from scratch
- *     (find_neighbourhood), nothing else to do here;
- *  5. per field: copy kept values (intersection old∩new, level by level),
- *     insert received values (same for_each_interval order as the sender),
- *     then swap the data arrays into the user's field;
- *  6. mesh.swap(new_mesh): the caller's mesh object now holds the balanced
- *     mesh and every field keeps pointing to it.
- */
-
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -70,6 +37,10 @@ namespace samurai::load_balancing
      * destination rank of each cell; `name()` identifies the strategy in the
      * collected statistics. A strategy never communicates field data and never
      * modifies the mesh.
+     *
+     * A strategy that can fail to shed the load it computed may also provide
+     * `double last_unmet_flux() const`: `LoadBalancer::load_balance_with_stats()`
+     * copies it into `LoadBalanceStats::unmet_flux`.
      */
     template <class Strategy, class Mesh, class Weight>
     concept PartitionStrategy = requires(Strategy s, Mesh& mesh, const Weight& w) {
@@ -117,8 +88,36 @@ namespace samurai::load_balancing
     }
 
     /**
-     * Load balancing driver. Owns a strategy and performs the fused
-     * cells+fields migration described in the header of this file.
+     * Load balancing driver: owns a strategy and moves the cells and the field
+     * values to the ranks this strategy chooses.
+     *
+     * The strategy returns the destination rank of every local cell (see
+     * `PartitionStrategy`). The driver then sends each destination rank a
+     * single point-to-point message that holds both the cells and the values of
+     * the given fields. A destination can be any rank, not only an MPI
+     * neighbour. The migration runs these steps:
+     *
+     * 1. Sort the local cells: kept cells go to the new cell list, leaving
+     *    cells to one cell list per destination rank.
+     * 2. Run one `all_to_all`: each rank sends every other rank the number of
+     *    cells it sends to it and its own total number of leaving cells. The
+     *    totals tell every rank whether any cell moves at all, so all ranks
+     *    take the same decision without another collective, which the
+     *    collective construction of the new mesh requires.
+     * 3. Send each destination its cells and, for each field, their values in
+     *    `for_each_interval` order; receive one message from each announced
+     *    source.
+     * 4. Build the new mesh from the kept and received cells. Its constructor
+     *    finds the MPI neighbourhood again.
+     * 5. For each field, copy the values of the kept cells (the intersection of
+     *    the old and new cells, level by level), insert the received values in
+     *    the order of the sender, then swap the data arrays into the caller's
+     *    field.
+     * 6. Swap the new mesh into the caller's mesh object, so every field keeps
+     *    pointing to it.
+     *
+     * When no cell moves on any rank, the migration stops after the
+     * `all_to_all` and leaves the mesh and the fields untouched.
      *
      * Typical use:
      * @code
@@ -130,17 +129,18 @@ namespace samurai::load_balancing
      * }
      * @endcode
      *
-     * `load_balance()` is the lean production path: it only partitions and
-     * migrates. When you need the quality metrics (imbalance before/after,
-     * weighted loads, migrated counts, timings) for diagnostics, a benchmark
-     * or a test, call `load_balance_with_stats()` instead, which performs the
-     * extra (collective) measurements around the very same work.
+     * `load_balance()` only partitions and migrates. When you need the quality
+     * metrics (imbalance before and after, weighted loads, migrated counts) for
+     * diagnostics, a benchmark or a test, call `load_balance_with_stats()`
+     * instead: it does the same work and adds collective measurements around
+     * it.
      */
     template <class Strategy>
     class LoadBalancer
     {
       public:
 
+        /// Builds a driver from its configuration and its strategy.
         explicit LoadBalancer(LoadBalanceConfig config = {}, Strategy strategy = {})
             : m_config(config)
             , m_strategy(std::move(strategy))
@@ -148,8 +148,9 @@ namespace samurai::load_balancing
         }
 
         /**
-         * Collective decision: is the current imbalance above the configured
-         * threshold? Returns the same value on every rank.
+         * Tells whether the global imbalance exceeds
+         * `LoadBalanceConfig::imbalance_threshold`, with the same result on
+         * every rank. Returns `false` with a single MPI process.
          *
          * @note MPI: collective on the world communicator.
          */
@@ -169,17 +170,16 @@ namespace samurai::load_balancing
          * migrate cells and all given fields, then swap the balanced mesh into
          * the caller's mesh object.
          *
-         * This is the lean production path: no quality metric is computed, so
-         * it adds no collective beyond the migration itself. Use
-         * `load_balance_with_stats()` when you need the metrics.
+         * No quality metric is computed, so the call adds no collective
+         * beyond the migration itself. Use `load_balance_with_stats()` when you
+         * need the metrics.
          *
          * All fields must live on the same mesh. With a single MPI process
-         * this is a silent no-op.
+         * the call does nothing.
          *
-         * @note MPI: the migration performs one all_to_all (routing discovery)
-         *       + point-to-point payloads + the collectives of the mesh
-         *       constructor (executed only when at least one cell migrates
-         *       somewhere, decided globally).
+         * @note MPI: the migration runs one `all_to_all`, then point-to-point
+         *       messages and the collectives of the mesh constructor, only
+         *       when at least one cell moves on some rank.
          */
         template <class Weight, class Field, class... Fields>
             requires PartitionStrategy<Strategy, typename Field::mesh_t, Weight>
@@ -190,11 +190,13 @@ namespace samurai::load_balancing
         }
 
         /**
-         * Same work as `load_balance()`, but wrapped in the quality
-         * measurements collected into a `LoadBalanceStats`: weighted loads and
-         * global imbalance before/after, migrated cell counts, partition and
-         * migration timings. Meant for diagnostics, benchmarks and tests, not
-         * for the hot production path.
+         * Same work as `load_balance()`, plus the quality measurements returned
+         * in a `LoadBalanceStats`: local cell counts, weighted loads and global
+         * imbalance before and after, migrated cell counts, unmet flux and
+         * strategy name. Meant for diagnostics, benchmarks and tests.
+         *
+         * With a single MPI process nothing moves, and the returned
+         * imbalances are 0.
          *
          * @note MPI: adds two `imbalance()` evaluations (collective) and two
          *       `local_load()` traversals around the migration.
@@ -233,12 +235,12 @@ namespace samurai::load_balancing
         }
 
         /**
-         * Debug helper: move every cell and all given fields onto
-         * `dest_rank`, producing a maximally skewed distribution. Useful to
-         * stress-test the strategies from an extreme initial state. Reuses the
-         * same migration path as load_balance(). No-op with a single process.
+         * Debug helper: moves every cell and all given fields to `dest_rank`,
+         * which gives the most unbalanced distribution. It tests the
+         * strategies from an extreme initial state, with the same migration as
+         * `load_balance()`. Does nothing with a single MPI process.
          *
-         * @note MPI: same communication scheme as load_balance()'s migration.
+         * @note MPI: same communication as the migration of `load_balance()`.
          */
         template <class Field, class... Fields>
         void concentrate_on(int dest_rank, Field& field, Fields&... other_fields)
@@ -252,11 +254,13 @@ namespace samurai::load_balancing
             }
         }
 
+        /// Returns the configuration of the driver.
         const LoadBalanceConfig& config() const
         {
             return m_config;
         }
 
+        /// Returns the strategy, for example to read its state after a call.
         Strategy& strategy()
         {
             return m_strategy;
@@ -305,8 +309,8 @@ namespace samurai::load_balancing
         }
 
         /**
-         * Fused cells+fields migration (steps 1-6 of the scheme documented in
-         * the file header). `flags[cell]` must hold a valid rank for every
+         * Migration of the cells and the field values (the steps listed in the
+         * description of the class). `flags[cell]` must hold a valid rank for every
          * local cell. Returns how many local cells left and arrived.
          */
         template <class Flags, class Field, class... Fields>
@@ -499,7 +503,8 @@ namespace samurai::load_balancing
         Strategy m_strategy;
     };
 
-    /// Convenience factory, mirroring the `make_*` idiom of samurai.
+    /// Builds a `LoadBalancer`; the configuration and the strategy default to
+    /// their default-constructed values.
     template <class Strategy>
     auto make_load_balancer(LoadBalanceConfig config = {}, Strategy strategy = {})
     {

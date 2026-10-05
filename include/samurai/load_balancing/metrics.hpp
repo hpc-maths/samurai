@@ -34,11 +34,11 @@ namespace samurai::load_balancing
         double load_after              = 0.; ///< local weighted load after balancing
         double imbalance_before        = 0.; ///< global max(load)/avg(load) - 1 before
         double imbalance_after         = 0.; ///< global max(load)/avg(load) - 1 after
-        double unmet_flux              = 0.; ///< load a strategy wanted to shed but could not
-                                             ///< (e.g. diffusion: interface exhausted before
-                                             ///< the requested flux was satisfied). 0 for
-                                             ///< strategies that always meet their target.
-        std::string strategy_name;
+        double unmet_flux              = 0.; ///< load a strategy had to shed but could not,
+                                             ///< such as diffusion when the interface runs
+                                             ///< out before the requested flux is met; 0 for
+                                             ///< strategies that always meet their target
+        std::string strategy_name;           ///< the `name()` of the strategy
     };
 
     /**

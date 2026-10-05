@@ -21,14 +21,18 @@ namespace samurai::load_balancing
      * space. The curve is the locality engine of the SFC partitioning
      * strategy (strategies/sfc.hpp).
      *
-     * Contract for a flavor F : SFCCurve<F>:
-     *  - `sfc_key_t key_2d(coords)` and `sfc_key_t key_3d(coords)` where
-     *    `coords(d)` is an unsigned 32-bit coordinate with at most
-     *    `max_bits(dim)` significant bits;
-     *  - `std::string name()`.
-     * The inverse mapping (key -> coordinates) is NOT part of the contract:
+     * A flavor `F` derives from `SFCCurve<F>` and provides:
+     *
+     * - `sfc_key_t key_2d(coords)` and `sfc_key_t key_3d(coords)`, where
+     *   `coords(d)` is an unsigned 32-bit coordinate with at most
+     *   `max_bits(dim)` significant bits;
+     * - `sfc_key_t key_2d(coords, n)` and `sfc_key_t key_3d(coords, n)`, the
+     *   same keys inside a box of `n(d)` cells per direction;
+     * - `std::string name_impl()`, returned by `name()`.
+     *
+     * The inverse mapping (key to coordinates) is not part of the contract:
      * partitioning only needs the forward direction. Morton provides one as a
-     * flavor-specific extra (useful for debugging and testing).
+     * flavor-specific extra, for debugging and testing.
      */
     template <class Flavor>
     class SFCCurve
@@ -64,7 +68,7 @@ namespace samurai::load_balancing
 
         /// 1D key of `p` inside the `n(0) x n(1) [x n(2)]` bounding box. A flavor
         /// may exploit the box extent to preserve locality on non-square domains
-        /// (Hilbert lays a generalized curve); flavors that don't simply ignore
+        /// (Hilbert lays a generalized curve); flavors that do not use it ignore
         /// `n` and fall back to the square mapping. `p(d)` must satisfy
         /// 0 <= p(d) < n(d).
         template <std::size_t dim, class Coord, class Extent>
@@ -85,6 +89,7 @@ namespace samurai::load_balancing
             }
         }
 
+        /// Name of the curve, used in the name of the SFC strategy.
         std::string name() const
         {
             return derived().name_impl();

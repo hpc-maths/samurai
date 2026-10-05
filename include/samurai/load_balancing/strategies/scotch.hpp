@@ -3,24 +3,6 @@
 
 #pragma once
 
-/**
- * @file scotch.hpp
- * @brief PT-Scotch graph partitioning strategy.
- *
- * Partitions the cell graph using SCOTCH_dgraphPart with a balance-oriented
- * strategy (SCOTCH_STRATBALANCE, default imbalance tolerance 5 %). The
- * number of partitions is the size of the communicator: one part per MPI rank.
- *
- * Prerequisites: SAMURAI_WITH_PTSCOTCH must be ON at configure time.
- * The header emits an `#error` if included without the option.
- *
- * Communication: build_cell_graph (one all_gather + neighbour exchanges) then
- * SCOTCH_dgraphPart (collective).
- *
- * Reference: C. Chevalier & F. Pellegrini, "PT-Scotch: a tool for efficient
- * static and dynamic graph partitioning", 2008.
- */
-
 #ifndef SAMURAI_WITH_PTSCOTCH
 #error "samurai/scotch.hpp requires SAMURAI_WITH_PTSCOTCH=ON"
 #endif
@@ -55,26 +37,45 @@ namespace samurai::load_balancing
     };
 
     /**
-     * PT-Scotch partitioning strategy. Satisfies the PartitionStrategy concept.
+     * PT-Scotch strategy: partitions the distributed graph of the cells, whose
+     * edges join face-adjacent cells, into one part per MPI process.
+     *
+     * It calls `SCOTCH_dgraphPart` with a balance-oriented strategy
+     * (`SCOTCH_STRATBALANCE`) and the imbalance tolerance of
+     * `ScotchOptions`. It throws `std::runtime_error` when PT-Scotch fails.
+     *
+     * The header requires `SAMURAI_WITH_PTSCOTCH`: including it without this
+     * option is a compile error.
+     *
+     * Communication: the construction of the cell graph (one all_gather and
+     * exchanges with the MPI neighbours), then `SCOTCH_dgraphPart`
+     * (collective).
+     *
+     * Reference: C. Chevalier and F. Pellegrini,
+     * "PT-Scotch: a tool for efficient static and dynamic graph partitioning",
+     * 2008.
      */
     class Scotch
     {
       public:
 
+        /// Builds the strategy with the default options.
         Scotch() = default;
 
+        /// Builds the strategy with the given options.
         explicit Scotch(ScotchOptions options)
             : m_options(options)
         {
         }
 
+        /// Returns `"scotch"`.
         std::string name() const
         {
             return "scotch";
         }
 
         /**
-         * Partition the mesh using PT-Scotch and return the flags field.
+         * Returns the destination rank of each cell, computed by PT-Scotch.
          * @note MPI: collective on the world communicator.
          */
         template <class Mesh, class Weight>

@@ -3,35 +3,6 @@
 
 #pragma once
 
-/**
- * Hilbert curve via Skilling's transposition algorithm.
- *
- * Reference: J. Skilling, "Programming the Hilbert curve",
- * AIP Conference Proceedings 707, 381 (2004).
- *
- * The coordinates are first transposed in place (Gray-code based pass over
- * the bit planes), then the transposed bits are interleaved into the key
- * exactly like Morton. Unlike Morton, the Hilbert curve is *continuous*:
- * two consecutive keys are always face-adjacent cells (Manhattan distance 1),
- * which gives the best locality of all practical SFCs.
- *
- * Range: `max_bits(dim)` bits per coordinate so the key fits in 64 bits:
- * 32 bits in 2D, 21 bits in 3D (deepest usable level: 21 in 3D). With 32 bits
- * per coordinate, a 3D key would need 96 bits. The transposition loop runs
- * over these `max_bits(dim)` bit planes only.
- *
- * Rectangular domains (2D): the square `key_2d(p)` above maps a 2^k x 2^k grid;
- * restricted to a thin strip its locality breaks (the curve leaves and re-enters
- * the strip, so a contiguous arc is several disjoint pieces -> a load-balancing
- * partition fractures into spatial islands). `key_2d(p, n)` instead lays a
- * *generalized* Hilbert curve (Jakub Cerveny's "gilbert") over the exact
- * `n(0) x n(1)` bounding box: a single continuous curve with matched seams that
- * fills an arbitrary rectangle, so contiguous arcs stay spatially connected. On
- * a square power-of-two box it coincides with the standard Hilbert order.
- *
- * No inverse mapping: the partitioning only needs coordinates -> key.
- */
-
 #include <cassert>
 #include <cstdint>
 
@@ -41,6 +12,35 @@
 
 namespace samurai::load_balancing
 {
+    /**
+     * Hilbert curve, computed with Skilling's transposition algorithm.
+     *
+     * The coordinates are first transposed in place (a Gray-code based pass
+     * over the bit planes), then the transposed bits are interleaved into the
+     * key as for Morton. Unlike Morton, the Hilbert curve is continuous: two
+     * consecutive keys are always face-adjacent cells, which gives a better
+     * locality.
+     *
+     * Range: `max_bits(dim)` bits per coordinate, so that the key fits in 64
+     * bits: 32 bits in 2D and 21 bits in 3D. The transposition loop runs over
+     * these `max_bits(dim)` bit planes only.
+     *
+     * Rectangular domains (2D): `key_2d(p)` maps a square 2^k x 2^k grid.
+     * Restricted to a thin strip, its locality breaks: the curve leaves and
+     * re-enters the strip, so a contiguous piece of the curve covers several
+     * disjoint regions, and a partition built from it splits into islands.
+     * `key_2d(p, n)` instead lays a generalized Hilbert curve (Jakub Cerveny's
+     * "gilbert") over the `n(0) x n(1)` box of the domain: a single continuous
+     * curve that fills an arbitrary rectangle, so contiguous pieces of the
+     * curve stay connected. On a square power-of-two box it coincides with the
+     * standard Hilbert order. In 3D, `key_3d(p, n)` ignores `n` and uses the
+     * square curve.
+     *
+     * There is no inverse mapping: partitioning only needs coordinates to key.
+     *
+     * Reference: J. Skilling, "Programming the Hilbert curve", AIP Conference
+     * Proceedings 707, 381 (2004).
+     */
     class Hilbert : public SFCCurve<Hilbert>
     {
       public:
@@ -63,7 +63,7 @@ namespace samurai::load_balancing
         }
 
         /// Rectangle-aware 2D key: generalized Hilbert curve over the
-        /// `n(0) x n(1)` bounding box (see the file header). Coincides with
+        /// `n(0) x n(1)` box (see the description of the class). Coincides with
         /// `key_2d(p)` on a square power-of-two box.
         template <class Coord, class Extent>
         sfc_key_t key_2d(const Coord& p, const Extent& n) const

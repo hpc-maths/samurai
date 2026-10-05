@@ -3,94 +3,6 @@
 
 #pragma once
 
-/**
- * Diffusion load balancing, nD, by interface layers.
- *
- * Two phases:
- *
- *  1. Flux computation (private). The processes form a graph (the MPI
- *     neighbourhood). We solve a discrete heat equation on that graph: at every
- *     iteration each process exchanges its current load with ITS NEIGHBOURS ONLY
- *     and updates a per-edge flux with the generalized Cybenko coefficient
- *
- *         t_j = (load_j - load_i) / (max(deg_i, deg_j) + 1)
- *
- *     (Cybenko 1989). The 1/(max(deg)+1) factor guarantees stability, whereas a
- *     fixed 0.5 coefficient can make the iteration oscillate. The only
- *     collective is one boolean all_reduce per iteration to detect convergence
- *     (plus one all_reduce of the total load, once, to set the convergence
- *     scale): there is NO all_gather of the loads. Fluxes below
- *     `flux_threshold * mean_load` are zeroed to avoid micro-migrations.
- *     Convergence towards the global balance is geometric in the spectral gap of
- *     the process graph; since AMR calls the balancer again at every adaptation,
- *     a partial convergence per call is acceptable.
- *
- *     Anti-overshoot (quantum-aware peel, always on; see phase 2). The flux
- *     solver gives the right (balanced, L2-minimal) flow, but the actuation is
- *     discrete (whole coarse cells are ceded) and the balancer is re-run at every
- *     adaptation: ceding a cell heavier than the prescribed flux overshoots, and
- *     that overshoot fed back through the recomputed flow is a closed loop that
- *     settles into a limit cycle. The peel therefore never cedes a coarse cell
- *     heavier than the remaining budget, so a cession can never push the receiver
- *     past balance -- no overshoot, no oscillation. The cost is that, near
- *     balance on a long process chain, the per-edge flux can drop below one coarse
- *     cell and the actuation freezes short of perfect balance (this is the regime
- *     where a global partitioner -- SFC/metis/scotch -- is preferable anyway).
- *
- *  2. Layer assignment (nD), by a geometric breadth-first peel. A negative flux
- *     fluxes[j] means "I must shed |fluxes[j]| of load to neighbour j". We grow
- *     the ceded region OUT OF THE ACTUAL INTERFACE with j: the first layer is my
- *     cells face-adjacent to j's cells, the next layer is my still-owned cells
- *     face-adjacent to what I just ceded, and so on (a BFS front advancing into
- *     my domain). Crucially the front only ever crosses cells I still own, so:
- *       - the ceded region stays attached to j (it is connected to j's side);
- *       - what remains mine stays a single connected island — the peel never
- *         jumps across the domain, because adjacency is recomputed from the
- *         cells just given, not from a fixed Cartesian direction.
- *     There is therefore no notion of direction at all (peeling along a direction
- *     taken from the barycentres would scatter cells on adaptive meshes and break
- *     connectivity). Adjacency is evaluated at the coarsest level (`min_level`)
- *     by set algebra over the 2*dim cardinal translations and projected onto
- *     every actual level with `.on(level)`, which is dimension- and level-jump
- *     agnostic. The frontier between subdomains is a staircase, not a straight
- *     line (a straight-line / row-snapping frontier would restrict the partition
- *     to 2D bands).
- *
- *     The peel is ATOMIC at `min_level`: a coarse cell is ceded with ALL the
- *     fine cells it contains, or not at all, and we stop at a coarse-cell
- *     boundary once the requested flux is met. This is essential on adaptive
- *     meshes: stopping mid-cell at the finest level (a raw cell scan) would
- *     dice the refined front into disconnected single-cell slivers, the very
- *     islands this peel is meant to avoid. A coarse cell is ceded only when it
- *     fits the remaining budget (the quantum-aware anti-overshoot of phase 1), so
- *     there is no overshoot: a cell that does not fit stops the peel and is left
- *     for a later call.
- *
- *  3. Connectivity repair. Shedding to several neighbours whose territories
- *     wrap around a process can still split the cells it keeps into
- *     disconnected pockets (it happens in 3D, where a subdomain has more
- *     neighbours). A final pass labels the kept region's connected components
- *     (seed-growth flood fill at `min_level`) and hands every pocket but the
- *     largest to the neighbour that borders it most — restoring a single
- *     connected island per process. The pass is a no-op (one flood fill) when
- *     the kept region is already connected, i.e. on almost every call.
- *
- * If the interface is exhausted before the requested flux is met, the deficit is
- * accumulated in `last_unmet_flux()` (surfaced as LoadBalanceStats::unmet_flux):
- * no exception, no silent log — the phenomenon stays measurable.
- *
- * Communication: neighbour-only point-to-point for the loads/degrees and the
- * neighbour meshes, + 1 boolean all_reduce per flux iteration + 1 scalar
- * all_reduce for the convergence scale. No O(P) gather of loads or meshes.
- *
- * Guarantees: connected cessions (no islands); convergence to balance over
- * several calls (each call sheds at most the available domain thickness);
- * compact partitions with staircase boundaries.
- *
- * Reference: G. Cybenko, "Dynamic load balancing for distributed memory
- * multiprocessors", J. Parallel Distrib. Comput. 7 (1989) 279-301.
- */
-
 #include <algorithm>
 #include <cmath>
 #include <map>
@@ -121,8 +33,9 @@ namespace samurai::load_balancing
     struct DiffusionOptions
     {
         /// Fluxes smaller than this fraction of the global average load (total
-        /// load divided by the number of processes) are zeroed out to avoid
-        /// micro-migrations.
+        /// load divided by the number of processes, or 1 when the total load
+        /// is 0) are set to zero, to avoid migrating a few cells back and
+        /// forth.
         double flux_threshold = 0.01;
 
         /// Maximum number of iterations of the iterative flux solver.
@@ -167,11 +80,12 @@ namespace samurai::load_balancing
         /**
          * Cybenko diffusion on the process graph. Given this process' load and
          * its neighbour ranks, returns one signed flux per neighbour: negative =
-         * load to give, positive = load to receive. See the file header.
+         * load to give, positive = load to receive. See the description of
+         * the `Diffusion` class.
          *
          * @note MPI: neighbour-only point-to-point (degrees once, loads per
-         *       iteration) + 1 scalar all_reduce (convergence scale) + 1 boolean
-         *       all_reduce per iteration. No load gather.
+         *       iteration), one scalar all_reduce (convergence scale) and one
+         *       boolean all_reduce per iteration. No load gather.
          */
         inline std::vector<double> diffusion_fluxes(double my_load, const std::vector<int>& neighbour_ranks, const DiffusionOptions& options)
         {
@@ -230,42 +144,107 @@ namespace samurai::load_balancing
     }
 
     /**
-     * Diffusion strategy (see the file header for the algorithm).
+     * Diffusion strategy: computes load fluxes between neighbouring ranks,
+     * then cedes layers of cells along each interface, in any dimension.
      *
-     * Holds its `DiffusionOptions` (flux threshold, iteration count, retained
-     * load fraction) and exposes `last_unmet_flux()` so the driver can report
-     * the load it could not shed.
+     * It holds its `DiffusionOptions` (flux threshold, iteration count,
+     * retained load fraction) and exposes `last_unmet_flux()`, so that the
+     * driver can report the load it could not shed. A call runs three phases.
+     *
+     * 1. Flux computation. The processes form a graph, the MPI neighbourhood,
+     *    on which a discrete heat equation is solved. At every iteration each
+     *    process exchanges its current load with its neighbours only and
+     *    updates a flux per edge with the generalized Cybenko coefficient
+     *    `t_j = (load_j - load_i) / (max(deg_i, deg_j) + 1)`.
+     *    The 1/(max(deg) + 1) factor makes the iteration stable, whereas a
+     *    fixed 0.5 coefficient can make it oscillate. Fluxes below
+     *    `flux_threshold` times the global average load are set to zero, to
+     *    avoid migrating a few cells back and forth. Convergence towards the
+     *    global balance is geometric in the spectral gap of the process graph;
+     *    since the balancer runs again after every adaptation, a partial
+     *    convergence per call is acceptable.
+     * 2. Layer assignment, by a geometric breadth-first peel. A negative flux
+     *    towards neighbour j means that this process must shed that load to j.
+     *    The ceded region grows from the actual interface with j: the first
+     *    layer is made of the cells face-adjacent to the cells of j, the next
+     *    one of the still-owned cells face-adjacent to the cells just ceded,
+     *    and so on. The front only crosses cells this process still owns, so
+     *    the ceded region stays attached to j, and the peel never jumps across
+     *    the subdomain. Adjacency is evaluated at the minimum level by set
+     *    algebra over the `2 * dim` face translations, then brought to every level
+     *    with `.on(level)`. The interface between subdomains is therefore a
+     *    staircase and not a straight line, which would restrict the partition
+     *    to bands.
+     *    The peel is atomic at the minimum level: a coarse cell is ceded with
+     *    all the fine cells it contains, or not at all. Stopping inside a
+     *    coarse cell would cut the refined front into disconnected slivers.
+     *    A coarse cell is ceded only when its weight fits in the remaining
+     *    flux, so a cession never pushes the receiver past balance. Without
+     *    this rule, ceding whole cells against a flux recomputed at every
+     *    adaptation settles into a limit cycle. The cost is that near balance,
+     *    on a long chain of processes, the flux of an edge can drop below the
+     *    weight of one coarse cell and the peel stops short of perfect balance;
+     *    a global strategy (SFC, Metis, Scotch) suits that regime better.
+     * 3. Connectivity repair. Shedding to several neighbours whose territories
+     *    wrap around a process can split the cells it keeps into disconnected
+     *    pockets, which happens in 3D, where a subdomain has more neighbours.
+     *    A flood fill at the minimum level labels the connected components of
+     *    the kept cells and hands every pocket but the largest to the
+     *    neighbour that borders it most. When the kept cells are already
+     *    connected, which is the usual case, the pass costs one flood fill.
+     *
+     * If the interface runs out before the requested flux is met, the deficit
+     * is accumulated in `last_unmet_flux()`, which
+     * `LoadBalancer::load_balance_with_stats()` reports as
+     * `LoadBalanceStats::unmet_flux`.
+     *
+     * Communication: point-to-point messages with the MPI neighbours only (the
+     * neighbour meshes, the loads and the degrees), one boolean all_reduce per
+     * iteration of the flux solver, and one scalar all_reduce for the total
+     * load. There is no gather of the loads or of the meshes.
+     *
+     * Guarantees: each ceded region is connected to its receiver; the load
+     * converges to balance over several calls, since each call sheds at most
+     * the cells available along the interfaces; the subdomains stay compact,
+     * with staircase boundaries.
+     *
+     * Reference: G. Cybenko,
+     * "Dynamic load balancing for distributed memory multiprocessors",
+     * J. Parallel Distrib. Comput. 7 (1989) 279-301.
      */
     class Diffusion
     {
       public:
 
+        /// Builds the strategy with the default options.
         Diffusion() = default;
 
+        /// Builds the strategy with the given options.
         explicit Diffusion(DiffusionOptions options)
             : m_options(options)
         {
         }
 
+        /// Returns `"diffusion"`.
         std::string name() const
         {
             return "diffusion";
         }
 
-        /// Load this process wanted to shed but could not on the last call
-        /// (interface exhausted). Read by the driver into LoadBalanceStats.
+        /// Load this process had to shed but could not on the last call,
+        /// because the interface ran out. The driver copies it into
+        /// `LoadBalanceStats::unmet_flux`.
         double last_unmet_flux() const
         {
             return m_unmet_flux;
         }
 
         /**
-         * Destination rank of each cell: keep everything, then cede interface
-         * layers towards the neighbours the diffusion fluxes point to.
+         * Returns the destination rank of each cell: every cell stays, except
+         * the interface layers ceded to the neighbours the fluxes point to.
          *
-         * @note MPI: neighbour-only point-to-point (neighbour meshes, loads,
-         *       degrees) + 1 boolean all_reduce per flux iteration + 1 scalar
-         *       all_reduce for the convergence scale. No gather.
+         * @note MPI: collective; see the description of the class for the
+         *       communication.
          */
         template <class Mesh, class Weight>
         auto partition(Mesh& mesh, const Weight& weight) const
@@ -392,14 +371,14 @@ namespace samurai::load_balancing
 
         /**
          * Cede load to `neigh_rank` by a geometric breadth-first peel that keeps
-         * both the ceded region and my remaining region connected (see the file
-         * header). Adjacency is computed at `min_level`; a coarse cell is ceded
+         * both the ceded region and my remaining region connected (see the
+         * description of the class). Adjacency is computed at `min_level`; a coarse cell is ceded
          * by handing every still-owned fine cell it contains to the neighbour.
          *
          * `boundary` is the advancing front (the neighbour's region plus what I
          * have already given); `owned` shrinks as I peel, and the next ring is
          * always `owned ∩ (cells face-adjacent to boundary)`, so the front never
-         * leaves the cells I own — no island is ever created.
+         * leaves the cells I own: no island is ever created.
          */
         template <class cl_type, class ca_type, class Mesh, class Flags, class NeighMesh, class Weight>
         void
@@ -564,8 +543,8 @@ namespace samurai::load_balancing
          *
          * Connected components are found by a seed-growth flood fill at
          * `min_level` (set algebra over the cardinal translations, no O(n^2)
-         * cell scan); the largest component is kept. The pass is a no-op — one
-         * flood fill that converges to the whole region — when the kept region
+         * cell scan); the largest component is kept. The pass is a no-op (one
+         * flood fill that converges to the whole region) when the kept region
          * is already connected, i.e. on the vast majority of calls.
          */
         template <class cl_type, class ca_type, class Mesh, class Flags>
