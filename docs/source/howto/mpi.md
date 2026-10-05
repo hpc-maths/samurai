@@ -77,29 +77,16 @@ mpiexec -n 4 ./mpi_adapt
 
 On 1, 2 and 4 processes, the program prints:
 
-```text
-rank 0: 1579 cells
-total: 1579 cells
-integral of u: 1.570796323809259e-02
-rank 0 saved 1579 cells
+```{literalinclude} snippet/mpi/mpi_adapt_np1_output.txt
+  :language: text
 ```
 
-```text
-rank 0: 1445 cells
-rank 1: 134 cells
-total: 1579 cells
-integral of u: 1.570796323809259e-02
-rank 0 saved 1445 cells
+```{literalinclude} snippet/mpi/mpi_adapt_np2_output.txt
+  :language: text
 ```
 
-```text
-rank 0: 490 cells
-rank 1: 955 cells
-rank 2: 118 cells
-rank 3: 16 cells
-total: 1579 cells
-integral of u: 1.570796323809258e-02
-rank 0 saved 490 cells
+```{literalinclude} snippet/mpi/mpi_adapt_np4_output.txt
+  :language: text
 ```
 
 The total number of cells does not depend on the number of processes.
@@ -147,14 +134,8 @@ The default is 0, which never rebalances.
 mpiexec -n 4 ./mpi_adapt --load-balancing-at 1
 ```
 
-```text
-rank 0: 395 cells
-rank 1: 395 cells
-rank 2: 395 cells
-rank 3: 394 cells
-total: 1579 cells
-integral of u: 1.570796323809258e-02
-rank 0 saved 395 cells
+```{literalinclude} snippet/mpi/mpi_adapt_load_balancing_output.txt
+  :language: text
 ```
 
 Each rebalance moves cells and field values between processes. In a time loop, pick `N` large enough that this cost stays small, and small enough that the load does not drift far between two rebalances.

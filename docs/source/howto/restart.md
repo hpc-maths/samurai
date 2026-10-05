@@ -129,24 +129,8 @@ The end of the example does this. Run it:
 ./restart_mesh_fields
 ```
 
-```text
-Dumped mesh:
-  level 3: 0 cells
-  level 4: 160 cells
-  level 5: 212 cells
-  level 6: 476 cells
-  level 7: 848 cells
-  total: 1696 cells
-Loaded mesh:
-  level 3: 0 cells
-  level 4: 160 cells
-  level 5: 212 cells
-  level 6: 476 cells
-  level 7: 848 cells
-  total: 1696 cells
-Same mesh: true
-Max difference of u and v: 0
-Time: 0.25, iteration: 10
+```{literalinclude} snippet/restart/restart_mesh_fields_output.txt
+  :language: text
 ```
 
 The loaded mesh has the same cells as the dumped one on every level, the field values are identical, and the time and iteration number come back from the metadata.

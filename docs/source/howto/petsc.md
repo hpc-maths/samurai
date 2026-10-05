@@ -85,14 +85,11 @@ To switch to GMRES with a Jacobi preconditioner without recompiling, run:
                     -ksp_converged_reason
 ```
 
-```text
-  Linear solve converged due to CONVERGED_RTOL iterations 14
-step 1: 14 iterations, residual 3.65164e-06
-  Linear solve converged due to CONVERGED_RTOL iterations 21
-step 2: 21 iterations, residual 3.3221e-06
-  Linear solve converged due to CONVERGED_RTOL iterations 22
-step 3: 22 iterations, residual 2.5942e-06
+```{literalinclude} snippet/petsc/petsc_linear_heat_gmres_output.txt
+  :language: text
 ```
+
+The digits of the residual depend on the BLAS library that PETSc uses, so the output shows them as `x`.
 
 The options you will use most:
 
@@ -148,14 +145,11 @@ Follow the Newton iterations with `-snes_monitor`:
 ./petsc_nonlinear_heat -snes_monitor
 ```
 
-```text
-  0 SNES Function norm 1.771850581228e+00
-  1 SNES Function norm 8.511678261935e-02
-  2 SNES Function norm 2.589517678865e-04
-  3 SNES Function norm 1.567752263078e-09
-step 1: 3 iterations, residual 6.32485e-10
-...
+```{literalinclude} snippet/petsc/petsc_nonlinear_heat_monitor_output.txt
+  :language: text
 ```
+
+PETSc prints the norms with 13 digits; the output above keeps 6, the ones that do not depend on the processor.
 
 The residual norm drops quadratically, the sign of a correct Jacobian.
 The most used SNES options are `-snes_type` (`newtonls` by default), `-snes_rtol`, `-snes_atol`, `-snes_max_it`, `-snes_monitor`, `-snes_converged_reason` and `-snes_view`.
@@ -189,13 +183,8 @@ The example `petsc_block_system.cpp` couples two heat equations through a linear
                      -fieldsplit_u_pc_type lu -fieldsplit_v_pc_type lu
 ```
 
-```text
-  Linear solve converged due to CONVERGED_RTOL iterations 2
-step 1: 2 iterations
-  Linear solve converged due to CONVERGED_RTOL iterations 2
-step 2: 2 iterations
-  Linear solve converged due to CONVERGED_RTOL iterations 2
-step 3: 2 iterations
+```{literalinclude} snippet/petsc/petsc_block_system_output.txt
+  :language: text
 ```
 
 With the default sub-solvers (ILU on each split), each step takes 7 or 8 iterations.
@@ -245,8 +234,8 @@ To handle the failure yourself, for example to retry with a smaller time step, c
 ./petsc_nonlinear_heat -snes_max_it 1
 ```
 
-```text
-Newton diverged at step 1
+```{literalinclude} snippet/petsc/petsc_nonlinear_heat_diverged_output.txt
+  :language: text
 ```
 
 A solve that does not throw has met the PETSc stopping criterion, but that criterion may not be the one you need.
@@ -289,13 +278,8 @@ PETSc distributes the matrix rows by the cells each rank owns.
 mpiexec -n 2 ./petsc_linear_heat -ksp_converged_reason
 ```
 
-```text
-  Linear solve converged due to CONVERGED_ITS iterations 1
-step 1: 1 iterations, residual 4.44089e-15
-  Linear solve converged due to CONVERGED_ITS iterations 1
-step 2: 1 iterations, residual 4.21885e-15
-  Linear solve converged due to CONVERGED_ITS iterations 1
-step 3: 1 iterations, residual 3.55271e-15
+```{literalinclude} snippet/petsc/petsc_linear_heat_np2_output.txt
+  :language: text
 ```
 
 On several processes:

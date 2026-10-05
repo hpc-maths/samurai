@@ -31,21 +31,8 @@ Run the program with `--help` (or `-h`):
 
 The output shows the description, the usage line, then the options by group. For a build without MPI, it starts like this:
 
-```text
-Simple example
-Usage: ./predefined_options [OPTIONS]
-
-Options:
-  --config                    Read an ini file
-  -h,--help                   Print this help message and exit
-
-
-SAMURAI:
-  --min-level UINT            The minimum level of the mesh
-  --max-level UINT            The maximum level of the mesh
-  --start-level UINT          Start level of AMR
-  --graduation-width UINT     The graduation width of the mesh
-...
+```{literalinclude} snippet/options/predefined_options_help_output.txt
+  :language: text
 ```
 
 The program exits after printing the help. Then run it with a mesh option:
@@ -56,8 +43,8 @@ The program exits after printing the help. Then run it with a mesh option:
 
 The command-line value replaces the maximum level set in the code:
 
-```text
-min level: 2, max level: 7
+```{literalinclude} snippet/options/predefined_options_output.txt
+  :language: text
 ```
 
 ## Predefined options
@@ -123,8 +110,8 @@ To keep the values of a `mesh_config` whatever the command line says, call `disa
 
 With this configuration, `./disable_args_parse --max-level 7` prints:
 
-```text
-min level: 2, max level: 5
+```{literalinclude} snippet/options/disable_args_parse_output.txt
+  :language: text
 ```
 
 The multiresolution options work the same way: `--mr-eps`, `--mr-reg` and `--mr-rel-detail` override the `mra_config` you pass to the adaptation, each time the mesh is adapted.
@@ -145,9 +132,8 @@ The multiresolution options work the same way: `--mr-eps`, `--mr-reg` and `--mr-
 ./custom_options --my-option 3 --my-flag
 ```
 
-```text
-my-option = 3
-my-flag = true
+```{literalinclude} snippet/options/custom_options_output.txt
+  :language: text
 ```
 
 For the other ways to declare options (vectors, validators, required options, ...), see the [CLI11 book](https://cliutils.github.io/CLI11/book/).
@@ -162,11 +148,8 @@ samurai accepts unknown options without an error, so a misspelled option such as
 
 Every option, predefined or custom, can also come from a TOML file. A key is the long option name without the leading `--`, and a flag takes `true` or `false`:
 
-```toml
-max-level = 7
-mr-eps = 1e-3
-my-option = 2
-my-flag = true
+```{literalinclude} snippet/options/config.toml
+  :language: toml
 ```
 
 Pass the file with `--config`:
@@ -175,9 +158,8 @@ Pass the file with `--config`:
 ./custom_options --config config.toml
 ```
 
-```text
-my-option = 2
-my-flag = true
+```{literalinclude} snippet/options/custom_options_config_output.txt
+  :language: text
 ```
 
 An option given on the command line takes precedence over the same key in the file. Keys that match no option are ignored.

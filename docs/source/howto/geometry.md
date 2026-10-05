@@ -29,10 +29,8 @@ This program cuts two square obstacles of side 0.25 out of a $2 \times 1$ channe
 With `-DBUILD_SNIPPETS=ON`, CMake builds it as the `two_holes` target.
 It prints:
 
-```text
-cells: 30720
-cell length: 0.0078125
-covered area: 1.875
+```{literalinclude} snippet/geometry/two_holes_output.txt
+  :language: text
 ```
 
 The covered area is the area of the channel minus the two obstacles, $2 - 2 \times 0.25^2 = 1.875$.
@@ -102,10 +100,9 @@ After building the mesh, it compares the area of the cells with the exact area $
   :dedent:
 ```
 
-```text
-cells: 7668
-covered area: 1.87207
-exact area: 1.87434
+```{literalinclude} snippet/geometry/disc_obstacle_output.txt
+  :language: text
+  :end-before: level 2:
 ```
 
 The cells cover the channel minus the disc to 0.12 %, with cells of side $1/64$ at level 6.
@@ -123,12 +120,9 @@ The program then gives a field `u` the value $e^{-50 \phi}$, which varies fast n
 
 It prints the number of cells at each level:
 
-```text
-level 2: 8
-level 3: 24
-level 4: 112
-level 5: 356
-level 6: 868
+```{literalinclude} snippet/geometry/disc_obstacle_output.txt
+  :language: text
+  :start-at: level 2:
 ```
 
 The 1368 cells of the adapted mesh still cover an area of 1.87207: no coarse cell reaches into the obstacle.

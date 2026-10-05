@@ -341,8 +341,9 @@ The complete program, with the pieces above in order, is compiled with the docum
    After the description of the mesh, it prints one line per time step.
    With the default options, $\Delta t = 0.99 \times 6 / 256 \approx 0.0232$, and the last line is:
 
-   ```text
-   iteration 65: t = 1.5, 115 cells
+   ```{literalinclude} snippet/burgers/burgers_1d_output.txt
+     :language: text
+     :lines: 2
    ```
 
    The program writes `burgers_1d.h5` and `burgers_1d.xdmf` in the current directory.

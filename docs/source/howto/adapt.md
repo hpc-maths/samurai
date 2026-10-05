@@ -134,21 +134,8 @@ Run the program:
 ./mr_adapt
 ```
 
-```text
-Before adaptation:
-  level 3: 0 cells
-  level 4: 0 cells
-  level 5: 0 cells
-  level 6: 0 cells
-  level 7: 16384 cells
-  total: 16384 cells
-After adaptation:
-  level 3: 0 cells
-  level 4: 160 cells
-  level 5: 212 cells
-  level 6: 476 cells
-  level 7: 848 cells
-  total: 1696 cells
+```{literalinclude} snippet/adapt/mr_adapt_output.txt
+  :language: text
 ```
 
 Before the adaptation, all $128 \times 128$ cells are at level 7.
@@ -159,14 +146,9 @@ With a smaller threshold, the mesh keeps more fine cells:
 ./mr_adapt --mr-eps 1e-4
 ```
 
-```text
-After adaptation:
-  level 3: 0 cells
-  level 4: 128 cells
-  level 5: 288 cells
-  level 6: 408 cells
-  level 7: 1952 cells
-  total: 2776 cells
+```{literalinclude} snippet/adapt/mr_adapt_eps_output.txt
+  :language: text
+  :start-at: After adaptation:
 ```
 
 If every cell stays at the maximum level, the threshold is too small for your solution.
