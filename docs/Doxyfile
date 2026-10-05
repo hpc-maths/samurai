@@ -11,6 +11,8 @@ RECURSIVE         = YES
 QUIET             = YES
 JAVADOC_AUTOBRIEF = YES
 WARN_IF_UNDOCUMENTED = NO
+# Report every warning, then exit with a non-zero status if there was any.
+WARN_AS_ERROR     = FAIL_ON_WARNINGS
 MACRO_EXPANSION = YES
 # Expand SAMURAI_INLINE to nothing so that signatures do not depend on the
 # inlining options (see include/samurai/samurai_config.hpp).

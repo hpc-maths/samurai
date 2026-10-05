@@ -1,0 +1,33 @@
+name: docs links
+
+# The links of the documentation point to external sites that can be down for
+# a while. Checking them in the pull request CI would block pull requests that
+# change nothing in the docs, so they are checked once a week instead.
+on:
+    workflow_dispatch: # allows manual triggering
+    schedule:
+        - cron: "0 3 * * 1" # Mondays at 03:00
+
+jobs:
+    linkcheck:
+        runs-on: ubuntu-latest
+        defaults:
+            run:
+                shell: bash -l {0}
+                working-directory: docs
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Mamba and samurai-doc env installation
+              uses: mamba-org/setup-micromamba@v2
+              with:
+                  environment-file: docs/environment.yml
+                  environment-name: samurai-doc
+                  cache-environment: true
+                  cache-environment-key: docs-${{ runner.os }}-${{ hashFiles('docs/environment.yml') }}
+
+            - name: Doxygen
+              run: doxygen
+
+            - name: Sphinx linkcheck
+              run: sphinx-build -b linkcheck -W --keep-going source build/linkcheck

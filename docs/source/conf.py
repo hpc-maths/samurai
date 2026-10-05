@@ -238,6 +238,24 @@ myst_enable_extensions = [
 # links resolve.
 myst_heading_anchors = 3
 
+# -- Options for the linkcheck builder ---------------------------------------
+
+linkcheck_ignore = [
+    # Publishers behind doi.org (Elsevier, Springer, SIAM, Cambridge) often
+    # answer 403 to automated clients. A DOI is a persistent identifier, so
+    # the link stays valid even when the check cannot follow the redirect.
+    r"https://doi\.org/",
+]
+
+# GitHub builds the heading anchors of a rendered README or Markdown file with
+# JavaScript (`#user-content-...`), so linkcheck never finds them in the HTML.
+# The pages themselves are still checked.
+linkcheck_anchors_ignore_for_url = [r"https://github\.com/"]
+
+# Retry once on a transient network error before reporting a link as broken.
+linkcheck_retries = 2
+linkcheck_timeout = 30
+
 # -- Doxygen XML for Breathe -------------------------------------------------
 
 docs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -266,7 +284,8 @@ def run_doxygen_if_xml_missing(app, config):
     This gives the same API pages on Read the Docs and in a local build.
     Existing XML is not regenerated: delete docs/xml to refresh it.
     When Doxygen is not installed or fails, the build goes on with a warning
-    and the API pages are empty.
+    and the API pages are empty. When Doxygen only reports warnings, the build
+    keeps its XML and emits a warning.
     """
     logger = logging.getLogger(__name__)
     xml_dir = os.path.normpath(
@@ -291,14 +310,21 @@ def run_doxygen_if_xml_missing(app, config):
         return
     logger.info("running doxygen to generate %s", xml_dir)
     result = subprocess.run([doxygen], cwd=docs_dir, check=False)  # nosec B603: fixed argument list, no shell
-    if result.returncode != 0 or not os.path.isfile(
-        os.path.join(xml_dir, "index.xml")
-    ):
+    if not os.path.isfile(os.path.join(xml_dir, "index.xml")):
         logger.warning(
             "doxygen failed (exit code %d): the API pages are empty.",
             result.returncode,
         )
         use_placeholder_xml(app, config)
+    elif result.returncode != 0:
+        # The Doxyfile sets WARN_AS_ERROR = FAIL_ON_WARNINGS: Doxygen writes the
+        # whole XML, then exits with a non-zero status if it printed a warning.
+        # Keep the XML and turn the failure into a Sphinx warning, so that a
+        # build with -W fails on this message rather than on every API page.
+        logger.warning(
+            "doxygen exited with code %d: fix the doxygen warnings printed above.",
+            result.returncode,
+        )
 
 
 def setup(app):
