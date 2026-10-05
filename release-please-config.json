@@ -54,5 +54,20 @@
             "type": "deprecation",
             "section": "Deprecations"
         }
-    ]
+    ],
+    "extra-files": [
+        {
+            "type": "json",
+            "path": "codemeta.json",
+            "jsonpath": "$.version"
+        },
+        {
+            "type": "yaml",
+            "path": "CITATION.cff",
+            "jsonpath": "$.version"
+        }
+    ],
+    "packages": {
+        ".": {}
+    }
 }
