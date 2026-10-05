@@ -1,41 +1,47 @@
 name: Feature request
-description: Ask for a new feature
+description: Ask for a new feature or an extension of an existing one
 title: "[Feat]: "
-labels: ["enhancement", "triage"]
+labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to ask for a new feature!
+        Thanks for suggesting a feature.
+        To discuss an idea before it is ready for a request, open a discussion in [Ideas](https://github.com/hpc-maths/samurai/discussions/categories/ideas) instead.
   - type: textarea
-    id: what
+    id: problem
     attributes:
-      label: What do you want?
-      description: A clear and concise description of what you would like to be able to do with our software.
+      label: What do you want to do?
+      description: The problem you want to solve with samurai, and why the current features do not cover it.
+      placeholder: I want to impose a Robin boundary condition on a scalar field.
     validations:
       required: true
   - type: textarea
     id: code-example
     attributes:
-      label: A possible usage
-      description: A code example which shows how to use this new feature.
+      label: Possible usage
+      description: How you would like to write it in your code. It will be formatted as C++, so no need for backticks.
       render: cpp
   - type: textarea
     id: code-implementation
     attributes:
-      label: A possible implementation
-      description: A first idea of how this new feature could be implemented.
-      render: cpp
+      label: Possible implementation
+      description: A first idea of how samurai could implement it, if you have one.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Workarounds you tried
+      description: What you do today without this feature, and its limits.
   - type: textarea
     id: others
     attributes:
-      label: Other informations
-      description: Please feel free to provide any other information you feel may be useful for understanding and implementing this new feature.
+      label: Additional information
+      description: References (papers, other libraries), constraints (MPI, PETSc, dimension), or anything else that helps.
   - type: checkboxes
     id: terms
     attributes:
       label: Code of Conduct
-      description: By submitting this issue, you agree to follow our [Code of Conduct](https://github.com/hpc-maths/samurai/blob/master/docs/CODE_OF_CONDUCT.md)
+      description: By submitting this issue, you agree to follow our [Code of Conduct](https://github.com/hpc-maths/samurai/blob/main/docs/CODE_OF_CONDUCT.md).
       options:
         - label: I agree to follow this project's Code of Conduct
           required: true
