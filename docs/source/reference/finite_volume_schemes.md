@@ -41,9 +41,12 @@ From a {{ project }} mesh and an implementation of $\mathcal{F}_h(u_h)$, the fin
 that can be called like a function in an explicit context, or passed to a solver in an implicit context.
 When it runs, it iterates over all cell interfaces $F$ and computes the flux $\mathcal{F}_h(u_h)_{|F}$ through each of them.
 
-```{figure} ./figures/flux.svg
-:width: 25%
-:align: center
+```{diagram}
+:figure: face_fluxes
+
+Left, the face $F$ between two cells of the same level, crossed by its flux.
+Right, a level jump in 2D: the cell $V_L$ of level $l$ faces two cells of level $l + 1$.
+Each fine face has its own flux, computed between the fine cell $V_R$ and a ghost $G$ of level $l + 1$ inside $V_L$.
 ```
 
 Let $V_L$ and $V_R$ be the two cells sharing the face $F$, ordered along the corresponding Cartesian direction
@@ -65,14 +68,22 @@ Flux conservation requires the flux in one direction to be the opposite of the f
 see {ref}`non-conservative schemes <non_conservative_schemes>`.
 ```
 
-Where a level jump occurs, ghosts take part in the computation of $\mathcal{F}_h(u_h)_{|F}$, so that the flux is always computed between two cells of the same length.
-
-```{figure} ./figures/flux_level_jump.svg
-:width: 25%
-:align: center
-```
+Where a level jump occurs between the levels $l$ and $l + 1$, the flux is computed on level $l + 1$, so that it is always computed between two cells of the same length (right of the diagram above).
+Each face of a fine cell is a face $F$, with $|F| = h_{l+1}^{\mathrm{dim}-1}$, where $h_{l+1}$ is the cell length of level $l + 1$ and $\mathrm{dim}$ the space dimension.
+A coarse cell therefore faces two fine faces in 2D and four in 3D, and receives one contribution from each.
+The stencil is read on level $l + 1$, its origin being the cell of level $l + 1$ on the left of the face: on the coarse side, the cells it reads are ghosts of level $l + 1$ inside the coarse cell.
 
 $V_L$ and $V_R$ still denote real cells in the formulas of $\mathcal{C}_L$ and $\mathcal{C}_R$.
+With the coarse cell on the left, the contribution of each fine face to it is
+
+$$
+\mathcal{C}_L = \frac{h_{l+1}^{\mathrm{dim}-1}}{h_l^{\mathrm{dim}}} \mathcal{F}_h(u_h)_{|F}.
+$$
+
+The command-line option `--finer-level-flux`, 0 by default, computes the fluxes on a finer level.
+With a value $n > 0$, a face whose finer side is on level $k$ is cut into the faces of level $\min(k + n, \mathrm{max\_level})$, and with a negative value into the faces of the max level; each of these faces gets its own flux, from stencil values predicted from the cells of level $k$, and $|F|$ is its measure.
+The option applies to the interior faces of all levels, and only to `SchemeType::NonLinear` schemes applied explicitly: the linear scheme types, the implicit assembly and the boundary fluxes ignore it.
+A non-linear discrete operator `D` can also set it for itself, with `D.finer_level_flux() = n` or `D.enable_max_level_flux(true)`.
 
 ```{remark}
 The contributions are divided by the measure of the corresponding cell.
@@ -140,12 +151,13 @@ The stencil is an array of direction vectors from the origin cell.
 The origin cell is the left cell of the face in the horizontal direction and the bottom cell in the vertical direction, and is represented by the zero vector `{0,0}` (or `{0,0,0}` in 3D).
 For instance, in the x-direction, the stencil `{{0,0}, {1,0}}` captures the origin cell and its right neighbour.
 
-```{figure} ./figures/flux_stencils.svg
-:width: 60%
-:align: center
+```{diagram}
+:figure: stencil_offsets
+
+A stencil of four cells in each direction, around the red face; the origin cell is hatched.
 ```
 
-In this figure, the flux at the red interface reads four cells, and the blue arrow shows its orientation.
+In this diagram, the flux at the red face reads four cells, and the arrow shows its orientation.
 Each cell is labelled with the direction vector that captures it: the stencils are `{{-1,0}, {0,0}, {1,0}, {2,0}}` in the x-direction and `{{0,-1}, {0,0}, {0,1}, {0,2}}` in the y-direction.
 The flux function receives the cells and the values of the stencil in the order of the configured stencil.
 
@@ -160,6 +172,14 @@ Two helpers build line stencils in any direction:
 
 If the stencil is not set, `FluxDefinition` uses `samurai::line_stencil_from<dim, d, stencil_size>(-stencil_size / 2 + 1)`.
 If `stencil_size` is even, the cells are evenly distributed on both sides of the face; if it is odd, there is one more cell on the positive side.
+
+```{diagram}
+:figure: default_stencils
+
+The default stencils of sizes 2, 3, 4 and 6 in the x-direction, with the stencil radius counted from the face.
+```
+
+The stencil radius of a default stencil is `stencil_size / 2`, rounded up: the max stencil radius of the mesh must be at least this value.
 
 If the cells a flux reads depend on a value known only at run time (for instance the sign of the velocity in the upwind or WENO schemes), the stencil holds every cell the flux may read and the flux function selects the cells it uses.
 
