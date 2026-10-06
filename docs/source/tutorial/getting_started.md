@@ -154,9 +154,19 @@ Each level halves the side of the cells of the level before; the indices of the 
 
 `samurai::make_MRAdapt` creates the multiresolution adaptation for the field `u`.
 Each call to `MRadaptation(mra_config)` computes, in each cell, the difference between the value of `u` and the value predicted from the coarser level, called the detail.
-Cells whose detail is small compared to the threshold `epsilon` are merged into coarser cells; cells with a large detail are kept or refined.
+To predict the values of the children of a cell, we use the cell and its neighbors on its level.
+
+```{diagram}
+:figure: child_details
+
+The details of the two children of a cell, in one dimension.
+The parent holds the mean of its children; the prediction (dashed) keeps that mean, and so do the real values (red), so $d_1 = -d_2$.
+```
+
+Each level has its own threshold, set by `epsilon`.
+Cells whose detail is small compared to it are merged into coarser cells; cells with a large detail are kept or refined.
 Where `u` is constant, the details are zero and the mesh goes down to level 4; along the edge of the disc, it stays at level 8.
-The field values follow the mesh: `u` is projected or predicted on the new cells.
+The field values follow the mesh: a merged cell gets the mean of its children (field projection), a refined cell the predicted values.
 
 The `save` function, at the top of the file, writes `u` and a field `level` that holds the level of each cell.
 We call it once here, to keep the initial state.
@@ -181,12 +191,13 @@ The scheme is defined by its numerical fluxes at the cell faces, which lets {{ p
 :figure: time_step
 :label: plate-time-step
 
-**Fig. 1.** *adapt*: the multiresolution adaptation rebuilds the mesh around the current solution; the cells it creates are hatched in [red]{.sm-red}.
+**Fig. 1.** *adapt*: the multiresolution adaptation rebuilds the mesh around the current solution; the cells it keeps are ruled, the cells it creates are hatched in [red]{.sm-red}.
 
 **Fig. 2.** *resize*: `unp1` is not passed to the adaptation, so its storage is resized to the new mesh by hand.
+The old storage holds the four quadrants of Fig. 1 as they were before the adaptation; the new one holds the three quadrants kept and the four new cells.
 
 **Fig. 3.** *scheme*: the upwind scheme is written as numerical fluxes at the cell faces.
-*a*, a face between a coarse cell and two fine cells, in [red]{.sm-red}: the fluxes treat this face correctly.
+*a*, a face between a coarse cell and two fine cells, in [red]{.sm-red}: the fluxes across it are computed on the level of the fine cells, one per fine cell, from a ghost of that level inside the coarse cell (dashed).
 `conv(u)` first fills the ghost cells it reads.
 
 **Fig. 4.** *swap*: `samurai::swap` exchanges the two fields, so that `u` holds the new solution and keeps track of whether its ghost cells are up to date.
