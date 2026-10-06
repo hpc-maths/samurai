@@ -68,6 +68,7 @@ class Node:
     """An element of the file: its local name, attributes, children and line."""
 
     def __init__(self, tag, attributes, line):
+        """Hold ``tag``, its ``attributes`` and its ``line``, with no children yet."""
         self.tag, self.attributes, self.line = tag, attributes, line
         self.children = []
 
