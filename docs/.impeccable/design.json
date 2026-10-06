@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-05T18:57:01+00:00",
+  "generatedAt": "2026-10-06T12:00:00+00:00",
   "title": "Design System: samurai documentation",
   "extensions": {
     "colorMeta": {
@@ -208,6 +208,74 @@
           "#eceff3"
         ]
       },
+      "rank-0": {
+        "role": "tertiary",
+        "displayName": "Rank Blue",
+        "cssVariable": "--sm-rank-0",
+        "canonical": "#a1c3db",
+        "dark": "#395366",
+        "tonalRamp": [
+          "#000d18",
+          "#09283b",
+          "#27465a",
+          "#46657b",
+          "#67879d",
+          "#89aac1",
+          "#accee7",
+          "#dff1fe"
+        ]
+      },
+      "rank-1": {
+        "role": "tertiary",
+        "displayName": "Rank Sand",
+        "cssVariable": "--sm-rank-1",
+        "canonical": "#d9c59b",
+        "dark": "#5d4e2c",
+        "tonalRamp": [
+          "#110a00",
+          "#312300",
+          "#503f18",
+          "#715f38",
+          "#938058",
+          "#b6a37a",
+          "#dbc79d",
+          "#ffedc7"
+        ]
+      },
+      "rank-2": {
+        "role": "tertiary",
+        "displayName": "Rank Green",
+        "cssVariable": "--sm-rank-2",
+        "canonical": "#b3dcc9",
+        "dark": "#27473a",
+        "tonalRamp": [
+          "#000f08",
+          "#052d1f",
+          "#264b3b",
+          "#456b5a",
+          "#668c7b",
+          "#88b09d",
+          "#abd4c1",
+          "#d0fae6"
+        ]
+      },
+      "rank-3": {
+        "role": "tertiary",
+        "displayName": "Rank Lilac",
+        "cssVariable": "--sm-rank-3",
+        "canonical": "#dfd4f8",
+        "dark": "#3f3355",
+        "tonalRamp": [
+          "#0f051d",
+          "#291f3a",
+          "#463c59",
+          "#655b7a",
+          "#867c9d",
+          "#a99fc1",
+          "#cdc2e6",
+          "#f1ebff"
+        ]
+      },
       "literal-blue": {
         "role": "secondary",
         "displayName": "Literal Blue",
@@ -250,11 +318,15 @@
       },
       "headline": {
         "displayName": "Section Head",
-        "purpose": "h2 in spaced capitals, followed by a short red stroke and a rule."
+        "purpose": "The section head (h2) in the text serif, 1.55em of the body (about 29px), followed after its last word and on its baseline by a 26px red stroke and a 1px rule to the edge of the column; the permalink sits before the stroke."
       },
       "title": {
         "displayName": "Title",
-        "purpose": "Subsections (h3), 1.16em of the body."
+        "purpose": "Subsections (h3), 1.26em of the body (about 24px)."
+      },
+      "small-head": {
+        "displayName": "Small Head",
+        "purpose": "h4, a label in sans spaced capitals at 0.72em of the body (about 14px), uppercase, tracking 0.13em."
       },
       "body": {
         "displayName": "Body",
@@ -346,6 +418,11 @@
         "purpose": "Where the solution is constant."
       },
       {
+        "name": "rank fills",
+        "value": "Rank tone ground under a 0.5px Secondary Ink pattern every 4.5 units: rank 0 hatched at 45 degrees, rank 1 dots of radius 0.7, rank 2 hatched at 135 degrees, rank 3 cross-hatched; leaves outlined by a hairline, edges between ranks and the domain edge as heavy rules",
+        "purpose": "The MPI ranks of a partition figure, at most four, never told apart by color alone."
+      },
+      {
         "name": "half-open bracket",
         "value": "1px line, filled start dot r=3, open paper end dot, mono label [a, b) on paper",
         "purpose": "Every interval."
@@ -412,9 +489,9 @@
       "name": "Section Head",
       "kind": "custom",
       "refersTo": "section-head",
-      "description": "An h2: small spaced capitals, a short red stroke, then a rule to the end of the column.",
-      "html": "<h2 class=\"ds-h2\">Before you start</h2>",
-      "css": ":host{--sm-paper:#fff;--sm-side:#f3f4f6;--sm-ink:#1e2832;--sm-ink-2:#4f5b67;--sm-ink-3:#5f6a75;--sm-rule:#d5dae0;--sm-rule-soft:#e7eaee;--sm-red:#af0000;--sm-red-wash:#f8e4e4;--sm-fig-line:#bfc7cf;--sm-ink-wash:#e8ebef;--sm-tok-str:#2d5872;--sm-tok-com:#5c6773;} .ds-h2{display:flex;align-items:center;gap:.875rem;font:600 .8125rem/1.3 \"Source Sans 3\", system-ui, sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--sm-ink);} .ds-h2::after{content:\"\";flex:1;height:2px;background:linear-gradient(var(--sm-red),var(--sm-red)) 0 0/26px 2px no-repeat,linear-gradient(var(--sm-rule),var(--sm-rule)) 34px 50%/100% 1px no-repeat;}"
+      "description": "An h2: the text serif at 1.55em, semibold, then after its last word and on its baseline a short red stroke and a rule to the end of the column.",
+      "html": "<h2 class=\"ds-h2\">Before you start<a class=\"ds-link\" href=\"#before-you-start\" title=\"Link to this heading\">¶</a></h2>",
+      "css": ":host{--sm-paper:#fff;--sm-side:#f3f4f6;--sm-ink:#1e2832;--sm-ink-2:#4f5b67;--sm-ink-3:#5f6a75;--sm-rule:#d5dae0;--sm-rule-soft:#e7eaee;--sm-red:#af0000;--sm-red-wash:#f8e4e4;--sm-fig-line:#bfc7cf;--sm-ink-wash:#e8ebef;--sm-tok-str:#2d5872;--sm-tok-com:#5c6773;} .ds-h2{overflow:hidden;margin:0;font:600 1.840625rem/1.2 \"Source Serif 4\", Georgia, serif;letter-spacing:-.006em;color:var(--sm-ink);text-wrap:balance;} .ds-h2::after{content:\"\";display:inline-block;vertical-align:baseline;width:100%;height:2px;margin-left:.3em;margin-right:-100%;background:linear-gradient(var(--sm-red),var(--sm-red)) 0 0/26px 2px no-repeat,linear-gradient(var(--sm-rule),var(--sm-rule)) 34px 50%/100% 1px no-repeat;} .ds-link{visibility:hidden;margin-left:.1em;font-size:.6em;font-weight:100;color:var(--sm-ink-3);text-decoration:none;} .ds-h2:hover .ds-link,.ds-link:focus-visible{visibility:visible;} .ds-link:focus-visible{outline:2px solid var(--sm-red);outline-offset:2px;}"
     },
     {
       "name": "Listing",
@@ -454,7 +531,7 @@
     "overview": "The documentation is set like a scientific book: a serif text column on white paper, numbered parts and chapters in the margin, definitions and remarks set as a textbook sets them, and plates that a reader studies the way they would study a figure in a treatise.\n\nEvery page is ink on paper with one red, taken from the logo. Color never fills an area for decoration; it marks the one thing a reader must find (the current chapter, a section head, a statement label, the cells a figure points out). Structure comes from rules, not boxes: thin rules above and below a listing, a heavy rule under the page title, a ruled double frame around a plate. All lines share three stroke weights, in the page and in the drawings, so text and figures read as one printed object.\n\nThe figures are drawn from code and true to the library: graded meshes, half-open intervals, the cells the program of the page prints. Their faces, strokes and colors are the page's own, so a plate follows the light and the dark themes like the text around it. Bold primary color fields with heavy black rules (a neoplastic look) are off-brand.",
     "keyCharacteristics": [
       "One serif for reading, one sans for labels in spaced capitals, one mono for code, plus a math face for operators.",
-      "Ink in three tones, one red, no other hue outside syntax highlighting.",
+      "Ink in three tones, one red, no other hue outside syntax highlighting and the rank tones of figures.",
       "Flat paper: no shadows, no tinted boxes, no rounded cards.",
       "Three stroke weights: hairline (0.5px), rule (1px), heavy rule (1.5px).",
       "Plates in a double frame with a centered legend, \"Explanation of Plate N\".",
@@ -504,7 +581,7 @@
     "donts": [
       "**Don't** write a hex or rgb value in a figure function or a page.",
       "**Don't** add shadows, rounded cards, tinted boxes or gradients; set things apart with rules.",
-      "**Don't** add a second accent hue; Literal Blue stays inside code listings.",
+      "**Don't** add a second accent hue; Literal Blue stays inside code listings, and the rank tones inside partition figures.",
       "**Don't** use admonition icons or colored admonition backgrounds.",
       "**Don't** draw a figure in a drawing program or ship a hand-edited SVG; write a figure function.",
       "**Don't** draw a mesh that is not graded, or an interval with two filled ends.",

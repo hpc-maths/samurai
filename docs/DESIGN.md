@@ -14,6 +14,10 @@ colors:
   red-selection: "#f3d0d0"
   figure-line: "#bfc7cf"
   ink-wash: "#e8ebef"
+  rank-0: "#a1c3db"
+  rank-1: "#d9c59b"
+  rank-2: "#b3dcc9"
+  rank-3: "#dfd4f8"
   literal-blue: "#2d5872"
   comment-grey: "#5c6773"
 typography:
@@ -24,16 +28,22 @@ typography:
     lineHeight: 1.12
     letterSpacing: "-0.012em"
   headline:
-    fontFamily: "Source Sans 3, system-ui, sans-serif"
-    fontSize: "0.8125rem"
+    fontFamily: "Source Serif 4, Georgia, serif"
+    fontSize: "1.8406rem"
     fontWeight: 600
-    lineHeight: 1.3
-    letterSpacing: "0.14em"
+    lineHeight: 1.2
+    letterSpacing: "-0.006em"
   title:
     fontFamily: "Source Serif 4, Georgia, serif"
-    fontSize: "1.378rem"
+    fontSize: "1.4963rem"
+    fontWeight: 600
+    lineHeight: 1.25
+  small-head:
+    fontFamily: "Source Sans 3, system-ui, sans-serif"
+    fontSize: "0.855rem"
     fontWeight: 600
     lineHeight: 1.3
+    letterSpacing: "0.13em"
   body:
     fontFamily: "Source Serif 4, Georgia, serif"
     fontSize: "1.1875rem"
@@ -81,6 +91,12 @@ components:
   section-head:
     textColor: "{colors.slate-ink}"
     typography: "{typography.headline}"
+  subsection-head:
+    textColor: "{colors.slate-ink}"
+    typography: "{typography.title}"
+  small-head:
+    textColor: "{colors.slate-ink}"
+    typography: "{typography.small-head}"
   table-header:
     textColor: "{colors.slate-ink}"
     typography: "{typography.label}"
@@ -119,7 +135,7 @@ The figures are drawn from code and true to the library: graded meshes, half-ope
 **Key Characteristics:**
 
 - One serif for reading, one sans for labels in spaced capitals, one mono for code, plus a math face for operators.
-- Ink in three tones, one red, no other hue outside syntax highlighting.
+- Ink in three tones, one red, no other hue outside syntax highlighting and the rank tones of figures.
 - Flat paper: no shadows, no tinted boxes, no rounded cards.
 - Three stroke weights: hairline (0.5px), rule (1px), heavy rule (1.5px).
 - Plates in a double frame with a centered legend, "Explanation of Plate N".
@@ -154,6 +170,15 @@ Every color is a CSS variable on `body`, defined once for light and once for dar
 - **Literal Blue** (`--sm-tok-str`, #2d5872; dark #93bfd8): strings and numbers in listings, the only hue besides red.
 - **Comment Grey** (`--sm-tok-com`, #5c6773; dark #8d99a5): comments, in italics.
 
+### Ranks
+
+Four soft tones tell apart the MPI ranks that share a mesh, in the partition figures of `docs/source/_ext/samurai_figures/partition.py` and nowhere else. Each tone is crossed by a pattern of its own in Secondary Ink, so color is never the only cue, and none of them comes near the red.
+
+- **Rank Blue** (`--sm-rank-0`, #a1c3db; dark #395366): rank 0, hatched at 45 degrees.
+- **Rank Sand** (`--sm-rank-1`, #d9c59b; dark #5d4e2c): rank 1, dotted.
+- **Rank Green** (`--sm-rank-2`, #b3dcc9; dark #27473a): rank 2, hatched at 135 degrees.
+- **Rank Lilac** (`--sm-rank-3`, #dfd4f8; dark #3f3355): rank 3, cross-hatched.
+
 **The One Red Rule.** Red marks things and never fills an area. It appears as a stroke, a label, a marker or a hatched wash on the cells a figure is about, never as a background block or a button.
 
 **The Token Only Rule.** No color is written as a literal in a page or a figure. A figure that needs a new color adds a `--sm-*` variable to `samurai.css`, in the light block and in both dark blocks. The one literal in the stylesheet is the light sheet (#f2efe8) placed behind raster images in dark mode, because those images are drawn on white.
@@ -165,17 +190,20 @@ Every color is a CSS variable on `body`, defined once for light and once for dar
 **Mono Font:** Source Code Pro (with ui-monospace, Menlo, monospace)
 **Math Face:** Noto Sans Math, declared as "samurai math" for the operator ranges only (U+2200 to U+2211, U+2213 to U+22FF, U+27E6 to U+27EF), placed first in each stack so ∇ and ∪ render, since Source Serif 4 lacks them.
 
-**Character:** a book serif with optical sizing carries the reading; a quiet sans in spaced capitals labels the structure (parts, section heads, table headers, plate titles), the way running heads and captions label a printed page. All faces are self-hosted variable WOFF2 files in `docs/source/_static/fonts/`, with their licenses.
+**Character:** a book serif with optical sizing carries the reading and the headings; a quiet sans in spaced capitals labels the structure (parts, small heads, table headers, plate titles), the way running heads and captions label a printed page. All faces are self-hosted variable WOFF2 files in `docs/source/_static/fonts/`, with their licenses.
 
 ### Hierarchy
 
 - **Display** (Source Serif 4 400, 2.42em of the body, line-height 1.12, tracking -0.012em): the page title, balanced, over a heavy ink rule.
-- **Headline** (Source Sans 3 600, 0.684em of the body, uppercase, tracking 0.14em): the section head. It is followed on the same line by a 26px red stroke 2px tall, then a 1px rule to the end of the column. Section heads are kept small so that the text carries the page.
-- **Title** (Source Serif 4 600, 1.16em of the body): subsections (h3); h4 is the same face at body size.
+- **Headline** (Source Serif 4 600, 1.55em of the body, about 29px, line-height 1.2, tracking -0.006em, balanced): the section head (h2). Right after its last word and on its baseline, 0.3em away, comes a red stroke 26px long and 2px tall, then, after an 8px gap, a 1px rule in Rule Grey to the edge of the column. The stroke and the rule are one inline mark as wide as the column, clipped by the heading, so they follow the last line of a heading that wraps. The permalink sits between the last word and the stroke, at 0.6em in Muted Ink, and shows on hover. Code in a section head is 0.82em.
+- **Title** (Source Serif 4 600, 1.26em of the body, about 24px, line-height 1.25, balanced): subsections (h3). Code in a title is 0.85em.
+- **Small Head** (Source Sans 3 600, 0.72em of the body, about 14px, line-height 1.3, uppercase, tracking 0.13em, kerning off): h4, a label in spaced capitals in ink, with its permalink in Muted Ink. Code in a small head keeps its case and spacing.
 - **Body** (Source Serif 4 400, 1.1875rem, line-height 1.62; 1.0625rem below 46em): the text column. Links are ink with a 1px red underline offset 3px, red on hover.
 - **Caption** (Source Serif 4 italic 400, 0.84em, secondary ink): figure and diagram captions. A numbered caption opens with its number in the label style.
 - **Label** (Source Sans 3 600, 0.70 to 0.78rem, uppercase, tracking 0.10 to 0.16em): navigation parts, "On this page", previous and next, table headers, plate titles, legend titles.
 - **Code** (Source Code Pro 400, 0.74em of the body, line-height 1.6, no ligatures, tab size 4): listings. Inline code is 0.84em with no box or tint; the face alone marks it.
+
+Against the 19px body the headings step down from 46px (h1) to 29px (h2) and 24px (h3), each clearly larger than the text below it; h4 drops out of the scale and becomes a label.
 
 **The Small Capitals Rule.** Statement labels ("Definition 1.", "Remark 2."), admonition titles, "Fig. N." in legends and in drawings are serif in all small capitals, tracking 0.06 to 0.07em, with kerning turned off so spaced capitals stay even. Definitions and their admonition titles are red; figure labels are ink.
 
@@ -187,7 +215,7 @@ The page is Furo's three columns: the navigation on Margin Grey at the left, the
 
 - **Header** (4.75rem, sticky, in Furo's announcement bar, from `docs/source/_templates/page.html`): the logo in a cell exactly as wide as the navigation column (`calc(50% - 26em)`, at least 15em), then the search field, the Gallery and Hands-on course links, the version, GitHub and the theme toggle. Below 67em the header is hidden and Furo's mobile header takes over, with the logo mark beside the name.
 - **Navigation:** top-level entries are parts, numbered in upper-case roman numerals in the label style; their children are chapters, numbered in arabic, in the serif at 0.9375rem. The current chapter is ink, weight 600, with a 1px red stroke on its left.
-- **Rhythm:** section heads sit 3em above and 1em below; statements and admonitions 1.6 to 1.9em above; figures 1.8em; plates 2.4em above and 2.5em below.
+- **Rhythm:** a heading has more space above than below, in ems of its own size: h2 2.1em above and 0.55em below (about 62px and 16px), h3 1.8em and 0.5em (43px and 12px), h4 1.7em and 0.6em (23px and 8px); statements and admonitions 1.6 to 1.9em above; figures 1.8em; plates 2.4em above and 2.5em below.
 - **Plates break the column:** a plate extends 40px into each margin on wide screens and fits the column below 46em.
 - **Diagrams** are drawn 680 units wide (the text column) and plates 711 units wide (the inside of a plate frame); one drawing unit is one CSS pixel at natural size.
 
@@ -272,6 +300,7 @@ The primitives of `draw.py`, shared by every plate and diagram:
 - **Callouts:** a dot of radius 1.8 on the target (red when the target is red), a hairline leader, and an italic serif letter (15 units) with a paper halo. The legend explains each letter.
 - **Arrows:** open arrow heads, in Secondary Ink for flow and in red for motion or for a result.
 - **Guides:** dashed lines (3 3 for ghost cells, 2 3 in red for edges carried across rows); a dotted circle for a former position.
+- **Ranks:** each leaf of a partition figure is filled with the tone of its rank under the rank's pattern (0.5px Secondary Ink lines every 4.5 units, or dots of radius 0.7 for rank 1) and outlined by a hairline; the edges between two ranks and the edge of the domain are heavy rules. A figure shows at most four ranks.
 - **Meshes:** graded quadtrees from `build_mesh`, checked by `check_graded`, so a plate never shows a mesh samurai could not build.
 
 ## Do's and Don'ts
@@ -290,7 +319,7 @@ The primitives of `draw.py`, shared by every plate and diagram:
 
 - **Don't** write a hex or rgb value in a figure function or a page.
 - **Don't** add shadows, rounded cards, tinted boxes or gradients; set things apart with rules.
-- **Don't** add a second accent hue; Literal Blue stays inside code listings.
+- **Don't** add a second accent hue; Literal Blue stays inside code listings, and the rank tones inside partition figures.
 - **Don't** use admonition icons or colored admonition backgrounds.
 - **Don't** draw a figure in a drawing program or ship a hand-edited SVG; write a figure function.
 - **Don't** draw a mesh that is not graded, or an interval with two filled ends.
