@@ -1,9 +1,9 @@
 # Apply an operator on a set
 
-Adaptive mesh algorithms often apply an operator on one part of the mesh only: the ghost cells to update, the cells of level $l$ that receive the projection of level $l + 1$, and so on.
+Adaptive mesh algorithms often apply an operator on one part of the mesh only: the ghost cells to update, the cells of level $l$ that receive the field projection of level $l + 1$, and so on.
 {{ project }} finds these parts with two ingredients: intervals and a set algebra.
 
-In this tutorial, we build a 1D mesh with two levels, find where the levels overlap, and project the values of a field from the fine level to the coarse one.
+In this tutorial, we build a 1D mesh with two levels, find where the levels overlap, and compute the field projection of a field from the fine level to the coarse one.
 On the way, we meet the set operators, the `on` method that chooses the level of the result, contraction, and operators that work in any dimension.
 
 ## Before you start
@@ -37,10 +37,10 @@ Level 1 holds two intervals, the cells 2 to 5 and the cells 11 to 14.
 An interval `{start, end}` contains `start` but not `end`.
 The second argument of the conversion, `true`, computes where the values of each interval are stored in a field.
 
-```{image} ./figures/subset_op.png
-:alt: Two levels of a 1D mesh. Level 1 has the cells 2 to 5 and 11 to 14. Level 0 has the cells 0 to 10. Each cell of level 0 is twice as wide as a cell of level 1, so the cell 1 of level 0 covers the cells 2 and 3 of level 1.
-:width: 80%
-:align: center
+```{diagram}
+:figure: two_level_mesh
+
+Level 1 holds `[2, 6)` and `[11, 15)`, level 0 holds `[0, 10)`, both at their true size: a cell of level 0 covers two cells of level 1.
 ```
 
 The demo prints the mesh:
@@ -119,7 +119,7 @@ Here the index is 0: the intervals of this subset describe cells, not positions 
 
 ### Choosing the level of the result
 
-The `on(level)` method of a subset gives the result on another level.
+The `on(level)` method of a subset gives the result on another level: this is a {ref}`set projection <def-set-projection>`.
 To get the intersection on level 0:
 
 ```{literalinclude} ../../../demos/tutorial/set_operator.cpp
@@ -176,9 +176,9 @@ difference found in [6,11)@0:1
 difference found in [15,20)@0:1
 ```
 
-## Projection with a subset
+## Field projection with a subset
 
-We now create a field on the mesh and use a subset to apply an operator on part of it.
+We now create a field on the mesh and use a subset to compute a field projection on part of it.
 
 ### Creating the field
 
@@ -194,19 +194,35 @@ We create a scalar field `u` with {cpp:func}`samurai::make_scalar_field`, set it
 `make_scalar_field<double>` creates a field with one `double` value per cell.
 `samurai::for_each_cell` visits every cell of level 1, and `cell.indices[0]` is the index of the cell along $x$.
 
-### Projecting on the intersection
+### Field projection on the intersection
 
-The projection sets the value of a coarse cell of level 0 to the average of the values of its two fine cells on level 1.
+The field projection sets the value of a coarse cell of level 0 to the average of the values of its two fine cells on level 1.
 The coarse cell `i` covers the fine cells `2 * i` and `2 * i + 1`.
-Only the coarse cells whose two fine cells exist can be computed: in the figure below, the cells 1, 2 and 6, under the red arrows.
+Only the coarse cells whose two fine cells exist can be computed: the cells 1, 2 and 6.
+{ref}`plate-subset-projection` follows the computation from the intersection to the values of the field.
 
-```{image} ./figures/subset_op_proj.png
-:alt: The same two levels. Red arrows go from the fine cells 2 and 3 to the coarse cell 1, from the fine cells 4 and 5 to the coarse cell 2, and from the fine cells 12 and 13 to the coarse cell 6.
-:width: 80%
-:align: center
+```{plate} From the intersection to the field projection
+:figure: subset_projection
+:label: plate-subset-projection
+
+**Fig. 1.** The attempt.
+`intersection(ca[0], ca[1])` is computed on level 1, where it is `[2, 6)` and `[11, 15)`.
+Its set projection `.on(0)` is `[1, 3)` and `[5, 8)` on level 0.
+*a*, the cells 5 and 7, hatched in [red]{.sm-red}, overlap the intersection, so the set projection keeps them, but only one of their two fine cells exists.
+*b*, their other fine cells, 10 and 15, drawn dashed, are not in level 1.
+Reading `u(1, 2 * i)` and `u(1, 2 * i + 1)` on `[5, 8)` asks for them, and the program stops with `std::out_of_range`.
+
+**Fig. 2.** After contraction.
+`contract(ca[1], 1)` is `[3, 5)` and `[12, 14)`, inside the heavy outline of level 1.
+Its intersection with level 0, brought to level 0 by `.on(0)`, is `[1, 3)` and `[6, 7)`.
+*c*, the contraction removes one cell at each end of each interval, such as the cell 14.
+
+**Fig. 3.** The field `u` after the field projection.
+Each [red]{.sm-red} cell of level 0 holds the mean of its two fine cells: 2.5, 4.5 and 12.5.
+The other cells of level 0 keep 0, and level 1 does not change.
 ```
 
-A first attempt uses the intersection on level 0 from the previous section.
+A first attempt uses the intersection on level 0 from the previous section ({ref}`plate-subset-projection`, Fig. 1).
 This code is not in the demo:
 
 ```c++
@@ -247,8 +263,8 @@ To keep only the coarse cells whose two fine cells exist, we contract level 1 be
   :dedent: 4
 ```
 
-On level 0, this subset is `[1,3)` and `[6,7)`: the cells 1, 2 and 6 of the figure.
-After the projection, the cells 1, 2 and 6 of level 0 hold 2.5, 4.5 and 12.5, the other cells of level 0 hold 0, and level 1 does not change.
+On level 0, this subset is `[1,3)` and `[6,7)`: the cells 1, 2 and 6 ({ref}`plate-subset-projection`, Fig. 2).
+After the field projection, the cells 1, 2 and 6 of level 0 hold 2.5, 4.5 and 12.5, the other cells of level 0 hold 0, and level 1 does not change (Fig. 3).
 The demo prints the field with `std::cout << u`, which gives one line per cell with its level, its center, its index and its value.
 
 A coarse cell that remains after the contraction always has its two fine cells.
@@ -256,7 +272,7 @@ The contraction can also remove a coarse cell whose two fine cells exist: a leve
 
 ## Operators working in many dimensions
 
-The projection above is written for 1D.
+The field projection above is written for 1D.
 In 2D, a coarse cell has 4 fine cells, and in 3D it has 8.
 We write one operator that works in 1D, 2D and 3D, with one `operator()` per dimension:
 
@@ -322,8 +338,8 @@ It gives the same values as the lambda of the previous section.
 
 ## What we built
 
-We built a mesh with two levels, found where they overlap with `samurai::intersection`, chose the level of the result with `on`, and used `samurai::contract` to keep only the coarse cells that can receive a projection.
-Then we wrote the projection as an operator that works in 1D, 2D and 3D, and applied it with `apply_op`.
+We built a mesh with two levels, found where they overlap with `samurai::intersection`, chose the level of the result with `on`, and used `samurai::contract` to keep only the coarse cells that can receive a field projection.
+Then we wrote the field projection as an operator that works in 1D, 2D and 3D, and applied it with `apply_op`.
 
 ## Next steps
 
