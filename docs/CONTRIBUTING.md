@@ -254,7 +254,8 @@ Keep to these conventions so that the pages build and read the same way:
 - Set the definition of a term with ```` ```{definition} term ```` and a side remark with ```` ```{remark} ````, not with `{note}`.
   The definitions and remarks of a page are numbered in one sequence ("Definition 1.", "Remark 2.").
   Give a definition a `:label:` to link to it with `{ref}`: the link reads "Definition 1 (term)".
-- Draw a figure with code, not with a drawing program: write it as a function in `docs/source/_ext/samurai_figures/figures.py`, register it with the `@figure` decorator, and show it with a `plate` or a `diagram` directive.
+- Draw a figure with code, not with a drawing program: write it as a function in `docs/source/_ext/samurai_figures/pages/<page>.py`, register it with the `@figure` decorator, and show it with a `plate` or a `diagram` directive.
+  A schematic that depends on no program data may be a hand-written SVG file instead, see [Plates and diagrams](#plates-and-diagrams).
 
 The Markdown files follow the rules in `.markdownlint.json`.
 pre-commit does not run markdownlint, so run it yourself; it needs Node.js:
@@ -295,6 +296,29 @@ A figure function takes the prefix of its SVG ids and returns a `Drawing`.
 Several figures share a page, so every id it creates (patterns, markers, clip paths) starts with that prefix.
 A plate also gives its `panels`: the region of each figure, which narrow screens show one under the other.
 Build on `draw.py` for the primitives and on `mesh.py` for meshes.
+
+A schematic that depends on no program data, such as a velocity set, a chain of steps or a ghost layer, may be a hand-written SVG file instead.
+Replace `:figure:` with `:svg:` and the path of the file, relative to the page:
+
+````markdown
+```{plate} The D2Q9 velocity set
+:svg: figures/d2q9.svg
+:panels: 0 0 340 268 half; 371 0 340 268 half
+```
+````
+
+The directive inlines the file in the page and prefixes its ids, so several figures can share a page.
+The panels of a plate are `x y w h` regions of the drawing, separated by semicolons, each optionally followed by `half` (two side by side) or `wide` (scrolls sideways).
+Give them with `:panels:` or with a `data-panels` attribute on the root `<svg>`, not both; without panels, the plate scrolls sideways on narrow screens.
+The build checks the file and fails with the line and the value at fault when it breaks one of these rules:
+
+- the root `<svg>` has `viewBox="0 0 711 H"` for a plate or `viewBox="0 0 680 H"` for a diagram, so that one unit is one CSS pixel and strokes keep their weights, and an `aria-label` that describes the figure;
+- every `fill`, `stroke`, `stop-color` and `color`, in an attribute, a `style` attribute or a `<style>` rule, is `none`, `currentColor`, a `var(--sm-*)` variable of `samurai.css` or a `url(#id)` of the file;
+- the file holds drawing elements only: no `<script>`, `<image>`, `<foreignObject>`, link, filter or animation;
+- every `href` and `url()` points to an id of the file.
+
+A shape without a `fill` takes `var(--sm-ink)`, and the rules of a `<style>` apply inside the figure only.
+Use the `sm-fig-*` classes for text and the stroke weights of `draw.py` (0.5, 0.75, 1 and 1.5), as the generated figures do.
 
 A figure must stay true to samurai:
 

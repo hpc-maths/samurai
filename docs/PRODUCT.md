@@ -51,7 +51,7 @@ samurai (Structured Adaptive mesh and MUlti-Resolution based on Algebra of Inter
 
 The rules of `docs/CONTRIBUTING.md`, "Plates and diagrams", bind every figure:
 
-- Figures are code. A figure is a Python function in `docs/source/_ext/samurai_figures/figures.py`, registered with `@figure` and shown with a `plate` or a `diagram` directive. No drawing program, no hand-edited SVG, no raster export for a new figure.
+- Figures are code. A figure that shows program data (meshes, intervals, values, ranks) is a Python function in `docs/source/_ext/samurai_figures/pages/<page>.py`, registered with `@figure` and shown with a `plate` or a `diagram` directive. A schematic that depends on no program data may be a hand-written SVG passed with `:svg:`; the build checks that it uses only the `--sm-*` colours. No raster export for a new figure.
 - A diagram is an inline drawing with an italic caption, not numbered. A plate is a framed, numbered illustration ("Plate 1") with a legend under "Explanation of Plate 1" that names each figure ("Fig. 1.") and each lettered callout.
 - Figures are true to samurai: the cells, intervals and levels drawn are the ones the program of the page prints or uses; meshes come from `build_mesh` and are graded; intervals are half-open brackets, a filled dot at the start and an open dot at the end. When a figure uses fewer levels than the program, the legend says so.
 - Every color is a theme variable of `samurai.css` (`var(--sm-ink)`, `var(--sm-red)`, ...), never a fixed value, so figures follow the light and the dark themes. A new color is added there, in the light block and in both dark blocks.

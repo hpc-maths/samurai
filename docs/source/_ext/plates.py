@@ -29,8 +29,13 @@ under the other, from the panels of its figure function.
 A diagram is an inline drawing with its caption. It is not numbered; a ``:label:``
 is linked with an explicit text, ``{ref}`the diagram <label>```.
 
-``:figure:`` names a function registered in ``samurai_figures``. Builders other than
-HTML get the legend or the caption only.
+``:figure:`` names a function registered in ``samurai_figures``. A schematic that
+depends on no program data may instead be a hand-written SVG file, ``:svg:`` with its
+path relative to the page: ``samurai_figures/static_svg.py`` checks it against the
+rules of the figures and inlines it like a generated drawing. Its plate panels come
+from ``:panels:`` or from ``data-panels`` on its root ``<svg>``, as
+``x y w h [half|wide]`` separated by semicolons. Builders other than HTML get the
+legend or the caption only.
 """
 
 import re
@@ -41,14 +46,19 @@ import samurai_figures
 from docutils import nodes
 from docutils.parsers.rst import directives
 from samurai_figures import FIGURES, draw
+from samurai_figures.registry import DIAGRAM_WIDTH, PLATE_WIDTH
+from samurai_figures.static_svg import THEME_CSS, load
 from sphinx.transforms import SphinxTransform
 from sphinx.util.docutils import SphinxDirective
 
 FIG_LABEL = re.compile(r"Figs?\. \d+")
-# Every module of the package, the page modules of pages/ included, so that a new
-# module is tracked without being listed here.
+# Every module and data file of the package, the page modules of pages/ included, so
+# that a new file is tracked without being listed here: a cell list re-exported by a
+# program rebuilds the pages that draw it.
 FIGURE_SOURCES = sorted(
-    str(source) for source in Path(samurai_figures.__file__).parent.rglob("*.py")
+    str(source)
+    for pattern in ("*.py", "*.json", "*.svg")
+    for source in Path(samurai_figures.__file__).parent.rglob(pattern)
 )
 
 
@@ -73,22 +83,29 @@ class FigureDirective(SphinxDirective):
     has_content = True
     option_spec = {
         "figure": figure_name,
+        "svg": directives.unchanged_required,
         "label": directives.unchanged_required,
         "class": directives.class_option,
     }
     # Set by each directive: the node it builds and the name used in ids and classes.
     node_class = nodes.Element
     kind = ""
+    # The width of a hand-written drawing, the width of the generated ones.
+    width = 0
 
     def run(self):
         raise NotImplementedError
 
-    def drawing(self):
-        if "figure" not in self.options:
-            raise self.error(f'the {self.name} directive needs a ":figure:" option')
+    def drawing(self, panels=None):
+        if ("figure" in self.options) == ("svg" in self.options):
+            raise self.error(f'the {self.name} directive takes one of ":figure:" and ":svg:"')
         # Several figures share a page: their SVG ids start with the kind and the
         # rank of the figure in the page, "plate-2-r" for a pattern of the second plate.
         prefix = f"{self.kind}-{self.env.new_serialno(f'sm-{self.kind}') + 1}"
+        if "svg" in self.options:
+            return prefix, self.hand_drawing(prefix, panels)
+        if panels is not None:
+            raise self.error('":panels:" goes with ":svg:"; a figure function gives its panels')
         # A change to the drawing code rebuilds the pages that show a figure.
         for source in FIGURE_SOURCES:
             self.env.note_dependency(source)
@@ -97,8 +114,20 @@ class FigureDirective(SphinxDirective):
         except ValueError as error:
             raise self.error(f'figure "{self.options["figure"]}": {error}') from error
 
+    def hand_drawing(self, prefix, panels):
+        """The drawing of the ``:svg:`` file, checked by ``static_svg``."""
+        name, path = self.env.relfn2path(self.options["svg"], self.env.docname)
+        # The file, and the theme variables it may use, rebuild the page.
+        self.env.note_dependency(path)
+        self.env.note_dependency(str(THEME_CSS))
+        try:
+            return load(path, name, f"{prefix}-svg", self.width, panels)
+        except ValueError as error:
+            raise self.error(str(error)) from error
+
     def make_node(self, prefix, drawing, **attributes):
-        node = self.node_class(figure=self.options["figure"], **attributes)
+        source = self.options.get("figure") or self.options["svg"]
+        node = self.node_class(figure=source, **attributes)
         node["classes"] += [f"sm-{self.kind}", *self.options.get("class", [])]
         self.set_source_info(node)
         node["svg"] = drawing.svg(f"{prefix}-art")
@@ -118,12 +147,14 @@ class PlateDirective(FigureDirective):
     option_spec = {
         **FigureDirective.option_spec,
         "columns": lambda value: directives.choice(value, ("1", "2")),
+        "panels": directives.unchanged_required,
     }
     node_class = plate
     kind = "plate"
+    width = PLATE_WIDTH
 
     def run(self):
-        prefix, drawing = self.drawing()
+        prefix, drawing = self.drawing(self.options.get("panels"))
         node = self.make_node(
             prefix, drawing, title=self.arguments[0], columns=int(self.options.get("columns", "2"))
         )
@@ -149,9 +180,14 @@ class PlateDirective(FigureDirective):
 class DiagramDirective(FigureDirective):
     node_class = diagram
     kind = "diagram"
+    width = DIAGRAM_WIDTH
 
     def run(self):
         prefix, drawing = self.drawing()
+        if "svg" in self.options and drawing.panels:
+            raise self.error(
+                f'"{self.options["svg"]}" has data-panels, but a diagram is never stacked'
+            )
         return [self.make_node(prefix, drawing)]
 
 
