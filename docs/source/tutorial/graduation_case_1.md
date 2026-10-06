@@ -78,13 +78,21 @@ At the end of each pass, `ca = {cl, true}` builds the new {cpp:class}`samurai::C
 The `true` argument asks the cell array to compute the index of each interval: this index gives the position of the interval in the data array of a field attached to the mesh.
 We need it because we attach a field to the mesh in the next step.
 
-The figure below shows a mesh built this way.
-Neighboring cells can differ by several levels.
+{ref}`plate-graduation-meshes` shows the mesh the demo builds, in its Fig. 1: neighboring cells can differ by several levels.
 
-```{image} ./figures/graduation_case_1_before.png
-:alt: A square mesh with cells of many sizes; small cells often touch cells four or more times larger.
-:width: 60%
-:align: center
+```{plate} The mesh of the demo before and after the graduation
+:figure: graduation_meshes
+:label: plate-graduation-meshes
+
+**Fig. 1.** The mesh `generate_mesh` builds, saved as `graduation_case_1_before_graduation`: 1156 cells from level 2 to level 7.
+This mesh is not graded: it is drawn here only to show the problem that the graduation solves.
+*a*, a cell of level 2 touches cells of level 7 along its top face, five levels apart.
+
+**Fig. 2.** The same mesh after the graduation, saved as `graduation_case_1_after_graduation`: 1621 cells from level 3 to level 7, graded.
+The 557 cells hatched in [red]{.sm-red} were added by the graduation.
+*b*, where the cell of *a* was, cells of levels 3, 4, 5 and 6 step up to the level 7 cells one level at a time.
+
+*Both meshes are the files the demo saves with its default options, `--starting-level 1` and `--max-refinement-level 7`.*
 ```
 
 ## Find the cells to refine
@@ -115,10 +123,18 @@ The intersection is computed for each pair of levels and each direction of a ste
 ```
 
 `s` is a row of the stencil, that is a translation vector: `{1, 1}` moves the cells one cell to the right and one cell up.
-The subset {cpp:func}`samurai::intersection` of `translate(ca[level], s)` and `ca[level_below]` is computed by default on the finest of its levels, `level`.
-We want the coarse cells to tag, so `.on(level_below)` projects the result on `level_below`.
+The set expression {cpp:func}`samurai::intersection` of `translate(ca[level], s)` and `ca[level_below]` is computed by default on the finest of its levels, `level`.
+We want the coarse cells to tag, so the set projection `.on(level_below)` brings the result to `level_below`.
 
-Calling the subset with a lambda runs it on every interval of the result.
+```{diagram}
+:figure: graduation_translation
+
+A window of the mesh of Fig. 1, for `level` = 5, `level_below` = 3 and the row s = {1, 1}.
+The arrow moves one cell of level 5 by s; the five moved cells that land in a cell of level 3 form the intersection, $[4, 5)$ on the rows 19 to 23 of level 5.
+`.on(3)` brings it to $[1, 2)$ on the rows 4 and 5 of level 3: both cells of level 3 are tagged.
+```
+
+Calling the set expression with a lambda runs it on every interval of the result.
 The lambda receives the interval `i` along x and the array `index` with the y index, and `tag(level_below, i, index[0])` gives the values of `tag` on these cells.
 We set them to `true`.
 
@@ -135,10 +151,24 @@ The demo uses the four diagonal directions as stencil by default:
 :dedent:
 ```
 
-The diagonal directions find the coarse cells that touch a fine cell through a corner, and also those that touch it through a face.
-A coarse cell at level $L \leq l - 2$ spans at least four fine cells along each direction.
-When it touches a fine cell through a face, one of the two diagonal translations toward it lands inside the coarse cell.
-The four axis directions, which `--with-corner` selects, only find the cells that touch through a face.
+A fine cell of level $l$ and a coarse cell of level $L \leq l - 2$ touch in one of two ways: a face contact, when they share part of a side, or a corner contact, when they share only a vertex.
+A row `s` of the stencil finds the coarse cell only if it moves the fine cell inside it.
+The diagonal stencil, `{1, 1}`, `{-1, -1}`, `{-1, 1}` and `{1, -1}`, finds both contacts.
+For a corner contact, the vector that points to the shared vertex lands in the coarse cell.
+For a face contact, the coarse cell spans at least four fine cells along the shared side, so one of the two diagonal vectors toward it lands inside.
+The axis stencil, `{1, 0}`, `{-1, 0}`, `{0, 1}` and `{0, -1}`, is what `--with-corner` selects, despite the name of the flag.
+It finds only face contacts: an axis vector moves the fine cell onto a cell that shares a side with it, never onto a cell that shares only a vertex, so a jump of two levels or more across a corner stays in the mesh.
+
+```{diagram}
+:figure: graduation_directions
+
+The two stencils of the demo, each drawn as its four vectors, against a face contact and a corner contact between a cell of level $l$, filled, and a cell of level $l - 2$.
+A moved copy that lands in the coarse cell is red, and the coarse cell is then tagged, hatched in red.
+The axis stencil misses the corner contact.
+```
+
+With `--with-corner` the demo ends on 1525 cells instead of 1621, and a cell of level 4 still touches a cell of level 6 by a corner.
+`samurai::make_graduation` refines this mesh further, to 1621 cells.
 
 ## Build the refined mesh
 
@@ -159,6 +189,14 @@ A tagged cell is replaced by its four children, and any other cell is kept.
 
 One refinement is not always enough.
 If a cell at level $L = 1$ touches a cell at level $l = 5$, refining it creates cells at level 2, which are still three levels away from level 5.
+
+```{diagram}
+:figure: graduation_passes
+
+A 1D mesh of $[0, 1)$ where a cell of level 1 touches cells of level 5, each cell labeled with its level, graded with the stencil $\{1\}, \{-1\}$.
+Each pass splits the cell that touches a cell two or more levels finer, and the new cells are in [red]{.sm-red}: three passes bring the levels down one at a time, and the fourth tags nothing.
+```
+
 So we repeat the tagging and the refinement until the mesh no longer changes:
 
 ```{literalinclude} ../../../demos/tutorial/graduation_case_1.cpp
@@ -171,18 +209,12 @@ So we repeat the tagging and the refinement until the mesh no longer changes:
 `new_ca == ca` compares the two cell arrays: when no cell was tagged, the new mesh equals the old one and the loop stops.
 Otherwise, `std::swap` makes the new mesh the current one.
 
-The figure below shows the graded version of the mesh above.
-The red lines are the cells added by the graduation.
-
-```{image} ./figures/graduation_case_1_after.png
-:alt: The same mesh after graduation; red lines mark the added cells, which form layers of intermediate sizes between small and large cells.
-:width: 60%
-:align: center
-```
+On the mesh of Fig. 1, the loop splits 92, 48, 13 and 2 cells in four passes, and the fifth pass tags none.
+Fig. 2 of {ref}`plate-graduation-meshes` shows the graded mesh.
 
 ## What we built
 
-We made a mesh graded with three tools of {{ project }}: a boolean field to tag cells, subsets built with {cpp:func}`samurai::translate` and {cpp:func}`samurai::intersection` to find the cells to refine, and a {cpp:class}`samurai::CellList` to build the refined mesh.
+We made a mesh graded with three tools of {{ project }}: a boolean field to tag cells, set expressions built with {cpp:func}`samurai::translate` and {cpp:func}`samurai::intersection` to find the cells to refine, and a {cpp:class}`samurai::CellList` to build the refined mesh.
 In your own code, `samurai::make_graduation(ca)` does this work, and {cpp:func}`samurai::is_graduated` checks the result (see {doc}`graduation`).
 
 ## Next steps
