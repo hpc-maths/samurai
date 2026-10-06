@@ -292,6 +292,6 @@ The primitives of `draw.py`, shared by every plate and diagram:
 - **Don't** add shadows, rounded cards, tinted boxes or gradients; set things apart with rules.
 - **Don't** add a second accent hue; Literal Blue stays inside code listings.
 - **Don't** use admonition icons or colored admonition backgrounds.
-- **Don't** draw a figure in a drawing program or ship a hand-edited SVG; write a figure function.
+- **Don't** draw a figure of program data by hand; write a figure function. Hand-written SVG (`:svg:`) is only for schematics that depend on no program data.
 - **Don't** draw a mesh that is not graded, or an interval with two filled ends.
 - **Don't** use bold primary color fields with heavy black rules, or Japanese folklore motifs (brush strokes, ink washes, katanas).
