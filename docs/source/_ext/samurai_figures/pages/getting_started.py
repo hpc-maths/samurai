@@ -9,9 +9,9 @@ from ..draw import (
     HEAVY,
     INK,
     INK2,
-    INK3,
     PAPER,
     RED,
+    RULE,
     RWASH,
     WASH,
     bracket,
@@ -23,7 +23,9 @@ from ..draw import (
     rect,
     text,
 )
+from ..flows import Loop, Row, Station, cycle
 from ..mesh import build_mesh, circle_refine, draw_mesh
+from ..plots import Frame, axes, detail, line_key, predict_children, steps
 from ..registry import DIAGRAM_WIDTH, PLATE_WIDTH, Drawing, figure
 
 
@@ -62,6 +64,48 @@ def level_rows(_p):
         " cells of side 1/256. The first cell of each row is filled; under each row a half-open"
         " bracket gives the cell indices [0, 4), [0, 8), [0, 16), [0, 32), [0, 64).",
         "",
+        g,
+    )
+
+
+@figure
+def child_details(p):
+    """Draw the details of the two children of a cell, in one dimension.
+
+    Figure of tutorial/getting_started.md. The values are made up; the prediction is
+    the order-1 prediction of samurai, and the real values of the children average
+    to the parent, so that the two details are opposite.
+    """
+    fr = Frame(30, 26, 420, 170, xlim=(0, 3))
+    coarse = (0.30, 0.55, 0.92)
+    predicted = predict_children(*coarse)
+    real = (0.31, 0.79)  # their mean is the parent value, coarse[1]
+    g = line(fr.x - 20, fr.bottom, fr.right + 20, fr.bottom)
+    g += axes(fr, xticks=[(k, "") for k in range(4)])
+    g += line(fr.X(1.5), fr.bottom, fr.X(1.5), fr.bottom + 4, sw=EMPTY)
+    g += steps(fr, [(k, k + 1, v) for k, v in enumerate(coarse)], sw=HEAVY, joined=False)
+    for k in range(2):
+        name = f'd<tspan baseline-shift="sub" font-size="9">{k + 1}</tspan>'
+        g += detail(fr, 1 + k / 2, 1.5 + k / 2, predicted[k], real[k], name, p)
+    for k, (name, tone) in enumerate((("neighbor", INK2), ("parent", INK), ("neighbor", INK2))):
+        g += text(fr.X(k + 0.5), fr.bottom + 22, f"{name}, level ℓ − 1", "middle", 12, tone)
+    g += line_key(
+        fr.right + 44,
+        40,
+        [
+            ("value at level ℓ − 1", INK, HEAVY, ""),
+            ("predicted at level ℓ", INK2, RULE, "4 3"),
+            ("value at level ℓ", RED, HEAVY, ""),
+        ],
+    )
+    return Drawing(
+        DIAGRAM_WIDTH,
+        236,
+        "Three neighboring cells of level ℓ − 1 with their values, the middle one the parent."
+        " Its two children at level ℓ have a predicted value, dashed, computed from the parent"
+        " and its neighbors, and a real value, in red. The details d1 and d2 are the gaps"
+        " between them: d1 points down and d2 up, by the same length.",
+        patterns(p),
         g,
     )
 
@@ -120,61 +164,83 @@ def transported_disc(p):
     )
 
 
-def _loop_station(k):
-    """The centre of the k-th figure of the time step plate."""
-    return 92 + k * 176
+# The stations of the time step plate. Each box holds the widest statement,
+# MRadaptation(mra_config), which the mono sets 156 units wide at 10.5, so that the
+# panel of a station shows its art, its name and its code whole. The four boxes
+# fill the width of the plate, which leaves 22 units for each arrow.
+TIME_STEP_ROW = Row(x0=80, pitch=184, box=158, top=22, gap=2)
+TIME_STEP_STATIONS = (
+    Station("adapt", "MRadaptation(mra_config)"),
+    Station("resize", "unp1.resize()"),
+    Station("scheme", "unp1 = u - dt * conv(u)"),
+    Station("swap", "samurai::swap(u, unp1)"),
+)
 
 
-@figure
-def time_step(p):
-    """tutorial/getting_started.md: the four statements of the time loop."""
-    stations = [
-        ("adapt", "MRadaptation(mra_config)"),
-        ("resize", "unp1.resize()"),
-        ("scheme", "unp1 = u - dt * conv(u)"),
-        ("swap", "samurai::swap(u, unp1)"),
-    ]
-    cx, top = _loop_station, 22
-    arrow, red_arrow = f'marker-end="url(#{p}-a)"', f'marker-end="url(#{p}-ar)"'
-    # 1, adapt: a coarse cell refined in one quadrant, the new cells hatched
-    x, y = cx(0) - 46, top
-    g = rect(x, y, 92, 92, sw=HEAVY)
-    g += line(x + 46, y, x + 46, y + 92, sw=EMPTY) + line(x, y + 46, x + 92, y + 46, sw=EMPTY)
+def _adapt_art(p, cx, top):
+    """A coarse cell of four quadrants, one refined; the kept cells ruled, the new ones hatched."""
+    x, y, h = cx - 46, top, 46
+    g = ""
+    for a, b in ((0, 0), (0, 1), (1, 1)):
+        g += rect(x + a * h, y + b * h, h, h, fill=f"url(#{p}-k)", sw=EMPTY)
     for a in range(2):
         for b in range(2):
-            g += rect(x + 46 + a * 23, y + b * 23, 23, 23, fill=f"url(#{p}-r)", sw=HAIR)
-    # 2, resize: the storage of unp1 follows the new mesh
-    x, y = cx(1) - 56, top + 16
-    for k in range(6):
-        g += rect(x + k * 19, y, 19, 19, fill=f"url(#{p}-k)", sw=EMPTY)
-    for k in range(8):
-        new = k > 5
+            g += rect(x + h + a * 23, y + b * 23, 23, 23, fill=f"url(#{p}-r)", sw=HAIR)
+    return g + rect(x, y, 2 * h, 2 * h, sw=HEAVY)
+
+
+def _resize_art(p, cx, top):
+    """The storage of unp1 before and after: the 4 cells of Fig. 1, then 3 of them and 4 new."""
+    arrow, s, y = f'marker-end="url(#{p}-a)"', 16, top + 20
+    g = text(cx, y - 7, "old", anchor="middle", size=12, fill=INK, cls="sm-fig-math")
+    for k in range(4):
+        g += rect(cx - 2 * s + k * s, y, s, s, fill=f"url(#{p}-k)", sw=EMPTY)
+    g += line(cx, y + s + 4, cx, y + 36, stroke=INK2, extra=arrow)
+    for k in range(7):
+        new = k > 2
         g += rect(
-            x + k * 19 - 9,
-            y + 46,
-            19,
-            19,
+            cx - 3.5 * s + k * s,
+            y + 40,
+            s,
+            s,
             fill=f"url(#{p}-{'r' if new else 'k'})",
             sw=HAIR if new else EMPTY,
         )
-    g += line(x + 57, y + 23, x + 57, y + 42, stroke=INK2, extra=arrow)
-    g += text(x - 10, y + 14, "old", anchor="end", size=12, fill=INK, cls="sm-fig-math")
-    g += text(x - 18, y + 60, "new", anchor="end", size=12, fill=INK, cls="sm-fig-math")
-    # 3, scheme: a coarse cell beside two fine ones, the fluxes across their face
-    x, y = cx(2) - 56, top + 10
-    g += rect(x, y, 56, 56, fill=f"url(#{p}-k)")
+    return g + text(
+        cx, y + 40 + s + 16, "new", anchor="middle", size=12, fill=INK, cls="sm-fig-math"
+    )
+
+
+def _scheme_art(p, cx, top):
+    """A coarse cell beside two fine ones and the fluxes across their face.
+
+    At a level jump the scheme computes one flux per fine face, on the fine level:
+    its stencil starts from a ghost of the fine level inside the coarse cell, in the
+    half along the face (``for_each_interior_interface__level_jump_direction``,
+    include/samurai/interface.hpp). The two ghosts take the place of that half: they
+    are drawn dashed on the wash, the size of the fine cells, and the solid outline
+    of the coarse cell runs around its ruled half only.
+    """
+    red_arrow = f'marker-end="url(#{p}-ar)"'
+    x, y = cx - 42, top + 10
+    g = rect(x, y, 28, 56, fill=f"url(#{p}-k)", stroke="none")
+    g += rect(x + 28, y, 28, 56, fill=WASH, stroke="none")
+    g += path(f"M{x + 28} {y} H{x} V{y + 56} H{x + 28}", stroke=INK)
+    g += rect(x + 28, y, 28, 28, stroke=INK2, dash="3 2")
+    g += rect(x + 28, y + 28, 28, 28, stroke=INK2, dash="3 2")
     g += rect(x + 56, y, 28, 28) + rect(x + 56, y + 28, 28, 28)
     g += line(x + 56, y - 6, x + 56, y + 62, stroke=RED, sw=2)
-    g += line(x + 44, y + 14, x + 70, y + 14, stroke=RED, extra=red_arrow)
-    g += line(x + 44, y + 42, x + 70, y + 42, stroke=RED, extra=red_arrow)
-    g += line(x - 18, y + 28, x + 8, y + 28, stroke=INK2, extra=arrow)
-    g += rect(x + 84, y, 28, 28, stroke=INK3, dash="3 3") + rect(
-        x + 84, y + 28, 28, 28, stroke=INK3, dash="3 3"
-    )
-    g += text(x + 98, y + 78, "ghosts", anchor="middle", size=12, fill=INK, cls="sm-fig-math")
-    # 4, swap: the two fields exchanged
-    x, y = cx(3) - 52, top + 12
-    g += rect(x, y, 38, 22, fill=PAPER) + text(
+    g += line(x + 36, y + 14, x + 76, y + 14, stroke=RED, extra=red_arrow)
+    g += line(x + 36, y + 42, x + 76, y + 42, stroke=RED, extra=red_arrow)
+    g += text(x + 42, y + 80, "ghosts", anchor="middle", size=12, fill=INK, cls="sm-fig-math")
+    return g + callout(x + 56, y - 6, x + 80, top - 12, "a", red=True)
+
+
+def _swap_art(p, cx, top):
+    """The two fields exchanged."""
+    red_arrow = f'marker-end="url(#{p}-ar)"'
+    x, y = cx - 52, top + 12
+    g = rect(x, y, 38, 22, fill=PAPER) + text(
         x + 19, y + 16, "u", anchor="middle", size=14, fill=INK, cls="sm-fig-math"
     )
     g += rect(x + 66, y, 38, 22, fill=PAPER) + text(
@@ -190,42 +256,34 @@ def time_step(p):
         stroke=RED,
         extra=red_arrow,
     )
-    for k, (name, code) in enumerate(stations):
-        g += fig_label(cx(k), top + 132, k + 1, name)
-        g += text(cx(k), top + 152, code, anchor="middle", size=10.5, cls="sm-fig-code")
-        if k < 3:
-            g += line(cx(k) + 66, top + 46, cx(k) + 110, top + 46, stroke=INK2, extra=arrow)
-    # back to the first statement, until the final time
-    yb = top + 196
-    g += path(f"M{cx(3)} {top + 164} V{yb} H{cx(0)} V{top + 168}", extra=arrow)
-    mid = (cx(0) + cx(3)) / 2
-    g += rect(mid - 140, yb - 12, 280, 22, fill=PAPER, stroke="none")
-    g += text(
-        mid,
-        yb + 5,
-        "t += dt, and again until t = T = 0.3",
-        anchor="middle",
-        size=14,
-        fill=INK,
-        cls="sm-fig-math",
-    )
-    g += callout(cx(2), top + 4, cx(2) + 24, top - 12, "a", red=True)
-    # one panel per station, cut between the stations; resize is the widest
-    half = (
-        (0, 0, 168, 182, "half"),
-        (168, 0, 190, 182, "half"),
-        (358, 0, 178, 182, "half"),
-        (536, 0, 175, 182, "half"),
+    return g
+
+
+@figure
+def time_step(p):
+    """tutorial/getting_started.md: the four statements of the time loop."""
+    row = TIME_STEP_ROW
+    flow = cycle(p, row, TIME_STEP_STATIONS, Loop("t += dt, and again until t = T = 0.3", 280))
+    # the panel of the note is the paper band; scaled down on a phone, the return
+    # line that meets the band shows as a speck at its edges, so the panel stops
+    # 2 units inside the band
+    *stations, (x, y, w, h, kind) = flow.panels
+    panels = (*stations, (x + 2, y, w - 4, h, kind))
+    g = "".join(
+        art(p, row.center(k), row.top)
+        for k, art in enumerate((_adapt_art, _resize_art, _scheme_art, _swap_art))
     )
     return Drawing(
         PLATE_WIDTH,
-        yb + 16,
-        "Four stations of one time step. Adapt: a coarse cell refined in one quadrant, new cells"
-        " hatched. Resize: the storage of unp1 grows to the new mesh. Scheme: fluxes cross the face"
-        " between a coarse cell and two fine cells, marked in red, with ghost cells beyond. Swap: u"
-        " and unp1 are exchanged. An arrow returns from the last station to the first until t ="
-        " 0.3.",
+        flow.height,
+        "Four stations of one time step. Adapt: a coarse cell of four quadrants, three kept and"
+        " ruled, one refined into four new cells hatched in red. Resize: the storage of unp1 goes"
+        " from the four old cells to the three kept cells and the four new ones. Scheme: a coarse"
+        " cell beside two fine cells, the face between them in red; two fine ghost cells, dashed,"
+        " fill the half of the coarse cell along the face, and one flux arrow runs from each ghost"
+        " to its fine cell across the face. Swap: u and unp1 are exchanged. An arrow returns from"
+        " the last station to the first until t = 0.3.",
         patterns(p),
-        g,
-        panels=(*half, (mid - 160, 196, 320, 36, "")),
+        g + flow.body,
+        panels=panels,
     )
