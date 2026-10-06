@@ -17,46 +17,48 @@ On a uniform grid, all the cells have the same length.
 The core idea in {{ project }} is that a Cartesian grid can be represented by intervals.
 To illustrate it, we start with a 1D example:
 
-```{image} ./figures/segments.png
-:alt: A 1D axis from 0 to 13 split into five colored segments: [0, 4] green, [4, 5] red, [5, 7] and [7, 9] blue, [9, 13] green.
-:align: center
-:width: 80%
+```{diagram}
+:figure: cells_of_a_line
+
+A segment cut into five cells of real bounds.
 ```
 
-The whole domain is the interval $[0, 13]$.
+The whole domain is the interval $[0, 13)$.
 It is made of five cells, which are also intervals (from left to right):
 
-- cell 1: $[0, 4]$ (green)
-- cell 2: $[4, 5]$ (red)
-- cell 3: $[5, 7]$ (blue)
-- cell 4: $[7, 9]$ (blue)
-- cell 5: $[9, 13]$ (green)
+- cell 1: $[0, 4)$
+- cell 2: $[4, 5)$
+- cell 3: $[5, 7)$
+- cell 4: $[7, 9)$
+- cell 5: $[9, 13)$
 
 Several cells have the same width, so we can group them in families of equal width (or resolution):
 
-- width 1: $[4, 5]$
-- width 2: $[5, 9]$
-- width 4: $[0, 4]$, $[9, 13]$
+- width 1: $[4, 5)$
+- width 2: $[5, 9)$
+- width 4: $[0, 4)$, $[9, 13)$
 
 Since we know the resolution of each family, we can merge contiguous cells into one interval and still split it back into cells.
-In the family of width 2, the two contiguous cells $[5, 7]$ and $[7, 9]$ form the interval $[5, 9]$.
-Since the width of the cells in $[5, 9]$ is 2, the two cells can be reconstructed.
+In the family of width 2, the two contiguous cells $[5, 7)$ and $[7, 9)$ form the interval $[5, 9)$.
+Since the width of the cells in $[5, 9)$ is 2, the two cells can be reconstructed.
 
-If we plot each family on its own line, one line per resolution, we obtain:
+If we draw each family on its own row, one row per resolution, we obtain:
 
-```{image} ./figures/segments-resolution.png
-:alt: The same five cells drawn on three rows by cell width: width 1 holds [4, 5], width 2 holds [5, 7] and [7, 9], width 4 holds [0, 4] and [9, 13].
-:align: center
-:width: 80%
+```{diagram}
+:figure: cells_by_width
+
+The same cells, one row per width.
+The two cells of width 2 merge into the interval $[5, 9)$, in [red]{.sm-red}.
 ```
 
 In this example, cells of different widths do not overlap.
 This is not mandatory: a mesh can have overlapping regions, as in this one:
 
-```{image} ./figures/segments-resolution-overlap.png
-:alt: Three rows of cells by width, where cells of different widths cover the same parts of the axis.
-:align: center
-:width: 80%
+```{diagram}
+:figure: overlapping_widths
+
+Cells of three widths that cover the same parts of the segment.
+The parts covered twice are in [red]{.sm-red}.
 ```
 
 :::{remark}
@@ -67,22 +69,24 @@ The next sections explain these constraints.
 ## Interval definition
 
 The interval is the main data structure of {{ project }}.
-An interval is printed as follows:
+The [1D example](#1d-mesh-example) below prints its interval of level 2 as follows:
 
-```{image} ./figures/interval.svg
-:alt: A printed interval from -5 to 10 with index 0 and step 1, where the labels start, end, index and step point at each part.
-:align: center
-:width: 300
+```{diagram}
+:figure: printed_interval
+
+The interval $[14, 16)$ as {{ project }} prints it, part by part.
 ```
 
 ```{definition} interval
 :label: def-interval
 
-An interval is defined by its start and end values (in black).
+An interval is defined by its start and end values.
 It has two more attributes:
 
-- the index (in red), an offset that links the interval to the array where the data are stored (see [Read the printed mesh](#read-the-printed-mesh)),
-- the step (in green), the step used to move inside the interval.
+- the index, in red above, an offset that links the interval to the array where the data are stored (see [Read the printed mesh](#read-the-printed-mesh)),
+- the step, the step used to move inside the interval.
+
+The position printed before the arrow is not part of the interval: it is the place of the interval in its array.
 ```
 
 :::{warning}
@@ -110,13 +114,14 @@ Intervals hold integers, not real numbers as in the introduction.
 This works because an interval belongs to a level, and the level gives the real size of its cells through {eq}`dx`.
 The figure below illustrates the idea:
 
-```{image} ./figures/interval-2.png
-:alt: Two adjacent cells numbered 0 and 1 on level i.
-:align: center
-:width: 250
+```{diagram}
+:figure: interval_on_two_levels
+
+The same segment at two levels, drawn at true size.
 ```
 
 We have two cells $0$ and $1$ on the level $l$, so the interval $[0, 2)$ describes this domain at the level $l$.
+At the level $l + 1$, the cells are half as long and the same domain is the interval $[0, 4)$.
 
 :::{remark}
 We could describe closed intervals such as $[0, 1]$.
@@ -162,10 +167,11 @@ No cell at this level can have its center at $\frac{1}{3}$.
 
 The other constraint is that a cell at the level $l$ is included in a cell at any lower level:
 
-```{image} ./figures/interval-3.png
-:alt: Left, a cell at level l + 2 lies inside a cell at level l. Right, crossed out in red, a cell at level l + 2 that sticks out of the cell at level l.
-:align: center
-:width: 80%
+```{diagram}
+:figure: nested_levels
+
+Left, the cell $[3, 4)$ of level $l + 2$ lies in the cell $[0, 1)$ of level $l$.
+Right, a cell shifted by half its length crosses the edge of the cell of level $l$: it cannot exist.
 ```
 
 :::{remark}
@@ -176,10 +182,10 @@ This property is needed for mesh adaptation.
 
 We now take a 1D mesh with several levels and look at how {{ project }} stores it:
 
-```{image} ./figures/interval_example_1D.png
-:alt: A 1D mesh with its cell numbering per level. Level 0 cells 0, 1 and 5 are blue, level 1 cells 4, 5, 6, 8 and 9 are green, level 2 cells 14 and 15 are red.
-:align: center
-:width: 80%
+```{diagram}
+:figure: three_levels_1d
+
+The mesh, then its cells level by level with their numbers and the bracket of each interval.
 ```
 
 For each level, the intervals are:
@@ -190,9 +196,9 @@ For each level, the intervals are:
 
 The level and $\Delta x$ from {eq}`dx` give the real intervals:
 
-- level 0: $[0, 2]$, $[5, 6]$
-- level 1: $[2, 3.5]$, $[4, 5]$
-- level 2: $[3.5, 4]$
+- level 0: $[0, 2)$, $[5, 6)$
+- level 1: $[2, 3.5)$, $[4, 5)$
+- level 2: $[3.5, 4)$
 
 :::{remark}
 There are no overlapping regions in this example, to keep it readable.
@@ -258,10 +264,11 @@ A 2D example shows the difference between the two structures better.
 
 Consider the following mesh:
 
-```{image} ./figures/2D_mesh.png
-:alt: A 2D mesh of three levels with the cell numbering of each level on the left and bottom axes. Blue level 0 cells cover most of the domain, green level 1 cells form a block in the middle and a corner block at the top right, red level 2 cells sit at x and y from 8 to 10 and from 14 to 16.
-:align: center
-:width: 60%
+```{diagram}
+:figure: mesh_2d
+
+The mesh of the `tutorial-2d-mesh` demo, with the cell indices of each level along $x$ and $y$.
+The cells of level 2 are hatched in [red]{.sm-red}.
 ```
 
 The {cpp:class}`samurai::CellList` of this mesh is:
@@ -364,6 +371,27 @@ This is the role of the index.
 For `y = 14`, the entry is `y-offset[2]`, because `y = 14` is the third `y` value.
 The index of a `y` interval is chosen so that `y + index` is the position of `y` in `y-offset`.
 For the interval $[14, 16)$, the index is `-12`, and `y-offset[y + index] = y-offset[14 - 12] = y-offset[2]`.
+Then `y-offset[2] = 2` and `y-offset[3] = 3`: the row `y = 14` has the single interval `x[2]`, $[14, 16)$.
+
+At level 1, a row can hold more than one interval.
+The `y` interval is $[2, 8)$ with the index `-2`, so the row `y = 4` is read at `y-offset[4 - 2] = y-offset[2]`.
+Since `y-offset[2] = 2` and `y-offset[3] = 4`, its intervals are `x[2]` and `x[3]`, $[2, 4)$ and $[5, 6)$: the hole at $x = 4$ is filled by cells of level 2.
+{ref}`plate-lookup` follows both lookups.
+
+```{plate} Reading a row in a level cell array
+:figure: level_lookup
+:label: plate-lookup
+
+**Fig. 1.** The mesh of `tutorial-2d-mesh`.
+*a*, the row $y = 4$ of level 1, in [red]{.sm-red}: the cells 2, 3 and 5.
+*b*, the row $y = 14$ of level 2: the cells 14 and 15.
+
+**Fig. 2.** The arrays of level 1.
+The index $-2$ of the `y` interval sends the row $y = 4$ to `y-offset[2]`; `y-offset[2]` and `y-offset[3]` bound its entries in `x`, from 2 to 4 excluded.
+
+**Fig. 3.** The arrays of level 2.
+The second `y` interval holds $y = 14$; its index $-12$ sends it to `y-offset[2]`, and the row has the one entry 2 of `x`.
+```
 
 The same computation of the `y-offset` and of the indices at levels 0 and 1 gives the whole {cpp:class}`samurai::CellArray` shown above.
 
