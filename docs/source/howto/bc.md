@@ -97,10 +97,20 @@ For `bc_dirichlet_neumann.cpp`, where $u = 1$ and $\mathbf{v} = (1, 1)$ in every
   :language: text
 ```
 
+The same values on the mesh, side by side with the condition of each side:
+
+```{diagram}
+:figure: ghost_values
+
+The ghosts that the program prints for $u$ and $\mathbf{v}$ on the 4 by 4 cells.
+Each face of the boundary, in [red]{.sm-red}, has a condition that writes the ghost beyond it, washed in red.
+`print_ghosts` skips the corner ghosts because they lie on no side; no condition writes them, and the [boundary conditions reference](../reference/bc.md#ghosts-beyond-the-condition) explains how they are filled.
+```
+
 - On the left side, $u_g = 2 \times 0 - 1 = -1$: the face value is 0.
 - On the right side, $u_g = 2y - 1$ at the height $y$ of each face.
-- On the bottom side, the zero normal derivative copies the cell value, 1.
-- For `v`, each component follows its own value: $2 \times 0 - 1 = -1$ and $2 \times 2 - 1 = 3$.
+- On the bottom and top sides, the zero normal derivative copies the cell value, 1.
+- For `v`, each component follows its own value on every side: $2 \times 0 - 1 = -1$ and $2 \times 2 - 1 = 3$.
 
 You do not need to update the ghosts yourself before a finite volume scheme: an explicit scheme updates the ghosts of its input field when they are out of date.
 Before a loop of your own that reads the ghosts, call `samurai::update_ghost_mr`.
@@ -155,7 +165,15 @@ The bottom-left and top-left cells of the column also touch the bottom and top s
   :start-at: w, left
 ```
 
-The bottom ghosts outside the region keep the value they had: no condition writes them.
+```{diagram}
+:figure: column_region
+
+The region `left_column` is shaded.
+Its faces on the boundary, in [red]{.sm-red}, are on the left, bottom and top sides, and the condition writes the ghosts beyond them, washed in red.
+The other ghosts keep their value, 0; the corner ghosts are blank, as in the previous diagram.
+```
+
+The ghosts outside the region keep the value they had: no condition writes them.
 Cover the whole boundary with conditions, as the previous example does with its first `make_bc`, unless your scheme never reads those ghosts.
 
 ## Make a direction periodic

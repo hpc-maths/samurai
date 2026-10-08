@@ -23,7 +23,9 @@ int main(int argc, char** argv)
     auto w    = samurai::make_scalar_field<double>("w", mesh, 0.);
 
     const samurai::DirectionVector<dim> left   = {-1, 0};
+    const samurai::DirectionVector<dim> right  = {1, 0};
     const samurai::DirectionVector<dim> bottom = {0, -1};
+    const samurai::DirectionVector<dim> top    = {0, 1};
 
     // u = 0 on the whole boundary, then u = 1 where y > 0.5
     samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
@@ -44,7 +46,9 @@ int main(int argc, char** argv)
 
     print_ghosts("u, left", u, left);
     print_ghosts("w, left", w, left);
+    print_ghosts("w, right", w, right);
     print_ghosts("w, bottom", w, bottom);
+    print_ghosts("w, top", w, top);
 
     samurai::finalize();
     return 0;
