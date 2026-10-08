@@ -126,12 +126,14 @@ It prints the number of cells at each level:
 ```
 
 The 1368 cells of the adapted mesh still cover an area of 1.87207: no coarse cell reaches into the obstacle.
-The program saves `u` and the level of each cell in `disc_obstacle.h5`:
+The program saves `u` and the level of each cell in `disc_obstacle.h5`; this is the mesh of that file:
 
-```{image} figures/disc_obstacle.png
-:alt: The 2 by 1 channel meshed with cells colored by level, from 2 (light gray) to 6 (dark navy). A white disc of radius 0.2 centered at (0.5, 0.5) has no cells; a red circle marks its exact edge, and the cells at its edge form a staircase. A band of level 6 cells surrounds the disc, followed by bands of levels 5, 4 and 3, and the right quarter of the channel is at level 2.
-:width: 100%
-:align: center
+```{diagram}
+:figure: disc_obstacle_mesh
+
+The program keeps a level 6 cell when its center lies outside the disc, so the edge of the hole is a staircase of level 6 cells: the exact circle, in red, runs across the kept cells of the staircase and through the hole, never across a coarser cell.
+Level 6 cells are hatched in red; away from the disc, adaptation merges cells down to level 2.
+Four corner marks on the channel frame the square [0.25, 0.75) × [0.25, 0.75) around the disc, and the view under the channel enlarges it.
 ```
 
 ## Run a scheme around an obstacle
