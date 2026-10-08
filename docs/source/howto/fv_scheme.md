@@ -45,7 +45,7 @@ The example `fv_laplacian.cpp` writes the Laplacian $\Delta u$ as the divergence
 
 The flux function of a `LinearHomogeneous` scheme receives the array `c` of coefficients and the cell length `h`, and sets one coefficient per stencil cell: the flux is $\sum_i c_i u_i$.
 Without a stencil of your own, the stencil of size 2 is the cell on the left of the face (index 0) and the cell on its right (index 1) in the x-direction, the bottom and top cells in the y-direction.
-{{ project }} adds the flux to the cell on the left of the face and subtracts it from the cell on the right, each divided by the cell measure, so the scheme computes the cell average of $\Delta u$.
+{{ project }} adds the flux to the cell on the left of the face and subtracts it from the cell on the right, each multiplied by the face measure over the cell measure, $1/h$ when both cells have the same level, so the scheme computes the cell average of $\Delta u$.
 
 Apply the scheme like a function:
 
@@ -211,9 +211,20 @@ For an implicit solve, the Jacobian counterpart is `jacobian_function`, which fi
 ## Use a wider stencil
 
 Set the stencil of each direction when the flux reads more than the two cells around the face.
-The stencil is a list of direction vectors from the cell on the left of the face, which is `{0, 0}` in 2D.
+The stencil is a list of direction vectors from the cell on the left of the face, which is `{0,0}` in 2D.
 `samurai::line_stencil<dim, d>(-1, 0, 1, 2)` builds the stencil of four cells along the direction `d`, and you assign it to `my_flux[d].stencil`.
 The values reach the flux function in the order of the stencil: here `u[0]` is the second cell on the left of the face, `u[1]` and `u[2]` the two cells next to the face, and `u[3]` the second cell on the right.
+The default stencil of size 2 calls these two cells `u[0]` and `u[1]`: shift the indices by one when you widen a flux written for two cells.
+
+```{diagram}
+:figure: wide_stencil
+
+The stencil `line_stencil<dim, 0>(-1, 0, 1, 2)` over the default stencil of size 2, with the value the flux function reads in each cell and its offset.
+The origin cell `{0,0}` is shaded and hatched in [red]{.sm-red} along its sides, and the face is the [red]{.sm-red} line.
+The scheme computes the divergence of the flux: on one level, the face adds $+\mathit{flux}/h$ to the value of the scheme in the cell on the left and $-\mathit{flux}/h$ to its value in the cell on the right, with $h$ the cell length, for either stencil.
+In the explicit step $u^{n+1} = u^n - \Delta t\, s(u^n)$, with $s$ the scheme, and in the implicit solve of `id + dt * my_scheme`, which has the same sign, a positive flux, along the [red]{.sm-red} arrow, moves $u$ from the cell on the left to the cell on the right.
+```
+
 The {ref}`stencil configuration <stencil-configuration>` section of the reference describes the other helpers.
 
 The mesh must provide as many ghosts as the stencil reaches: set `max_stencil_radius` in the mesh configuration to half the stencil size, 2 for a stencil of size 4 (the default) and 3 for size 6.
