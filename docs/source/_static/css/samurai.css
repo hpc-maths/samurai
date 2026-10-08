@@ -780,7 +780,8 @@ body[data-theme="dark"] article img.align-center {
   font-kerning: none;
 }
 
-.sm-fig-sc .sm-fig-math {
+.sm-fig-sc .sm-fig-math,
+.sm-fig-sc .sm-fig-code {
   font-variant-caps: normal;
   letter-spacing: 0;
 }

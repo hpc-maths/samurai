@@ -218,20 +218,24 @@ def _cell_box(square, cell):
     return ox + i * h, oy + size - (j + 1) * h, h
 
 
-def draw_partition(p, ranks, max_level, square):
+def draw_partition(p, ranks, max_level, square, cell_stroke=INK):
     """Draw the leaves in the fills of their ranks, the subdomains outlined.
 
     ``ranks`` maps each leaf of a mesh of the unit square to its rank, as
     ``partition`` returns it; the mesh is drawn in ``square = (ox, oy, size)``,
     y up. The fills are ``rank_patterns(p)``. The edges between two ranks are
     heavy rules. The theme has four rank tones, so ranks go from 0 to 3.
+    ``cell_stroke`` is the color of the hairline around each leaf, or a function
+    that gives it for a leaf: a mesh with many fine leaves passes a fainter one
+    for them, such as ``FIG``, so that their outlines do not hide the rank tones.
     """
     if not set(ranks.values()) <= set(range(len(RANK_TONES))):
         raise ValueError(f"a figure draws at most {len(RANK_TONES)} ranks")
     s = ""
     for cell, r in ranks.items():
         x, y, h = _cell_box(square, cell)
-        s += rect(x, y, h, h, fill=f"url(#{p}-rank{r})", stroke=INK, sw=HAIR)
+        stroke = cell_stroke(cell) if callable(cell_stroke) else cell_stroke
+        s += rect(x, y, h, h, fill=f"url(#{p}-rank{r})", stroke=stroke, sw=HAIR)
     for edge in _rank_edges(ranks, max_level):
         s += line(*_grid_points(square, max_level, edge), sw=HEAVY)
     return s + rect(*square, square[2], stroke=INK, sw=HEAVY)
