@@ -33,12 +33,12 @@ On a Cartesian grid, the cells of one level that sit next to each other along th
 In 2D and 3D the same idea applies one direction up: the rows that hold x-intervals are themselves grouped into intervals along y, and along z in 3D, with offsets that point to the intervals of the next direction.
 A `samurai::LevelCellArray` holds one level in this form, and a `samurai::CellArray` holds one per level.
 
-```{figure} figures/philosophy_intervals.svg
-:alt: A 1D mesh with eight cells at level 4 on the left half and two cells at level 2 on the right half. Stored cell by cell it needs ten entries; stored as intervals it needs two, [0, 8) at level 4 and [2, 4) at level 2.
-:width: 80%
-:align: center
+A graded 1D mesh, where neighboring cells differ by at most one level, needs only a few intervals:
 
-The same 1D mesh stored cell by cell (10 entries) and as intervals (2 entries, one per level).
+```{diagram}
+:figure: graded_intervals
+
+A graded mesh with 16 cells on levels 3 to 5 is stored as 5 intervals, at most two per level.
 ```
 
 What this gives you:
@@ -84,6 +84,25 @@ Once levels are sets of intervals, the questions an adaptive method asks become 
 An expression holds no cells: it is evaluated lazily, and cells are produced only when it is traversed.
 Because every operand is sorted, a traversal merges its operands in one ordered pass, the way two sorted lists are merged.
 
+{ref}`plate-right-neighbor` builds the group of the first section, every cell of level $l$ whose right neighbor is at level $l + 1$, on the mesh of the diagram above with $l = 3$.
+
+```{plate} The cells whose right neighbor is finer
+:figure: right_neighbor_finer
+:label: plate-right-neighbor
+
+**Fig. 1.** The operands: the cells of level $l$ and the cells of level $l + 1$, with `cells` standing for `mesh[mesh_id_t::cells]`.
+The dotted red guides mark the cell 2 of level 3, whose right neighbor is the pair of cells $[6, 8)$ of level 4.
+
+**Fig. 2.** `translate` moves level $l + 1$ one cell to the left.
+A fine cell that starts the right neighbor of a cell of level $l$ now lies inside that cell: the cells 6 and 7 move to 5 and 6, and the cell 5 lies inside the cell 2 of level 3.
+
+**Fig. 3.** The intersection with level $l$ is computed on the finer level of its operands, level 4, and keeps the cell 5.
+`.on(l)` brings it to level $l$: the result is the cell $[2, 3)$ of level 3, the only one whose right neighbor is finer.
+With $l = 4$, the same expression gives the cell $[7, 8)$ of level 4.
+
+*The finite volume schemes find the faces of the level jumps with this expression, brought to level $l + 1$ instead of $l$, in `interface.hpp`.*
+```
+
 {{ project }} builds its own machinery from these expressions:
 
 - the cells a scheme may read are the real cells grown by the stencil radius in every direction;
@@ -104,6 +123,15 @@ A scheme in {{ project }} is written for one cell, or for the flux across the in
 It never handles a level jump itself: where a jump occurs, ghosts at the right level take part in the computation, so the flux is always computed between two cells of the same length.
 Boundary conditions are attached to the field and fill the ghosts outside the domain.
 The {doc}`finite volume schemes reference <reference/finite_volume_schemes>` describes the scheme side and the {doc}`boundary conditions reference <reference/bc>` the boundary side.
+
+On the same mesh, one flux is computed at a face between two cells of level 5 and at a face between levels 3 and 4:
+
+```{diagram}
+:figure: level_jump_flux
+
+At the level jump, the flux is computed on level 4 from two prediction ghosts that fill the coarse cell and two real fine cells.
+The coarse cell receives this flux and the fine cell its opposite, so the scheme stays conservative.
+```
 
 In practice, a scheme written once runs on both the multiresolution and the AMR meshes.
 The level-set demos show it: [`level_set_MRA.cpp`](https://github.com/hpc-maths/samurai/blob/main/demos/FiniteVolume/level_set_MRA.cpp) and [`level_set_AMR.cpp`](https://github.com/hpc-maths/samurai/blob/main/demos/FiniteVolume/level_set_AMR.cpp) share the same scheme header, `level_set_schemes.hpp`, on a multiresolution mesh and on an AMR mesh.
@@ -157,6 +185,15 @@ This difference is the detail; a cell is coarsened where its detail is below a t
 The criterion does not depend on the equation being solved, and the threshold controls the error that adaptation adds.
 Bellotti, Gouarin, Graille and Massot implement this approach for lattice Boltzmann methods in {{ project }}, with error control, and describe it as less problem-dependent than AMR approaches ([J. Comput. Phys. 2022, doi:10.1016/j.jcp.2022.111670](https://doi.org/10.1016/j.jcp.2022.111670); see also [arXiv:2102.12163](https://arxiv.org/abs/2102.12163) for the error analysis).
 The cost: details need values at every level, so the field is projected onto the whole hierarchy, and one call to the adaptation runs up to one pass per level between the minimum and maximum levels (`samurai::make_MRAdapt`, see the {doc}`adaptation how-to <howto/adapt>`).
+
+For two cells of level 3, the diagram compares the predicted and real values of their children with the threshold.
+
+```{diagram}
+:figure: detail_threshold
+
+The value of a cell is the mean of its two children, and the prediction keeps that mean, so the two details of a cell are opposite: $d_2 = -d_1$.
+The threshold is $\varepsilon_4 = \varepsilon / 2 = 0.04$ for $\varepsilon = 0.08$ and a maximum level of 5.
+```
 
 ### AMR: driven by your criterion
 
