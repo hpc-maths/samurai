@@ -27,3 +27,13 @@ repos:
     hooks:
       - id: clang-format
         files: .*\.[hc]pp$
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.23.3
+    hooks:
+      - id: markdownlint-cli2
+        # The hook needs Node 22 or later; pin it rather than rely on the
+        # runner's system Node. It reads .markdownlint.json, as Codacy does.
+        language_version: 24.21.0
+        # CHANGELOG.md is written by release-please. The PR template starts
+        # at a level-2 heading (MD041) because it becomes a PR body.
+        exclude: ^(CHANGELOG\.md|\.github/PULL_REQUEST_TEMPLATE\.md)$
