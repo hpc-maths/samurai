@@ -1,0 +1,6 @@
+level 3: threshold 6.25e-05, 0 cells
+level 4: threshold 1.25e-04, 4 cells [0, 2) [14, 16)
+level 5: threshold 2.50e-04, 8 cells [4, 8) [24, 28)
+level 6: threshold 5.00e-04, 12 cells [16, 22) [42, 48)
+level 7: threshold 1.00e-03, 40 cells [44, 84)
+total: 64 cells

@@ -2,6 +2,27 @@
 
 This guide shows you how to make a multiresolution mesh follow your solution: fine cells where the solution varies, coarse cells where it is smooth.
 You create the adaptation for a field with `samurai::make_MRAdapt`, set its threshold with `samurai::mra_config`, and call it each time the solution changes.
+{ref}`plate-adapt-loop` shows what one call does to the mesh.
+
+```{plate} The adaptation loop
+:figure: adapt_loop
+:label: plate-adapt-loop
+
+**Fig. 1.** `samurai::mra::make_mesh` puts every cell at the maximum level.
+
+**Fig. 2.** The mesh after one call of `MRadaptation(mra_config)`: the finest cells, hatched in [red]{.sm-red}, sit around the bump, and the cells get coarser away from it.
+
+**Fig. 3.** The call runs a loop of four steps.
+*compute details*: a parent (filled) between its two neighbors, its two children under it, and above them their values; the detail of each child is the gap between its value ([red]{.sm-red}) and the value predicted from the parent and its neighbors (dashed), and the two children have opposite details.
+*tag*: each cell is tagged to keep, to coarsen (ruled) or to refine (hatched), by comparing its detail with the threshold of its level.
+*coarsen or refine*: the tags give a new mesh.
+*a*, the coarse cell and the fine cells touch by a corner and are two levels apart, so the mesh is not graded yet.
+*graduate*: the graduation refines the coarse cell (hatched), so that cells that touch, by a face or by a corner, differ by at most one level.
+The loop stops as soon as a pass leaves the mesh unchanged, and after at most `max_level - min_level` passes.
+
+*Figs. 1 and 2 come from the example below run with `--max-level 5 --mr-eps 1e-2`, so that each cell stays visible: the mesh has levels 3 to 5 instead of 3 to 7.
+The adapted mesh was saved by a copy of the example with a `samurai::save` call added after the adaptation.*
+```
 
 ## Before you start
 
@@ -64,9 +85,40 @@ Describe the adaptation criterion with a `samurai::mra_config` object and chain 
 The detail of a cell is the difference between its value and the value predicted from its parent.
 ```
 
+```{diagram}
+:figure: child_details
+
+The details of the two children of a cell, in one dimension.
+The parent holds the mean of its children; the prediction (dashed) keeps that mean, and so do the real values ([red]{.sm-red}), so $d_1 = -d_2$.
+```
+
 With $d$ the dimension and $L$ the maximum level, the threshold at level $\ell$ is $\epsilon_\ell = \epsilon / 2^{d(L - \ell)}$.
 Cells at level $\ell$ are merged into their parent when their details are at most $\epsilon_\ell$ and the detail of the parent is at most $2^{\text{regularity}} \, \epsilon_\ell$.
 A cell is refined when its detail exceeds $2^{\text{regularity} + d} \, \epsilon_\ell$.
+{ref}`plate-adapt-1d` applies these rules to the bump of the example in one dimension, with the same levels and `epsilon`.
+
+```{plate} The adaptation in one dimension
+:figure: adapt_1d
+:label: plate-adapt-1d
+
+**Fig. 1.** The bump $u(x) = \exp(-200 (x - 1/2)^2)$ on $[0, 1)$, as the program sets it: one step per adapted cell, at the value of $u$ at the center of the cell.
+*a*, at the top of the bump the cells are at level 7; their steps are hatched in [red]{.sm-red}.
+*b*, where $u$ is almost zero the cells stay at level 4, for two reasons.
+Their own details are tiny, but the prediction of their level 3 parent reads a neighbor that holds the bump, so the detail of the parent is too large for them to merge.
+And a level 3 cell there would touch the level 5 cells next to it, two levels apart, which the graduation forbids.
+
+**Fig. 2.** The adapted mesh, one row per level, with the number of cells of each level: 64 cells instead of the 128 of level 7.
+Level 3 holds no cell, and neighboring cells differ by at most one level.
+
+**Fig. 3.** The threshold of each level, $\epsilon_\ell = \epsilon / 2^{L - \ell}$ with $d = 1$, $L = 7$ and $\epsilon = 10^{-3}$, on a logarithmic scale.
+It halves at each coarser level, so cells merge into a coarse cell only where the solution is very smooth.
+```
+
+The plate is drawn from the output of `mr_adapt_1d.cpp`, the example in one dimension, which prints the threshold and the cells of each level:
+
+```{literalinclude} snippet/adapt/mr_adapt_1d_output.txt
+  :language: text
+```
 
 Start with the default `epsilon` and lower it if the solution is not resolved enough, or raise it if the mesh keeps too many cells.
 With `relative_detail(true)`, `epsilon` becomes a relative tolerance.
