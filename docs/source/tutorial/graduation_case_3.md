@@ -52,7 +52,7 @@ $$
 x = \sin(a t + \delta) \\
 y = \sin(b t)
 \end{cases}
-\qquad \text{for} \quad t \in [0, 2 \pi],
+\qquad \text{for} \quad t \in [0, 2 \pi),
 $$ (eq-graduation-curve)
 
 with $a = 3$, $b = 2$ and $\delta = \frac{\pi}{2}$.
@@ -106,13 +106,24 @@ The loop ends after the construction of `new_ca`, when the new mesh equals the o
 :dedent:
 ```
 
-Without graduation, the result is the mesh below, with `start_level = 1` and `max_level = 6`.
+Without graduation, the demo ends on the mesh of Fig. 1 of {ref}`plate-graduation-case-3`.
 It is not graded: the finest cells along the curve touch cells several levels coarser.
 
-```{image} ./figures/graduation_case_3_without_graduation.png
-:alt: A uniform 8 by 8 mesh whose central part is refined along a looping curve, where the finest cells touch the large cells directly.
-:width: 60%
-:align: center
+```{plate} The mesh refined along the curve, without and with graduation
+:figure: refined_meshes
+:label: plate-graduation-case-3
+
+**Fig. 1.** The mesh refined without graduation, saved with `--with-graduation=false`: 640 cells of levels 1 to 4, not graded.
+The 496 cells of level 4, hatched in [red]{.sm-red}, follow the curve.
+*a*, a cell of level 1 touches cells of level 4 along its left face, three levels apart.
+
+**Fig. 2.** The mesh refined with graduation: 1228 cells of levels 1 to 4, graded.
+The 1008 cells of level 4 form a wider band around the curve.
+*b*, where the cell of *a* was, cells of levels 3 and 2 step down from level 4 one level at a time.
+
+*Both meshes are the files the demo saves with `--maximum-level 4`, two levels fewer than its default, so that the finest cells stay visible.
+With the default `--maximum-level 6`, the demo ends on 3088 cells without graduation and 6652 with it.
+The demo tests a finite number of points of the curve, so between two of them the curve can cut the corner of a coarser cell, as it does in a few places in Fig. 1.*
 ```
 
 ## Change the tags to keep the mesh graded
@@ -144,17 +155,22 @@ On a full interval, `i_f >> 1` would be about half as long as the mask, and the 
 With `even_elements()` or `odd_elements()`, the interval has a step of 2, so each fine cell maps to a different coarse cell and `i_f >> 1` has as many elements as the mask.
 These functions return an invalid interval when no element is left, which `is_valid()` checks.
 
+The diagram below follows one interval of the run of {ref}`plate-graduation-case-3`, at level 4 for the row `s = {1, 1}` of the stencil.
+
+```{diagram}
+:figure: even_odd_split
+
+The interval $[5, 11)$ of the row $j_f = 12$, split into its even elements, then its odd elements, both of step 2.
+In each half, the demo computes the mask `tag(4, i_f - 1, 11)` on `i_f`, one value per element, [red]{.sm-red} where it is true.
+`i_f >> 1` gives one cell of level 3 per element; where the mask is true, that cell is tagged, hatched in [red]{.sm-red}.
+The fine cells 6 and 7 share the coarse cell 3: each half of the split reaches it once.
+```
+
 Tagging a cell at level $l - 1$ can force a cell at level $l - 2$ to be tagged, and so on.
 So we go from the finest level down to the coarsest one: each level receives the tags of the level above before it passes its own tags to the level below.
 
-The figure below shows the mesh refined with the graduation, with the same levels as above.
+Fig. 2 of {ref}`plate-graduation-case-3` shows the mesh refined with the graduation.
 Layers of intermediate levels separate the finest cells from the coarse ones.
-
-```{image} ./figures/graduation_case_3_with_graduation.png
-:alt: The same refined mesh with graduation; rings of cells of decreasing size separate the fine cells along the curve from the large cells.
-:width: 60%
-:align: center
-```
 
 ## What we built
 
