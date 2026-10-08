@@ -11,7 +11,20 @@ graduation_case_3
 ```{definition} graded mesh
 :label: def-graded-mesh
 
-A mesh is graded when two neighboring cells differ by at most one level: a cell at level $l$ only touches cells at levels $l - 1$, $l$ and $l + 1$.
+A mesh is graded when two neighboring cells differ by at most one level: a cell at level $l$ only touches cells at levels $l - 1$, $l$ and $l + 1$, through a face or a corner.
+```
+
+Two cells are in face contact when they share part of a side, and in corner contact when they share only a vertex.
+
+```{diagram}
+:figure: graduation_allowed
+
+Three meshes of the unit square, each cell labeled with its level.
+Left, touching cells are at most one level apart: the mesh is graded.
+Middle, two cells of level 3 share part of a side with the cell of level 1.
+Right, one cell of level 3 shares only a vertex with the cell of level 1.
+The cells of each jump of two levels are hatched in [red]{.sm-red}, and the side or the vertex they share is drawn in red.
+`samurai::make_graduation` leaves the left mesh as it is and refines the cell of level 1 in the other two.
 ```
 
 Adaptive mesh refinement needs this property, because the values of the ghost cells at level $l$ are reconstructed from the next coarser or the next finer level.
@@ -42,6 +55,8 @@ In your own code, use the functions of `samurai/algorithm/graduation.hpp`:
 - `samurai::make_graduation(ca)` grades a {cpp:class}`samurai::CellArray` in place. Its second argument is the graduation width, 1 by default.
 - {cpp:func}`samurai::graduation` takes a tag field of an AMR mesh, filled with `samurai::CellFlag` values, and a stencil of directions. It changes the tags so that the mesh built from them is graded, as in case 3. The AMR demos, such as `demos/FiniteVolume/AMR_Burgers_Hat.cpp`, call it before each mesh update.
 - {cpp:func}`samurai::is_graduated` returns `true` when a mesh or a cell array is graded along the directions of its stencil argument. The default stencil holds the axis directions only.
+  With it, `is_graduated` misses a corner contact between cells two levels apart.
+  A stencil of the four diagonal directions finds the jumps of two levels or more through a corner and through a face.
 
 The multiresolution adaptation (`samurai::make_MRAdapt`) grades the mesh at each adaptation step, and {cpp:func}`samurai::graduation` does the same for AMR meshes.
 Both read the graduation width of the mesh configuration (see the {doc}`mesh how-to guide <../howto/mesh>`).
