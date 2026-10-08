@@ -197,11 +197,24 @@ As {ref}`LeVeque <ref-leveque>` points out (p. 163), we cannot expect this finit
 ```
 
 - `FluxConfig` declares a non-linear flux (`SchemeType::NonLinear`) on a stencil of 4 cells. It reads the scalar field $\phi$, returns a scalar field, and takes the velocity field as a parameter field.
-- With 4 cells, the stencil in the direction `d` is the default one, $\{-1, 0, 1, 2\}$: `phi[0]` to `phi[3]` are $\phi_{j, k-1, h}$ to $\phi_{j, k+2, h}$, and the face lies between `phi[1]` and `phi[2]`. `data.cells` holds the same cells, in which the lambda reads the velocity.
+- With 4 cells, the stencil in the direction `d` is the default one, the offsets $-1$ to $2$ along `d`: `phi[0]` to `phi[3]` are $\phi_{j, k-1, h}$ to $\phi_{j, k+2, h}$, and the face lies between `phi[1]` and `phi[2]` (see the diagram below). `data.cells` holds the same cells, in which the lambda reads the velocity.
 - `data.cell_length` is $\Delta x_j$, the length of the cells the flux is computed with, which is the finer level at a level jump.
 - `cons_flux_function` defines a conservative flux: the value that leaves one cell enters the other.
 - `dt` is captured by reference, because the demo shortens the last time step to stop at $T$.
 - `set_parameter_field(u)` makes the scheme fill the ghost cells of $\mathbf{u}$ before it is applied, when they are not up to date.
+
+Each of the four cells has three names: its indices in the math, the value the lambda receives and its offset in the stencil.
+The cell at offset `{0,0}`, on the left of the face, is the origin of the stencil:
+
+```{diagram}
+:figure: flux_stencil
+
+The four cells of the flux $F_{j, k+1/2, h}$ along $x$, with the three indices of each.
+The origin of the stencil is shaded and hatched in [red]{.sm-red} along its sides.
+Besides the velocity, the flux reads the offsets $[-1, 2)$, `phi[0]` to `phi[2]`, when $u_{j, k+1/2, h} \geq 0$, and the offsets $[0, 3)$, `phi[1]` to `phi[3]`, when $u_{j, k+1/2, h} < 0$.
+```
+
+Along $y$, the offsets are `{0,-1}` to `{0,2}` and `phi[0]` to `phi[3]` are $\phi_{j, k, h-1}$ to $\phi_{j, k, h+2}$.
 
 The demo builds the scheme once, before the time loop:
 
@@ -309,10 +322,21 @@ It is built like the {doc}`local schemes <../reference/local_schemes>`, with a s
 :start-at: template <class Field>
 ```
 
-- `StarStencilSchemeConfig` declares a non-linear scheme on the star stencil of radius 2: the cell and its two neighbors on each side in each direction, in the order of the comment.
+- `StarStencilSchemeConfig` declares a non-linear scheme on the star stencil of radius 2: the cell and its two neighbors on each side in each direction, in the order of the comment (see the diagram below).
 - The scheme function receives the cells of the stencil and $\phi$, and sets `value` on the center cell. `d_minus` and `d_plus` are $D^- \phi$ and $D^+ \phi$ in the direction `d`, and the loop over the directions works in any dimension.
 - `phi_0` is captured by reference. The demo declares it once, next to the scheme, and copies $\phi$ into it after each transport step (`phi_0 = phi`).
 - The function returns $\left( \Delta x_j / \Delta x_{\overline{J}} \right) H(\phi)$, so that `dt_fict * reinitialization(phi)` is $\Delta \tau_j \, H(\phi)$ on each level.
+
+`cells[i]` is the cell of index `i` in the stencil.
+The loop over the directions finds the two cells on each side of the center along `d` from these indices:
+
+```{diagram}
+:figure: star_stencil
+
+The star stencil of radius 2 in 2D.
+Each cell holds its index in `cells`, its name in the comment and its vector; the center, index 2 (`cfg::center_index`), is shaded and hatched in [red]{.sm-red} along its sides.
+The table gives the indices `m2`, `m1`, `p1` and `p2` of the cells at $-2$, $-1$, $+1$ and $+2$ along `d`.
+```
 
 (adapt-the-mesh)=
 
