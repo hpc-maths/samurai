@@ -2,6 +2,31 @@
 
 {{ project }} stands for Structured Adaptive mesh and MUlti-Resolution based on Algebra of Intervals.
 It is a header-only C++ library that stores adaptive Cartesian meshes as sets of intervals and adapts them with multiresolution or adaptive mesh refinement (AMR).
+{ref}`plate-adaptive-mesh` shows such a mesh and the intervals that store one of its rows.
+
+```{plate} The adaptive mesh and its intervals
+:figure: adaptive_mesh
+:label: plate-adaptive-mesh
+
+**Fig. 1.** The unit square, meshed between level 2 and level 6: a cell of level $\ell$ has the side $1/2^\ell$.
+The mesh is refined where a circle crosses it.
+*b*, the cells of the finest level, hatched in [red]{.sm-red}, follow the circle.
+*c*, away from the circle the cells coarsen one level at a time, down to level 3.
+Two touching cells never differ by more than one level: the mesh is graded.
+To keep it so, the grading splits every cell of level 2, and none is left.
+*d*, inside the disc, ruled in fine lines, the cells are coarse again.
+
+**Fig. 2.** One cell of each level, at the scale of Fig. 1: each level halves the side of the level before.
+
+**Fig. 3.** Section *a-a*: the cells that the row *a-a* of Fig. 1 crosses, level by level.
+Each level stores them as half-open intervals of indices, counted in cells of that level:
+$[10, 12)$ and $[48, 50)$ at level 6,
+$[4, 5)$, $[6, 8)$, $[22, 24)$ and $[25, 26)$ at level 5,
+$[0, 2)$, $[4, 6)$, $[8, 11)$ and $[13, 14)$ at level 4,
+$[3, 4)$ and $[7, 8)$ at level 3.
+Level 2 has no cell in this row.
+Together the levels cover the row exactly once.
+```
 
 ```{toctree}
 :hidden:
