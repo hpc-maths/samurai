@@ -14,13 +14,21 @@ arrow whole), so a plate stacked on a phone shows no stray piece of a connector,
 and all the steps of a flow come out at the same scale. A panel is only clean if
 the art, the name and the code of each step fit the width of its box.
 
+The statements are set in the mono glyph by glyph, each at its own x, 0.6 em
+apart. Set as a plain run, Chrome rounds the advance of each glyph to whole pixels
+at the size the drawing is shown at, so that the run comes out between 0.56 and
+0.64 em a glyph depending on the screen; placed glyph by glyph it is 0.6 em a glyph
+at any size, and ``text_width`` gives its exact width.
+
 The arrows use the arrow head ``{p}-a`` of ``draw.patterns(p)``, which the defs of
 the drawing must hold.
 """
 
 import re
 from dataclasses import dataclass
+from html import escape, unescape
 
+from .arrays import MONO_ADVANCE
 from .draw import INK, INK2, PAPER, fig_label, line, num, path, rect, text
 
 # Under the art of a station, the baseline of its name; under the name, the
@@ -30,6 +38,10 @@ LABEL_DY, CODE_DY, RETURN_DY = 40, 20, 44
 # The room a station panel keeps above the art, for a callout, and under the
 # baseline of the code, for its descenders.
 HEAD, FOOT = 22, 8
+# The panel of the note of a loop stops this far inside the paper band of the note,
+# so that the return line, which meets the band at its two ends, leaves no speck at
+# the edges of the panel once it is scaled down on a phone.
+NOTE_INSET = 2
 
 # The face of the text in a box: CSS class, size and color.
 FACES = {
@@ -68,7 +80,7 @@ class Row:
     first: int | None = 1
 
     def center(self, k):
-        """The abscissa of the center of station ``k``."""
+        """Return the abscissa of the center of station ``k``."""
         return self.x0 + k * self.pitch
 
     @property
@@ -82,13 +94,13 @@ class Row:
         return self.label_y + CODE_DY
 
     def link(self, k):
-        """The ends ``(x1, x2, y)`` of the arrow from station ``k`` to the next."""
+        """Return the ends ``(x1, x2, y)`` of the arrow from station ``k`` to the next."""
         cx = self.center(k)
         x1, x2 = cx + self.box / 2 + self.gap, cx + self.pitch - self.box / 2 - self.gap
         return x1, x2, self.top + self.art / 2
 
     def region(self, k):
-        """The panel of station ``k``: its box, from above the art to under the code."""
+        """Return the panel of station ``k``: its box, from above the art to under the code."""
         y = self.top - HEAD
         return (self.center(k) - self.box / 2, y, self.box, self.code_y + FOOT - y, "half")
 
@@ -128,7 +140,7 @@ class Lane:
         return self.y + self.height / 2
 
     def pitch(self, n):
-        """The distance between the left edges of two boxes in a chain of ``n``."""
+        """Return the distance between the left edges of two boxes in a chain of ``n``."""
         return (self.width - self.box) / (n - 1) if n > 1 else self.box + 2 * self.gap
 
 
@@ -137,7 +149,8 @@ class Step:
     """A box of a chain, with ``code``, its statement, in the mono under it.
 
     ``text`` is SVG markup, which may hold ``<tspan>`` elements, set in ``face``:
-    ``"label"`` (the sans), ``"math"`` (the serif italic) or ``"code"`` (the mono).
+    ``"label"`` (the sans), ``"math"`` (the serif italic) or ``"code"`` (the mono);
+    with ``"code"``, ``text`` is plain text, set glyph by glyph.
     """
 
     text: str
@@ -159,12 +172,19 @@ class Flow:
 
 
 def cycle(p, row, stations, loop=None):
-    """The names, codes and arrows of ``stations`` standing on ``row``.
+    """Draw the names, codes and arrows of ``stations`` standing on ``row``.
 
     The figure draws the art of each station itself, at ``row.center(k)``. With a
     ``loop``, an arrow returns from under the last station to under the first,
-    through the note of the loop; the note gets a panel of its own.
+    through the note of the loop; the note gets a panel of its own. Raise
+    ``ValueError`` if the code of a station is wider than the box of the row.
     """
+    for station in stations:
+        if text_width(station.code) > row.box:
+            raise ValueError(
+                f"{station.code!r} is {num(text_width(station.code))} units wide in the mono,"
+                f" the box of the row only {num(row.box)}"
+            )
     arrow = f'marker-end="url(#{p}-a)"'
     g = ""
     for k, station in enumerate(stations):
@@ -180,35 +200,35 @@ def cycle(p, row, stations, loop=None):
 
 
 def _return(arrow, row, n, loop):
-    """The return of a cycle of ``n`` stations, the height it needs and the panel of its note."""
+    """Draw the return of a cycle of ``n`` stations; give its height and the panel of its note."""
     first, last, yb = row.center(0), row.center(n - 1), row.code_y + RETURN_DY
     g = path(
         f"M{num(last)} {num(row.code_y + 12)} V{num(yb)} H{num(first)} V{num(row.code_y + 16)}",
         extra=arrow,
     )
-    # the band hides the return line under the note, and the panel of the note is
-    # the band, so that no piece of the line shows beside it
+    # the band hides the return line under the note, and the panel of the note
+    # stays inside the band, so that no piece of the line shows beside it
     mid = (first + last) / 2
     w = loop.width or text_width(loop.note, "math", 14) + 24
     g += rect(mid - w / 2, yb - 12, w, 22, fill=PAPER, stroke="none")
     g += text(mid, yb + 5, loop.note, anchor="middle", size=14, fill=INK, cls="sm-fig-math")
-    return g, yb + 16, (mid - w / 2, yb - 22, w, 36, "")
+    return g, yb + 16, (mid - w / 2 + NOTE_INSET, yb - 22, w - 2 * NOTE_INSET, 36, "")
 
 
 def _station(row, k, station):
-    """The name of station ``k``, with its number if the row has one, and its code."""
+    """Draw the name of station ``k``, with its number if the row has one, and its code."""
     cx = row.center(k)
     if row.first is None:
         g = text(cx, row.label_y, station.name, "middle", 14, INK, "sm-fig-math")
     else:
         g = fig_label(cx, row.label_y, row.first + k, station.name)
     if station.code:
-        g += text(cx, row.code_y, station.code, anchor="middle", size=10.5, cls="sm-fig-code")
+        g += _mono(cx, row.code_y, station.code)
     return g
 
 
 def chain(p, lane, steps, links):
-    """The boxes of ``steps`` in a row on ``lane``, ``links[k]`` over the arrow after box ``k``.
+    """Draw the boxes of ``steps`` on ``lane``, ``links[k]`` over the arrow after box ``k``.
 
     ``links`` holds one label per arrow, SVG markup set in the serif italic, or
     ``""`` for an arrow without label. Each panel holds a box and the whole arrow
@@ -237,23 +257,38 @@ def chain(p, lane, steps, links):
 
 
 def _box(lane, x, step):
-    """The box of ``step`` on ``lane``, its left edge at ``x``, and its code under it."""
+    """Draw the box of ``step`` on ``lane``, its left edge at ``x``, and its code under it."""
     cls, size, fill = FACES[step.face]
     cx = x + lane.box / 2
     g = rect(x, lane.y, lane.box, lane.height, fill=PAPER, stroke=INK)
-    g += text(cx, lane.axis + 0.35 * size, step.text, "middle", size, fill, cls)
+    if step.face == "code":
+        g += _mono(cx, lane.axis + 0.35 * size, step.text, size, fill)
+    else:
+        g += text(cx, lane.axis + 0.35 * size, step.text, "middle", size, fill, cls)
     if step.code:
-        g += text(cx, lane.y + lane.height + 18, step.code, anchor="middle", size=10.5,
-                  cls="sm-fig-code")
+        g += _mono(cx, lane.y + lane.height + 18, step.code)
     return g
 
 
-def text_width(markup, face="code", size=10.5):
-    """The width of ``markup`` set in ``face`` at ``size``, tags left out.
+def _mono(cx, y, s, size=10.5, fill=INK2):
+    """Set the plain text ``s`` in the mono, centered on ``cx``, each glyph at its own x.
 
-    Exact for the mono, whose glyphs are 0.6 em wide; for the sans and the serif
-    italic, an estimate at 0.56 em per glyph. A figure uses it to choose a box
-    that holds the names and the codes of its steps.
+    Each glyph is centered in its slot of 0.6 em: whatever the advance the browser
+    rounds it to, the run stays centered on ``cx``.
     """
-    em = 0.6 if face == "code" else 0.56
-    return em * size * len(re.sub(r"<[^>]*>", "", markup))
+    advance = MONO_ADVANCE * size
+    x0 = cx - advance * len(s) / 2
+    xs = " ".join(num(x0 + (k + 0.5) * advance) for k in range(len(s)))
+    spans = f'<tspan x="{xs}">{escape(s, quote=False)}</tspan>'
+    return text(cx, y, spans, anchor="middle", size=size, fill=fill, cls="sm-fig-code")
+
+
+def text_width(markup, face="code", size=10.5):
+    """Return the width of ``markup`` set in ``face`` at ``size``, tags left out.
+
+    Exact for the mono as flows set it, glyph by glyph 0.6 em apart; for the sans
+    and the serif italic, an estimate at 0.56 em per glyph. A figure uses it to
+    choose a box that holds the names and the codes of its steps.
+    """
+    em = MONO_ADVANCE if face == "code" else 0.56
+    return em * size * len(unescape(re.sub(r"<[^>]*>", "", markup)))
