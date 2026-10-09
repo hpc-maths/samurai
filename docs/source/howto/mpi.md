@@ -95,6 +95,24 @@ The integral differs in the last digit on 4 processes: each process sums its own
 The cells are not shared evenly.
 The mesh constructor splits the domain at its start level into contiguous blocks of rows, one block per process, before any adaptation.
 The adaptation then refines near the peak, in the rows of ranks 0 and 1, and coarsens the rest.
+Fig. 1 of {ref}`plate-mpi-subdomains` shows the four bands.
+
+```{plate} The subdomains of four processes
+:figure: mpi_subdomains
+:label: plate-mpi-subdomains
+
+**Fig. 1.** The ranks after `mpiexec -n 4 ./mpi_adapt`.
+The mesh constructor gives each rank 32 rows of level 7, a quarter of the square.
+The adaptation keeps every cell on its rank, so rank 1, which holds the peak, ends with most of the cells and rank 3 with 16.
+
+**Fig. 2.** The ranks of the same program run with `--load-balancing-at 1`.
+The load balancer sorts the cells along the Hilbert curve, as the {doc}`load balancing reference <../reference/load_balancing>` explains, and cuts that order into four pieces of 395, 395, 395 and 394 cells.
+Rank 1 gets a small region around the peak, where the cells are finest.
+
+*Each rank has its own tone and pattern, and heavy rules separate the ranks.
+The cells of levels 6 and 7 have a fainter outline, so that their rank stays visible.
+Both figures are drawn from the file `mpi_adapt_size_4.h5` of each run.*
+```
 
 ### See the output of every process
 
@@ -137,6 +155,8 @@ mpiexec -n 4 ./mpi_adapt --load-balancing-at 1
 ```{literalinclude} snippet/mpi/mpi_adapt_load_balancing_output.txt
   :language: text
 ```
+
+Every rank now holds a quarter of the cells, and each subdomain is a piece of the Hilbert curve, as Fig. 2 of {ref}`plate-mpi-subdomains` shows.
 
 Each rebalance moves cells and field values between processes. In a time loop, pick `N` large enough that this cost stays small, and small enough that the load does not drift far between two rebalances.
 The option always uses the Hilbert space-filling curve with the same weight for every cell.
