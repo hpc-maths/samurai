@@ -41,8 +41,8 @@ The value of a boundary condition depends on the arguments given to `make_bc` af
 - one value per component of the field: a constant;
 - a function of the outward direction, the boundary cell and the center of the boundary face: a value that varies along the boundary.
 
-`Bc::on` takes one or more direction vectors, a set expression, or a region built by `make_bc_region`.
-To select the boundary faces by their coordinates, pass `samurai::make_bc_region(mesh, func)`, where `func` returns `true` for the face centers in the region.
+`Bc::on` takes one or more direction vectors, a set expression, a predicate on the face-center coordinates, or a region built by `make_bc_region`.
+To select the boundary faces by their coordinates, pass a predicate `func` that returns `true` for the face centers in the region; `->on(func)` is equivalent to `->on(samurai::make_bc_region(mesh, func))`.
 
 ```{doxygenfile} bc.hpp
 ```
