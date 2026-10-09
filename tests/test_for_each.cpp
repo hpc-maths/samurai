@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 #include <samurai/amr/mesh.hpp>
+#include <samurai/interface.hpp>
+#include <samurai/mr/mesh.hpp>
 
 namespace samurai
 {
@@ -83,5 +85,32 @@ namespace samurai
                           nb_cells++;
                       });
         EXPECT_EQ(nb_cells, 2);
+    }
+
+    // Regression test for #605: the overload taking a direction must be callable without explicit template arguments.
+    TEST(for_each_interior_interface, direction_without_template_arguments)
+    {
+        constexpr std::size_t dim = 2;
+        Box<double, dim> box({0., 0.}, {1., 1.});
+        auto mesh = mra::make_mesh(box, mesh_config<dim>().min_level(3).max_level(3));
+
+        std::size_t nb_x_interfaces = 0;
+        for_each_interior_interface(mesh,
+                                    DirectionVector<dim>{1, 0},
+                                    [&](auto&, auto&)
+                                    {
+                                        nb_x_interfaces++;
+                                    });
+        std::size_t nb_y_interfaces = 0;
+        for_each_interior_interface(mesh,
+                                    DirectionVector<dim>{0, 1},
+                                    [&](auto&, auto&)
+                                    {
+                                        nb_y_interfaces++;
+                                    });
+
+        // 8x8 uniform cells: 7 interior interfaces in each of the 8 rows (or columns).
+        EXPECT_EQ(nb_x_interfaces, 56u);
+        EXPECT_EQ(nb_y_interfaces, 56u);
     }
 }
