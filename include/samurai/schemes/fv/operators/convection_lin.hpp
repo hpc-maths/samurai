@@ -10,7 +10,7 @@ namespace samurai
 
     /**
      * Linear convection, discretized by a (linear) upwind scheme.
-     * @param velocity: constant velocity vector
+     * @param velocity: constant velocity vector, copied into the scheme
      */
     template <class Field>
     auto make_convection_upwind(const VelocityVector<Field::dim>& velocity)
@@ -36,7 +36,7 @@ namespace samurai
 
                 if (velocity(d) >= 0) // use the left values
                 {
-                    upwind[d].cons_flux_function = [&](FluxStencilCoeffs<cfg>& coeffs, double)
+                    upwind[d].cons_flux_function = [velocity](FluxStencilCoeffs<cfg>& coeffs, double)
                     {
                         // Return type: 2 matrices (left, right) of size output_n_comp x n_comp.
                         // In this case, of size n_comp x n_comp.
@@ -61,7 +61,7 @@ namespace samurai
                 }
                 else // use the right values
                 {
-                    upwind[d].cons_flux_function = [&](FluxStencilCoeffs<cfg>& coeffs, double)
+                    upwind[d].cons_flux_function = [velocity](FluxStencilCoeffs<cfg>& coeffs, double)
                     {
                         if constexpr (Field::is_scalar)
                         {
@@ -91,7 +91,7 @@ namespace samurai
 
     /**
      * Linear convection, discretized by the WENO5 (Jiang & Shu) scheme.
-     * @param velocity: constant velocity vector
+     * @param velocity: constant velocity vector, copied into the scheme
      */
     template <class Field>
     auto make_convection_weno5(const VelocityVector<Field::dim>& velocity)
@@ -118,14 +118,14 @@ namespace samurai
                 if (velocity(d) >= 0)
                 {
                     weno5[d].cons_flux_function =
-                        [&velocity](FluxValue<cfg>& flux, const StencilData<cfg>& /*data*/, const StencilValues<cfg>& u)
+                        [velocity](FluxValue<cfg>& flux, const StencilData<cfg>& /*data*/, const StencilValues<cfg>& u)
                     {
                         Array<FluxValue<cfg>, 5> f({u[0], u[1], u[2], u[3], u[4]});
                         f *= velocity(d);
                         compute_weno5_flux(flux, f);
                     };
                     weno5[d].cons_jacobian_function =
-                        [&velocity](StencilJacobian<cfg>& jac, const StencilData<cfg>& /*data*/, const StencilValues<cfg>& u)
+                        [velocity](StencilJacobian<cfg>& jac, const StencilData<cfg>& /*data*/, const StencilValues<cfg>& u)
                     {
                         Array<FluxValue<cfg>, 5> f({u[0], u[1], u[2], u[3], u[4]});
                         f *= velocity(d);
@@ -146,14 +146,14 @@ namespace samurai
                 else
                 {
                     weno5[d].cons_flux_function =
-                        [&velocity](FluxValue<cfg>& flux, const StencilData<cfg>& /*data*/, const StencilValues<cfg>& u)
+                        [velocity](FluxValue<cfg>& flux, const StencilData<cfg>& /*data*/, const StencilValues<cfg>& u)
                     {
                         Array<FluxValue<cfg>, 5> f({u[5], u[4], u[3], u[2], u[1]});
                         f *= velocity(d);
                         compute_weno5_flux(flux, f);
                     };
                     weno5[d].cons_jacobian_function =
-                        [&velocity](StencilJacobian<cfg>& jac, const StencilData<cfg>& /*data*/, const StencilValues<cfg>& u)
+                        [velocity](StencilJacobian<cfg>& jac, const StencilData<cfg>& /*data*/, const StencilValues<cfg>& u)
                     {
                         Array<FluxValue<cfg>, 5> f({u[5], u[4], u[3], u[2], u[1]});
                         f *= velocity(d);
@@ -334,7 +334,7 @@ namespace samurai
         constexpr std::size_t left  = 0;
         constexpr std::size_t right = 1;
 
-        using cfg = FluxConfig<SchemeType::NonLinear, stencil_size, Field, Field>;
+        using cfg = FluxConfig<SchemeType::NonLinear, stencil_size, Field, Field, VelocityField>;
 
         FluxDefinition<cfg> smooth_rusanov;
 
@@ -397,6 +397,7 @@ namespace samurai
             });
         auto scheme = make_flux_based_scheme(smooth_rusanov);
         scheme.set_name("smooth rusanov");
+        scheme.set_parameter_field(velocity_field);
         return scheme;
     }
 
