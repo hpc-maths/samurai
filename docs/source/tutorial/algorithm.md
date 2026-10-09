@@ -141,5 +141,5 @@ We set a field cell by cell with {cpp:func}`samurai::for_each_cell`, then update
 
 - {doc}`Loop how-to <../howto/loop>`: the same loops in 2D, on other cells than the solution cells, and in parallel.
 - {doc}`1D Burgers tutorial <1d_burgers_amr>`: ghost cells and adaptive mesh refinement for the scheme of this page.
-- {doc}`Operators on subsets <operator_on_subset>`: apply an operator on a part of the mesh built with the set algebra.
+- {doc}`operator_on_subset`: compute on a part of the mesh described by a set expression.
 - {doc}`Algorithm API page <../api/algorithm>`: every overload of the loop functions.

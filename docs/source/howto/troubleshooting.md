@@ -223,7 +223,7 @@ In the first message, the mesh holds `[-2, 18)` at level 4, which does not conta
 This happens when a loop over a set reads neighbor or child cells that do not exist, for example `u(1, 2 * i)` on a coarse interval whose children are not all in the mesh.
 
 **Fix**: build the set you loop over so that every interval you read exists: intersect it with the cells of the level you read, or contract it.
-The tutorial [Apply an operator on a set](../tutorial/operator_on_subset.md#field-projection-on-the-intersection) reproduces both messages and fixes them with `samurai::contract`.
+The tutorial [Apply a subset operator on a set expression](../tutorial/operator_on_subset.md#field-projection-on-the-intersection) reproduces this error and fixes it with `samurai::contract`.
 
 ## A restart with another number of processes
 
