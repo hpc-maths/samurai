@@ -500,11 +500,17 @@ article code.literal {
 }
 article a code.literal { text-decoration: inherit; }
 
-/* Command-line options (inline code starting with "--", tagged sm-cli by
-   _ext/cli_options.py) never split at a hyphen: each word, a span.pre, stays on one
-   line and the line breaks only at the spaces between words. Other inline code keeps
-   its hyphen and emergency breaks, which long paths need on a phone. */
-article code.literal.sm-cli span.pre { white-space: nowrap; }
+/* Hyphenated inline code that fits the column, such as `--with-corner` or
+   `y-offset[2]`, never splits at a hyphen: each word, a span.pre, stays on one line
+   and the line breaks only at the spaces between words. _ext/hyphenated_code.py tags
+   words short enough for a phone sm-hyphenated, and words that only fit the full
+   736 px column sm-hyphenated-wide. Other inline code keeps its hyphen and emergency
+   breaks, which long paths need on a phone. */
+article code.literal.sm-hyphenated span.pre { white-space: nowrap; }
+
+@media (width >= 48em) {
+  article code.literal.sm-hyphenated-wide span.pre { white-space: nowrap; }
+}
 
 /* Program output included with `:class: wrap-output`: wrap long lines instead of
    scrolling, the text itself is unchanged. */
