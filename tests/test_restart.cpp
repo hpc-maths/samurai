@@ -98,6 +98,53 @@ namespace samurai
         EXPECT_TRUE(mesh == mesh2);
     }
 
+    TEST(restart, restart_uniform_field)
+    {
+        using Config = UniformConfig<2>;
+        auto mesh    = UniformMesh<Config>(Box<double, 2>({0, 0}, {1, 1}), 3);
+        auto u       = make_scalar_field<double>("u", mesh);
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          u[cell] = static_cast<double>(cell.index);
+                      });
+        auto v = make_vector_field<int, 2>("v", mesh);
+        v.fill(2);
+        dump("mesh", mesh, u, v);
+
+        decltype(mesh) mesh2;
+        auto u2 = make_scalar_field<double>("u", mesh2);
+        auto v2 = make_vector_field<int, 2>("v", mesh2);
+        load("mesh", mesh2, u2, v2);
+        EXPECT_TRUE(mesh == mesh2);
+        EXPECT_TRUE(u == u2);
+        EXPECT_TRUE(v == v2);
+    }
+
+    // A restart file written with another number of processes must be rejected,
+    // not read with the partition of another process.
+    TEST(restart, restart_uniform_wrong_number_of_processes)
+    {
+        using Config = UniformConfig<2>;
+        auto mesh    = UniformMesh<Config>(Box<double, 2>({0, 0}, {1, 1}), 3);
+        dump("mesh", mesh);
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
+        if (world.rank() == 0)
+#endif
+        {
+            HighFive::File file("mesh.h5", HighFive::File::ReadWrite);
+            const auto n_process = H5Easy::load<std::size_t>(file, "/n_process");
+            H5Easy::dump(file, "/n_process", n_process + 1, H5Easy::DumpMode::Overwrite);
+        }
+#ifdef SAMURAI_WITH_MPI
+        world.barrier();
+#endif
+
+        decltype(mesh) mesh2;
+        EXPECT_THROW(load("mesh", mesh2), std::runtime_error);
+    }
+
     TEST(restart, restart_mrmesh)
     {
         auto mesh = create_mesh<2>(1);
