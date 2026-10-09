@@ -165,8 +165,8 @@ def transported_disc(p):
 
 
 # The stations of the time step plate. Each box holds the widest statement,
-# MRadaptation(mra_config), which the mono sets 156 units wide at 10.5, so that the
-# panel of a station shows its art, its name and its code whole. The four boxes
+# MRadaptation(mra_config), which the mono sets 151.2 units wide at 10.5, so that
+# the panel of a station shows its art, its name and its code whole. The four boxes
 # fill the width of the plate, which leaves 22 units for each arrow.
 TIME_STEP_ROW = Row(x0=80, pitch=184, box=158, top=22, gap=2)
 TIME_STEP_STATIONS = (
@@ -178,7 +178,7 @@ TIME_STEP_STATIONS = (
 
 
 def _adapt_art(p, cx, top):
-    """A coarse cell of four quadrants, one refined; the kept cells ruled, the new ones hatched."""
+    """Draw a coarse cell of four quadrants, one refined: kept cells ruled, new ones hatched."""
     x, y, h = cx - 46, top, 46
     g = ""
     for a, b in ((0, 0), (0, 1), (1, 1)):
@@ -190,7 +190,7 @@ def _adapt_art(p, cx, top):
 
 
 def _resize_art(p, cx, top):
-    """The storage of unp1 before and after: the 4 cells of Fig. 1, then 3 of them and 4 new."""
+    """Draw the storage of unp1 before and after: the 4 cells of Fig. 1, then 3 of them, 4 new."""
     arrow, s, y = f'marker-end="url(#{p}-a)"', 16, top + 20
     g = text(cx, y - 7, "old", anchor="middle", size=12, fill=INK, cls="sm-fig-math")
     for k in range(4):
@@ -212,7 +212,7 @@ def _resize_art(p, cx, top):
 
 
 def _scheme_art(p, cx, top):
-    """A coarse cell beside two fine ones and the fluxes across their face.
+    """Draw a coarse cell beside two fine ones and the fluxes across their face.
 
     At a level jump the scheme computes one flux per fine face, on the fine level:
     its stencil starts from a ghost of the fine level inside the coarse cell, in the
@@ -237,7 +237,7 @@ def _scheme_art(p, cx, top):
 
 
 def _swap_art(p, cx, top):
-    """The two fields exchanged."""
+    """Draw the two fields exchanged."""
     red_arrow = f'marker-end="url(#{p}-ar)"'
     x, y = cx - 52, top + 12
     g = rect(x, y, 38, 22, fill=PAPER) + text(
@@ -264,11 +264,6 @@ def time_step(p):
     """tutorial/getting_started.md: the four statements of the time loop."""
     row = TIME_STEP_ROW
     flow = cycle(p, row, TIME_STEP_STATIONS, Loop("t += dt, and again until t = T = 0.3", 280))
-    # the panel of the note is the paper band; scaled down on a phone, the return
-    # line that meets the band shows as a speck at its edges, so the panel stops
-    # 2 units inside the band
-    *stations, (x, y, w, h, kind) = flow.panels
-    panels = (*stations, (x + 2, y, w - 4, h, kind))
     g = "".join(
         art(p, row.center(k), row.top)
         for k, art in enumerate((_adapt_art, _resize_art, _scheme_art, _swap_art))
@@ -285,5 +280,5 @@ def time_step(p):
         " the last station to the first until t = 0.3.",
         patterns(p),
         g + flow.body,
-        panels=panels,
+        panels=flow.panels,
     )
