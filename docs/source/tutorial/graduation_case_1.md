@@ -7,12 +7,14 @@ This page is part of the {doc}`graduation series <graduation>`, which lists what
 
 ## Build and run the demo
 
-From the root of the repository, build the demo target and run it:
+From the root of the repository, build the demo target and run it with `--with-corner`:
 
 ```bash
 cmake --build build --target tutorial-graduation-case-1
-./build/demos/tutorial/tutorial-graduation-case-1
+./build/demos/tutorial/tutorial-graduation-case-1 --with-corner
 ```
+
+`--with-corner` makes the graduation look across the corners of the cells too, so that the result is graded; [the stencil section](#choose-the-directions) explains why the default run is not enough.
 
 The demo writes two meshes in the current directory: `graduation_case_1_before_graduation` and `graduation_case_1_after_graduation`, each as an `.xdmf` file and its `.h5` data file.
 Open both `.xdmf` files in your viewer to compare the mesh before and after the graduation.
@@ -23,7 +25,7 @@ The demo accepts these options:
 | --- | --- | --- |
 | `--starting-level` | 1 | Level of the uniform mesh the generator starts from. |
 | `--max-refinement-level` | 7 | Finest level the generator can reach. |
-| `--with-corner` | off | Uses the four axis directions as stencil instead of the four diagonal directions (see [the stencil section](#choose-the-directions)). |
+| `--with-corner` | off | Adds the four diagonal directions to the four axis directions of the stencil, so that the graduation also finds the cells that touch through a corner (see [the stencil section](#choose-the-directions)). |
 | `--path` | current directory | Directory of the output files. |
 | `--filename` | `graduation_case_1` | Prefix of the output file names. |
 
@@ -92,7 +94,7 @@ This mesh is not graded: it is drawn here only to show the problem that the grad
 The 557 cells hatched in [red]{.sm-red} were added by the graduation.
 *b*, where the cell of *a* was, cells of levels 3, 4, 5 and 6 step up to the level 7 cells one level at a time.
 
-*Both meshes are the files the demo saves with its default options, `--starting-level 1` and `--max-refinement-level 7`.*
+*Both meshes are the files the demo saves with `--with-corner` and its default levels, `--starting-level 1` and `--max-refinement-level 7`.*
 ```
 
 ## Find the cells to refine
@@ -122,7 +124,7 @@ The intersection is computed for each pair of levels and each direction of a ste
 :dedent:
 ```
 
-`s` is a row of the stencil, that is a translation vector: `{1, 1}` moves the cells one cell to the right and one cell up.
+`s` is a row of the stencil, that is a translation vector: `{1, 0}` moves the cells one cell to the right, and `{1, 1}` one cell to the right and one cell up.
 The set expression {cpp:func}`samurai::intersection` of `translate(ca[level], s)` and `ca[level_below]` is computed by default on the finest of its levels, `level`.
 We want the coarse cells to tag, so the set projection `.on(level_below)` brings the result to `level_below`.
 
@@ -142,32 +144,31 @@ We set them to `true`.
 
 ## Choose the directions
 
-The demo uses the four diagonal directions as stencil by default:
+The demo uses the four axis directions as stencil by default, and `--with-corner` adds the four diagonal directions:
 
 ```{literalinclude} ../../../demos/tutorial/graduation_case_1.cpp
 :language: c++
-:start-at: xt::xtensor_fixed<int, xt::xshape<4, dim>> stencil;
+:start-at: std::vector<xt::xtensor_fixed<int, xt::xshape<dim>>> stencil
 :end-before: while (true)
 :dedent:
 ```
 
 A fine cell of level $l$ and a coarse cell of level $L \leq l - 2$ touch in one of two ways: a face contact, when they share part of a side, or a corner contact, when they share only a vertex.
 A row `s` of the stencil finds the coarse cell only if it moves the fine cell inside it.
-The diagonal stencil, `{1, 1}`, `{-1, -1}`, `{-1, 1}` and `{1, -1}`, finds both contacts.
-For a corner contact, the vector that points to the shared vertex lands in the coarse cell.
-For a face contact, the coarse cell spans at least four fine cells along the shared side, so one of the two diagonal vectors toward it lands inside.
-The axis stencil, `{1, 0}`, `{-1, 0}`, `{0, 1}` and `{0, -1}`, is what `--with-corner` selects, despite the name of the flag.
-It finds only face contacts: an axis vector moves the fine cell onto a cell that shares a side with it, never onto a cell that shares only a vertex, so a jump of two levels or more across a corner stays in the mesh.
+The axis stencil, `{1, 0}`, `{-1, 0}`, `{0, 1}` and `{0, -1}`, finds only face contacts: an axis vector moves the fine cell onto a cell that shares a side with it, never onto a cell that shares only a vertex.
+With the default stencil, a jump of two levels or more across a corner stays in the mesh.
+The diagonal vectors `{1, 1}`, `{-1, -1}`, `{-1, 1}` and `{1, -1}` find the corner contacts: the vector that points to the shared vertex lands in the coarse cell.
+With `--with-corner`, the stencil holds the eight vectors and finds both contacts.
 
 ```{diagram}
 :figure: graduation_directions
 
-The two stencils of the demo, each drawn as its four vectors, against a face contact and a corner contact between a cell of level $l$, filled, and a cell of level $l - 2$.
+The two stencils of the demo, each drawn as its vectors, against a face contact and a corner contact between a cell of level $l$, filled, and a cell of level $l - 2$.
 A moved copy that lands in the coarse cell is red, and the coarse cell is then tagged, hatched in red.
 The axis stencil misses the corner contact.
 ```
 
-With `--with-corner` the demo ends on 1525 cells instead of 1621, and a cell of level 4 still touches a cell of level 6 by a corner.
+Without `--with-corner` the demo ends on 1525 cells instead of 1621, and a cell of level 4 still touches a cell of level 6 by a corner.
 `samurai::make_graduation` refines this mesh further, to 1621 cells.
 
 ## Build the refined mesh
