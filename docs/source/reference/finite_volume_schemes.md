@@ -82,7 +82,11 @@ $$
 
 The command-line option `--finer-level-flux`, 0 by default, computes the fluxes on a finer level.
 With a value $n > 0$, a face whose finer side is on level $k$ is cut into the faces of level $\min(k + n, \mathrm{max\_level})$, and with a negative value into the faces of the max level; each of these faces gets its own flux, from stencil values predicted from the cells of level $k$, and $|F|$ is its measure.
-The option applies to the interior faces of all levels, and only to `SchemeType::NonLinear` schemes applied explicitly: the linear scheme types, the implicit assembly and the boundary fluxes ignore it.
+The option applies to the interior faces of all levels, and only to `SchemeType::NonLinear` schemes: the linear scheme types and the boundary fluxes ignore it.
+For a non-linear scheme, it acts on the explicit application of the scheme and on the residual of an implicit solve, which `samurai::petsc::solve` computes with that explicit application.
+The assembly of the Jacobian matrix ignores it and computes the fluxes on the faces described above.
+With the option set, the Jacobian is therefore not the derivative of the residual, and the Newton iteration loses its quadratic convergence: on a 1D non-linear diffusion step with levels 4 and 5, it takes 52 iterations instead of 3, more than the default limit `-snes_max_it 50`.
+The option `-snes_mf` computes the Jacobian from the residual and brings the count back to 3.
 A non-linear discrete operator `D` can also set it for itself, with `D.finer_level_flux() = n` or `D.enable_max_level_flux(true)`.
 
 ```{remark}
