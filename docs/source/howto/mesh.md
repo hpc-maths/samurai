@@ -118,6 +118,17 @@ It prints the $16 \times 16$ cells at level 4, and the $18 \times 18$ cells once
   :language: text
 ```
 
+The ghost cells surround the box on every side, corners included:
+
+```{diagram}
+:figure: ghost_ring
+
+The level-4 mesh of `uniform.cpp`: 256 cells inside the heavy outline of the box, and a ring of ghost cells, dashed, around it.
+The ring is one cell wide because `samurai::UniformConfig<dim>` keeps its default ghost width, 1.
+Each row of cells is widened by one ghost at both ends and copied to the rows just above and below it, so the four corner ghosts are part of the ring and of the count: $18 \times 18 = 324$, that is 256 cells and 68 ghosts.
+Under the mesh, the interval of a row along x, without and with the ghosts.
+```
+
 The multiresolution and AMR programs count the cells of each level with `mesh.nb_cells(level, mesh_id_t::cells)`:
 
 ```{literalinclude} snippet/mesh/mrmesh.cpp
