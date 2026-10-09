@@ -1,21 +1,22 @@
-"""Export the mesh of a samurai ``.h5`` file as a JSON cell list for the figures.
+r"""Export the mesh of a samurai ``.h5`` file as a JSON cell list for the figures.
 
 A figure of the documentation draws the mesh its program produced. When the
 figure cannot rebuild that mesh in Python (a random mesh, a mesh adapted to a
 solution, the subdomains of an MPI run), the program saves it with
 ``samurai::save`` and this script turns the ``.h5`` file into a small JSON file,
-checked in next to the page module that draws it
-(``docs/source/_ext/samurai_figures/pages/``). ``samurai_figures.cells.load_cells``
-reads it back.
+checked in under ``docs/source/_ext/samurai_figures/data/``.
+``samurai_figures.cells.load_cells`` reads it back.
 
-The script needs ``h5py``, which the ``samurai-doc`` environment does not hold:
-install it there with ``pip install h5py``, which brings ``numpy``. Run the program with
+The script needs ``h5py`` and ``numpy``. The ``samurai-env`` and
+``samurai-mpi-env`` environments have them. ``samurai-doc`` does not, since the
+documentation build does not need them: to run the script from there, install
+it with ``pip install h5py``, which brings ``numpy``. Run the program with
 ``--save-debug-fields``, then export its ``.h5`` file::
 
-    ./finite-volume-linear-convection-obstacle --Tf 0.5 --nfiles 1 \\
+    ./finite-volume-linear-convection-obstacle --Tf 0.5 --nfiles 1 \
         --save-debug-fields --path run
-    python docs/tools/export_cells.py run/linear_convection_obstacle.h5 \\
-        docs/source/_ext/samurai_figures/pages/obstacle.json \\
+    python docs/tools/export_cells.py run/linear_convection_obstacle.h5 \
+        docs/source/_ext/samurai_figures/data/obstacle.json \
         --source "linear_convection_obstacle.cpp --Tf 0.5 --nfiles 1"
 
 The ``.h5`` file is the one ``samurai::save`` writes. The script reads the group

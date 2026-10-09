@@ -9,7 +9,7 @@ module draws the cells a program really has, given in one of two ways:
 - ``load_cells``: the JSON file that ``docs/tools/export_cells.py`` writes from the
   ``.h5`` file of the program, for a mesh Python cannot rebuild (a random mesh, a
   mesh adapted to a solution, the subdomains of an MPI run). Keep the JSON file
-  next to the page module that draws it.
+  in ``samurai_figures/data/``.
 
 A cell is ``(level, i, j)``. It covers [i/2^l, (i+1)/2^l) x [j/2^l, (j+1)/2^l) in
 level-0 units, half-open like every samurai interval, and the point ``(u, v)`` of
@@ -65,6 +65,8 @@ class Exported:
 
 def load_cells(file):
     """Read the JSON file ``file`` (a path) written by ``export_cells.py``.
+
+    The JSON files of the figures live in ``samurai_figures/data/``.
 
     Raise ``ValueError`` for a file of another format or version.
     """

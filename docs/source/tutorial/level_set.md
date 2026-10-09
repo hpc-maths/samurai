@@ -381,7 +381,7 @@ In each pass:
 
 1. `tag.resize()` resizes the tag field to the current mesh.
 2. `AMR_criteria` sets the tags.
-3. {cpp:func}`samurai::graduation` changes the tags so that the new mesh stays graded: two neighboring cells, in the directions of `stencil_grad`, differ by one level at most. This is why bands of levels 5 to 7 surround the band of level 8 in the figure below. `stencil_grad` holds the four directions $\pm x$ and $\pm y$:
+3. {cpp:func}`samurai::graduation` changes the tags so that two neighboring cells of the new mesh, in the directions of `stencil_grad`, differ by one level at most. This is why bands of levels 5 to 7 surround the band of level 8 in the figure below. `stencil_grad` holds the four directions $\pm x$ and $\pm y$:
 
    ```{literalinclude} ../../../demos/FiniteVolume/level_set_AMR.cpp
    :language: c++
@@ -389,6 +389,9 @@ In each pass:
    :end-at: };
    :dedent:
    ```
+
+   These directions only reach cells in face contact, so the call does not check the level jumps through a corner, which the {ref}`definition of a graded mesh <def-graded-mesh>` also forbids.
+   The {doc}`graduation tutorial <graduation>` explains face and corner contacts.
 
 4. {cpp:func}`samurai::update_ghost` fills the ghost cells of $\phi$ and $\mathbf{u}$, which the transfer to the new mesh reads.
 5. {cpp:func}`samurai::update_field` builds the new mesh from the tags and moves $\phi$ and $\mathbf{u}$ to it. A cell tagged `refine` is split into four cells, whose values come from the prediction operator; four cells tagged `coarsen` are merged into their parent cell, whose value is the average of theirs (projection). It returns `true` when the new mesh equals the current one, which ends the loop.
