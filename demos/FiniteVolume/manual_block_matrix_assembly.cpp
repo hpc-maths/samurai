@@ -332,10 +332,16 @@ int main(int argc, char* argv[])
     VecView(v, PETSC_VIEWER_STDOUT_(PETSC_COMM_SELF));
     std::cout << std::endl;
 
-    // Just to check that it compiles
-    auto solver = samurai::petsc::make_solver(block_op);
-    solver.set_unknowns(u_e, aux_Ce, u_s);
-    solver.set_block_operator(block_op);
+    VecDestroy(&v);
+    MatDestroy(&J);
+
+    // Just to check that it compiles.
+    // The solver holds PETSc objects: it must be destroyed before samurai::finalize(), hence the block.
+    {
+        auto solver = samurai::petsc::make_solver(block_op);
+        solver.set_unknowns(u_e, aux_Ce, u_s);
+        solver.set_block_operator(block_op);
+    }
 
     samurai::finalize();
     return 0;
