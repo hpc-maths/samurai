@@ -340,6 +340,28 @@ It is the baseline: with it the driver measures its fixed cost (one `all_to_all`
    With interval atoms and at most 4,000,000 atoms in total, one `all_gatherv` of every key and weight replaces the search and gives the same cuts.
 4. An atom goes to the rank whose segment holds its key.
 
+{ref}`plate-hilbert-cut` follows these steps on a small graded mesh, with a uniform weight and 4 processes.
+
+```{plate} A Hilbert curve cut into four ranks
+:figure: hilbert_cut
+:label: plate-hilbert-cut
+
+**Fig. 1.** A graded mesh with 79 cells, levels 2 to 4, and the Hilbert curve in red, which visits the cells in the order of their keys, from the dot to the arrow head.
+Keys are computed at `max_level`: the key of a cell is the key of its lower-left cell of level 4, on the curve through the 16 x 16 cells of level 4.
+In each cell of level 2, the dashed square is that corner cell and the number next to it is the key.
+
+**Fig. 2.** The partition that `SFC<Hilbert>` computes.
+Rank 0 is hatched, rank 1 dotted, rank 2 hatched the other way and rank 3 cross-hatched; heavy rules separate the ranks.
+
+**Fig. 3.** The cells in curve order, one slot per cell, with the fill of their rank.
+The total load is 79, so each segment targets 79 / 4 = 19.75.
+Cut key *r* is the smallest key such that the cells with a lower key carry a load of at least *r* × 19.75.
+Under each cut stand the load of the cells before it and the bound it reaches.
+The ranks hold 20, 20, 20 and 19 cells.
+
+*A run of `SFC<Hilbert>` on 4 processes gives the same keys and the same ranks on this mesh.*
+```
+
 No cell is gathered in cell mode.
 The communication is one `all_reduce` for the total weight, one for the largest key, and the cut search.
 
@@ -396,6 +418,18 @@ One call runs three phases.
    Giving cells to several neighbours can still split the kept region into pockets, mostly in 3D.
    A flood fill at `min_level` labels the kept region, and every pocket but the largest goes to the neighbour that borders it most.
 
+The diagram shows the first two phases of one call on two ranks, with a uniform weight.
+
+```{diagram}
+:figure: diffusion_layers
+
+The start is deliberately unbalanced, 75 cells against 4, so that one call shows two layers and the rule that stops the peel.
+Each rank has one neighbour, so the flux is half the load difference: (75 - 4) / 2 = 35.5 cells from rank 0 to rank 1.
+Ink rules mark the cells of level 2, the `min_level` of the mesh.
+Rank 0 gives whole cells of level 2, each with the finer cells inside it, from the bottom of each layer to its top: 4, 10, 7 and 1 cells in layer 1, then 10 in layer 2, as the numbers in the cells show.
+The next cell of level 2, dashed in red, holds 7 cells, more than the 3.5 left, and stops the peel: 3.5 is reported as unmet flux.
+```
+
 Properties:
 
 - Balance is reached over several calls: one call sheds at most the thickness of the subdomain towards a neighbour, and a coarse cell larger than the remaining flux stops the peel.
@@ -440,6 +474,15 @@ auto adaptive_metis_balancer = lb::make_load_balancer(lb::LoadBalanceConfig{}, l
 - each interface between two face-adjacent cells is an edge of weight 1, including interfaces across a level jump, across MPI boundaries and across periodic boundaries.
   A coarse cell facing several fine cells has one edge per fine cell;
 - each vertex carries the coordinates of the cell center, for the geometric mode of ParMETIS.
+
+```{diagram}
+:figure: cell_graph_edges
+
+The cell graph of a graded mesh with 28 cells of levels 2 and 3, cut into two ranks by the Hilbert curve: a vertex at the center of each cell, an edge between two cells that share a face.
+At *a*, a cell of level 2 has one edge to each of the two cells of level 3 along its lower face, one of them across the ranks.
+At *b*, a cell of level 2 and a cell of level 3 touch by a corner only and share no edge.
+Of the 48 edges, 8 cross a level jump and 10 join the two ranks.
+```
 
 The cells of the MPI neighbours are numbered after an exchange of their meshes, and the edges across MPI boundaries are made symmetric by a point-to-point exchange, as PT-Scotch and ParMETIS require.
 The vertex ranges are shared with one `all_gather`.
