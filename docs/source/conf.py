@@ -50,6 +50,7 @@ release = full_version
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "_ext"))
 
 extensions = [
+    "cli_options",
     "statements",
     "plates",
     "sphinx.ext.todo",

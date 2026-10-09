@@ -500,6 +500,12 @@ article code.literal {
 }
 article a code.literal { text-decoration: inherit; }
 
+/* Command-line options (inline code starting with "--", tagged sm-cli by
+   _ext/cli_options.py) never split at a hyphen: each word, a span.pre, stays on one
+   line and the line breaks only at the spaces between words. Other inline code keeps
+   its hyphen and emergency breaks, which long paths need on a phone. */
+article code.literal.sm-cli span.pre { white-space: nowrap; }
+
 /* Program output included with `:class: wrap-output`: wrap long lines instead of
    scrolling, the text itself is unchanged. */
 .wrap-output pre {
@@ -902,7 +908,9 @@ article .sm-plate-legend .sm-callout {
   font-size: 1.065em;
   color: var(--sm-ink);
 }
-article .sm-plate-legend .sm-red { color: var(--sm-red); }
+
+/* [red]{.sm-red} names the red marks of a figure, in a plate legend or a diagram caption. */
+article .sm-red { color: var(--sm-red); }
 article .sm-plate-legend .sm-plate-note { color: var(--sm-ink-3); }
 
 article .sm-plate-scroll:focus-visible {
