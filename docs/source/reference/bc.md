@@ -233,7 +233,7 @@ The conditions fill the ghosts during a ghost update: {cpp:func}`samurai::update
 Explicit finite volume schemes call `samurai::update_ghost_if_needed` on their input field before they evaluate it.
 
 On an adapted mesh, a ghost update applies the conditions at every level that holds cells.
-The outer ghosts of a level are also filled from the finer level, as the average of their children, and from the coarser level by prediction of order 0.
+The outer ghosts of a level are also filled from the finer level, as the average of their children, and from the coarser level by a copy of the parent value, which is the prediction of stencil radius 0 (order 1).
 
 The implicit schemes assembled with PETSc read the conditions to write the boundary equations into the matrix.
 They assemble `samurai::Dirichlet` and `samurai::Neumann` only, with the order equal to the number of boundary ghosts of the scheme.

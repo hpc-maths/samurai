@@ -73,8 +73,8 @@ def child_details(p):
     """Draw the details of the two children of a cell, in one dimension.
 
     Figure of tutorial/getting_started.md. The values are made up; the prediction is
-    the order-1 prediction of samurai, and the real values of the children average
-    to the parent, so that the two details are opposite.
+    the prediction of samurai with a stencil radius of 1 (order 3), and the real values
+    of the children average to the parent, so that the two details are opposite.
     """
     fr = Frame(30, 26, 420, 170, xlim=(0, 3))
     coarse = (0.30, 0.55, 0.92)
