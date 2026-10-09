@@ -270,10 +270,9 @@ Run commands, from `build/demos/multigrid` and `build/demos/highorder`:
 ```
 
 ```{warning}
-Three of these commands fail on the current code:
+Two of these commands fail on the current code:
 
 - `./highorder` aborts at start ([#607](https://github.com/hpc-maths/samurai/issues/607));
-- `./manual_block_matrix_assembly` aborts at exit ([#608](https://github.com/hpc-maths/samurai/issues/608));
 - `./multigrid --level 5 -pc_type mg` does not converge to the right solution ([#609](https://github.com/hpc-maths/samurai/issues/609)).
 ```
 
