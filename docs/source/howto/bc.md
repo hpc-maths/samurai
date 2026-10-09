@@ -128,7 +128,8 @@ The example above uses `->on(left)`, `->on(right)` and `->on(bottom, top)`.
 
 ### By position
 
-Build a region from a predicate on the center of the boundary faces, with `samurai::make_bc_region(mesh, predicate)`:
+Pass a predicate on the center of the boundary faces: it takes the coordinates `x` of a face center and returns `true` for the faces in the region.
+`->on(samurai::make_bc_region(mesh, predicate))` is equivalent; it builds the region as an object you can keep and pass to several conditions.
 
 ```{literalinclude} snippet/bc/bc_regions.cpp
   :language: c++
