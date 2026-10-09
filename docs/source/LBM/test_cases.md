@@ -25,6 +25,16 @@ cmake --build build --target lbm-new-D1Q222-euler-sod
 
 Each program prints its options with `--help` and writes its solution with `samurai::save` in the directory given by `--path`.
 
+The test cases use six velocity sets.
+The diagram below draws each set with the indices of its velocities $c_\alpha$ in the `new_*.cpp` programs, and the lattice velocity $\lambda$ of each case that uses it.
+The physical velocity attached to $c_\alpha$ is $\lambda c_\alpha$.
+
+```{diagram}
+:figure: lbm_velocity_sets
+
+The six velocity sets on their lattice nodes. Each velocity $c_\alpha$ is an arrow from the center node to the node it reaches in one time step, and the rest velocity $c_0$ is the dot named in the key under its set. The vectorial schemes juxtapose these sets: D1Q222 is three D1Q2, D2Q4444 four D2Q4, and D2Q5444 one D2Q5 and three D2Q4.
+```
+
 ## D1Q2 scheme for the advection and Burgers equations
 
 The target problem is the scalar conservation law
@@ -55,13 +65,13 @@ The following programs implement this case:
 
 - `test_D1Q2.cpp` runs the five tests (option `--test`, from 1 to 5) and computes the errors of the paper.
 - `D1Q2_Advection_and_Burgers.cpp` runs test V and produced the figure below.
-- `new_D1Q2_advection.cpp` (target `lbm-new-D1Q2-advection`) runs the same scheme with the advection velocity $3/4$, or the Burgers flux with `--burgers`.
+- `new_D1Q2_advection.cpp` (target `lbm-new-D1Q2-advection`) runs the same scheme with the advection velocity $3/4$, or the Burgers flux with `--burgers`, which raises $\lambda$ to at least 2.
   It does not implement the five initial data above: its domain is $[-1, 1]$ with periodic boundaries, and its initial datum is $\sin(\pi x)$.
 
 ```{figure} ./figures/D1Q2.png
 :width: 100%
 :align: center
-:alt: Two plots against x on [-3, 3]. On the left, the level of each cell: level 2 near the ends of the domain, level 4 in the middle, and up to level 9 at x = -1 and near x = 1.1. On the right, the solution: zero up to x = -1, a straight ramp up to about 0.95 near x = 1.1, then a jump back to zero.
+:alt: Two plots against x on [-3, 3]. On the left, the level of each cell: level 2 near the ends of the domain, level 4 in the middle, up to level 7 around x = -1 and up to level 9 only near x = 1.1. On the right, the solution: zero up to x = -1, a straight ramp up to about 0.95 near x = 1.1, then a jump back to zero.
 
 Test V at $T = 1.3$: levels of the adaptive mesh (left) and solution on the cells (right).
 ```
@@ -177,6 +187,12 @@ The paper runs configurations 3 and 12 of {ref}`Lax and Liu <ref-lax-liu>`:
 | 12 | LL | 0.8 | 0 | 0 | 1 | 0.25 |
 | 12 | LR | 1 | 0 | 0.7276 | 1 | 0.25 |
 
+```{diagram}
+:figure: lax_liu_configurations
+
+The initial states of configurations 3 and 12 in $\Omega = [0, 1]^2$. Each quadrant is named as in the table, and the red arrow in a quadrant is its velocity $(u, v)$.
+```
+
 The scheme juxtaposes four D2Q4 schemes, one for each of $\rho$, $\rho u$, $\rho v$ and $E$, coupled through their equilibria, with $\lambda = 5$.
 
 The following programs implement this case:
@@ -256,6 +272,12 @@ On each wall, the momentum normal to the wall takes an anti-bounce-back conditio
 | $\rho u$ | anti-bounce-back | bounce-back |
 | $\rho v$ | bounce-back | anti-bounce-back |
 | $E$ | bounce-back | bounce-back |
+
+```{diagram}
+:figure: implosion_box
+
+The implosion box $\Omega = [0, 1]^2$. The gas starts at rest, with the low state in the shaded corner triangle $x + y \leq 1/2$. The text beside each hatched wall lists the variables that take the anti-bounce-back and the bounce-back conditions on that wall.
+```
 
 The following programs implement this case:
 
