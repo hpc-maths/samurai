@@ -7,10 +7,11 @@ from ``lagrange``, ``detail`` the gap between a predicted and a real value,
 ``level_bars`` one value per level, and ``axes`` the ticks. ``level_rows`` draws the
 cells of each level of a 1D mesh with their counts.
 
-The numbers follow samurai: ``predict_children`` is the order-1 prediction of the
-library, ``parent_averages`` the field projection, ``level_threshold`` the threshold
-of the multiresolution at each level. Colors, faces and strokes are those of
-``draw.py``, so the plots follow the light and the dark themes.
+The numbers follow samurai: ``predict_children`` is the prediction of the library
+with a stencil radius of 1 (order 3), ``parent_averages`` the field projection,
+``level_threshold`` the threshold of the multiresolution at each level. Colors,
+faces and strokes are those of ``draw.py``, so the plots follow the light and the
+dark themes.
 """
 
 from dataclasses import dataclass
@@ -78,7 +79,7 @@ class Frame:
 def predict_children(left, parent, right):
     """The values predicted for the two children of ``parent``, low child first.
 
-    This is the prediction of samurai with a stencil radius of 1 (order 1): the
+    This is the prediction of samurai with a stencil radius of 1 (order 3): the
     children are ``parent -/+ (right - left) / 8``, ``left`` and ``right`` being the
     two neighbors of the parent on its level. The weights are
     ``prediction_coefficients<1>``, defined in
