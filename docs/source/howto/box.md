@@ -54,6 +54,18 @@ This domain is the square from $(-1, -1)$ to $(1, 1)$ with a hole from $(0, 0)$ 
 samurai applies every `remove` after every `add`, whatever the order of the calls.
 A box added inside a hole therefore stays removed.
 
+Check your calls against the shape you meant.
+The diagram below draws the domains of the last two snippets, with the corners passed to each call.
+
+```{diagram}
+:figure: box_domains
+
+Left, the L-shaped domain of `2d_union.cpp`: the box of the constructor and the box of `add`, each outlined in dashes, form one domain.
+Right, the domain of `2d_box_with_hole.cpp`: the square of the constructor, with the box of `remove` cut out.
+The domain is shaded and its edge, holes included, is the heavy rule.
+A dot marks each corner passed to a call: the lower corner is labeled below it, the upper corner above it.
+```
+
 ## Build the mesh
 
 Pass the `DomainBuilder` to `samurai::mra::make_mesh`, which builds a multiresolution mesh (`MRMesh`).
@@ -103,6 +115,18 @@ The hole ... is too small to apply the BC at level ...
 
 samurai places ghost cells inside each hole to apply the boundary conditions.
 Each side of a hole must therefore be at least $2 r$ cells of the minimum level long, where $r$ is the stencil radius set in the mesh configuration (`max_stencil_radius`, or half of `max_stencil_size`, rounded up).
+samurai raises $r$ to 2 when it is smaller, unless the configuration calls `disable_minimal_ghost_width()`.
+
+```{diagram}
+:figure: hole_ghost_bands
+
+A row of cells of the minimum level across a hole, for $r = 2$, with cells numbered from the left edge of the hole.
+The domain cells are shaded and the ghost cells in the hole are dashed.
+The boundary conditions of each edge use the $r$ ghosts next to it: $[0, 2)$ for the left edge, above the row, and the bracket under the row for the right edge.
+A hole of $2 r = 4$ cells holds both bands; with 3 cells the cell $[1, 2)$ falls in both, in red.
+`Mesh_base::compute_scaling_factor` in `include/samurai/mesh.hpp` checks this: it rejects a removed box whose shortest side is less than $2 r$ times the cell length at the minimum level.
+```
+
 By default samurai lowers the scaling factor (the cell length at level 0) until every hole is large enough.
 If you set `scaling_factor` in the mesh configuration, samurai keeps your value and stops with this message instead.
 Lower `scaling_factor`, raise `min_level`, or make the hole larger.
