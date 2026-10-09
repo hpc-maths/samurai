@@ -81,12 +81,10 @@ $$
 c_0 = (1, 0), \quad c_1 = (0, 1), \quad c_2 = (-1, 0), \quad c_3 = (0, -1).
 $$
 
-```{figure} ./figures/d2q4_velocities.svg
-:width: 50%
-:align: center
-:alt: A cell with four arrows to its east, north, west and south neighbors, labeled 0 (1, 0), 1 (0, 1), 2 (-1, 0) and 3 (0, -1).
+```{diagram}
+:figure: d2q4_velocities
 
-The four velocities of the D2Q4 scheme and their indices in the code.
+The four velocities of the D2Q4 scheme, numbered as in the code.
 ```
 
 ### Moments
@@ -231,6 +229,12 @@ This is enough, because the scheme overwrites `m` in every cell.
 2. it streams `f`;
 3. it collides in every cell: $m = M f$, relaxation {eq}`lbm-relaxation`, $f = M^{-1} m^\star$.
 
+```{diagram}
+:figure: lbm_time_step
+
+One call of `scheme(f, m)`. A source term, when the scheme has one, changes $m^\star$ between the relaxation and $f = M^{-1} m^\star$.
+```
+
 After the call, `m` holds the moments after relaxation.
 Its conserved components are therefore the moments of the streamed distributions.
 A third argument, the time step, is used only by a source term (see [](#several-velocity-schemes-and-source-terms)).
@@ -257,18 +261,33 @@ f_\alpha(t + \Delta t, C)
 ```
 
 where the sum runs over the cells $k$ of level $L$ inside $C$.
-The figure below follows these three steps for $f_0$ and $j = 1$, where $C$ covers $2 \times 2$ fine cells.
+{ref}`plate-lbm-stream` follows these three steps for $f_0$ and $j = 1$, where $C$ covers $2 \times 2$ fine cells.
 
-```{figure} ./figures/d2q4_stream.svg
-:width: 100%
-:align: center
-:alt: Three panels on a row of three coarse cells W, C and E. Panel 1 shows the coarse cells. In panel 2 each coarse cell is split into 2 by 2 fine cells; the east column of W is blue, the west column of C is gray, the east column of C is red. In panel 3 every column has moved one fine cell to the right: blue now fills the west column of C, gray its east column, and red the west column of E. A legend reads blue enters C, gray stays in C, red leaves C, and the formula reads f0(C) at t + dt equals f0 star of C plus one quarter of the sum of the blue values minus the sum of the red values.
+```{plate} The stream of a coarse cell
+:figure: stream_coarse_cell
+:label: plate-lbm-stream
 
-The stream of $f_0$ into a cell $C$ one level coarser than the finest level.
+**Fig. 1.** *coarse values*: $W$, $C$ and $E$ are cells of level $L - 1$, each with one value of $f^\star_0$.
+
+**Fig. 2.** *predict*: the prediction gives four values $\hat{f}^\star_0$ to each cell, one per fine cell of level $L$.
+Hatched in red, the fine cells whose value enters $C$ in the stream; shaded, those whose value stays in $C$; ruled, those whose value leaves $C$.
+
+**Fig. 3.** *stream*: every value moves one fine cell to the east, by $c_0 = (1, 0)$.
+
+**Fig. 4.** *average*: the new value of $C$ is the mean of the four values in its fine cells.
+Only the hatched and the ruled columns change it:
+
+$$
+f_0(t + \Delta t, C) = f^\star_0(t, C) + \tfrac{1}{4} (h - r),
+$$
+
+where $h$ is the sum of the two hatched values and $r$ the sum of the two ruled values.
+
+*The figures show one row of cells. The rows above and below enter the prediction of each fine value, but their contributions cancel in the mean of Fig. 4.*
 ```
 
 The prediction keeps the mean: the average of $\hat{f}^\star_\alpha$ over the fine cells of $C$ is $f^\star_\alpha(t, C)$.
-The values that move from one fine cell of $C$ to another, in gray in the figure, leave this average unchanged.
+The values that move from one fine cell of $C$ to another, shaded in the plate, leave this average unchanged.
 Equation {eq}`lbm-stream-mr` is therefore a balance between what enters $C$ and what leaves it:
 
 ```{math}
@@ -283,7 +302,7 @@ f_\alpha(t + \Delta t, C)
 ```
 
 where $O_\alpha$ holds the fine cells of $C$ whose value leaves $C$ ($k \subset C$, $k + c_\alpha \not\subset C$), and $I_\alpha$ the fine cells outside $C$ whose value enters it ($k \not\subset C$, $k + c_\alpha \subset C$).
-For $f_0$ in the figure, $O_0$ is the east column of $C$, in red, and $I_0$ the east column of $W$, in blue.
+For $f_0$ in {ref}`plate-lbm-stream`, $O_0$ is the east column of $C$, ruled, and $I_0$ the east column of $W$, hatched in red.
 Only these two portions change the value of $C$.
 Both lie along the edges of $C$ that $c_\alpha$ crosses.
 
@@ -291,6 +310,16 @@ The code does not loop over the fine cells.
 The prediction is linear, so the right-hand side of {eq}`lbm-stream-mr` is a fixed linear combination of the values of $f_\alpha$ around $C$ at level $\ell$.
 Its coefficients depend only on $j$ and $c_\alpha$.
 The scheme computes them once per level and per velocity, and applies them to every cell of the level.
+For $c_0 = (1, 0)$, the cells they weigh lie on the row of $C$. The diagram labels each one by its offset from $C$, which is hatched:
+
+```{diagram}
+:figure: stream_stencil
+
+The weights of the stream of $f_0$ for a cell $j = 1$ and $j = 2$ levels above the finest level.
+```
+
+With $j = 1$, the new value of $C$ is $\frac{9}{16} (f^\star_W + f^\star_C) - \frac{1}{16} (f^\star_{WW} + f^\star_E)$, where $WW$ is the west neighbor of $W$: half of $W$ and half of $C$, as in {ref}`plate-lbm-stream`, corrected by the prediction.
+The weights add up to 1, so the stream keeps a constant field constant.
 The same formula covers axis-aligned velocities, diagonal velocities and velocities longer than one cell.
 For $j = 0$, it reduces to the shift {eq}`lbm-stream`.
 For $c_\alpha = 0$, it leaves the value of the cell unchanged.
@@ -382,6 +411,16 @@ Anti-bounce-back imposes the even moments, such as the density or the water heig
 The term $r_\alpha$ carries the imposed value through an equilibrium distribution $f^{\mathrm{eq}}(m_w)$; it is zero when you pass no equilibrium.
 For a velocity $c_\alpha$ without opposite in the set, such as the rest velocity, $\bar\alpha = \alpha$.
 
+At the left wall of the dam break below, with the D1Q3 velocities $c_0 = 0$, $c_1 = 1$ and $c_2 = -1$, the ghost turns the $f_2$ that leaves the inner cell into the $f_1$ that comes back.
+This wall is a bounce-back without equilibrium, so $\sigma = 1$, $r_1 = 0$ and the ghost receives $f_1 = f_2^\star$:
+
+```{diagram}
+:figure: bounce_back
+
+The bounce-back of $f_2$ at a wall, over one time step.
+The wall is the face between the ghost (dashed) and the inner cell; the reflection is in red.
+```
+
 The shallow water dam break `demos/LBM/new_D1Q3_shallow_waters_dam.cpp` (target `lbm-new-D1Q3-shallow-waters-dam`) uses both.
 It lists the lattice velocities once more, for the boundary conditions:
 
@@ -433,6 +472,16 @@ The von Kármán street `demos/LBM/new_D2Q9_von_karman.cpp` (target `lbm-new-D2Q
 Their moments are concatenated in one field, in the order of the arguments.
 The `mm` argument of every equilibrium holds this whole moment vector, so the equilibrium of one velocity scheme can depend on the moments of the others.
 The D1Q222 scheme for the Sod problem, in `demos/LBM/new_D1Q222_euler_sod.cpp`, uses three D1Q2 velocity schemes.
+Each one has the velocities $+1$ and $-1$ and carries one conserved variable: the density $\rho$, the momentum $q = \rho u$ and the total energy $E$.
+
+```{diagram}
+:figure: d1q222_layout
+
+The six components of `f` and `m` in the D1Q222 scheme.
+The arrows above `f` give the velocity of each component, $+1$ or $-1$.
+Each velocity scheme maps its two components of `f` to its two moments with its own $M$.
+The conserved moments, with $s_k = 0$, are hatched in red.
+```
 
 With several velocity schemes, a wall that lets the flow slip along it reverses only the normal momentum.
 The overload `samurai::make_bc<samurai::BounceBack>(f, velocities, block_sizes, block_odd_axis)` takes the $q$ of each velocity scheme and, for each one, the axis of the momentum it carries, or `-1` for a scalar such as the density or the energy.
