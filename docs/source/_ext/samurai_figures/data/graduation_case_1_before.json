@@ -1,7 +1,7 @@
 {
   "format": "samurai-cells",
   "version": 1,
-  "source": "tutorial-graduation-case-1 --save-debug-fields: graduation_case_1_before_graduation.h5",
+  "source": "tutorial-graduation-case-1 --with-corner --save-debug-fields: graduation_case_1_before_graduation.h5",
   "dim": 2,
   "scaling_factor": 1.0,
   "origin": [0.0, 0.0],
