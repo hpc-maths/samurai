@@ -18,7 +18,9 @@ from ..draw import (
     INK2,
     INK3,
     RED,
+    RWASH,
     WASH,
+    bracket,
     cell_row,
     line,
     patterns,
@@ -138,18 +140,30 @@ def face_fluxes(p):
     )
 
 
+# The width of the hatched bands on each side of the origin cell, clear of its label.
+ORIGIN_BAND = 10
+
+
+def _origin_cell(x, y, w, h, p):
+    """Draw the origin cell of a stencil, ``w`` by ``h`` at (x, y), shaded and hatched in red.
+
+    The hatching fills two bands along its sides and leaves its middle in the red
+    wash, so that a label in it stays legible in both themes without a halo.
+    """
+    band = ORIGIN_BAND
+    return (
+        rect(x, y, w, h, fill=RWASH, stroke="none")
+        + rect(x, y, band, h, fill=f"url(#{p}-r)", stroke="none")
+        + rect(x + w - band, y, band, h, fill=f"url(#{p}-r)", stroke="none")
+        + rect(x, y, w, h, stroke=RED, sw=HAIR)
+    )
+
+
 def _offset_cell(x, y, c, label, origin, p):
-    """Draw a cell of side ``c`` at (x, y) with its direction vector, hatched for the origin."""
-    fill, stroke, sw = (f"url(#{p}-r)", RED, HAIR) if origin else (WASH, INK, 1)
-    return rect(x, y, c, c, fill=fill, stroke=stroke, sw=sw) + text(
-        x + c / 2,
-        y + c / 2 + 4,
-        label,
-        anchor="middle",
-        size=11.5,
-        fill=INK,
-        cls="sm-fig-code",
-        knock=origin,
+    """Draw a cell of side ``c`` at (x, y) with its direction vector, red for the origin."""
+    cell = _origin_cell(x, y, c, c, p) if origin else rect(x, y, c, c, fill=WASH)
+    return cell + text(
+        x + c / 2, y + c / 2 + 4, label, anchor="middle", size=11.5, fill=INK, cls="sm-fig-code"
     )
 
 
@@ -158,12 +172,14 @@ def stencil_offsets(p):
     """Draw the stencils {{-1,0}, {0,0}, {1,0}, {2,0}} and {{0,-1}, {0,0}, {0,1}, {0,2}}.
 
     Figure of reference/finite_volume_schemes.md: each cell holds the direction
-    vector that captures it, the origin cell is hatched, the face is red.
+    vector that captures it, the origin cell is shaded red and hatched along its
+    sides, the face is red.
     """
-    c = 52
+    c = 64  # wide enough for the hatched bands of the origin and its label between them
     arrow = f'marker-end="url(#{p}-a)"'
     # the x-direction: a row of four cells, the face between {0,0} and {1,0}
-    xr, yr = 120, 92
+    xc, yc = 484, 14  # the column of the y-direction, its face at yc + 2 c
+    xr, yr = 114, yc + 2 * c - c / 2  # the row, centred on the face of the column
     g = ""
     for k, label in enumerate(("{-1,0}", "{0,0}", "{1,0}", "{2,0}")):
         g += _offset_cell(xr + k * c, yr, c, label, k == 1, p)
@@ -172,7 +188,6 @@ def stencil_offsets(p):
     g += line(face - c / 2, yr - 18, face + c / 2, yr - 18, stroke=INK2, extra=arrow)
     g += text(face - c / 2, yr + c + 22, "origin", anchor="middle", size=11.5, fill=RED)
     # the y-direction: a column of four cells, the face between {0,0} and {0,1}
-    xc, yc = 490, 14
     for k, label in enumerate(("{0,2}", "{0,1}", "{0,0}", "{0,-1}")):
         g += _offset_cell(xc, yc + k * c, c, label, k == 2, p)
     face_y = yc + 2 * c
@@ -186,11 +201,11 @@ def stencil_offsets(p):
         DIAGRAM_WIDTH,
         caption_y + 10,
         "Two stencils of four cells. Left, in the x-direction, a row of cells labeled {-1,0},"
-        " {0,0}, {1,0} and {2,0}; the origin cell {0,0} is hatched in red, the red face lies"
-        " between {0,0} and {1,0}, and an arrow above it points right. Right, in the y-direction,"
-        " a column of cells labeled from bottom to top {0,-1}, {0,0}, {0,1} and {0,2}; the origin"
-        " cell {0,0} is hatched, the red face lies between {0,0} and {0,1}, and an arrow beside"
-        " it points up.",
+        " {0,0}, {1,0} and {2,0}; the origin cell {0,0} is shaded red and hatched along its"
+        " sides, the red face lies between {0,0} and {1,0}, and an arrow above it points right."
+        " Right, in the y-direction, a column of cells labeled from bottom to top {0,-1}, {0,0},"
+        " {0,1} and {0,2}; the origin cell {0,0} is shaded the same way, the red face lies"
+        " between {0,0} and {0,1}, and an arrow beside it points up.",
         patterns(p),
         g,
     )
@@ -214,7 +229,7 @@ def default_stencils(p):
     """Draw the default stencils of sizes 2, 3, 4 and 6 against the face.
 
     Figure of reference/finite_volume_schemes.md, from ``FluxDefinition``: the
-    offsets of each stencil, its origin cell hatched, and the stencil radius
+    offsets of each stencil, its origin cell in red, and the stencil radius
     counted from the face.
     """
     x0, cw, ch, pitch, top = 167, 56, 26, 64, 30
@@ -224,8 +239,11 @@ def default_stencils(p):
     for r, size in enumerate(DEFAULT_SIZES):
         y = top + r * pitch
         a, b = default_stencil(size)
-        g += cell_row(x0, y, cw, last, [(a, b)], ch=ch, start=first, label_size=11)
-        g += rect(x0 - first * cw, y, cw, ch, fill=f"url(#{p}-r)", stroke=RED, sw=HAIR)
+        g += cell_row(x0, y, cw, last, [(a, b)], ch=ch, start=first, brackets=False)
+        # the bracket label 1 unit lower than cell_row sets it, 4 units clear of the bracket
+        xa, xb = x0 + (a - first) * cw, x0 + (b - first) * cw
+        g += bracket(xa, xb, y + ch + 9, f"[{a}, {b})", size=11, label_dy=16)
+        g += _origin_cell(x0 - first * cw, y, cw, ch, p)
         g += line(face, y - 4, face, y + ch + 4, stroke=RED, sw=HEAVY)
         g += text(x0 - 16, y + 18, f"size {size}", anchor="end", size=12, fill=INK)
         radius = max(-a + 1, b - 1)  # the cells on each side of the face
@@ -235,16 +253,16 @@ def default_stencils(p):
     for k in range(first, last):
         xm = x0 + (k - first + 0.5) * cw
         g += line(xm, axis, xm, axis + 5)
-        g += text(xm, axis + 18, f"{k}", anchor="middle", size=11.5, cls="sm-fig-code")
+        g += text(xm, axis + 21, f"{k}", anchor="middle", size=11.5, cls="sm-fig-code")
     g += line(face, axis - 4, face, axis + 4, stroke=RED, sw=HEAVY)
-    g += text(x0 - 16, axis + 18, "offset", anchor="end", size=11.5)
+    g += text(x0 - 16, axis + 21, "offset", anchor="end", size=11.5)
     return Drawing(
         DIAGRAM_WIDTH,
-        axis + 26,
+        axis + 29,
         "Four rows of cells over the offsets -2 to 3, a red face between the offsets 0 and 1 in"
-        " every row, the origin cell at offset 0 hatched in red. Size 2 reads the offsets [0, 2),"
-        " radius 1; size 3 reads [0, 3), radius 2; size 4 reads [-1, 3), radius 2; size 6 reads"
-        " [-2, 4), radius 3.",
+        " every row, the origin cell at offset 0 shaded red and hatched along its sides. Size 2"
+        " reads the offsets [0, 2), radius 1; size 3 reads [0, 3), radius 2; size 4 reads"
+        " [-1, 3), radius 2; size 6 reads [-2, 4), radius 3.",
         patterns(p),
         g,
     )

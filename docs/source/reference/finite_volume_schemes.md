@@ -154,7 +154,7 @@ For instance, in the x-direction, the stencil `{{0,0}, {1,0}}` captures the orig
 ```{diagram}
 :figure: stencil_offsets
 
-A stencil of four cells in each direction, around the red face; the origin cell is hatched.
+A stencil of four cells in each direction, around the red face; the origin cell is shaded and hatched in red along its sides.
 ```
 
 In this diagram, the flux at the red face reads four cells, and the arrow shows its orientation.
@@ -176,7 +176,7 @@ If `stencil_size` is even, the cells are evenly distributed on both sides of the
 ```{diagram}
 :figure: default_stencils
 
-The default stencils of sizes 2, 3, 4 and 6 in the x-direction, with the stencil radius counted from the face.
+The default stencils of sizes 2, 3, 4 and 6 in the x-direction, the origin cell in red, with the stencil radius counted from the face.
 ```
 
 The stencil radius of a default stencil is `stencil_size / 2`, rounded up: the max stencil radius of the mesh must be at least this value.
