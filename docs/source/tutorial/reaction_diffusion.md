@@ -338,6 +338,28 @@ It also writes the restart files `nagumo_restart_ite_<n>.h5`.
 The option `--save-final-state-only` writes only the final solution.
 To plot them, follow the {doc}`plot how-to <../howto/plot>`.
 
+{ref}`plate-nagumo-result` draws the first and the last of these files: `nagumo_ite_0` at $t = 0$ and `nagumo_ite_100` at $t = 1$, after 100 time steps.
+The front moves to the right, and the finest cells move with it.
+
+```{plate} The traveling wave and its mesh at t = 0 and t = 1
+:figure: nagumo_result
+:label: plate-nagumo-result
+
+**Fig. 1.** The file `nagumo_ite_0`, at $t = 0$, after the first mesh adaptation.
+Above, `u`, one [red]{.sm-red} step per cell, over the exact traveling wave of the demo.
+At this scale the steps follow the wave to within a line width.
+The inset at the top right enlarges 5 times in $x$ the thin rectangle drawn around the front, over the 16 cells of level 8 of $[-2.578125, -1.328125)$, with its own $u$ axis on its right: there the steps of `u` stand apart from the wave.
+*a*, in the inset, the middle of the front, where the exact solution equals $1/2$: $x = z_0 = -2$.
+Below, the 112 cells of the mesh, one row per level from level 4 to level 8; a dashed line runs where a level has no cell.
+The 76 cells of level 8, hatched in [red]{.sm-red}, cover $[-5, 0.9375)$.
+The whole front lies inside: the exact solution falls from 0.99 to 0.01 between $x \approx -4.06$ and $x \approx 0.06$.
+
+**Fig. 2.** The file `nagumo_ite_100`, at $t = 1$.
+The inset enlarges the rectangle around the front as in Fig. 1, over the cells of $[-0.3125, 0.9375)$.
+*b*, the middle of the front has moved by $c = \sqrt{5} \approx 2.236$, to $x \approx 0.236$.
+The mesh still has 112 cells, with the same number per level, and the cells of level 8 cover $[-2.8125, 3.125)$, around the front, which spans $x \approx -1.82$ to $x \approx 2.29$.
+```
+
 To run the scheme {eq}`tutorial-rd-imex` with explicit reaction instead, add the option:
 
 ```bash
