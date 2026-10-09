@@ -88,11 +88,24 @@ Inside the function:
 - `ii - 1` is `ii` shifted by one cell to the left, so `phi(level, ii - 1)` holds the left neighbor of each cell of `ii`.
 - The right-hand side is an xtensor expression over the whole interval. Assigning it to `phi_np1(level, ii)` computes the new values of all these cells in one statement.
 
+On the mesh of this page, the loop calls the function once, on the interval $[0, 384)$ of level 6.
+Its cell 0 starts at the left edge of the box, $x = -3$, and its cell 383 ends at the right edge, $x = 3$.
+The diagram shows the two ends of this interval and of the intervals that the function builds from it:
+
+```{diagram}
+:figure: shifted_interval
+
+Only the first and last cells of each row are drawn; the break mark replaces the cells 6 to 377.
+Each arrow goes from a cell of `ii - 1` to its right neighbor in `ii`.
+The bottom row is `interval - 1`: its first cell, $-1$, crossed in red, lies left of the box and is not in the mesh.
+The dotted red lines mark the edges of the box, where the mesh ends.
+```
+
 The scheme reads a neighbor, and the interval loop expresses it directly: shifting the interval gives the values of all the neighbors at once, and the expression applies to the whole row of cells.
 Since `phi(level, ii)` is a view and not a number, the math functions come from xtensor (`pow` here resolves to `xt::pow`), not from the C++ standard library.
 
 The left neighbor of the first cell of the interval is outside the mesh, which is why `ii` leaves that cell out.
-With `phi(level, interval - 1)` instead, the loop asks for a cell that does not exist, and the program stops with a `std::out_of_range` exception that says the interval was not found.
+With `phi(level, interval - 1)` instead, the loop asks for the cell $-1$, which does not exist, and the program stops with a `std::out_of_range` exception that says the interval was not found.
 The 1D Burgers tutorial replaces this trick with ghost cells in step 3.
 
 Build and run step 2 the same way:
