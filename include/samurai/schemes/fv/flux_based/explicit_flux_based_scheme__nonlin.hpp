@@ -2,6 +2,10 @@
 #include "../explicit_FV_scheme.hpp"
 #include "flux_based_scheme__nonlin.hpp"
 
+#include <stdexcept>
+
+#include <fmt/format.h>
+
 namespace samurai
 {
     /**
@@ -20,6 +24,13 @@ namespace samurai
         using base_class::scheme;
 
         static constexpr size_type output_n_comp = scheme_t::output_n_comp;
+
+        // The fluxes at finer levels predict stencil_size / 2 values on each side of the face, which needs an
+        // even stencil size, unless the stencil values are copied (prediction stencil radius 0, at most 4 cells).
+        // See compute_stencil_values() in flux_based_scheme__nonlin.hpp.
+        static constexpr bool finer_level_flux_supported = cfg::stencil_size % 2 == 0
+                                                        || (input_field_t::mesh_t::config_t::prediction_stencil_radius == 0
+                                                            && cfg::stencil_size <= 4);
 
       public:
 
@@ -76,7 +87,18 @@ namespace samurai
 
             if (args::finer_level_flux != 0 || scheme().enable_finer_level_flux()) // cppcheck-suppress knownConditionTrueFalse
             {
-                _apply<true>(d, output_field, input_field);
+                // Instantiate the fluxes at finer levels only where they are implemented.
+                if constexpr (finer_level_flux_supported)
+                {
+                    _apply<true>(d, output_field, input_field);
+                }
+                else
+                {
+                    throw std::runtime_error(fmt::format("The scheme '{}' has a stencil of odd size ({}): the fluxes at finer levels "
+                                                         "(--finer-level-flux) are not implemented for odd stencil sizes.",
+                                                         scheme().name(),
+                                                         cfg::stencil_size));
+                }
             }
             else
             {
