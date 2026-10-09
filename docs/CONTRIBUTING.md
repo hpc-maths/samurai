@@ -292,12 +292,87 @@ In a legend, start the paragraph of each figure with `**Fig. 1.**`, write the ca
 `:columns: 1` sets the legend in one column instead of two.
 `{ref}` on the label of a plate reads "Plate 1 (title)"; a diagram is not numbered, so link to its label with an explicit text, ``{ref}`the diagram <label>` ``.
 
-A figure function takes the prefix of its SVG ids and returns a `Drawing`.
-Several figures share a page, so every id it creates (patterns, markers, clip paths) starts with that prefix.
-A plate also gives its `panels`: the region of each figure, which narrow screens show one under the other.
-Build on `draw.py` for the primitives and on `mesh.py` for meshes.
+#### Add a figure function
 
-A schematic that depends on no program data, such as a velocity set, a chain of steps or a ghost layer, may be a hand-written SVG file instead.
+The figures live in the Python package `docs/source/_ext/samurai_figures/`.
+Each page that shows figures has its own module, `pages/<page>.py`, named after the page: `pages/graduation_case_1.py` draws the figures of `tutorial/graduation_case_1.md`.
+`registry.load_pages` imports every module of `pages/` when the build starts, so a new module needs no entry anywhere else.
+
+A figure function takes the prefix of its SVG ids and returns a `Drawing` of `registry.py`:
+
+```python
+from ..draw import patterns
+from ..registry import DIAGRAM_WIDTH, Drawing, figure
+
+
+@figure
+def level_jump(p):
+    """Draw a coarse cell and the two fine cells across its right face."""
+    body = ...  # SVG markup built with the primitives below
+    return Drawing(DIAGRAM_WIDTH, 120, "A coarse cell of level l ...", patterns(p), body)
+```
+
+The `@figure` decorator registers the function under its name, the name `:figure:` refers to.
+Several figures share a page, so every id the function creates (patterns, markers, clip paths) starts with the prefix `p`.
+A diagram is `DIAGRAM_WIDTH` (680) units wide and a plate `PLATE_WIDTH` (711), so that one unit is one CSS pixel.
+The `label` of the drawing is its `aria-label`: describe what the figure shows for a reader who cannot see it.
+
+A plate also gives its `panels`: one `(x, y, w, h, kind)` region per figure, which narrow screens show one under the other.
+`kind` is `"half"` for a figure that fits half the width of a phone, `"wide"` for one that stays wider than the screen and scrolls sideways, and `""` otherwise.
+A plate of 1D figures spans the whole 711 units, so give its rows `"wide"` panels.
+
+When a figure draws a mesh or a field a program cannot give in Python, its data goes in `samurai_figures/data/`: see [Draw the mesh of a program](#draw-the-mesh-of-a-program).
+
+#### Choose the primitives
+
+Build a figure on the shared modules of the package rather than on raw SVG.
+Each one returns SVG markup as a string and takes its colours, faces and strokes from `draw.py`:
+
+- `draw.py`: text, lines, rectangles, the row of cells `cell_row`, the half-open `bracket`, lettered `callout`s, the "Fig. n." labels, the fills and arrow heads of `patterns`, the colour constants (`INK`, `RED`, `WASH`, ...) and the stroke weights `HAIR`, `EMPTY`, `RULE` and `HEAVY`.
+- `mesh.py`: graded quadtree meshes of the unit square built from a refinement rule (`build_mesh`, `circle_refine`), checked by `check_graded`, and drawn by `draw_mesh`.
+- `cells.py`: the cells a program really has, from the intervals of its `CellList` (`from_intervals`) or from an exported JSON file (`load_cells`), drawn by `draw_cells` in a `Frame` of the program's coordinates.
+- `plots.py`: 1D fields: cell averages as `steps`, analytic `curve`s, the `detail` of a cell, one bar per level, axes, and the numbers of the multiresolution (`predict_children`, `parent_averages`, `level_threshold`).
+- `arrays.py`: rows of boxed array entries and their connectors, intervals as samurai prints them (`interval_token`, `token_row`), and the intervals of step 2 (`even_elements`, `odd_elements`, `strided_row`).
+- `flows.py`: processes drawn as steps: a `cycle` of stations, each with its art, its name and its statement, or a `chain` of boxes with a label on each arrow; both give one panel per step.
+- `partition.py`: the Morton and Hilbert orders of the leaves of a mesh and their cut into MPI ranks, computed as `include/samurai/load_balancing/` does, drawn in the four rank tones (`--sm-rank-0` to `--sm-rank-3`), each with its own pattern.
+- `static_svg.py`: the checks and the inlining of a hand-written SVG file, which the `:svg:` option uses, see [Draw a schematic by hand](#draw-a-schematic-by-hand).
+
+#### Draw the mesh of a program
+
+When Python can rebuild the mesh of a program, write its intervals in the page module and draw them with `cells.from_intervals`.
+For a mesh it cannot rebuild, such as a random mesh, a mesh adapted to a solution or the subdomains of an MPI run, export the mesh the program saves:
+
+1. Run the program with `--save-debug-fields`, so that the `.h5` files written by `samurai::save` hold the level and the indices of each cell:
+
+   ```bash
+   ./build/demos/tutorial/tutorial-graduation-case-1 --save-debug-fields --path run
+   ```
+
+2. Turn the `.h5` file into a JSON cell list in `samurai_figures/data/`, with `--source` naming the program and the file:
+
+   ```bash
+   python docs/tools/export_cells.py run/graduation_case_1_before_graduation.h5 \
+       docs/source/_ext/samurai_figures/data/graduation_case_1_before.json \
+       --source "tutorial-graduation-case-1 --save-debug-fields: graduation_case_1_before_graduation.h5"
+   ```
+
+   The script needs `h5py` and `numpy`.
+   Run it from `samurai-env` or `samurai-mpi-env`, whose files in `conda/` list `h5py`.
+   `docs/environment.yml` leaves it out, since the documentation build does not need it: to run the script from `samurai-doc`, install it there with `pip install h5py`.
+   It stops with an error when a cell does not fall on the integer grid of its level, rather than writing a wrong mesh.
+
+3. Read the file in the page module with `cells.load_cells` and draw its `leaves` with `draw_cells`:
+
+   ```python
+   DATA = Path(__file__).resolve().parent.parent / "data"
+   before = load_cells(DATA / "graduation_case_1_before.json").leaves
+   ```
+
+4. Commit the JSON file with the page module, and write in the docstring of the module the commands that produced it.
+
+#### Draw a schematic by hand
+
+A schematic that depends on no program data, such as a velocity set, a chain of steps or a ghost layer, may be a hand-written SVG file instead of a figure function.
 Replace `:figure:` with `:svg:` and the path of the file, relative to the page:
 
 ````markdown
@@ -308,7 +383,7 @@ Replace `:figure:` with `:svg:` and the path of the file, relative to the page:
 ````
 
 The directive inlines the file in the page and prefixes its ids, so several figures can share a page.
-The panels of a plate are `x y w h` regions of the drawing, separated by semicolons, each optionally followed by `half` (two side by side) or `wide` (scrolls sideways).
+The panels of a plate are `x y w h` regions of the drawing, separated by semicolons, each optionally followed by `half` or `wide`, as in a `Drawing`.
 Give them with `:panels:` or with a `data-panels` attribute on the root `<svg>`, not both; without panels, the plate scrolls sideways on narrow screens.
 The build checks the file and fails with the line and the value at fault when it breaks one of these rules:
 
@@ -319,15 +394,43 @@ The build checks the file and fails with the line and the value at fault when it
 
 A shape without a `fill` takes `var(--sm-ink)`, and the rules of a `<style>` apply inside the figure only.
 Use the `sm-fig-*` classes for text and the stroke weights of `draw.py` (0.5, 0.75, 1 and 1.5), as the generated figures do.
+A figure that shows cells, intervals or values a program computes is a figure function, not a hand-written file, so that the build checks it against the program.
 
-A figure must stay true to samurai:
+#### Keep a figure true to samurai
 
-- Draw what the code of the page does: the cells, intervals and levels of a figure are the ones its program prints or uses.
-- Draw meshes with `build_mesh`: it makes them graded, like samurai meshes, and `check_graded` fails the build otherwise.
+A figure shows what the program of its page does.
+Check it in the page module, and raise `ValueError` with the cell or the value at fault when a check fails, so that a wrong figure fails the build instead of reaching a reader:
+
+- Take the cells, intervals, levels and values from the program: its `CellList`, its printed output or its exported mesh.
+  When a figure uses fewer levels than the program, so that the cells stay visible, say so in the legend.
+- Check that every mesh shown as a result is graded: two cells that touch, by a face or by a corner, differ by at most one level, and no two cells overlap.
+  `build_mesh` checks the meshes it builds and `draw_cells` the meshes it draws.
+- Draw a mesh that breaks these rules only as the input of the graduation or as a counterexample, a configuration that samurai does not allow.
+  Draw it with `draw_cells(..., graded=False)`, and `overlap=True` if its cells overlap, and say on the figure or in its legend that it is not graded.
+- When a mesh is refined around a curve, check that every cell the curve crosses is of the finest level and that the drawn curve, with the width of its stroke, stays inside those cells (`check_outline` in `pages/index.py` does both).
 - Draw intervals half-open, with `bracket`: a filled dot at the start, an open dot at the end.
-- When a figure uses fewer levels than the program, so that the cells stay visible, say so in the legend.
-- Take every colour from the theme variables of `_static/css/samurai.css` (`var(--sm-ink)`, `var(--sm-red)`, ...), never a fixed colour, so that the figure follows the light and the dark themes.
+- In a multiresolution figure, the value of a parent is the mean of its two children and the order-1 prediction keeps that mean, so the two details of a cell are opposite.
+  Draw them symmetric with `plots.detail`.
+- Explain every fill, pattern and mark in the legend or the caption, and any notion a reader may not know, such as face contact against corner contact, on the figure or in the sentence before it.
+  Label a stencil by its vectors.
+- Let nothing overlap an arrow or another piece of art, and give the children drawn under a parent exactly the width of the parent.
+  Measure bounding boxes, centring and alignment in the built page rather than by eye.
+- Set a printed value with labels under its characters, such as an interval `[14,16)@-6:1`, with `arrays.token_row`: it places each glyph at its own x, since browsers round the advance of each glyph of the mono font.
+- In a `flows.py` cycle or chain, make the art, the name and the statement of each step fit its box, so that each panel is clean on a phone.
+- Take every colour from the theme variables of `_static/css/samurai.css` (`var(--sm-ink)`, `var(--sm-red)`, ...) through the constants of `draw.py`, never a fixed colour, so that the figure follows the light and the dark themes.
   Add a variable there, in the light and in both dark blocks, when a figure needs a new colour.
+
+Codacy checks the Python files of a pull request (`docs/source/conf.py`, `docs/source/_ext/` and `cmake/*.py`) and reports the new issues it finds.
+It runs Pylint and Bandit with its own settings, and Prospector with the profile in `.prospector.yaml`.
+That profile runs pyflakes and pydocstyle at medium strictness:
+
+- pydocstyle checks the layout of every docstring and the imperative mood of the first line of a function or method docstring (D401), but not that a public module, class, method or function has one (D100 to D103);
+- it does check that a package `__init__.py`, an `__init__` method, a magic method and a nested class have one (D104 to D107);
+- D203 and D213 are off, so a class docstring follows its `class` line with no blank line, and a multi-line summary starts on the first line.
+
+pre-commit runs neither black nor pydocstyle, so two conventions of the figure modules rest on you.
+Format the code you write with black at a line length of 100, and give every public function and class a docstring.
+Write the first line of a new function or method docstring in the imperative ("Draw the mesh ...", "Raise ..."), even though older docstrings start with "The ..." and D401 reports them.
 
 ## Check your changes with pre-commit
 
