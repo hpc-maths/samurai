@@ -49,7 +49,11 @@ int main(int argc, char** argv)
     print_ghosts("u, left", u, left);
     print_ghosts("u, right", u, right);
     print_ghosts("u, bottom", u, bottom);
+    print_ghosts("u, top", u, top);
     print_ghosts("v, left", v, left);
+    print_ghosts("v, right", v, right);
+    print_ghosts("v, bottom", v, bottom);
+    print_ghosts("v, top", v, top);
 
     samurai::finalize();
     return 0;
