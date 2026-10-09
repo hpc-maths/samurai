@@ -24,7 +24,7 @@ from ..draw import (
     text,
 )
 from ..flows import Loop, Row, Station, cycle
-from ..mesh import build_mesh, circle_refine, draw_mesh
+from ..mesh import build_mesh, check_outline, circle_refine, draw_mesh
 from ..plots import Frame, axes, detail, line_key, predict_children, steps
 from ..registry import DIAGRAM_WIDTH, PLATE_WIDTH, Drawing, figure
 
@@ -115,13 +115,24 @@ def transported_disc(p):
     """Draw the disc at t = 0 and at t = 0.3, with the mesh refined along its edge.
 
     Figure of tutorial/getting_started.md. It is drawn with levels 3 to 6, while
-    the program uses 4 to 8.
+    the program uses 4 to 8, and with the disc of the program.
+
+    The circle of the program grazes the corners of coarser cells, down to 0.12
+    units at the size of the plate, so refining only the cells it crosses lets its
+    heavy outline spill out of the hatched band. The band takes every cell that
+    comes within a heavy rule of the circle instead: still narrower than the band
+    of the program, whose details reach several cells away from the edge.
     """
     min_level, max_level, radius = 3, 6, 0.2
     start, end = (0.3, 0.3), (0.6, 0.6)  # the centre moves by a t = (1, 1) * 0.3
-    m0 = build_mesh(min_level, max_level, circle_refine(*start, radius))
-    m1 = build_mesh(min_level, max_level, circle_refine(*end, radius))
     size, oy, xa, xb = 300, 14, 34, 380
+
+    def band_mesh(centre):
+        leaves = build_mesh(min_level, max_level, circle_refine(*centre, radius, HEAVY / size))
+        check_outline(leaves, (*centre, radius), max_level, size)
+        return leaves
+
+    m0, m1 = band_mesh(start), band_mesh(end)
 
     def X0(u):
         return xa + u * size

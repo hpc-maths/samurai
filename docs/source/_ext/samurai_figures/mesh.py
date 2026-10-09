@@ -15,7 +15,7 @@ CHILDREN = ((0, 0), (1, 0), (0, 1), (1, 1))
 
 
 def _finest_grid(leaves, max_level):
-    """The level of the leaf over each cell of the finest level, as a dict."""
+    """Map each cell of the finest level to the level of the leaf that covers it."""
     grid = {}
     for level, i, j in leaves:
         s = 2 ** (max_level - level)
@@ -84,17 +84,51 @@ def check_graded(leaves, max_level):
                 )
 
 
-def circle_refine(cx, cy, r):
-    """Refine the cells crossed by the circle of centre (cx, cy) and radius r."""
+def _circle_gap(cx, cy, r, level, i, j):
+    """Return the distance from the circle of centre (cx, cy) and radius r to a cell.
+
+    The distance is 0 when the circle crosses the cell ``(level, i, j)``.
+    """
+    h = 2.0**-level
+    x0, y0 = i * h, j * h
+    dmin = hypot(max(x0, min(cx, x0 + h)) - cx, max(y0, min(cy, y0 + h)) - cy)
+    dmax = hypot(max(abs(cx - x0), abs(cx - x0 - h)), max(abs(cy - y0), abs(cy - y0 - h)))
+    if dmin > r:
+        return dmin - r
+    return max(r - dmax, 0.0)
+
+
+def circle_refine(cx, cy, r, margin=0.0):
+    """Refine the cells that come within ``margin`` of the circle of centre (cx, cy), radius r.
+
+    With the default ``margin`` of 0, these are the cells the circle crosses.
+    """
 
     def refine(level, i, j):
-        h = 2.0**-level
-        x0, y0 = i * h, j * h
-        dmin = hypot(max(x0, min(cx, x0 + h)) - cx, max(y0, min(cy, y0 + h)) - cy)
-        dmax = hypot(max(abs(cx - x0), abs(cx - x0 - h)), max(abs(cy - y0), abs(cy - y0 - h)))
-        return dmin <= r <= dmax
+        return _circle_gap(cx, cy, r, level, i, j) <= margin
 
     return refine
+
+
+def check_outline(leaves, disc, max_level, size):
+    """Raise ``ValueError`` unless the outline of the circle lies in cells of ``max_level``.
+
+    Every cell the circle ``disc`` (cx, cy, r) crosses must be of ``max_level``, and
+    the circle, drawn ``size`` units for the unit square, must pass at least the
+    width of its heavy rule from every coarser cell, so that the rule stays inside
+    the hatched cells.
+    """
+    for level, i, j in leaves:
+        if level == max_level:
+            continue
+        gap = _circle_gap(*disc, level, i, j) * size
+        if gap == 0:
+            raise ValueError(f"the circle crosses the cell {(level, i, j)} of level {level}")
+        if gap < HEAVY:
+            raise ValueError(
+                f"the circle passes {gap:.2f} units from the cell {(level, i, j)} of level"
+                f" {level}: its outline would seem to cross it"
+            )
 
 
 def draw_mesh(p, leaves, ox, oy, size, max_level, disc=None, ghost=None, hatch=True, axes=True):
