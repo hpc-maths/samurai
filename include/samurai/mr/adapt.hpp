@@ -410,7 +410,6 @@ namespace samurai
         requires(!field_like<Prediction_fn>) && (field_like<TFields> && ...)
     auto make_MRAdapt(Prediction_fn&& prediction_fn, TFields&... fields)
     {
-        std::cout << "Use custom prediction function for MRAdapt" << std::endl;
         return Adapt<false, Prediction_fn, TFields...>(std::forward<Prediction_fn>(prediction_fn), fields...);
     }
 
