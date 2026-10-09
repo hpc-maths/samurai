@@ -1610,5 +1610,104 @@ namespace samurai
         auto conv                    = make_convection_upwind<decltype(u)>(velocity);
         expect_explicit_matches_implicit(conv, u, nx, 1);
     }
+
+    // Implicit solve of a non-linear local scheme on a scalar field: one small
+    // Newton solve per cell, whose Jacobian is a scalar.
+    TEST(fv_operators, implicit_nonlinear_local_scheme_scalar)
+    {
+        auto mesh = uniform_mesh<1>(4);
+        auto u    = make_scalar_field<double>("u",
+                                           mesh,
+                                           [](const auto& x)
+                                           {
+                                               return 0.5 + 0.3 * std::sin(2 * M_PI * x(0));
+                                           });
+        auto unp1 = make_scalar_field<double>("unp1", mesh, 0.5);
+        make_bc<Neumann<1>>(u);
+        make_bc<Neumann<1>>(unp1);
+
+        const double k  = 10;
+        const double dt = 0.01;
+
+        using cfg  = LocalCellSchemeConfig<SchemeType::NonLinear, decltype(u), decltype(u)>;
+        auto react = make_cell_based_scheme<cfg>();
+        react.set_scheme_function(
+            [&](SchemeValue<cfg>& value, const auto& cell, const auto& field)
+            {
+                auto v = field[cell];
+                value  = k * v * v * (1 - v);
+            });
+        react.set_jacobian_function(
+            [&](JacobianMatrix<cfg>& jac, const auto& cell, const auto& field)
+            {
+                auto v = field[cell];
+                jac    = k * (2 * v * (1 - v) - v * v);
+            });
+
+        auto id     = make_identity<decltype(u)>();
+        auto solver = petsc::make_solver(id - dt * react);
+        solver.set_unknown(unp1);
+        solver.solve(u);
+
+        // unp1 - dt * react(unp1) = u in every cell
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          double v = unp1[cell];
+                          EXPECT_NEAR(v - dt * k * v * v * (1 - v), u[cell], 1e-8);
+                      });
+    }
+
+    // A non-linear scheme on a star stencil of radius 1 whose scheme and Jacobian
+    // functions take the concrete field type (not `const auto&`), solved implicitly.
+    TEST(fv_operators, implicit_nonlinear_star_stencil_concrete_field_type)
+    {
+        constexpr std::size_t dim = 1;
+        auto mesh                 = uniform_mesh<dim>(4);
+        auto u                    = make_scalar_field<double>("u",
+                                           mesh,
+                                           [](const auto& x)
+                                           {
+                                               return 1. + 0.5 * std::sin(2 * M_PI * x(0));
+                                           });
+        auto unp1                 = make_scalar_field<double>("unp1", mesh, 1.);
+        make_bc<Neumann<1>>(u);
+        make_bc<Neumann<1>>(unp1);
+        using field_t = decltype(u);
+
+        // N(u) = -Laplacian(u^2)
+        using cfg   = StarStencilSchemeConfig<SchemeType::NonLinear, 1, field_t, field_t>;
+        auto N      = make_cell_based_scheme<cfg>();
+        N.stencil() = star_stencil<dim, 1>();
+        N.set_scheme_function(
+            [](SchemeValue<cfg>& value, const StencilCells<cfg>& cells, const field_t& field)
+            {
+                double h = cells[1].length;
+                value    = (2 * field[cells[1]] * field[cells[1]] - field[cells[0]] * field[cells[0]] - field[cells[2]] * field[cells[2]])
+                      / (h * h);
+            });
+        N.set_jacobian_function(
+            [](StencilJacobian<cfg>& jac, const StencilCells<cfg>& cells, const field_t& field)
+            {
+                double h = cells[1].length;
+                jac[0]   = -2 * field[cells[0]] / (h * h);
+                jac[1]   = 4 * field[cells[1]] / (h * h);
+                jac[2]   = -2 * field[cells[2]] / (h * h);
+            });
+
+        const double dt = 1e-3;
+        auto id         = make_identity<field_t>();
+        auto solver     = petsc::make_solver(id + dt * N);
+        solver.set_unknown(unp1);
+        solver.solve(u);
+
+        // unp1 + dt * N(unp1) = u in every cell
+        auto N_unp1 = N(unp1);
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          EXPECT_NEAR(unp1[cell] + dt * N_unp1[cell], u[cell], 1e-8);
+                      });
+    }
 #endif
 }
