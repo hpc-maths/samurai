@@ -4,8 +4,8 @@ The figures follow ``include/samurai/schemes/lbm/``. ``LBMScheme::operator()`` f
 the ghosts of ``f`` (``update_ghost_mr``), streams, then collides in every cell:
 ``m = M f``, equilibrium and relaxation, the optional source, ``f = M^-1 m``. On a
 level ``l = L - j``, ``LBMScheme::stream`` applies the stencil of ``build_stencil``:
-the order-1 prediction (``prediction_stencil_radius`` 1) of the fine cells
-``[-c, 2^j - c)`` summed by ``detail::get_prediction``, times ``1 / 2^(j dim)``.
+the prediction of stencil radius 1 (``prediction_stencil_radius`` 1, order 3) of the
+fine cells ``[-c, 2^j - c)`` summed by ``detail::get_prediction``, times ``1 / 2^(j dim)``.
 ``stream_weights`` computes the same weights; for ``c = (1, 0)`` the code gives
 -1/16, 9/16, 9/16, -1/16 at ``j = 1``. The reflection of the walls is
 ``LbmReflectionImpl`` of ``boundary.hpp``.
@@ -167,11 +167,12 @@ def lbm_time_step(p):
 
 
 def _fine_weights(i, j):
-    """Weigh the coarse values in the order-1 prediction of fine cell ``i``, ``j`` levels down.
+    """Weigh the coarse values in the radius-1 prediction of fine cell ``i``, ``j`` levels down.
 
-    The coarse cells are numbered from the cell 0 that holds the fine cells
-    ``[0, 2^j)``. Each level predicts a child of cell ``k`` as
-    ``f_k + sigma / 8 (f_(k-1) - f_(k+1))``, ``sigma`` being +1 for the even child.
+    The prediction has a stencil radius of 1, so it is of order 3. The coarse cells are
+    numbered from the cell 0 that holds the fine cells ``[0, 2^j)``. Each level predicts
+    a child of cell ``k`` as ``f_k + sigma / 8 (f_(k-1) - f_(k+1))``, ``sigma`` being +1
+    for the even child.
     """
     if j == 0:
         return {i: Fraction(1)}
