@@ -111,7 +111,7 @@ With $l = 4$, the same expression gives the cell $[7, 8)$ of level 4.
 
 A subset operator, the kernel you pass to a set expression, then runs on every interval of the result.
 The same mechanism serves the library and the user: the field projection in the README of the repository takes one set expression and four lines of arithmetic.
-The {doc}`subset reference <reference/subset>` lists the operations, and the {doc}`subset tutorial <tutorial/operator_on_subset>` builds one step by step.
+The {doc}`set algebra reference <reference/subset>` lists the operations, and the {doc}`set expression tutorial <tutorial/operator_on_subset>` builds one step by step.
 
 What it costs: you have to think in sets.
 A loop over cells that tests the level of each neighbor is the natural first idea, and it is the slow one here.

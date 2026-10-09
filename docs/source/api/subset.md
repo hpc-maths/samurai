@@ -4,7 +4,7 @@ This page documents the set algebra of {{ project }}: the `samurai::SetBase` bas
 A set expression is lazy: it holds its operands, not cells, and produces intervals only when it is traversed with `operator()`, `apply_op` or `samurai::apply`.
 The operands are levels of a cell array (`LevelCellArray`) or other set expressions, and `on(level)` brings the result to a given level.
 All these entities are declared in the headers of `include/samurai/subset/`.
-For a guided example, see the {doc}`tutorial on applying an operator on a set <../tutorial/operator_on_subset>`; for a description of each operation with figures, see the {doc}`algebra of set reference <../reference/subset>`.
+For a guided example, see the {doc}`tutorial on applying a subset operator on a set expression <../tutorial/operator_on_subset>`; for a description of each operation with figures, see the {doc}`algebra of set reference <../reference/subset>`.
 
 ## Base class
 

@@ -227,6 +227,7 @@ To show the output of a new snippet:
    `NP`, `EXIT_CODE`, `STDERR`, `INPUTS`, `REPLACE`, `HEAD` and `TAIL` cover MPI runs, programs that fail on purpose, error messages, input files, values that change from run to run, and long outputs.
    `cmake/snippetOutputs.cmake` documents them.
    Declare PETSc snippets inside the `if(WITH_PETSC)` block.
+   A page that shows the output of a demo declares it in the `CMakeLists.txt` of the demo, inside an `if(BUILD_SNIPPETS)` block, such as `samurai_snippet_output(tutorial-set-operator OUTPUT set_operator_output.txt)` in `demos/tutorial/`: the file is written next to the demo source.
 2. Regenerate the files:
 
    ```bash
@@ -239,7 +240,7 @@ To show the output of a new snippet:
 4. Commit the `_output.txt` files with the snippet.
 
 Never edit an `_output.txt` file by hand: run `update_snippet_outputs` again when a library change alters an output.
-The `compile_snippets` CI job regenerates the files and fails if one of them differs from the committed one.
+The `compile_snippets` CI job regenerates the files, in `docs/` and `demos/`, and fails if one of them differs from the committed one.
 The output of a snippet must be the same on every run and every machine. Leave out values that vary, such as timings or residuals near machine precision, or mask them with `REPLACE`.
 
 ### Documentation conventions

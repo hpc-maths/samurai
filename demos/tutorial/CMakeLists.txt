@@ -26,6 +26,11 @@ foreach(demo_entry ${TUTORIAL_DEMOS})
     target_link_libraries(${executable_name} PRIVATE samurai)
 endforeach()
 
+# Output shown in the docs, next to the source (see cmake/snippetOutputs.cmake)
+if(BUILD_SNIPPETS)
+    samurai_snippet_output(tutorial-set-operator OUTPUT set_operator_output.txt)
+endif()
+
 # Specific options for MSVC
 if(MSVC)
     target_compile_options(tutorial-reconstruction-3d PUBLIC /bigobj)

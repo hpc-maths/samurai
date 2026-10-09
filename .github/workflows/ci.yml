@@ -871,9 +871,9 @@ jobs:
               shell: bash -l {0}
               run: |
                   cmake --build build --target update_snippet_outputs
-                  changes=$(git status --porcelain --untracked-files=all -- docs/)
+                  changes=$(git status --porcelain --untracked-files=all -- docs/ demos/)
                   if [ -n "$changes" ]; then
-                      git --no-pager diff -- docs/
+                      git --no-pager diff -- docs/ demos/
                       echo "$changes"
                       echo "::error::The snippet outputs are out of date: run 'cmake --build <build-dir> --target update_snippet_outputs' in a build configured like this job (-DBUILD_SNIPPETS=ON -DWITH_PETSC=ON -DWITH_MPI=${{ matrix.mpi }}) and commit the files it changes."
                       exit 1
