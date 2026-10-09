@@ -1005,7 +1005,7 @@ namespace samurai
     namespace times
     {
         // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-        static Timers timers;
+        inline Timers timers;
     } // namespace times
 
     // =========================================================================
