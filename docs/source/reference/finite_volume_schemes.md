@@ -498,6 +498,8 @@ samurai::VelocityVector<dim> a = {1, -2};
 auto conv = samurai::make_convection_upwind<FieldType>(a);
 ```
 
+The scheme stores a copy of the velocity vector: `a` may be a temporary, such as `{1, -2}`, or a local variable of a function that returns the scheme.
+
 Linear convection with a velocity field (`upwind`, `weno5` and `smooth_rusanov_incompressible`):
 
 ```c++
@@ -506,8 +508,8 @@ auto a    = samurai::make_vector_field<double, dim>("a", mesh);
 auto conv = samurai::make_convection_upwind<FieldType>(a);
 ```
 
-The `upwind` and `weno5` overloads register the velocity field as a {ref}`parameter field <parameter_field>`: the discrete operator updates its ghosts.
-The `smooth_rusanov_incompressible` overload does not: its velocity ghosts must be updated by the caller.
+These overloads register the velocity field as a {ref}`parameter field <parameter_field>`: the discrete operator updates its ghosts.
+The scheme keeps a reference to the velocity field, which must outlive it.
 
 Non-linear convection $\nabla \cdot (\mathbf{u} \otimes \mathbf{u})$ (`upwind`, `weno5` and `smooth_rusanov_incompressible`):
 
