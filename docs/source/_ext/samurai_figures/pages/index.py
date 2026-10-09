@@ -1,10 +1,9 @@
 """The figure of ``index.md``: the adaptive mesh and the intervals that store it."""
 
-from math import cos, hypot, sin
+from math import cos, sin
 
 from ..draw import (
     EMPTY,
-    HEAVY,
     HAIR,
     INK,
     INK2,
@@ -21,7 +20,7 @@ from ..draw import (
     rect,
     text,
 )
-from ..mesh import build_mesh, check_graded, circle_refine, draw_mesh
+from ..mesh import build_mesh, check_graded, check_outline, circle_refine, draw_mesh
 from ..registry import PLATE_WIDTH, Drawing, figure
 
 MIN_LEVEL, MAX_LEVEL = 2, 6
@@ -55,32 +54,6 @@ def row_intervals(leaves, min_level, max_level, row):
     if covered != 2**max_level:
         raise ValueError(f"the levels cover {covered} of the {2**max_level} cells of the row")
     return intervals
-
-
-def check_outline(leaves, disc, max_level, size):
-    """Raise ``ValueError`` unless the outline of the circle lies in cells of ``max_level``.
-
-    Every cell the circle ``disc`` (cx, cy, r) crosses must be of ``max_level``, and
-    the circle, drawn ``size`` units for the unit square, must pass at least the
-    width of its heavy rule from every coarser cell, so that the rule stays inside
-    the hatched cells.
-    """
-    cx, cy, r = disc
-    for level, i, j in leaves:
-        if level == max_level:
-            continue
-        h = 2.0**-level
-        x0, y0 = i * h, j * h
-        dmin = hypot(max(x0, min(cx, x0 + h)) - cx, max(y0, min(cy, y0 + h)) - cy)
-        dmax = hypot(max(abs(cx - x0), abs(cx - x0 - h)), max(abs(cy - y0), abs(cy - y0 - h)))
-        if dmin <= r <= dmax:
-            raise ValueError(f"the circle crosses the cell {(level, i, j)} of level {level}")
-        gap = (dmin - r if dmin > r else r - dmax) * size
-        if gap < HEAVY:
-            raise ValueError(
-                f"the circle passes {gap:.2f} units from the cell {(level, i, j)} of level"
-                f" {level}: its outline would seem to cross it"
-            )
 
 
 def _mesh_figure(p, leaves, ox, oy, size):
