@@ -90,7 +90,7 @@ Splitting $[a, b]$ into $2^j$ cells of equal size gives the cells of level $j$:
 ```{math}
 :label: burgers-cells
 
-C_{j,k} = [x_{j,k-1/2}, x_{j,k+1/2}], \qquad x_{j,k-1/2} = a + k \Delta x_j, \qquad \Delta x_j = \frac{b - a}{2^j}, \qquad k = 0, \dots, 2^j - 1,
+C_{j,k} = [x_{j,k-1/2}, x_{j,k+1/2}), \qquad x_{j,k-1/2} = a + k \Delta x_j, \qquad \Delta x_j = \frac{b - a}{2^j}, \qquad k = 0, \dots, 2^j - 1,
 ```
 
 with center $x_{j,k} = a + (k + 1/2) \Delta x_j$.
@@ -101,6 +101,20 @@ An adaptive mesh is a set of cells of different levels that covers $[a, b]$ with
 The levels lie between a minimum level $j_{\min}$ and a maximum level $J$.
 We use $j_{\min} = 2$, cells of size $1.5$, and $J = 8$, cells of size $\Delta x_J = 6 / 256 = 0.0234375$.
 The mesh is graded: two neighboring cells differ by at most one level (see the {doc}`graduation tutorial <graduation>`).
+
+The scheme below numbers the cells of the mesh $C_k$ from left to right, whatever their level, and computes one flux $F_{k+1/2}$ at each face.
+The diagram shows both numberings on five cells of the mesh the program ends with.
+
+```{diagram}
+:figure: burgers_cells
+
+Five cells of the final mesh of the program, right of the shock, where the mesh steps down from level 8 to level 6 one level at a time.
+Inside each cell its level $j$ and index $k$, above it its flat index: counting from $C_0$, the cell that starts at $x = -3$, $C_{8,182}$ is $C_{106}$.
+Under each face, the name of its flux; the faces in [red]{.sm-red} lie between two levels.
+There, the program computes the flux on the finer level, from the fine cell and a value of the finer level predicted inside the coarse cell.
+The dashed rectangle above is not a cell of the mesh: it is $C_{6,46}$, whose splitting gives $C_{7,2 \times 46} = C_{7,92}$ and $C_{7,2 \times 46 + 1} = C_{7,93}$.
+The dashed lines at both ends show that the mesh goes on.
+```
 
 ### Time stepping
 
@@ -136,15 +150,18 @@ We use the upwind flux, which takes the flux of the cell the information comes f
 \end{cases}
 ```
 
-The solution of our problem stays non-negative, because $u_0 \geq 0$ (maximum principle).
-Then $\varphi'(\overline{u}_L) + \varphi'(\overline{u}_R) = \overline{u}_L + \overline{u}_R \geq 0$, and the upwind flux is always $\varphi(\overline{u}_L)$.
-The scheme {eq}`burgers-fv-scheme` becomes
+The exact solution of our problem stays non-negative, because $u_0 \geq 0$ (maximum principle).
+For non-negative cell averages, $\varphi'(\overline{u}_L) + \varphi'(\overline{u}_R) = \overline{u}_L + \overline{u}_R \geq 0$, and the upwind flux is always $\varphi(\overline{u}_L)$.
+The scheme {eq}`burgers-fv-scheme` then becomes
 
 ```{math}
 :label: burgers-upwind-scheme
 
 \overline{u}^{n+1}_k = \overline{u}^n_k - \frac{\Delta t}{2 \Delta x_k} \left( (\overline{u}^n_k)^2 - (\overline{u}^n_{k-1})^2 \right).
 ```
+
+The computed averages, though, can dip slightly below 0 right of the shock: in the run of this tutorial, they go down to $-0.0073$ at $t = 1.5$.
+So in the program we keep the full upwind flux {eq}`burgers-upwind-flux`: `samurai::make_convection_upwind`, which we use below, takes the left value when $(\overline{u}_L + \overline{u}_R)/2 \geq 0$ and the right value otherwise.
 
 Another choice is the Lax-Friedrichs flux, which is more diffusive than the upwind flux:
 
@@ -257,7 +274,7 @@ The {doc}`boundary conditions reference <../reference/bc>` lists the other condi
 
 ## Define the scheme
 
-{{ project }} provides the upwind flux {eq}`burgers-upwind-flux` as a ready-made operator, `samurai::make_convection_upwind`.
+{{ project }} provides the upwind flux {eq}`burgers-upwind-flux` as a ready-made discrete operator, `samurai::make_convection_upwind`.
 It computes the flux $u^2$, so we multiply it by $1/2$ to get $\varphi(u) = u^2/2$:
 
 ```{literalinclude} snippet/burgers/burgers_1d.cpp
@@ -267,10 +284,10 @@ It computes the flux $u^2$, so we multiply it by $1/2$ to get $\varphi(u) = u^2/
 :dedent:
 ```
 
-The operator is defined by its numerical fluxes at the cell faces.
+The discrete operator is defined by its numerical fluxes at the cell faces.
 Each face gets one flux, shared by the two cells on either side, which keeps the scheme conservative, also on the faces between cells of different levels.
 `conv(u)` returns $(F_{k+1/2}^n - F_{k-1/2}^n) / \Delta x_k$ for every cell $C_k$, the term of {eq}`burgers-upwind-scheme` that multiplies $\Delta t$.
-The {doc}`finite volume schemes reference <../reference/finite_volume_schemes>` describes this operator and the others.
+The {doc}`finite volume schemes reference <../reference/finite_volume_schemes>` describes this discrete operator and the others.
 
 ## Define the refinement criterion
 
@@ -288,6 +305,15 @@ On an interval `i` of level `level`, `u(level, i + 1)` is the field on the inter
 The neighbors of the cells at both ends of an interval are ghost cells: they lie outside the domain, or the mesh has no cell of the same level there.
 `samurai::apply_on_masked` applies `refine` or `coarsen` to the tags of the cells where the condition holds.
 The tests on `level` keep the levels between the minimum and the maximum level.
+
+```{diagram}
+:figure: burgers_criterion
+
+The interval `i` = $[92, 94)$ of level 7 in the final mesh of the program, and the two shifted intervals the criterion reads.
+`u(level, i - 1)` covers $[91, 93)$ and `u(level, i + 1)` covers $[93, 95)$.
+The cells 91 and 94, dashed, are ghost cells: 91 lies over two cells of level 8, 94 inside a cell of level 6.
+`samurai::update_ghost` fills them before the criterion reads them.
+```
 
 ## Write the time loop
 
@@ -353,6 +379,21 @@ The complete program, with the pieces above in order, is compiled with the docum
    python <samurai-dir>/python/read_mesh.py burgers_1d --field u level
    ```
 
+{ref}`plate-burgers-result` draws the two plots from the `burgers_1d.h5` file of this run.
+
+```{plate} The solution and the mesh at t = 1.5
+:figure: burgers_result
+:label: plate-burgers-result
+
+**Fig. 1.** The solution `u` at $t = 1.5$, one [red]{.sm-red} step per cell, over the exact solution {eq}`burgers-solution-after-shock`.
+*a*, the shock: the exact solution drops from $2/\sqrt{5} \approx 0.894$ to 0 at $x = \sqrt{5} - 1 \approx 1.236$; `u` peaks at 0.870, then falls from 0.865 to 0.053 over the three cells of $[1.1953125, 1.265625)$.
+*b*, the corner at $x = -1$, spread over a few cells.
+
+**Fig. 2.** The 115 cells of the mesh, one row per level, with the number of cells of each level: 2 of level 3, 3 of levels 4, 5 and 6, 4 of level 7 and 100 of level 8, hatched in [red]{.sm-red}.
+The cells of level 8 cover $[-1.03125, 1.3125)$, from just left of the corner to just right of the shock.
+*c*, near the boundaries, the cells of level 3, of size $0.75$.
+```
+
 The plot of `u` shows the ramp $u = (1 + x) / 2.5$ of {eq}`burgers-solution-after-shock`, from $x = -1$ up to the shock near $x \approx 1.236$, where $u$ drops from about 0.89 to 0.
 The upwind scheme spreads the shock and the corner at $x = -1$ over a few cells.
 
@@ -370,10 +411,10 @@ Change the options to see their effect:
 ## What we built
 
 We solved the Burgers equation {eq}`burgers-equation` past the formation of a shock.
-On the way, we built an AMR mesh from a `samurai::mesh_config`, created and initialized a scalar field, attached a boundary condition, wrote a refinement criterion, and wrote a finite volume time loop that adapts the mesh before each time step and applies the flux-based upwind operator.
+On the way, we built an AMR mesh from a `samurai::mesh_config`, created and initialized a scalar field, attached a boundary condition, wrote a refinement criterion, and wrote a finite volume time loop that adapts the mesh before each time step and applies the flux-based upwind discrete operator.
 
 ## Next steps
 
 - The demos in [demos/tutorial/AMR_1D_Burgers](https://github.com/hpc-maths/samurai/tree/main/demos/tutorial/AMR_1D_Burgers) solve the same problem step by step, and write by hand the graduation, the mesh update and the ghost update that `samurai::graduation`, `samurai::update_field` and `samurai::update_ghost` do here.
 - The {doc}`loop how-to guide <../howto/loop>` and the {doc}`field how-to guide <../howto/field>` cover more ways to loop over the mesh and to access fields.
-- The {doc}`finite volume schemes reference <../reference/finite_volume_schemes>` describes the operators {{ project }} provides for finite volume schemes.
+- The {doc}`finite volume schemes reference <../reference/finite_volume_schemes>` describes the discrete operators {{ project }} provides for finite volume schemes.
