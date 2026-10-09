@@ -315,7 +315,23 @@ rank 1: GHOSTS local_index = [32,47]
 ...
 ```
 
-Rank 0 owns the global rows 0 to 31 and rank 1 the rows 32 to 63; each rank also holds 16 unknowns owned by the other.
+Rank 0 owns the global rows [0, 32) and rank 1 the rows [32, 64); each rank also holds 16 unknowns owned by the other.
+
+The 4 by 4 mesh has 16 cells, yet the system has 64 unknowns, because the boundary ghosts are unknowns too.
+The mesh keeps two layers of ghosts around the domain, and the solver gives each of them an equation: the boundary condition for the ghosts that touch a face of the domain, and $x = 0$ (1 on the diagonal, 0 in the right-hand side) for the others, in the outer layer and in the corners.
+The 8 by 8 cells and ghosts are numbered row by row, and each rank owns half of them, as {ref}`plate-petsc-numbering` shows.
+
+```{plate} The PETSc numbering on two ranks
+:figure: petsc_numbering
+:label: plate-petsc-numbering
+:columns: 1
+
+Each square is an unknown of the system, with its global PETSc index, read from `petsc_indices.h5`.
+The inner heavy square is the domain, 4 by 4 cells of level 2; the two layers around it are the boundary ghosts.
+
+Rank 0 owns the hatched rows and rank 1 the dotted rows, on either side of the heavy rule.
+Each rank owns 8 cells of the domain and the 24 ghosts beside them, 32 unknowns.
+```
 
 ## Related
 
