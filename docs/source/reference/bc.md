@@ -98,6 +98,15 @@ With the default mesh configuration, `max_stencil_size` is 4: `samurai::Dirichle
 `samurai::Dirichlet<order>` imposes the value {math}`v` of the field on the boundary face.
 It builds the polynomial {math}`p` of degree `order` that takes the values of the `order` inner cells next to the boundary at their centers and the value {math}`v` at the boundary face.
 Each ghost receives {math}`p` at its center.
+On the right boundary, the condition reads and writes the cells at the offsets `[-order + 1, order + 1)` from the boundary cell: `order` cells inside, then `order` ghosts.
+
+```{diagram}
+:figure: dirichlet_order_2
+
+`samurai::Dirichlet<2>` on the right boundary.
+The parabola $p$ goes through the values $u_{-1}$ and $u_0$ at the centers of the two inner cells and through the value $v$ on the boundary face.
+The two ghosts, dashed, receive $p$ at their centers (open circles).
+```
 
 For `order = 1`, with {math}`u_0` the boundary cell and {math}`u_g` the ghost,
 
@@ -188,14 +197,33 @@ A condition attached to the field is not applied in a periodic direction, nor in
 ## Ghosts beyond the condition
 
 The ghost width of a mesh can exceed the number of layers a condition fills: it is set by the max stencil radius of the mesh, which is raised to 2 unless the mesh configuration calls `disable_minimal_ghost_width()`.
-{{ project }} fills the remaining ghosts by polynomial extrapolation, implemented by `samurai::PolynomialExtrapolation<Field, stencil_size>`:
+{{ project }} fills the remaining ghosts by polynomial extrapolation, implemented by `samurai::PolynomialExtrapolation<Field, stencil_size>`.
 
-- The layers beyond the largest `stencil_size / 2` of the attached conditions are filled one at a time, from the closest to the farthest.
-  The stencil ends on the ghost to fill and grows with the layer up to 6 cells (a polynomial of degree 4); beyond, it slides outward at constant size and uses the ghosts already filled.
-  The extrapolation reaches 5 ghost layers.
-  A mesh with a larger ghost width throws `std::runtime_error` when its ghosts are updated.
-- The ghosts in the diagonal directions (the corners in 2D, the edges and corners in 3D) receive the mirror image of the inner diagonal cells about the corner, and the off-diagonal ghosts of the corner block copy the diagonal value.
-  A condition replaces this treatment only when it fills diagonal directions itself (`fills_diagonal_directions()` returns `true`), as the lattice Boltzmann reflections do for velocity sets with diagonal velocities.
+The layers beyond the largest `stencil_size / 2` of the attached conditions are filled one at a time, from the closest to the farthest.
+The stencil of the layer {math}`k` ends on the ghost to fill and holds {math}`\min(2k, 6)` cells: it grows with the layer up to 6 cells (a polynomial of degree 4), then slides outward at constant size and uses the ghosts already filled.
+The extrapolation reaches 5 ghost layers.
+A mesh with a larger ghost width throws `std::runtime_error` when its ghosts are updated.
+
+```{diagram}
+:figure: ghost_layers
+
+A ghost width of 3 under `samurai::Dirichlet<1>`.
+The condition fills layer 1; the extrapolation fills layers 2 and 3, each from the stencil that ends on its ghost.
+Each stencil, under its bracket, reads the shaded cells and writes the red ghost.
+```
+
+The ghosts in the diagonal directions (the corners in 2D, the edges and corners in 3D) receive the mirror image of the inner diagonal cells about the corner.
+The other ghosts of the corner block copy the diagonal ghost that has the same offset along the first axis of the diagonal direction, x in 2D.
+A condition replaces this treatment only when it fills diagonal directions itself (`fills_diagonal_directions()` returns `true`), as the lattice Boltzmann reflections do for velocity sets with diagonal velocities.
+
+```{diagram}
+:figure: corner_ghosts
+
+The top-right corner of a mesh of level 3 with a ghost width of 3, for $u = 10 i + j$, after a ghost update.
+The hatched diagonal ghosts mirror the inner diagonal cells (red outline) about the corner (red dot).
+Every other ghost of the corner block copies the diagonal ghost of its column.
+The ghosts beside the boundaries, filled by the condition and the extrapolation, are left blank.
+```
 
 `samurai::PolynomialExtrapolation` is not attached with {cpp:func}`samurai::make_bc`: it has two template parameters, and {{ project }} applies it on its own.
 
