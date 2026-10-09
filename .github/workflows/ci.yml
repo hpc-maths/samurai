@@ -497,6 +497,19 @@ jobs:
               run: |
                   ctest --test-dir build -R "test_lb" --output-on-failure
 
+            - name: Build PETSc block solver test
+              shell: micromamba-shell {0}
+              run: |
+                  cmake --build build --target test_petsc_block_fieldsplit
+
+            - name: MPI PETSc block solver tests (ctest, 2/3/4 procs)
+              shell: micromamba-shell {0}
+              env:
+                  FI_PROVIDER: tcp
+                  OMP_NUM_THREADS: "1"
+              run: |
+                  ctest --test-dir build -R "test_petsc_block_fieldsplit" --output-on-failure
+
             - name: Load balancing strategy comparison (pytest)
               shell: micromamba-shell {0}
               run: |

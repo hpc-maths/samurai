@@ -1218,10 +1218,12 @@ namespace samurai
                     {
                         if (row == 1)
                         {
+                            // PCFIELDSPLIT expects global indices: the block origin in the local monolithic
+                            // matrix is offset by the first column owned by the current MPI process.
                             std::vector<PetscInt> idx(static_cast<std::size_t>(op.owned_matrix_cols()));
                             for (std::size_t i = 0; i < idx.size(); ++i)
                             {
-                                idx[i] = op.block_col_shift() + static_cast<PetscInt>(i);
+                                idx[i] = op.rank_col_shift() + op.block_col_shift() + static_cast<PetscInt>(i);
                             }
                             ISCreateGeneral(PETSC_COMM_WORLD, static_cast<PetscInt>(idx.size()), idx.data(), PETSC_COPY_VALUES, &IS_array[col]);
                         }
