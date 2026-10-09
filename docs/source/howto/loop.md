@@ -56,6 +56,16 @@ All the cells are at level 5, so there is one interval per row: the program prin
   :language: text
 ```
 
+Each line is one call of the function.
+The first call receives the bottom row of the mesh: `level` is 5, `i` is the interval $[0, 32)$, the cells 0 to 31 of the row, and `index[0]`, the $y$ index of the row, is 0.
+
+```{diagram}
+:figure: interval_arguments
+
+The first printed line and the cells its arguments designate.
+Every row of the mesh has level 5; the interval of the first call, the bottom row, is hatched in red.
+```
+
 ## Setting field values interval by interval
 
 The next example initializes the same Gaussian as above, on the same mesh, one interval at a time:
