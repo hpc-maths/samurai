@@ -136,7 +136,15 @@ Every set expression has a level, returned by `level()`:
 The level does not have to exist in the mesh.
 
 - To a finer level, each cell becomes $2^s$ cells per direction, with $s$ the difference of levels: `[2,4)` at level 1 becomes `[8,16)` at level 3.
-- To a coarser level, a coarse cell belongs to the result as soon as one of its fine cells does: the projection rounds outwards. `[3,6)` at level 2 becomes `[1,3)` at level 1 and `[0,2)` at level 0.
+- To a coarser level, a coarse cell belongs to the result as soon as one of its fine cells does: the set projection rounds outwards. The start of an interval is divided by $2^s$ and rounded down, the end divided by $2^s$ and rounded up, so `[3,6)` at level 2 becomes `[1,3)` at level 1 and `[0,2)` at level 0.
+
+```{diagram}
+:figure: set_projection_rounding
+
+The interval $[3, 6)$ of level 2 and, in red, its set projections on levels 1 and 0, at true size.
+Dotted red lines mark the bounds of $[3, 6)$.
+The hatched coarse cells hold only part of $[3, 6)$ but belong to the result, so the result covers more than $[3, 6)$.
+```
 
 The operands are compared at the finest level of the expression, and `on` applies to the result.
 In the following figure, level 1 holds the interval $[0, 4)$ and level 0 the interval $[1, 3)$:
