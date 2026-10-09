@@ -334,7 +334,17 @@ The cells of the stencil come in this order:
 | 3 | left, center, right, front, back, bottom, top | left2, left, center, right, right2, front2, front, back, back2, bottom2, bottom, top, top2 |
 
 `center_index` equals the radius.
-The scheme reads the ghosts of the input field, which must therefore have boundary conditions.
+The index of a cell in this order is the index `i` of `coeffs[i]`, `jac[i]` and `cells[i]` in the functions below.
+
+```{diagram}
+:figure: star_stencils
+
+The stencils of a cell-based scheme in 2D, for the radii 0, 1 and 2.
+Each cell holds its index in the stencil, its name and its direction vector; the cell at `center_index`, shaded and hatched in red along its sides, is the cell the scheme writes.
+The stencil of radius 0 holds only that cell: a local scheme reads no ghost.
+```
+
+A scheme of radius 1 or 2 reads the ghosts of the input field, which must therefore have boundary conditions.
 The explicit application updates these ghosts first, if they are out of date.
 
 ### Linear, homogeneous
