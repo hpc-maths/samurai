@@ -19,22 +19,24 @@ To this end, we need a link between the array where the field values are stored 
 
 ### A 1D example
 
-We use the 1D example of the interval tutorial:
-
-```{image} ./figures/interval_example_1D.png
-:alt: A 1D mesh with two cells at level 0 on the left, three cells at level 1, two cells at level 2 in the middle, two cells at level 1 and one cell at level 0 on the right, above the cell indices of levels 0, 1 and 2.
-:align: center
-:width: 80%
-```
+We use the 1D mesh of the interval tutorial, with its five intervals: $[0, 2)$ and $[5, 6)$ at level 0, $[4, 7)$ and $[8, 10)$ at level 1, $[14, 16)$ at level 2.
 
 The values of a field are stored in one contiguous array, with one entry per cell.
-Its size is the sum of the sizes of all the intervals along $x$.
-The cells are numbered from the coarsest level to the finest level and, at each level, from left to right:
+Its size is the sum of the sizes of all the intervals along $x$, 10 here.
+The cells are numbered from the coarsest level to the finest level and, at each level, from left to right.
+This order differs from the order of the cells along $x$: the cell 5 of level 0, at the right end of the mesh, is entry 2, before every cell of level 1.
 
-```{image} ./figures/interval_example_1D_field.png
-:alt: The same 1D mesh with the position of each cell in the field array: 0 and 1 for the cells at level 0 on the left, 3, 4, 5 for the cells at level 1, 8 and 9 for the cells at level 2, 6 and 7 for the cells at level 1 on the right, and 2 for the last cell at level 0.
-:align: center
-:width: 80%
+```{plate} The field array of a 1D mesh
+:figure: field_storage_1d
+:label: plate-field-1d
+
+**Fig. 1.** At the top, the 10 entries of a field $u$ on the mesh, grouped by level.
+Below, the cells of the mesh, one row per level, each with its $x$ index.
+A connector links each cell to the entry that stores its value.
+The cells of level 2 and their entries are in [red]{.sm-red}.
+
+**Fig. 2.** The interval $[14, 16)$ of level 2 as {{ project }} prints it.
+Its index, $-6$, added to the $x$ index of each cell gives its entry: 8 and 9.
 ```
 
 For example:
@@ -43,12 +45,8 @@ For example:
 - `field(2, 14)` is entry 8 and belongs to the interval $[14, 16)$ at level 2.
 
 The cells of an interval are contiguous in the array, so one integer per interval is enough to find them: the index given by the `@` operator.
-The interval $[14, 16)$ at level 2 holds entries 8 and 9 of the array.
-With the index $-6$, the entry of each cell is its $x$ coordinate plus the index:
-
-$$
-[14, 16)@-6 \rightarrow [14 - 6, 15 - 6] = [8, 9].
-$$ (field-1d-index)
+The entry of a cell is its $x$ index plus the index of its interval.
+{ref}`plate-field-1d` follows the interval $[14, 16)@-6$ of level 2: its cells 14 and 15 are the entries $14 - 6 = 8$ and $15 - 6 = 9$.
 
 Following the same rule, the index of each interval is:
 
@@ -58,20 +56,14 @@ Following the same rule, the index of each interval is:
 
 ### A 2D example
 
-We use the 2D mesh of the interval tutorial:
+We use the 2D mesh of the interval tutorial.
+The cells are numbered in the same way: from the coarsest level to the finest level, and at each level row by row, from the bottom row to the top row and from left to right along $x$:
 
-```{image} ./figures/2D_mesh.png
-:alt: A 2D mesh on a 4 by 4 grid at level 0, with a 4 by 4 block of level 1 cells in the middle, a block of level 1 cells in the top right corner, and two 2 by 2 blocks of level 2 cells, one in the middle and one in the top right corner. The x and y indices of each level are drawn along the axes.
-:align: center
-:width: 60%
-```
+```{diagram}
+:figure: field_storage_2d
 
-The cells are numbered in the same way: from the coarsest level to the finest level, and at each level row by row, from left to right along $x$:
-
-```{image} ./figures/2D_mesh_numbering.png
-:alt: The same 2D mesh with the position of each cell in the field array, from 0 to 10 for the level 0 cells, 11 to 28 for the level 1 cells and 29 to 36 for the level 2 cells.
-:align: center
-:width: 60%
+The entry of each cell of the 2D mesh.
+The row $y = 15$ of level 2, in [red]{.sm-red}, is the interval $[14, 16)@21$: its index gives the entries 35 and 36.
 ```
 
 For example:
@@ -80,11 +72,7 @@ For example:
 - `field(2, 14, 15)` is entry 35 and belongs to the interval $[14, 16)$ for $y = 15$ at level 2.
 
 As in 1D, the index of an interval along $x$ gives the entries of its cells.
-The interval $[14, 16)$ for $y = 15$ at level 2 holds entries 35 and 36, so its index is 21:
-
-$$
-[14, 16)@21 \rightarrow [14 + 21, 15 + 21] = [35, 36].
-$$ (field-2d-index)
+The interval $[14, 16)$ for $y = 15$ at level 2 holds entries 35 and 36, so its index is 21: $14 + 21 = 35$ and $15 + 21 = 36$.
 
 With these indices, the whole `samurai::CellArray` is:
 
