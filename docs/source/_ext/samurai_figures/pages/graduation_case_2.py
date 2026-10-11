@@ -1,7 +1,7 @@
 """The figures of ``tutorial/graduation_case_2.md``: overlaps removed, then the graduation.
 
-The three meshes are the ones ``tutorial-graduation-case-2`` saves with its default
-options, exported with ``docs/tools/export_cells.py`` into ``data/``.
+The three meshes are the ones ``tutorial-graduation-case-2 --with-corner`` saves,
+with its default levels, exported with ``docs/tools/export_cells.py`` into ``data/``.
 """
 
 from pathlib import Path

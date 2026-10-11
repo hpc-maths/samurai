@@ -2,6 +2,7 @@
 // SPDX-License-Identifier:  BSD-3-Clause
 
 #include <filesystem>
+#include <vector>
 
 #include <xtensor/containers/xfixed.hpp>
 #include <xtensor/generators/xrandom.hpp>
@@ -52,7 +53,8 @@ int main(int argc, char* argv[])
 
     app.add_option("--minimum-level", min_level, "Minimum level of the mesh generator")->capture_default_str();
     app.add_option("--maximum-level", max_level, "Maximum level of the mesh generator")->capture_default_str();
-    app.add_flag("--with-corner", with_corner, "Make the graduation including the diagonal")->capture_default_str();
+    app.add_flag("--with-corner", with_corner, "Also grade across corners: add the diagonal directions to the axis directions")
+        ->capture_default_str();
     app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
     app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
     SAMURAI_PARSE(argc, argv);
@@ -114,24 +116,20 @@ int main(int argc, char* argv[])
 
     samurai::save(path, fmt::format("{}_without_intersection", filename), ca);
 
-    xt::xtensor_fixed<int, xt::xshape<4, dim>> stencil;
+    // The axis directions find the coarse cells that share part of a side with a
+    // fine cell, the diagonal directions those that share only a vertex with it.
+    std::vector<xt::xtensor_fixed<int, xt::xshape<dim>>> stencil = {
+        {1,  0 },
+        {-1, 0 },
+        {0,  1 },
+        {0,  -1}
+    };
     if (with_corner)
     {
-        stencil = {
-            {1,  0 },
-            {-1, 0 },
-            {0,  1 },
-            {0,  -1}
-        };
-    }
-    else
-    {
-        stencil = {
-            {1,  1 },
-            {-1, -1},
-            {-1, 1 },
-            {1,  -1}
-        };
+        stencil.push_back({1, 1});
+        stencil.push_back({-1, -1});
+        stencil.push_back({-1, 1});
+        stencil.push_back({1, -1});
     }
 
     // Make the mesh graded
@@ -146,9 +144,8 @@ int main(int argc, char* argv[])
         {
             for (std::size_t level_below = ca.min_level(); level_below < level - 1; ++level_below)
             {
-                for (std::size_t is = 0; is < stencil.shape()[0]; ++is)
+                for (const auto& s : stencil)
                 {
-                    auto s   = xt::view(stencil, is);
                     auto set = samurai::intersection(samurai::translate(ca[level], s), ca[level_below]).on(level_below);
                     set(
                         [&](const auto& i, const auto& index)

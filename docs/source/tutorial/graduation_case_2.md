@@ -8,11 +8,11 @@ This page is part of the {doc}`graduation series <graduation>`, which lists what
 
 ## Build and run the demo
 
-From the root of the repository, build the demo target and run it:
+From the root of the repository, build the demo target and run it with `--with-corner`, as in {doc}`case 1 <graduation_case_1>`, so that the graduation also looks across the corners of the cells:
 
 ```bash
 cmake --build build --target tutorial-graduation-case-2
-./build/demos/tutorial/tutorial-graduation-case-2
+./build/demos/tutorial/tutorial-graduation-case-2 --with-corner
 ```
 
 The demo prints one line per iteration of each loop, `Iteration for remove intersection: <n>` and then `Iteration for graduation: <n>`.
@@ -28,7 +28,7 @@ The demo accepts these options:
 | --- | --- | --- |
 | `--minimum-level` | 1 | Lowest level of the cells added at random. |
 | `--maximum-level` | 7 | Bound of the levels of the cells added at random; the levels drawn stay below it. |
-| `--with-corner` | off | Uses the four axis directions as graduation stencil instead of the four diagonal directions, as in case 1. |
+| `--with-corner` | off | Adds the four diagonal directions to the four axis directions of the graduation stencil, as in case 1. |
 | `--path` | current directory | Directory of the output files. |
 | `--filename` | `graduation_case_2` | Prefix of the output file names. |
 
@@ -76,8 +76,9 @@ This mesh is not graded: cells of levels 3 and 5 touch.
 **Fig. 3.** The graded mesh, 349 cells of levels 3 to 6.
 *c*, the 174 cells added by the graduation, hatched in [red]{.sm-red}.
 
-*The meshes are the three files the demo saves with its default options.
-It runs 7 iterations of the overlap removal and 3 of the graduation.*
+*The meshes are the three files the demo saves with `--with-corner` and its default levels.
+It runs 7 iterations of the overlap removal and 3 of the graduation.
+Without `--with-corner`, the graduation ends on 310 cells and leaves jumps of two levels across corners.*
 ```
 
 ## Remove the overlaps
@@ -113,7 +114,7 @@ At the end, the overlapping coarse cells have been replaced by cells around the 
 
 ## Make the mesh graded
 
-The mesh has no overlap left, so we grade it with the loop of {doc}`graduation case 1 <graduation_case_1>`, with the same stencil:
+The mesh has no overlap left, so we grade it with the loop of {doc}`graduation case 1 <graduation_case_1>`, with the same stencils: the axis directions, and the diagonal directions too with `--with-corner`:
 
 ```{literalinclude} ../../../demos/tutorial/graduation_case_2.cpp
 :language: c++

@@ -1,14 +1,16 @@
 """The figures of ``tutorial/graduation_case_1.md``: the random mesh and its graduation.
 
-The meshes of the plate are the two files the demo saves with its default
-options. Run ``tutorial-graduation-case-1 --save-debug-fields --path run``, then
+The meshes of the plate are the two files the demo saves with ``--with-corner``
+and its default levels. Run
+``tutorial-graduation-case-1 --with-corner --save-debug-fields --path run``, then
 export ``run/graduation_case_1_before_graduation.h5`` with
 ``docs/tools/export_cells.py`` into ``data/graduation_case_1_before.json``, and
 ``run/graduation_case_1_after_graduation.h5`` into
 ``data/graduation_case_1_after.json``, each with ``--source`` naming the
 program and the file. The diagrams redo in Python the tagging loop of the demo
-(``_tag``), on the exported mesh or on a small 1D mesh; with the default stencil
-it gives the same graded mesh as the demo.
+(``_tag``), on the exported mesh or on a small 1D mesh; with the stencil of
+``--with-corner`` it gives the same graded mesh as the demo, which
+``graduation_meshes`` checks.
 """
 
 from pathlib import Path
@@ -36,9 +38,11 @@ from ..registry import DIAGRAM_WIDTH, PLATE_WIDTH, Drawing, figure
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 
-# the stencils of the demo: the default one, and the one --with-corner selects
-DIAGONAL = ((1, 1), (-1, -1), (-1, 1), (1, -1))
+# the stencils of the demo: the axis directions by default, and with --with-corner
+# the axis directions followed by the diagonal ones, in the order of the demo
 AXIS = ((1, 0), (-1, 0), (0, 1), (0, -1))
+DIAGONAL = ((1, 1), (-1, -1), (-1, 1), (1, -1))
+WITH_CORNER = AXIS + DIAGONAL
 
 
 def _meshes():
@@ -90,9 +94,16 @@ def graduation_meshes(p):
     """Draw the mesh of the demo before and after the graduation, side by side.
 
     Figure of tutorial/graduation_case_1.md, from the two files the demo saves
-    with its default options. The cells the graduation adds are hatched in red.
+    with ``--with-corner``. The cells the graduation adds are hatched in red.
+    Raise ``ValueError`` when the tagging loop of the demo, replayed with ``_tag``,
+    does not turn the first mesh into the second.
     """
     before, after = _meshes()
+    mesh = sorted(before)
+    while tagged := _tag(mesh, WITH_CORNER):
+        mesh = _split(mesh, tagged)
+    if set(mesh) != set(after):
+        raise ValueError("the tagging loop of the demo does not give the exported graded mesh")
     added = set(after) - set(before)
     size, oy, xa, xb = 330, 14, 16, 365
     fa, fb = Frame((0, 0, 1, 1), xa, oy, size), Frame((0, 0, 1, 1), xb, oy, size)
@@ -276,11 +287,11 @@ def graduation_directions(p):
     Figure of tutorial/graduation_case_1.md. A cell of level l, filled, touches a
     cell of level l - 2, four times larger, in heavy rule: by a part of a side
     (face contact) or by a vertex only (corner contact). Each stencil of the demo
-    moves the small cell by its four vectors; the coarse cell is tagged when a
+    moves the small cell by each of its vectors; the coarse cell is tagged when a
     moved copy lands in it, as ``intersection(translate(ca[level], s),
     ca[level_below])`` finds it.
     """
-    c, top, pitch = 24, 44, 202
+    c, top, pitch = 24, 44, 218
     # the panels show the cells [0, 6) x [-1, 5) of level l; the coarse cell
     # covers [2, 6) x [1, 5)
     coarse = (2, 1, 6, 5)
@@ -289,8 +300,12 @@ def graduation_directions(p):
         ("corner contact", "they share only a vertex", (1, 0)),
     )
     stencils = (
-        ("diagonal stencil", "the default", DIAGONAL),
-        ("axis stencil", 'selected by <tspan class="sm-fig-code">--with-corner</tspan>', AXIS),
+        ("axis stencil", "the default", AXIS),
+        (
+            "axis and diagonal stencil",
+            'with <tspan class="sm-fig-code">--with-corner</tspan>',
+            WITH_CORNER,
+        ),
     )
     xs, key = (282, 482), 140
     ar, ar_red = f'marker-end="url(#{p}-a)"', f'marker-end="url(#{p}-ar)"'
@@ -310,7 +325,7 @@ def graduation_directions(p):
         g += text(xs[col] + 3 * c, top - 11, note, anchor="middle", size=11)
     for row, (name, note, stencil) in enumerate(stencils):
         oy = top + row * pitch
-        # the stencil: a cell and its four vectors, each labeled
+        # the stencil: a cell and its vectors, each labeled
         g += text(key, oy + 8, name, anchor="middle", size=12, fill=INK)
         cx, cy, half = key, oy + 80, 10
         g += rect(cx - half, cy - half, 2 * half, 2 * half, fill=WASH, stroke=INK)
@@ -327,8 +342,6 @@ def graduation_directions(p):
             )
             lx, ly = cx + dx * 42, cy + dy * 42 + 4
             anchor = "middle" if dx == 0 else ("start" if dx > 0 else "end")
-            if dx == 0:
-                ly += 6 if dy > 0 else -2
             g += text(lx, ly, _vector((sx, sy)), anchor=anchor, size=10.5, cls="sm-fig-code")
         g += text(key, oy + 152, note, anchor="middle", size=11)
         for col, (_, _, (fi, fj)) in enumerate(contacts):
@@ -362,31 +375,33 @@ def graduation_directions(p):
                     extra=ar_red if hit else ar,
                 )
             if hits:
-                verdict = (
-                    f'<tspan class="sm-fig-code">{_vector(hits[0])}</tspan> lands in it: tagged'
-                )
+                vectors = ", ".join(_vector(s) for s in hits)
+                verbs = "lands" if len(hits) == 1 else "land"
+                verdict = (f'<tspan class="sm-fig-code">{vectors}</tspan> {verbs} in it', "tagged")
             else:
-                verdict = "no copy lands in it: not tagged"
-            g += text(
-                ox + 3 * c,
-                oy + 6 * c + 20,
-                verdict,
-                anchor="middle",
-                size=11,
-                fill=RED if hits else INK2,
-            )
+                verdict = ("no copy lands in it", "not tagged")
+            for k, words in enumerate(verdict):
+                g += text(
+                    ox + 3 * c,
+                    oy + 6 * c + 20 + 15 * k,
+                    words,
+                    anchor="middle",
+                    size=11,
+                    fill=RED if hits else INK2,
+                )
     return Drawing(
         DIAGRAM_WIDTH,
         top + 2 * pitch - 26,
         "A table of four small grids. Columns: a filled cell of level l touches a coarse cell of"
         " level l - 2, four times larger, by part of a side (face contact) or by a vertex only"
-        " (corner contact). Rows: the diagonal stencil {1, 1}, {-1, -1}, {-1, 1}, {1, -1}, the"
-        " default, and the axis stencil {1, 0}, {-1, 0}, {0, 1}, {0, -1}, selected by"
-        " --with-corner, each drawn as four labeled arrows from a cell. In each grid the small"
-        " cell is moved by the four vectors; a copy that lands in the coarse cell is red and the"
-        " coarse cell is hatched, tagged. Diagonal, face contact: {1, 1} lands in it. Diagonal,"
-        " corner contact: {1, 1} lands in it. Axis, face contact: {1, 0} lands in it. Axis,"
-        " corner contact: no copy lands in it, the coarse cell is not tagged.",
+        " (corner contact). Rows: the axis stencil {1, 0}, {-1, 0}, {0, 1}, {0, -1}, the"
+        " default, and with --with-corner the same four vectors followed by the diagonal ones"
+        " {1, 1}, {-1, -1}, {-1, 1}, {1, -1}, each stencil drawn as labeled arrows from a cell."
+        " In each grid the small cell is moved by every vector; a copy that lands in the coarse"
+        " cell is red and the coarse cell is hatched, tagged. Axis, face contact: {1, 0} lands"
+        " in it. Axis, corner contact: no copy lands in it, the coarse cell is not tagged. Axis"
+        " and diagonal, face contact: {1, 0} and {1, 1} land in it. Axis and diagonal, corner"
+        " contact: {1, 1} lands in it.",
         patterns(p),
         g,
     )
