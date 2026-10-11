@@ -288,6 +288,6 @@ Each thread gets the same intervals:
 
 ## See also
 
-- The {doc}`tutorial on subset operators <../tutorial/operator_on_subset>` uses intersections, contractions, `on` and `apply_op` to project a field from one level to another.
+- The {doc}`tutorial on subset operators <../tutorial/operator_on_subset>` uses intersections, contractions, `on` and `apply_op` to compute a field projection from one level to another.
 - The {doc}`interval tutorial <../tutorial/interval>` shows how a level cell array stores its intervals.
 - The {doc}`loop how-to <../howto/loop>` loops over the intervals and cells of a set expression.

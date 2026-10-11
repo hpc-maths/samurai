@@ -1,0 +1,3 @@
+field projection on [1,3)@0:1
+field projection on [5,8)@0:1
+std::out_of_range thrown by the field projection on [5,8)@0:1

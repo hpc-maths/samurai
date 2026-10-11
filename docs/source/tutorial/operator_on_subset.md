@@ -1,10 +1,10 @@
-# Apply an operator on a set
+# Apply a subset operator on a set expression
 
-Adaptive mesh algorithms often apply an operator on one part of the mesh only: the ghost cells to update, the cells of level $l$ that receive the field projection of level $l + 1$, and so on.
-{{ project }} finds these parts with two ingredients: intervals and a set algebra.
+Adaptive mesh algorithms often compute on one part of the mesh only: the ghost cells to update, the cells of level $l$ that receive the field projection of level $l + 1$, and so on.
+{{ project }} describes these parts with set expressions, built from intervals by a set algebra.
 
 In this tutorial, we build a 1D mesh with two levels, find where the levels overlap, and compute the field projection of a field from the fine level to the coarse one.
-On the way, we meet the set operators, the `on` method that chooses the level of the result, contraction, and operators that work in any dimension.
+On the way, we meet the set operations, the `on` method that chooses the level of the result, contraction, and subset operators that work in any dimension.
 
 ## Before you start
 
@@ -20,8 +20,8 @@ We assume that you know how a mesh is stored as intervals, see the {doc}`interva
 
 ## Intervals
 
-A {cpp:class}`samurai::CellArray` stores a mesh made of several Cartesian grids, one per level of resolution.
-Each grid is stored as arrays of intervals, one array per direction.
+A {cpp:class}`samurai::CellArray` stores the cells of several levels, one level cell array per level.
+Each level cell array is stored as arrays of intervals, one array per direction.
 
 We build a mesh with two levels: we add intervals to a {cpp:class}`samurai::CellList`, then convert it into a {cpp:class}`samurai::CellArray`:
 
@@ -54,19 +54,9 @@ The demo prints the mesh:
 
 The output is:
 
-```text
-┌────────────────────┐
-│      Level 0       │
-└────────────────────┘
-     dim 0
-            cells = 0->[0,10)@0:1
-
-
-┌────────────────────┐
-│      Level 1       │
-└────────────────────┘
-     dim 0
-            cells = 0->[2,6)@8:1 1->[11,15)@3:1
+```{literalinclude} ../../../demos/tutorial/set_operator_output.txt
+  :language: text
+  :end-before: intersection found
 ```
 
 Each interval prints as `[start,end)@index:step`.
@@ -76,7 +66,7 @@ Each interval prints as `[start,end)@index:step`.
 ## Set algebra
 
 We now look for the cells where the two levels overlap.
-{{ project }} has these set operators, all in the `samurai` namespace:
+{{ project }} has these set operations, all in the `samurai` namespace:
 
 | Function | Result |
 | --- | --- |
@@ -87,7 +77,7 @@ We now look for the cells where the two levels overlap.
 | `samurai::contract(a, width)` | the cells of `a` whose neighbors `width` cells away on both sides, in each direction, also belong to `a` |
 | `samurai::expand(a, width)` | the cells of `a`, grown by `width` cells on both sides in each direction |
 
-The arguments can be levels of a mesh, such as `ca[0]`, or the result of another operator.
+The arguments can be level cell arrays, such as `ca[0]`, or the result of another set operation.
 The union is called `union_` because `union` is a C++ keyword.
 
 ### Intersection
@@ -101,25 +91,26 @@ We compute the intersection of the two levels:
   :dedent: 4
 ```
 
-`samurai::intersection` does not compute anything yet: it returns a subset, an expression that describes the set.
-Calling the subset with a function computes the set and calls the function once per interval of the result.
+`samurai::intersection` does not compute anything yet: it returns a set expression, which describes the set without holding its cells.
+Calling the set expression with a function traverses it: the function is called once per interval of the result.
 The function takes two parameters: the interval along $x$, and an array of size `dim - 1` with the indices in the other directions.
 In 1D, this array is empty, so we leave the second parameter unnamed.
 
 The output is:
 
-```text
-intersection found in [2,6)@0:1
-intersection found in [11,15)@0:1
+```{literalinclude} ../../../demos/tutorial/set_operator_output.txt
+  :language: text
+  :start-at: intersection found in [2,6)
+  :end-at: intersection found in [11,15)
 ```
 
 The result is computed on level 1.
-By default, a subset is computed on the finest level among its sets, here level 1.
-Here the index is 0: the intervals of this subset describe cells, not positions in a field.
+By default, a set expression is computed on the finest level among its sets, here level 1.
+Here the index is 0: the intervals of this set expression describe cells, not positions in a field.
 
 ### Choosing the level of the result
 
-The `on(level)` method of a subset gives the result on another level: this is a {ref}`set projection <def-set-projection>`.
+The `on(level)` method of a set expression gives the result on another level: this is a {ref}`set projection <def-set-projection>`.
 To get the intersection on level 0:
 
 ```{literalinclude} ../../../demos/tutorial/set_operator.cpp
@@ -131,9 +122,10 @@ To get the intersection on level 0:
 
 The output is:
 
-```text
-intersection found in [1,3)@0:1
-intersection found in [5,8)@0:1
+```{literalinclude} ../../../demos/tutorial/set_operator_output.txt
+  :language: text
+  :start-at: intersection found in [1,3)
+  :end-at: intersection found in [5,8)
 ```
 
 A cell of level 0 belongs to the result as soon as it overlaps the intersection.
@@ -151,14 +143,15 @@ Here is the intersection on level 3:
 
 The output is:
 
-```text
-intersection found in [8,24)@0:1
-intersection found in [44,60)@0:1
+```{literalinclude} ../../../demos/tutorial/set_operator_output.txt
+  :language: text
+  :start-at: intersection found in [8,24)
+  :end-at: intersection found in [44,60)
 ```
 
 ### Difference
 
-The other operators work the same way.
+The other set operations work the same way.
 The difference between level 0 and level 1:
 
 ```{literalinclude} ../../../demos/tutorial/set_operator.cpp
@@ -170,15 +163,15 @@ The difference between level 0 and level 1:
 
 gives, on level 1:
 
-```text
-difference found in [0,2)@0:1
-difference found in [6,11)@0:1
-difference found in [15,20)@0:1
+```{literalinclude} ../../../demos/tutorial/set_operator_output.txt
+  :language: text
+  :start-at: difference found in [0,2)
+  :end-at: difference found in [15,20)
 ```
 
-## Field projection with a subset
+## Field projection on a set expression
 
-We now create a field on the mesh and use a subset to compute a field projection on part of it.
+We now create a field on the mesh and use a set expression to compute a field projection on part of it.
 
 ### Creating the field
 
@@ -223,33 +216,29 @@ The other cells of level 0 keep 0, and level 1 does not change.
 ```
 
 A first attempt uses the intersection on level 0 from the previous section ({ref}`plate-subset-projection`, Fig. 1).
-This code is not in the demo:
+This code is not in the demo, but in the program [`field_projection_attempt.cpp`](https://github.com/hpc-maths/samurai/blob/main/docs/source/tutorial/snippet/set_operator/field_projection_attempt.cpp), which builds the same mesh and field:
 
-```c++
-auto subset = samurai::intersection(ca[0], ca[1]).on(0);
-subset(
-    [&](const auto& i, auto)
-    {
-        u(0, i) = 0.5 * (u(1, 2 * i) + u(1, 2 * i + 1));
-    });
+```{literalinclude} snippet/set_operator/field_projection_attempt.cpp
+  :language: c++
+  :start-at: auto set = samurai::intersection
+  :end-at: });
+  :dedent: 8
 ```
 
 `u(level, i)` gives the values of `u` on the interval `i` of a level.
 `2 * i` is the interval of the even fine cells, with a step of 2, and `2 * i + 1` the interval of the odd ones.
 
-The first interval of the subset, `[1,3)`, works.
+The first interval of the set expression, `[1,3)`, works.
 The second one, `[5,8)`, contains the coarse cells 5 and 7, whose fine cells 10 and 15 do not exist.
-The program stops with an uncaught `std::out_of_range` exception.
-C++ does not fix which of `u(1, 2 * i)` and `u(1, 2 * i + 1)` is evaluated first, so the message depends on the compiler.
-It is one of these two:
+Reading them throws a `std::out_of_range` exception, which stops a program that does not catch it.
+The program catches it and prints the interval of level 0 it was computing:
 
-```text
-LevelCellArray::get_interval: interval not found at level 1, i = [10,16)@0:2, index =
-Field 'u' interval query failed on level 1: requested interval [11, 17)@0:2 could not be found for indices []; available interval: [11, 15)@3:1
+```{literalinclude} snippet/set_operator/field_projection_attempt_output.txt
+  :language: text
 ```
 
-The first message says that the fine cell 10 is not in the mesh.
-The second one says that the fine cells 11, 13 and 15 are not all in one interval of level 1: the interval found, `[11, 15)`, stops before 15.
+The message of the exception names the interval of level 1 that the read could not find.
+C++ does not fix which of `u(1, 2 * i)` and `u(1, 2 * i + 1)` is evaluated first, so the failing read, and the message, depend on the compiler and the target.
 
 ### Contraction
 
@@ -263,67 +252,40 @@ To keep only the coarse cells whose two fine cells exist, we contract level 1 be
   :dedent: 4
 ```
 
-On level 0, this subset is `[1,3)` and `[6,7)`: the cells 1, 2 and 6 ({ref}`plate-subset-projection`, Fig. 2).
+On level 0, this set expression is `[1,3)` and `[6,7)`: the cells 1, 2 and 6 ({ref}`plate-subset-projection`, Fig. 2).
 After the field projection, the cells 1, 2 and 6 of level 0 hold 2.5, 4.5 and 12.5, the other cells of level 0 hold 0, and level 1 does not change (Fig. 3).
-The demo prints the field with `std::cout << u`, which gives one line per cell with its level, its center, its index and its value.
+The demo prints the field with `std::cout << u`, which gives one line per cell with its level, its center, its index and its value:
+
+```{literalinclude} ../../../demos/tutorial/set_operator_output.txt
+  :language: text
+  :start-at: Field u
+  :end-at: index: 17, value: 14
+```
 
 A coarse cell that remains after the contraction always has its two fine cells.
 The contraction can also remove a coarse cell whose two fine cells exist: a level 1 interval of exactly two cells, such as `[4,6)`, disappears when it is contracted by 1.
 
-## Operators working in many dimensions
+## A subset operator for every dimension
 
 The field projection above is written for 1D.
 In 2D, a coarse cell has 4 fine cells, and in 3D it has 8.
-We write one operator that works in 1D, 2D and 3D, with one `operator()` per dimension:
+A subset operator is a kernel that `apply_op` applies on each interval of a set expression.
+We write one that works in 1D, 2D and 3D, with one `operator()` per dimension:
 
-```c++
-template <std::size_t dim, class TInterval>
-class my_projection_op : public samurai::field_operator_base<dim, TInterval>
-{
-  public:
-
-    INIT_OPERATOR(my_projection_op)
-
-    template <class T>
-    SAMURAI_INLINE void operator()(samurai::Dim<1>, T& field) const
-    {
-        field(level, i) = .5 * (field(level + 1, 2 * i) + field(level + 1, 2 * i + 1));
-    }
-
-    template <class T>
-    SAMURAI_INLINE void operator()(samurai::Dim<2>, T& field) const
-    {
-        field(level, i, j) = .25
-                           * (field(level + 1, 2 * i, 2 * j) + field(level + 1, 2 * i, 2 * j + 1) + field(level + 1, 2 * i + 1, 2 * j)
-                              + field(level + 1, 2 * i + 1, 2 * j + 1));
-    }
-
-    template <class T>
-    SAMURAI_INLINE void operator()(samurai::Dim<3>, T& field) const
-    {
-        field(level, i, j, k) = .125
-                              * (field(level + 1, 2 * i, 2 * j, 2 * k) + field(level + 1, 2 * i + 1, 2 * j, 2 * k)
-                                 + field(level + 1, 2 * i, 2 * j + 1, 2 * k) + field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k)
-                                 + field(level + 1, 2 * i, 2 * j, 2 * k + 1) + field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1)
-                                 + field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1) + field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1));
-    }
-};
-
-template <class T>
-SAMURAI_INLINE auto my_projection(T&& field)
-{
-    return samurai::make_field_operator_function<my_projection_op>(std::forward<T>(field));
-}
+```{literalinclude} ../../../demos/tutorial/set_operator.cpp
+  :language: c++
+  :start-at: template <std::size_t dim, class TInterval>
+  :end-before: // Checks my_projection in 2D and 3D
 ```
 
 The parts of this code are:
 
-- `samurai::field_operator_base<dim, TInterval>` holds the position where the operator is applied: the level `level`, the interval `i` along $x$, and the indices `j` and `k` in the other directions.
+- `samurai::field_operator_base<dim, TInterval>` holds the position where the subset operator is applied: the level `level`, the interval `i` along $x$, and the indices `j` and `k` in the other directions.
 - `INIT_OPERATOR(my_projection_op)` declares the constructors and makes `level`, `i`, `j` and `k` usable in the class. It needs the template parameters to be named `dim` and `TInterval`.
 - The first parameter of each `operator()`, `samurai::Dim<1>`, `samurai::Dim<2>` or `samurai::Dim<3>`, selects the version that matches the dimension of the mesh at compile time.
-- `my_projection(u)` binds the operator to the field `u` with `samurai::make_field_operator_function`.
+- `my_projection(u)` binds the subset operator to the field `u` with `samurai::make_field_operator_function`.
 
-We apply the operator on the contracted subset with `apply_op`:
+We apply the subset operator on the contracted set expression with `apply_op`:
 
 ```{literalinclude} ../../../demos/tutorial/set_operator.cpp
   :language: c++
@@ -332,16 +294,33 @@ We apply the operator on the contracted subset with `apply_op`:
   :dedent: 4
 ```
 
-`apply_op` calls the operator once per interval of the subset, on the level of the subset, here level 0.
+`apply_op` calls the subset operator once per interval of the set expression, on the level of the set expression, here level 0.
 It gives the same values as the lambda of the previous section.
-`apply_op` takes several operators, and applies all of them on each interval.
+`apply_op` takes several subset operators, and applies all of them on each interval.
+
+To check the 2D and 3D versions, the demo builds a mesh with one cell on level 0 and its $2^d$ fine cells on level 1, in dimension $d = 2$ and $d = 3$.
+The fine cells hold 1 to $2^d$, so the field projection must give their mean, $(2^d + 1) / 2$:
+
+```{literalinclude} ../../../demos/tutorial/set_operator.cpp
+  :language: c++
+  :start-at: samurai::intersection(ca[0], ca[1]).on(0).apply_op
+  :end-at: samurai::intersection(ca[0], ca[1]).on(0).apply_op
+  :dedent: 4
+```
+
+The output is:
+
+```{literalinclude} ../../../demos/tutorial/set_operator_output.txt
+  :language: text
+  :start-at: 2D:
+```
 
 ## What we built
 
 We built a mesh with two levels, found where they overlap with `samurai::intersection`, chose the level of the result with `on`, and used `samurai::contract` to keep only the coarse cells that can receive a field projection.
-Then we wrote the field projection as an operator that works in 1D, 2D and 3D, and applied it with `apply_op`.
+Then we wrote the field projection as a subset operator that works in 1D, 2D and 3D, and applied it with `apply_op`.
 
 ## Next steps
 
-- {ref}`AlgebraOfSet` explains how {{ project }} computes a subset from sets of intervals.
-- The {doc}`graduation tutorials <graduation>` use subsets to find the cells that break the graduation of a mesh.
+- {ref}`AlgebraOfSet` lists the set operations and explains how {{ project }} traverses a set expression.
+- The {doc}`graduation tutorials <graduation>` use set expressions to find the cells that break the graduation of a mesh.
