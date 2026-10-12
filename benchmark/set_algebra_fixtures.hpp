@@ -93,6 +93,42 @@ namespace bench
                                                      benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
     }
 
+    // Rebuilds the expression returned by `make` and traverses it at every
+    // iteration, then reports what it emitted.
+    template <class Make>
+    void run(benchmark::State& state, Make&& make)
+    {
+        Tally tally;
+        for (auto _ : state)
+        {
+            tally = traverse(make());
+        }
+        report(state, tally);
+    }
+
+    // Runs `site` at every iteration with a callback f(level, set) that
+    // traverses each set, reports what they emitted and returns the number of
+    // sets of one iteration.
+    template <class Site>
+    std::size_t run_site(benchmark::State& state, Site&& site)
+    {
+        Tally tally;
+        std::size_t nsets = 0;
+        for (auto _ : state)
+        {
+            tally = {};
+            nsets = 0;
+            site(
+                [&](std::size_t, const auto& set)
+                {
+                    tally += traverse(set);
+                    ++nsets;
+                });
+        }
+        report(state, tally);
+        return nsets;
+    }
+
     //////////////////////////////////////////////////////////////////////
     // Synthetic LevelCellArrays
     //////////////////////////////////////////////////////////////////////
@@ -142,9 +178,39 @@ namespace bench
         return centers;
     }
 
+    // Calls `row` for every row of [lo, hi), that is every value of the
+    // coordinates 1 to `axis` of `cell`, outermost coordinate slowest: the
+    // order add_interval_back expects. cell[0] is left to `row`.
+    template <std::size_t axis, class Coords, class Row>
+    void for_each_row(Coords& cell, const Coords& lo, const Coords& hi, Row&& row)
+    {
+        if constexpr (axis == 0)
+        {
+            row();
+        }
+        else
+        {
+            for (cell[axis] = lo[axis]; cell[axis] < hi[axis]; ++cell[axis])
+            {
+                for_each_row<axis - 1>(cell, lo, hi, row);
+            }
+        }
+    }
+
+    // The coordinates of the row of `cell`, as add_interval_back takes them.
+    template <std::size_t dim, class value_t>
+    xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> row_index(const std::array<value_t, dim>& cell)
+    {
+        xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> yz;
+        for (std::size_t d = 1; d < dim; ++d)
+        {
+            yz[d - 1] = cell[d];
+        }
+        return yz;
+    }
+
     // The LevelCellArray of the cells of [0, 2^level)^dim for which `inside`
-    // holds, built row by row in the order add_interval_back expects
-    // (outermost coordinate slowest).
+    // holds.
     template <std::size_t dim, class Predicate>
     samurai::LevelCellArray<dim> make_lca(std::size_t level, Predicate&& inside)
     {
@@ -155,51 +221,31 @@ namespace bench
         lca_t lca(level);
 
         std::array<value_t, dim> cell{};
-        xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> yz;
+        std::array<value_t, dim> lo{};
+        std::array<value_t, dim> hi;
+        hi.fill(n);
 
-        auto scan_row = [&]()
-        {
-            for (std::size_t d = 1; d < dim; ++d)
-            {
-                yz[d - 1] = cell[d];
-            }
-            value_t start = -1;
-            for (cell[0] = 0; cell[0] <= n; ++cell[0])
-            {
-                const bool in = (cell[0] < n) && inside(cell);
-                if (in && start < 0)
-                {
-                    start = cell[0];
-                }
-                else if (!in && start >= 0)
-                {
-                    lca.add_interval_back({start, cell[0]}, yz);
-                    start = -1;
-                }
-            }
-        };
-
-        if constexpr (dim == 1)
-        {
-            scan_row();
-        }
-        else if constexpr (dim == 2)
-        {
-            for (cell[1] = 0; cell[1] < n; ++cell[1])
-            {
-                scan_row();
-            }
-        }
-        else
-        {
-            for (cell[2] = 0; cell[2] < n; ++cell[2])
-            {
-                for (cell[1] = 0; cell[1] < n; ++cell[1])
-                {
-                    scan_row();
-                }
-            }
-        }
+        for_each_row<dim - 1>(cell,
+                              lo,
+                              hi,
+                              [&]()
+                              {
+                                  const auto yz = row_index(cell);
+                                  value_t start = -1;
+                                  for (cell[0] = 0; cell[0] <= n; ++cell[0])
+                                  {
+                                      const bool in = (cell[0] < n) && inside(cell);
+                                      if (in && start < 0)
+                                      {
+                                          start = cell[0];
+                                      }
+                                      else if (!in && start >= 0)
+                                      {
+                                          lca.add_interval_back({start, cell[0]}, yz);
+                                          start = -1;
+                                      }
+                                  }
+                              });
         return lca;
     }
 
@@ -209,30 +255,15 @@ namespace bench
                                           const std::array<typename samurai::LevelCellArray<dim>::value_t, dim>& lo,
                                           const std::array<typename samurai::LevelCellArray<dim>::value_t, dim>& hi)
     {
-        using value_t = typename samurai::LevelCellArray<dim>::value_t;
         samurai::LevelCellArray<dim> lca(level);
-        xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> yz;
-        if constexpr (dim == 1)
-        {
-            lca.add_interval_back({lo[0], hi[0]}, yz);
-        }
-        else if constexpr (dim == 2)
-        {
-            for (yz[0] = lo[1]; yz[0] < hi[1]; ++yz[0])
-            {
-                lca.add_interval_back({lo[0], hi[0]}, yz);
-            }
-        }
-        else
-        {
-            for (yz[1] = lo[2]; yz[1] < hi[2]; ++yz[1])
-            {
-                for (yz[0] = lo[1]; yz[0] < hi[1]; ++yz[0])
-                {
-                    lca.add_interval_back({lo[0], hi[0]}, yz);
-                }
-            }
-        }
+        auto cell = lo;
+        for_each_row<dim - 1>(cell,
+                              lo,
+                              hi,
+                              [&]()
+                              {
+                                  lca.add_interval_back({lo[0], hi[0]}, row_index(cell));
+                              });
         return lca;
     }
 
@@ -349,6 +380,48 @@ namespace bench
         v[axis] = value;
         return v;
     }
+
+    // How far the translations of an N-ary expression reach.
+    enum class Reach
+    {
+        unit,    // +-e_d only: operands overlap almost entirely
+        growing, // +-r e_d with r growing every 2 dim operands: all distinct
+    };
+
+    // The N translations of the operands of an N-ary expression: the
+    // directions of the star stencil, +-e_0, +-e_1, ..., in turn.
+    template <std::size_t dim, std::size_t N>
+    std::array<xt::xtensor_fixed<int, xt::xshape<dim>>, N> translations(Reach reach)
+    {
+        std::array<xt::xtensor_fixed<int, xt::xshape<dim>>, N> t;
+        for (std::size_t i = 0; i < N; ++i)
+        {
+            const int radius = (reach == Reach::growing) ? 1 + static_cast<int>(i / (2 * dim)) : 1;
+            t[i]             = unit<dim>((i / 2) % dim, (i % 2 == 0) ? radius : -radius);
+        }
+        return t;
+    }
+
+    // op(self(a), translate(a, t[0]), ..., translate(a, t[N - 1])): the
+    // stencil pattern of the library.
+    template <class Op, class LCA, class Translations, std::size_t... Is>
+    auto make_nary(Op&& op, const LCA& lca, const Translations& t, std::index_sequence<Is...>)
+    {
+        return op(samurai::self(lca), samurai::translate(lca, t[Is])...);
+    }
+
+    inline constexpr auto intersection_op = [](const auto&... s)
+    {
+        return samurai::intersection(s...);
+    };
+    inline constexpr auto union_op = [](const auto&... s)
+    {
+        return samurai::union_(s...);
+    };
+    inline constexpr auto difference_op = [](const auto&... s)
+    {
+        return samurai::difference(s...);
+    };
 
     //////////////////////////////////////////////////////////////////////
     // MR-adapted meshes

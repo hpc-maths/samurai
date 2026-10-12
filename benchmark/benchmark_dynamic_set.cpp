@@ -45,62 +45,121 @@ namespace
         return lca;
     }
 
-    template <std::size_t dim, std::size_t N>
-    std::array<xt::xtensor_fixed<int, xt::xshape<dim>>, N> translations()
+    enum class Algebra
     {
-        std::array<xt::xtensor_fixed<int, xt::xshape<dim>>, N> t;
-        for (std::size_t i = 0; i < N; ++i)
+        static_,
+        dynamic,
+    };
+
+    // intersection(self(a), translate(a, t[0]), ...) in either algebra.
+    template <Algebra algebra, class LCA, class Translations, std::size_t... Is>
+    auto make_intersection(const LCA& lca, const Translations& t, std::index_sequence<Is...> seq)
+    {
+        if constexpr (algebra == Algebra::static_)
         {
-            t[i] = bench::unit<dim>((i / 2) % dim, (i % 2 == 0) ? 1 : -1);
+            return bench::make_nary(bench::intersection_op, lca, t, seq);
         }
-        return t;
-    }
-
-    template <class LCA, class Translations, std::size_t... Is>
-    auto static_intersection(const LCA& lca, const Translations& t, std::index_sequence<Is...>)
-    {
-        return samurai::intersection(samurai::self(lca), samurai::translate(lca, t[Is])...);
-    }
-
-    template <class LCA, class Translations, std::size_t... Is>
-    auto dynamic_intersection(const LCA& lca, const Translations& t, std::index_sequence<Is...>)
-    {
-        return samurai::dyn::intersection(samurai::dyn::self(lca), samurai::dyn::translate(samurai::dyn::self(lca), t[Is])...);
-    }
-
-    template <class Make>
-    void run(benchmark::State& state, Make&& make)
-    {
-        bench::Tally tally;
-        for (auto _ : state)
+        else
         {
-            tally = bench::traverse(make());
+            return samurai::dyn::intersection(samurai::dyn::self(lca), samurai::dyn::translate(samurai::dyn::self(lca), t[Is])...);
         }
-        bench::report(state, tally);
     }
 
-    template <class Site>
-    void run_site(benchmark::State& state, Site&& site)
+    // intersection(a, N - 1 unit translates of a), read at its own level or
+    // at L - 1.
+    template <Algebra algebra, std::size_t dim, std::size_t N, bool coarsen>
+    void run_intersection(benchmark::State& state)
     {
-        bench::Tally tally;
-        for (auto _ : state)
-        {
-            tally = {};
-            site(
-                [&](const auto& set)
-                {
-                    tally += bench::traverse(set);
-                });
-        }
-        bench::report(state, tally);
+        const auto& lca = front<dim>();
+        const auto t    = bench::translations<dim, N - 1>(bench::Reach::unit);
+        bench::run(state,
+                   [&]
+                   {
+                       auto set = make_intersection<algebra>(lca, t, std::make_index_sequence<N - 1>{});
+                       if constexpr (coarsen)
+                       {
+                           return set.on(front_level<dim>() - 1);
+                       }
+                       else
+                       {
+                           return set;
+                       }
+                   });
     }
 
     template <std::size_t dim>
-    auto& adapted_mesh(benchmark::State& state)
+    const auto& adapted_mesh(benchmark::State& state)
     {
-        auto& c = bench::adapted_case<dim>(static_cast<std::size_t>(state.range(0)), static_cast<std::size_t>(state.range(1)));
+        const auto& c = bench::adapted_case<dim>(static_cast<std::size_t>(state.range(0)), static_cast<std::size_t>(state.range(1)));
         bench::report_mesh(state, c.mesh);
         return c.mesh;
+    }
+
+    // The ghost projection of update_ghost_mr, every level.
+    template <Algebra algebra, class Mesh, class F>
+    void site_ghost_projection(const Mesh& mesh, F&& f)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+        for (std::size_t level = mesh.max_level(); level >= 1; --level)
+        {
+            const auto& reference  = mesh[mesh_id_t::reference][level];
+            const auto& proj_cells = mesh[mesh_id_t::proj_cells][level - 1];
+            if constexpr (algebra == Algebra::static_)
+            {
+                f(level - 1, samurai::intersection(reference, proj_cells).on(level - 1));
+            }
+            else
+            {
+                f(level - 1, samurai::dyn::intersection(samurai::dyn::self(reference), samurai::dyn::self(proj_cells)).on(level - 1));
+            }
+        }
+    }
+
+    // The same-level faces of for_each_interface, every level and direction.
+    template <Algebra algebra, class Mesh, class F>
+    void site_interfaces(const Mesh& mesh, F&& f)
+    {
+        using mesh_id_t   = typename Mesh::mesh_id_t;
+        const auto& cells = mesh[mesh_id_t::cells];
+        for (std::size_t d = 0; d < Mesh::dim; ++d)
+        {
+            const auto direction = bench::unit<Mesh::dim>(d, -1);
+            for (std::size_t level = cells.min_level(); level <= cells.max_level(); ++level)
+            {
+                if constexpr (algebra == Algebra::static_)
+                {
+                    f(level, samurai::intersection(cells[level], samurai::translate(cells[level], direction)));
+                }
+                else
+                {
+                    f(level,
+                      samurai::dyn::intersection(samurai::dyn::self(cells[level]),
+                                                 samurai::dyn::translate(samurai::dyn::self(cells[level]), direction)));
+                }
+            }
+        }
+    }
+
+    template <Algebra algebra, std::size_t dim>
+    void run_ghost_projection(benchmark::State& state)
+    {
+        const auto& mesh = adapted_mesh<dim>(state);
+        bench::run_site(state,
+                        [&](auto&& f)
+                        {
+                            site_ghost_projection<algebra>(mesh, f);
+                        });
+    }
+
+    template <Algebra algebra, std::size_t dim>
+    void run_interfaces(benchmark::State& state)
+    {
+        const auto& mesh = adapted_mesh<dim>(state);
+        bench::run_site(state,
+                        [&](auto&& f)
+                        {
+                            site_interfaces<algebra>(mesh, f);
+                        });
     }
 } // namespace
 
@@ -110,50 +169,26 @@ namespace
 template <std::size_t dim, std::size_t N>
 static void BM_Intersection_static(benchmark::State& state)
 {
-    const auto& lca = front<dim>();
-    const auto t    = translations<dim, N - 1>();
-    run(state,
-        [&]
-        {
-            return static_intersection(lca, t, std::make_index_sequence<N - 1>{});
-        });
+    run_intersection<Algebra::static_, dim, N, false>(state);
 }
 
 template <std::size_t dim, std::size_t N>
 static void BM_Intersection_dynamic(benchmark::State& state)
 {
-    const auto& lca = front<dim>();
-    const auto t    = translations<dim, N - 1>();
-    run(state,
-        [&]
-        {
-            return dynamic_intersection(lca, t, std::make_index_sequence<N - 1>{});
-        });
+    run_intersection<Algebra::dynamic, dim, N, false>(state);
 }
 
 // intersection(a, translate(a, e_x)).on(L - 1).
 template <std::size_t dim>
 static void BM_IntersectionCoarsen_static(benchmark::State& state)
 {
-    const auto& lca = front<dim>();
-    const auto t    = translations<dim, 1>();
-    run(state,
-        [&]
-        {
-            return static_intersection(lca, t, std::make_index_sequence<1>{}).on(front_level<dim>() - 1);
-        });
+    run_intersection<Algebra::static_, dim, 2, true>(state);
 }
 
 template <std::size_t dim>
 static void BM_IntersectionCoarsen_dynamic(benchmark::State& state)
 {
-    const auto& lca = front<dim>();
-    const auto t    = translations<dim, 1>();
-    run(state,
-        [&]
-        {
-            return dynamic_intersection(lca, t, std::make_index_sequence<1>{}).on(front_level<dim>() - 1);
-        });
+    run_intersection<Algebra::dynamic, dim, 2, true>(state);
 }
 
 BENCHMARK(BM_Intersection_static<2, 2>);
@@ -175,79 +210,28 @@ BENCHMARK(BM_IntersectionCoarsen_dynamic<3>);
 
 // --- Library expressions on an adapted mesh --------------------------------------
 
-// The ghost projection of update_ghost_mr, every level.
 template <std::size_t dim>
 static void BM_GhostProjection_static(benchmark::State& state)
 {
-    const auto& mesh = adapted_mesh<dim>(state);
-    using mesh_id_t  = typename std::decay_t<decltype(mesh)>::mesh_id_t;
-    run_site(state,
-             [&](auto&& f)
-             {
-                 for (std::size_t level = mesh.max_level(); level >= 1; --level)
-                 {
-                     f(samurai::intersection(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::proj_cells][level - 1]).on(level - 1));
-                 }
-             });
+    run_ghost_projection<Algebra::static_, dim>(state);
 }
 
 template <std::size_t dim>
 static void BM_GhostProjection_dynamic(benchmark::State& state)
 {
-    const auto& mesh = adapted_mesh<dim>(state);
-    using mesh_id_t  = typename std::decay_t<decltype(mesh)>::mesh_id_t;
-    run_site(state,
-             [&](auto&& f)
-             {
-                 for (std::size_t level = mesh.max_level(); level >= 1; --level)
-                 {
-                     f(samurai::dyn::intersection(samurai::dyn::self(mesh[mesh_id_t::reference][level]),
-                                                  samurai::dyn::self(mesh[mesh_id_t::proj_cells][level - 1]))
-                           .on(level - 1));
-                 }
-             });
+    run_ghost_projection<Algebra::dynamic, dim>(state);
 }
 
-// The same-level faces of for_each_interface, every level and direction.
 template <std::size_t dim>
 static void BM_Interfaces_static(benchmark::State& state)
 {
-    const auto& mesh  = adapted_mesh<dim>(state);
-    using mesh_id_t   = typename std::decay_t<decltype(mesh)>::mesh_id_t;
-    const auto& cells = mesh[mesh_id_t::cells];
-    run_site(state,
-             [&](auto&& f)
-             {
-                 for (std::size_t d = 0; d < dim; ++d)
-                 {
-                     const auto direction = bench::unit<dim>(d);
-                     for (std::size_t level = cells.min_level(); level <= cells.max_level(); ++level)
-                     {
-                         f(samurai::intersection(cells[level], samurai::translate(cells[level], -direction)));
-                     }
-                 }
-             });
+    run_interfaces<Algebra::static_, dim>(state);
 }
 
 template <std::size_t dim>
 static void BM_Interfaces_dynamic(benchmark::State& state)
 {
-    const auto& mesh  = adapted_mesh<dim>(state);
-    using mesh_id_t   = typename std::decay_t<decltype(mesh)>::mesh_id_t;
-    const auto& cells = mesh[mesh_id_t::cells];
-    run_site(state,
-             [&](auto&& f)
-             {
-                 for (std::size_t d = 0; d < dim; ++d)
-                 {
-                     const xt::xtensor_fixed<int, xt::xshape<dim>> direction = -bench::unit<dim>(d);
-                     for (std::size_t level = cells.min_level(); level <= cells.max_level(); ++level)
-                     {
-                         f(samurai::dyn::intersection(samurai::dyn::self(cells[level]),
-                                                      samurai::dyn::translate(samurai::dyn::self(cells[level]), direction)));
-                     }
-                 }
-             });
+    run_interfaces<Algebra::dynamic, dim>(state);
 }
 
 namespace

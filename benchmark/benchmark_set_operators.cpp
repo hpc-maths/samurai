@@ -62,37 +62,24 @@ namespace
     template <std::size_t dim>
     const samurai::LevelCellArray<dim>& input(Shape shape)
     {
-        static const auto box   = bench::make_shape<dim>(Shape::box, front_level<dim>());
-        static const auto balls = bench::make_shape<dim>(Shape::balls, front_level<dim>(), 0, 64);
+        static const auto box      = bench::make_shape<dim>(Shape::box, front_level<dim>());
+        static const auto ball_set = bench::make_shape<dim>(Shape::balls, front_level<dim>(), 0, 64);
         switch (shape)
         {
             case Shape::box:
                 return box;
             case Shape::balls:
-                return balls;
+                return ball_set;
             default:
                 return front<dim>();
         }
     }
 
-    // The i-th translation of the operands: star directions of growing
-    // radius, so that every operand differs from the others.
+    // Every operand differs from the others.
     template <std::size_t dim, std::size_t N>
-    std::array<xt::xtensor_fixed<int, xt::xshape<dim>>, N> translations()
+    auto translations()
     {
-        std::array<xt::xtensor_fixed<int, xt::xshape<dim>>, N> t;
-        for (std::size_t i = 0; i < N; ++i)
-        {
-            const int radius = 1 + static_cast<int>(i / (2 * dim));
-            t[i]             = bench::unit<dim>((i / 2) % dim, (i % 2 == 0) ? radius : -radius);
-        }
-        return t;
-    }
-
-    template <class Op, class LCA, class Translations, std::size_t... Is>
-    auto make_nary(Op&& op, const LCA& lca, const Translations& t, std::index_sequence<Is...>)
-    {
-        return op(samurai::self(lca), samurai::translate(lca, t[Is])...);
+        return bench::translations<dim, N>(bench::Reach::growing);
     }
 
     template <class LCA, std::size_t... Is>
@@ -115,41 +102,32 @@ namespace
         }
     }
 
-    constexpr auto intersection_op = [](const auto&... s)
-    {
-        return samurai::intersection(s...);
-    };
-    constexpr auto union_op = [](const auto&... s)
-    {
-        return samurai::union_(s...);
-    };
-    constexpr auto difference_op = [](const auto&... s)
-    {
-        return samurai::difference(s...);
-    };
-
-    template <class Make>
-    void run(benchmark::State& state, Make&& make)
-    {
-        bench::Tally tally;
-        for (auto _ : state)
-        {
-            tally = bench::traverse(make());
-        }
-        bench::report(state, tally);
-    }
-
-    // Same, with the time per input interval and per operand interval
+    // bench::run, with the time per input interval and per operand interval
     // (`t/op_itv`, input intervals times N): the figure to read when the output
     // size changes with N, as for a difference.
     template <std::size_t dim, class Make>
     void run_nary(benchmark::State& state, const samurai::LevelCellArray<dim>& lca, std::size_t n, Make&& make)
     {
-        run(state, std::forward<Make>(make));
+        bench::run(state, std::forward<Make>(make));
         bench::report_input(state, lca);
         state.counters["N"]        = static_cast<double>(n);
         state.counters["t/op_itv"] = benchmark::Counter(static_cast<double>(n * lca[0].size()),
                                                         benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
+    }
+
+    // op(self(a), N - 1 translates of a), on the balls.
+    template <std::size_t dim, std::size_t N, class Op>
+    void run_arity(benchmark::State& state, Op&& op)
+    {
+        const auto& lca = balls<dim>();
+        const auto t    = translations<dim, N - 1>();
+        run_nary(state,
+                 lca,
+                 N,
+                 [&]
+                 {
+                     return bench::make_nary(op, lca, t, std::make_index_sequence<N - 1>{});
+                 });
     }
 } // namespace
 
@@ -180,11 +158,11 @@ template <std::size_t dim, Shape shape>
 static void BM_Self(benchmark::State& state)
 {
     const auto& lca = input<dim>(shape);
-    run(state,
-        [&]
-        {
-            return samurai::self(lca);
-        });
+    bench::run(state,
+               [&]
+               {
+                   return samurai::self(lca);
+               });
     bench::report_input(state, lca);
 }
 
@@ -209,43 +187,19 @@ BENCHMARK(BM_Self<3, Shape::balls>);
 template <std::size_t dim, std::size_t N>
 static void BM_IntersectionArity(benchmark::State& state)
 {
-    const auto& lca = balls<dim>();
-    const auto t    = translations<dim, N - 1>();
-    run_nary(state,
-             lca,
-             N,
-             [&]
-             {
-                 return make_nary(intersection_op, lca, t, std::make_index_sequence<N - 1>{});
-             });
+    run_arity<dim, N>(state, bench::intersection_op);
 }
 
 template <std::size_t dim, std::size_t N>
 static void BM_UnionArity(benchmark::State& state)
 {
-    const auto& lca = balls<dim>();
-    const auto t    = translations<dim, N - 1>();
-    run_nary(state,
-             lca,
-             N,
-             [&]
-             {
-                 return make_nary(union_op, lca, t, std::make_index_sequence<N - 1>{});
-             });
+    run_arity<dim, N>(state, bench::union_op);
 }
 
 template <std::size_t dim, std::size_t N>
 static void BM_DifferenceArity(benchmark::State& state)
 {
-    const auto& lca = balls<dim>();
-    const auto t    = translations<dim, N - 1>();
-    run_nary(state,
-             lca,
-             N,
-             [&]
-             {
-                 return make_nary(difference_op, lca, t, std::make_index_sequence<N - 1>{});
-             });
+    run_arity<dim, N>(state, bench::difference_op);
 }
 
 // N times the same set: the merge and the row lookups without translation.
@@ -307,11 +261,11 @@ static void BM_Expand(benchmark::State& state)
 {
     const auto& lca = front<dim>();
     const int w     = static_cast<int>(state.range(0));
-    run(state,
-        [&]
-        {
-            return samurai::expand(lca, w);
-        });
+    bench::run(state,
+               [&]
+               {
+                   return samurai::expand(lca, w);
+               });
 }
 
 // contract(a, w): intersection of a with its 2 dim translates by +-w,
@@ -320,11 +274,11 @@ template <std::size_t dim>
 static void BM_Contract(benchmark::State& state)
 {
     const auto& lca = front<dim>();
-    run(state,
-        [&]
-        {
-            return samurai::contract(lca, static_cast<std::size_t>(state.range(0)));
-        });
+    bench::run(state,
+               [&]
+               {
+                   return samurai::contract(lca, static_cast<std::size_t>(state.range(0)));
+               });
 }
 
 BENCHMARK(BM_Expand<1>)->Arg(1)->Arg(2)->Arg(4)->Arg(8);

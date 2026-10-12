@@ -105,25 +105,11 @@ namespace
         std::vector<double> m_before;
     };
 
-    // Runs `site` with a callback that traverses each set and counts.
+    // bench::run_site, with the number of sets of one iteration.
     template <class Site>
     void run_site(benchmark::State& state, Site&& site)
     {
-        bench::Tally tally;
-        std::size_t nsets = 0;
-        for (auto _ : state)
-        {
-            tally = {};
-            nsets = 0;
-            site(
-                [&](std::size_t, const auto& set)
-                {
-                    tally += bench::traverse(set);
-                    ++nsets;
-                });
-        }
-        bench::report(state, tally);
-        state.counters["sets"] = static_cast<double>(nsets);
+        state.counters["sets"] = static_cast<double>(bench::run_site(state, std::forward<Site>(site)));
     }
 
     /////////////////////////////////////////////////////////////////////
@@ -144,14 +130,15 @@ namespace
 
     // MRMesh::update_sub_mesh_impl (mr/mesh.hpp): the ghosts the prediction
     // needs one and two levels below each cell, then the projection cells.
-    template <class Mesh, class F>
-    void site_mesh_prediction_ghosts(const Mesh& mesh, F&& f)
+    // `subdomain_at(level)` gives the subdomain at `level`: see
+    // projected_subdomain and cached_subdomain.
+    template <class Mesh, class SubdomainAt, class F>
+    void site_mesh_prediction_ghosts(const Mesh& mesh, SubdomainAt&& subdomain_at, F&& f)
     {
-        using mesh_id_t       = typename Mesh::mesh_id_t;
-        constexpr int pred_r  = Mesh::config_t::prediction_stencil_radius;
-        const auto& cells     = mesh[mesh_id_t::cells];
-        const auto& cag       = mesh[mesh_id_t::cells_and_ghosts];
-        const auto& subdomain = mesh.subdomain();
+        using mesh_id_t      = typename Mesh::mesh_id_t;
+        constexpr int pred_r = Mesh::config_t::prediction_stencil_radius;
+        const auto& cells    = mesh[mesh_id_t::cells];
+        const auto& cag      = mesh[mesh_id_t::cells_and_ghosts];
         for (std::size_t level = cells.min_level(); level <= cells.max_level(); ++level)
         {
             if (level < 2 || cells[level].empty())
@@ -161,12 +148,35 @@ namespace
             f(level - 2, samurai::nestedExpand(samurai::self(cells[level]).on(level - 2), pred_r));
             f(level - 1,
               samurai::intersection(samurai::nestedExpand(samurai::self(cag[level]).on(level - 1), pred_r),
-                                    samurai::nestedExpand(samurai::self(subdomain).on(level - 1), pred_r)));
+                                    samurai::nestedExpand(subdomain_at(level - 1), pred_r)));
         }
         for (std::size_t level = mesh[mesh_id_t::reference].min_level(); level <= mesh[mesh_id_t::reference].max_level(); ++level)
         {
             f(level, samurai::intersection(mesh[mesh_id_t::reference][level], mesh.get_union()[level]));
         }
+    }
+
+    // What the library does: the finest subdomain projected with .on(level)
+    // each time.
+    template <class Mesh>
+    auto projected_subdomain(const Mesh& mesh)
+    {
+        return [&mesh](std::size_t level)
+        {
+            return samurai::self(mesh.subdomain()).on(level);
+        };
+    }
+
+    // Not what the library does today: the subdomain read from the pyramid
+    // the mesh already stores (mesh.subdomain(level)), the gain of a cached
+    // coarse set.
+    template <class Mesh>
+    auto cached_subdomain(const Mesh& mesh)
+    {
+        return [&mesh](std::size_t level) -> const auto&
+        {
+            return mesh.subdomain(level);
+        };
     }
 
     // Mesh_base::construct_corners (mesh.hpp): the inner cells at each corner
@@ -245,21 +255,21 @@ namespace
     // above (project_bc) and predicted to the level above (predict_bc), for
     // every level and Cartesian direction, with one layer of boundary ghosts
     // (Dirichlet). predict_bc builds a LevelCellArray
-    // (domain_boundary_outer_layer) on every call.
-    template <class Mesh, class F>
-    void site_outer_ghosts(const Mesh& mesh, F&& f)
+    // (domain_boundary_outer_layer) on every call. `domain_at(level)` gives
+    // the domain at `level`: see projected_domain and cached_domain.
+    template <class Mesh, class DomainAt, class F>
+    void site_outer_ghosts(const Mesh& mesh, DomainAt&& domain_at, F&& f)
     {
         using mesh_id_t                = typename Mesh::mesh_id_t;
-        constexpr std::size_t dim      = Mesh::dim;
         constexpr int n_bc_ghosts      = 1;
         const std::size_t lowest_level = mesh.min_level() > 0 ? mesh.min_level() - 1 : 0;
         for (std::size_t level = mesh.max_level() + 1; level-- > lowest_level;)
         {
-            if constexpr (dim > 1)
+            if constexpr (Mesh::dim > 1)
             {
                 if (level >= mesh.min_level())
                 {
-                    samurai::for_each_diagonal_direction<dim>(
+                    samurai::for_each_diagonal_direction<Mesh::dim>(
                         [&](const auto& direction)
                         {
                             for (std::size_t delta_l = 1; delta_l <= 2 && delta_l <= level; ++delta_l)
@@ -273,13 +283,12 @@ namespace
                         });
                 }
             }
-            samurai::for_each_cartesian_direction<dim>(
+            samurai::for_each_cartesian_direction<Mesh::dim>(
                 [&](auto, const auto& direction)
                 {
                     if (level < mesh.max_level())
                     {
-                        auto domain        = samurai::self(mesh.domain()).on(level);
-                        auto outside_layer = samurai::difference(samurai::translate(mesh.get_union()[level], direction), domain);
+                        auto outside_layer = samurai::difference(samurai::translate(mesh.get_union()[level], direction), domain_at(level));
                         f(level, samurai::intersection(outside_layer, mesh[mesh_id_t::reference][level]).on(level));
                     }
                     if (level < mesh.max_level() && level >= mesh.min_level())
@@ -291,79 +300,27 @@ namespace
         }
     }
 
-    // site_outer_ghosts reading the domain at each level from the pyramid
-    // the mesh already stores (mesh.domain(level)) instead of projecting the
-    // finest domain with .on(level) each time: not what the library does
-    // today, the gain of a cached coarse set.
-    template <class Mesh, class F>
-    void site_outer_ghosts_cached_domain(const Mesh& mesh, F&& f)
+    // What the library does: the finest domain projected with .on(level)
+    // each time.
+    template <class Mesh>
+    auto projected_domain(const Mesh& mesh)
     {
-        using mesh_id_t                = typename Mesh::mesh_id_t;
-        constexpr std::size_t dim      = Mesh::dim;
-        constexpr int n_bc_ghosts      = 1;
-        const std::size_t lowest_level = mesh.min_level() > 0 ? mesh.min_level() - 1 : 0;
-        for (std::size_t level = mesh.max_level() + 1; level-- > lowest_level;)
+        return [&mesh](std::size_t level)
         {
-            if constexpr (dim > 1)
-            {
-                if (level >= mesh.min_level())
-                {
-                    samurai::for_each_diagonal_direction<dim>(
-                        [&](const auto& direction)
-                        {
-                            for (std::size_t delta_l = 1; delta_l <= 2 && delta_l <= level; ++delta_l)
-                            {
-                                auto fine_inner_corner = samurai::self(mesh.corner(direction)).on(level);
-                                auto fine_outer_corner = samurai::intersection(samurai::translate(fine_inner_corner, direction),
-                                                                               mesh[mesh_id_t::reference][level]);
-                                f(level - delta_l,
-                                  samurai::intersection(fine_outer_corner.on(level - delta_l), mesh[mesh_id_t::reference][level - delta_l]));
-                            }
-                        });
-                }
-            }
-            samurai::for_each_cartesian_direction<dim>(
-                [&](auto, const auto& direction)
-                {
-                    if (level < mesh.max_level())
-                    {
-                        auto outside_layer = samurai::difference(samurai::translate(mesh.get_union()[level], direction), mesh.domain(level));
-                        f(level, samurai::intersection(outside_layer, mesh[mesh_id_t::reference][level]).on(level));
-                    }
-                    if (level < mesh.max_level() && level >= mesh.min_level())
-                    {
-                        auto bc_ghosts = samurai::domain_boundary_outer_layer(mesh, level, direction, n_bc_ghosts);
-                        f(level + 1, samurai::intersection(bc_ghosts, mesh[mesh_id_t::reference][level + 1]).on(level + 1));
-                    }
-                });
-        }
+            return samurai::self(mesh.domain()).on(level);
+        };
     }
 
-    // site_mesh_prediction_ghosts reading the subdomain from the pyramid the
-    // mesh already stores (mesh.subdomain(level)): the gain of a cached coarse
-    // set, not what the library does today.
-    template <class Mesh, class F>
-    void site_mesh_prediction_ghosts_cached_subdomain(const Mesh& mesh, F&& f)
+    // Not what the library does today: the domain read from the pyramid the
+    // mesh already stores (mesh.domain(level)), the gain of a cached coarse
+    // set.
+    template <class Mesh>
+    auto cached_domain(const Mesh& mesh)
     {
-        using mesh_id_t      = typename Mesh::mesh_id_t;
-        constexpr int pred_r = Mesh::config_t::prediction_stencil_radius;
-        const auto& cells    = mesh[mesh_id_t::cells];
-        const auto& cag      = mesh[mesh_id_t::cells_and_ghosts];
-        for (std::size_t level = cells.min_level(); level <= cells.max_level(); ++level)
+        return [&mesh](std::size_t level) -> const auto&
         {
-            if (level < 2 || cells[level].empty())
-            {
-                continue;
-            }
-            f(level - 2, samurai::nestedExpand(samurai::self(cells[level]).on(level - 2), pred_r));
-            f(level - 1,
-              samurai::intersection(samurai::nestedExpand(samurai::self(cag[level]).on(level - 1), pred_r),
-                                    samurai::nestedExpand(mesh.subdomain(level - 1), pred_r)));
-        }
-        for (std::size_t level = mesh[mesh_id_t::reference].min_level(); level <= mesh[mesh_id_t::reference].max_level(); ++level)
-        {
-            f(level, samurai::intersection(mesh[mesh_id_t::reference][level], mesh.get_union()[level]));
-        }
+            return mesh.domain(level);
+        };
     }
 
     // Adapt::harten (mr/adapt.hpp): detail computation.
@@ -398,9 +355,8 @@ namespace
     template <class Mesh, class F>
     void site_graduation_tag(const Mesh& mesh, F&& f)
     {
-        using mesh_id_t           = typename Mesh::mesh_id_t;
-        constexpr std::size_t dim = Mesh::dim;
-        const auto stencil        = samurai::star_stencil<dim>();
+        using mesh_id_t    = typename Mesh::mesh_id_t;
+        const auto stencil = samurai::star_stencil<Mesh::dim>();
         for (std::size_t level = mesh.min_level() + 1; level <= mesh.max_level(); ++level)
         {
             for (std::size_t i = 0; i < stencil.shape()[0]; ++i)
@@ -418,10 +374,9 @@ namespace
     template <class Mesh, class F>
     void site_interfaces(const Mesh& mesh, F&& f)
     {
-        using mesh_id_t           = typename Mesh::mesh_id_t;
-        constexpr std::size_t dim = Mesh::dim;
-        const auto& cells         = mesh[mesh_id_t::cells];
-        for (const auto& direction : positive_directions<dim>())
+        using mesh_id_t   = typename Mesh::mesh_id_t;
+        const auto& cells = mesh[mesh_id_t::cells];
+        for (const auto& direction : positive_directions<Mesh::dim>())
         {
             for (std::size_t level = cells.min_level(); level <= cells.max_level(); ++level)
             {
@@ -475,7 +430,7 @@ static void BM_Site_MeshPredictionGhosts(benchmark::State& state)
     run_site(state,
              [&](auto&& f)
              {
-                 site_mesh_prediction_ghosts(mesh, f);
+                 site_mesh_prediction_ghosts(mesh, projected_subdomain(mesh), f);
              });
 }
 
@@ -519,7 +474,7 @@ static void BM_Site_OuterGhosts(benchmark::State& state)
     run_site(state,
              [&](auto&& f)
              {
-                 site_outer_ghosts(mesh, f);
+                 site_outer_ghosts(mesh, projected_domain(mesh), f);
              });
 }
 
@@ -530,7 +485,7 @@ static void BM_SiteCached_OuterGhosts(benchmark::State& state)
     run_site(state,
              [&](auto&& f)
              {
-                 site_outer_ghosts_cached_domain(mesh, f);
+                 site_outer_ghosts(mesh, cached_domain(mesh), f);
              });
 }
 
@@ -541,7 +496,7 @@ static void BM_SiteCached_MeshPredictionGhosts(benchmark::State& state)
     run_site(state,
              [&](auto&& f)
              {
-                 site_mesh_prediction_ghosts_cached_subdomain(mesh, f);
+                 site_mesh_prediction_ghosts(mesh, cached_subdomain(mesh), f);
              });
 }
 

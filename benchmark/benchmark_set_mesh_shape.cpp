@@ -30,23 +30,13 @@
 
 namespace
 {
+    using bench::run;
     using bench::Shape;
 
     template <std::size_t dim>
     constexpr std::size_t shape_level()
     {
         return (dim == 1) ? 20 : ((dim == 2) ? 11 : 8);
-    }
-
-    template <class Make>
-    void run(benchmark::State& state, Make&& make)
-    {
-        bench::Tally tally;
-        for (auto _ : state)
-        {
-            tally = bench::traverse(make());
-        }
-        bench::report(state, tally);
     }
 
     template <std::size_t dim>

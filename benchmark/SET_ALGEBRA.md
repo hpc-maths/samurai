@@ -128,8 +128,8 @@ MPI partitions and for meshes with many small fronts.
 box against 0.26 ns for a loop over the `LevelCellArray` (7.5 times) in 2D, 2.6
 times in 3D. It is the floor below which no expression can go.
 
-**7. Dynamic algebra.** The runtime version is 6 to 22 times slower than the
-static one on the same expressions (3D ghost projection: 953 µs against 160 µs).
+**7. Dynamic algebra.** The runtime version is 7 to 22 times slower than the
+static one on the same expressions (3D ghost projection: 966 µs against 131 µs).
 
 ### Where the set algebra is not the bottleneck
 

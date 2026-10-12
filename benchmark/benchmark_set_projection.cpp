@@ -35,6 +35,7 @@
 
 namespace
 {
+    using bench::run;
     using bench::Shape;
 
     template <std::size_t dim>
@@ -58,33 +59,11 @@ namespace
         return (shape == Shape::box) ? box : front;
     }
 
-    template <class Make>
-    bench::Tally run(benchmark::State& state, Make&& make)
+    // self(fine).on(L - s), built once.
+    template <std::size_t dim>
+    samurai::LevelCellArray<dim> coarsened(const samurai::LevelCellArray<dim>& lca, std::size_t s)
     {
-        bench::Tally tally;
-        for (auto _ : state)
-        {
-            tally = bench::traverse(make());
-        }
-        bench::report(state, tally);
-        return tally;
-    }
-
-    template <std::size_t dim, std::size_t N>
-    std::array<xt::xtensor_fixed<int, xt::xshape<dim>>, N> translations()
-    {
-        std::array<xt::xtensor_fixed<int, xt::xshape<dim>>, N> t;
-        for (std::size_t i = 0; i < N; ++i)
-        {
-            t[i] = bench::unit<dim>((i / 2) % dim, (i % 2 == 0) ? 1 : -1);
-        }
-        return t;
-    }
-
-    template <class LCA, class Translations, std::size_t... Is>
-    auto make_intersection(const LCA& lca, const Translations& t, std::index_sequence<Is...>)
-    {
-        return samurai::intersection(samurai::self(lca), samurai::translate(lca, t[Is])...);
+        return samurai::LevelCellArray<dim>(samurai::self(lca).on(fine_level<dim>() - s));
     }
 
     // Time per fine input row: the unit of work of the coarsening.
@@ -117,9 +96,8 @@ static void BM_Coarsen(benchmark::State& state)
 template <std::size_t dim, Shape shape>
 static void BM_CoarsenPrebuilt(benchmark::State& state)
 {
-    const auto& lca     = fine<dim>(shape);
-    const std::size_t s = static_cast<std::size_t>(state.range(0));
-    const samurai::LevelCellArray<dim> coarse(samurai::self(lca).on(fine_level<dim>() - s));
+    const auto& lca   = fine<dim>(shape);
+    const auto coarse = coarsened(lca, static_cast<std::size_t>(state.range(0)));
     run(state,
         [&]
         {
@@ -137,7 +115,7 @@ static void BM_CoarsenBuild(benchmark::State& state)
     const std::size_t s = static_cast<std::size_t>(state.range(0));
     for (auto _ : state)
     {
-        samurai::LevelCellArray<dim> coarse(samurai::self(lca).on(fine_level<dim>() - s));
+        auto coarse = coarsened(lca, s);
         benchmark::DoNotOptimize(coarse);
     }
     report_fine_rows(state, lca);
@@ -204,18 +182,37 @@ BENCHMARK(BM_RefinePrebuilt<3>)->Arg(1)->Arg(2)->Arg(4);
 
 // --- 3. Coarsening of a composite expression ---------------------------------
 
+namespace
+{
+    // intersection(a, N - 1 unit translates of a), read at its own level or
+    // one level below.
+    template <std::size_t dim, std::size_t N, bool coarsen>
+    void run_composite(benchmark::State& state)
+    {
+        const auto& lca = fine<dim>(Shape::shell);
+        const auto t    = bench::translations<dim, N - 1>(bench::Reach::unit);
+        run(state,
+            [&]
+            {
+                auto set = bench::make_nary(bench::intersection_op, lca, t, std::make_index_sequence<N - 1>{});
+                if constexpr (coarsen)
+                {
+                    return set.on(fine_level<dim>() - 1);
+                }
+                else
+                {
+                    return set;
+                }
+            });
+        report_fine_rows(state, lca);
+    }
+} // namespace
+
 // intersection(a, N - 1 unit translates of a), at its own level.
 template <std::size_t dim, std::size_t N>
 static void BM_Composite(benchmark::State& state)
 {
-    const auto& lca = fine<dim>(Shape::shell);
-    const auto t    = translations<dim, N - 1>();
-    run(state,
-        [&]
-        {
-            return make_intersection(lca, t, std::make_index_sequence<N - 1>{});
-        });
-    report_fine_rows(state, lca);
+    run_composite<dim, N, false>(state);
 }
 
 // The same intersection read one level below: each coarse row re-evaluates
@@ -223,14 +220,7 @@ static void BM_Composite(benchmark::State& state)
 template <std::size_t dim, std::size_t N>
 static void BM_CompositeCoarsen(benchmark::State& state)
 {
-    const auto& lca = fine<dim>(Shape::shell);
-    const auto t    = translations<dim, N - 1>();
-    run(state,
-        [&]
-        {
-            return make_intersection(lca, t, std::make_index_sequence<N - 1>{}).on(fine_level<dim>() - 1);
-        });
-    report_fine_rows(state, lca);
+    run_composite<dim, N, true>(state);
 }
 
 #define SAMURAI_BENCH_COMPOSITE(DIM)        \
@@ -247,18 +237,28 @@ SAMURAI_BENCH_COMPOSITE(3)
 
 // --- 4. Chained projections ----------------------------------------------------
 
+namespace
+{
+    // self(a).on(L - 1).on(level).
+    template <std::size_t dim>
+    void run_coarsen_then(benchmark::State& state, std::size_t level)
+    {
+        const auto& lca = fine<dim>(Shape::shell);
+        run(state,
+            [&]
+            {
+                return samurai::self(lca).on(fine_level<dim>() - 1).on(level);
+            });
+        report_fine_rows(state, lca);
+    }
+} // namespace
+
 // self(a).on(L - 1).on(L): the rounding of a set up to whole coarse cells,
 // as the graduation writes it.
 template <std::size_t dim>
 static void BM_CoarsenThenRefine(benchmark::State& state)
 {
-    const auto& lca = fine<dim>(Shape::shell);
-    run(state,
-        [&]
-        {
-            return samurai::self(lca).on(fine_level<dim>() - 1).on(fine_level<dim>());
-        });
-    report_fine_rows(state, lca);
+    run_coarsen_then<dim>(state, fine_level<dim>());
 }
 
 // self(a).on(L - 1).on(L - 2) against BM_Coarsen/2, which reaches the same
@@ -266,13 +266,7 @@ static void BM_CoarsenThenRefine(benchmark::State& state)
 template <std::size_t dim>
 static void BM_CoarsenTwice(benchmark::State& state)
 {
-    const auto& lca = fine<dim>(Shape::shell);
-    run(state,
-        [&]
-        {
-            return samurai::self(lca).on(fine_level<dim>() - 1).on(fine_level<dim>() - 2);
-        });
-    report_fine_rows(state, lca);
+    run_coarsen_then<dim>(state, fine_level<dim>() - 2);
 }
 
 BENCHMARK(BM_CoarsenThenRefine<1>);
@@ -303,9 +297,8 @@ static void BM_ExpandCoarsen(benchmark::State& state)
 template <std::size_t dim>
 static void BM_ExpandCoarsenPrebuilt(benchmark::State& state)
 {
-    const auto& lca     = fine<dim>(Shape::shell);
-    const std::size_t s = static_cast<std::size_t>(state.range(0));
-    const samurai::LevelCellArray<dim> coarse(samurai::self(lca).on(fine_level<dim>() - s));
+    const auto& lca   = fine<dim>(Shape::shell);
+    const auto coarse = coarsened(lca, static_cast<std::size_t>(state.range(0)));
     run(state,
         [&]
         {
@@ -323,20 +316,39 @@ BENCHMARK(BM_ExpandCoarsenPrebuilt<3>)->Arg(1)->Arg(2);
 
 // --- 6. Implicit level change ---------------------------------------------------
 
+namespace
+{
+    // intersection(fine front at L, coarse box at L - s), read at L or at
+    // L - s. Arg: s.
+    template <std::size_t dim, bool coarsen>
+    void run_mixed_levels(benchmark::State& state)
+    {
+        const auto& lca     = fine<dim>(Shape::shell);
+        const std::size_t s = static_cast<std::size_t>(state.range(0));
+        const auto coarse   = bench::make_shape<dim>(Shape::box, fine_level<dim>() - s);
+        run(state,
+            [&]
+            {
+                auto set = samurai::intersection(lca, coarse);
+                if constexpr (coarsen)
+                {
+                    return set.on(fine_level<dim>() - s);
+                }
+                else
+                {
+                    return set;
+                }
+            });
+        report_fine_rows(state, lca);
+    }
+} // namespace
+
 // intersection(fine front at L, coarse box at L - s): the operator works at L
 // and refines the box on the fly. Arg: s.
 template <std::size_t dim>
 static void BM_MixedLevels(benchmark::State& state)
 {
-    const auto& lca     = fine<dim>(Shape::shell);
-    const std::size_t s = static_cast<std::size_t>(state.range(0));
-    const auto coarse   = bench::make_shape<dim>(Shape::box, fine_level<dim>() - s);
-    run(state,
-        [&]
-        {
-            return samurai::intersection(lca, coarse);
-        });
-    report_fine_rows(state, lca);
+    run_mixed_levels<dim, false>(state);
 }
 
 // The same intersection read at the coarse level, the pattern of the
@@ -345,15 +357,7 @@ static void BM_MixedLevels(benchmark::State& state)
 template <std::size_t dim>
 static void BM_MixedLevelsCoarsen(benchmark::State& state)
 {
-    const auto& lca     = fine<dim>(Shape::shell);
-    const std::size_t s = static_cast<std::size_t>(state.range(0));
-    const auto coarse   = bench::make_shape<dim>(Shape::box, fine_level<dim>() - s);
-    run(state,
-        [&]
-        {
-            return samurai::intersection(lca, coarse).on(fine_level<dim>() - s);
-        });
-    report_fine_rows(state, lca);
+    run_mixed_levels<dim, true>(state);
 }
 
 BENCHMARK(BM_MixedLevels<1>)->Arg(1)->Arg(2)->Arg(4);
