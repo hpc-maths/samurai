@@ -6,271 +6,267 @@
 // The static algebra (include/samurai/subset/) encodes the whole expression
 // in the C++ type system: the traversal is fully inlined, no virtual calls,
 // no heap. The dynamic algebra (include/samurai/subset/dynamic/) trades that
-// for a tree decided at runtime: each node is heap-allocated (shared_ptr) and
-// every interval flows through a virtual ISetTraverser call.
+// for a tree decided at runtime: each node is heap-allocated, an N-ary
+// operator is a chain of binary ones, and every interval flows through a
+// virtual call.
 //
-// Each pattern below is measured in both forms, side by side, so the ratio is
-// read directly off the report (compare BM_*_static vs BM_*_dynamic). Both
-// build the expression inside the timed loop, matching benchmark_set.cpp and
-// the realistic usage where the mesh - hence the set - changes every step. So
-// the dynamic figure is the *end-to-end* cost: node construction + virtual
-// traversal, which is what a caller actually pays.
+// Each pattern is measured in both forms, side by side, so the ratio is read
+// directly off the report. Both build the expression inside the timed loop,
+// as the library does (the mesh, hence the set, changes every step): the
+// dynamic figure is the end-to-end cost, node construction included.
 //
-// Tiers mirror benchmark_set.cpp:
-//   - "uniform": raw operator cost on three fixed overlapping boxes;
-//   - "adapted": the cross-level projection / stencil footprints on a real
-//     MR-adapted mesh, the patterns that dominate mesh adaptation.
+// Inputs (set_algebra_fixtures.hpp): a front at one level (thin shell) for
+// the operators, and the MR-adapted meshes of benchmark_set_call_sites.cpp
+// for two library expressions.
 
+#include <array>
 #include <cstddef>
+#include <utility>
 #include <vector>
 
 #include <benchmark/benchmark.h>
 
-#include <xtensor/containers/xfixed.hpp>
+#include "set_algebra_fixtures.hpp"
 
-#include <samurai/algorithm.hpp>
-#include <samurai/box.hpp>
-#include <samurai/field.hpp>
-#include <samurai/level_cell_array.hpp>
-#include <samurai/mr/adapt.hpp>
-#include <samurai/mr/mesh.hpp>
 #include <samurai/subset/dynamic/dynamic.hpp>
-#include <samurai/subset/node.hpp>
 
 namespace
 {
     template <std::size_t dim>
-    auto make_three_boxes()
+    constexpr std::size_t front_level()
     {
-        constexpr std::size_t level = 8;
-        samurai::Box<int, dim> box1({0, 0}, {1 << level, 1 << level});
-        samurai::Box<int, dim> box2({0, 0}, {(1 << (level - 1)), (1 << (level - 1))});
-        samurai::Box<int, dim> box3({1, 1}, {(1 << (level - 1)) + 1, (1 << (level - 1)) + 1});
-        return std::make_tuple(samurai::LevelCellArray<dim>{level, box1},
-                               samurai::LevelCellArray<dim>{level, box2},
-                               samurai::LevelCellArray<dim>{level, box3});
+        return (dim == 2) ? 11 : 8;
     }
 
     template <std::size_t dim>
-    auto make_adapted_mesh(double eps, std::size_t max_level)
+    const samurai::LevelCellArray<dim>& front()
     {
-        xt::xtensor_fixed<double, xt::xshape<dim>> min_corner;
-        xt::xtensor_fixed<double, xt::xshape<dim>> max_corner;
-        min_corner.fill(0);
-        max_corner.fill(1);
-        const samurai::Box<double, dim> box(min_corner, max_corner);
-
-        auto config = samurai::mesh_config<dim>().min_level(4).max_level(max_level).max_stencil_size(2).disable_minimal_ghost_width();
-        auto mesh   = samurai::mra::make_mesh(box, config);
-
-        auto u = samurai::make_scalar_field<double>("u", mesh);
-        samurai::for_each_cell(mesh,
-                               [&](auto& cell)
-                               {
-                                   auto c   = cell.center();
-                                   double r = 0;
-                                   for (std::size_t d = 0; d < dim; ++d)
-                                   {
-                                       r += (c[d] - 0.3) * (c[d] - 0.3);
-                                   }
-                                   u[cell] = (r <= 0.04) ? 1. : 0.;
-                               });
-        samurai::make_MRAdapt(u)(samurai::mra_config().epsilon(eps));
-        return mesh;
+        static const auto lca = bench::make_shape<dim>(bench::Shape::shell, front_level<dim>());
+        return lca;
     }
 
-    // Iterate a set and accumulate interval sizes into a sink so the lazy
-    // expression is actually evaluated.
-    template <class Set>
-    std::size_t consume(const Set& set)
+    template <std::size_t dim, std::size_t N>
+    std::array<xt::xtensor_fixed<int, xt::xshape<dim>>, N> translations()
     {
-        std::size_t acc = 0;
-        set(
-            [&](const auto& i, const auto&)
-            {
-                acc += i.size();
-            });
-        return acc;
+        std::array<xt::xtensor_fixed<int, xt::xshape<dim>>, N> t;
+        for (std::size_t i = 0; i < N; ++i)
+        {
+            t[i] = bench::unit<dim>((i / 2) % dim, (i % 2 == 0) ? 1 : -1);
+        }
+        return t;
+    }
+
+    template <class LCA, class Translations, std::size_t... Is>
+    auto static_intersection(const LCA& lca, const Translations& t, std::index_sequence<Is...>)
+    {
+        return samurai::intersection(samurai::self(lca), samurai::translate(lca, t[Is])...);
+    }
+
+    template <class LCA, class Translations, std::size_t... Is>
+    auto dynamic_intersection(const LCA& lca, const Translations& t, std::index_sequence<Is...>)
+    {
+        return samurai::dyn::intersection(samurai::dyn::self(lca), samurai::dyn::translate(samurai::dyn::self(lca), t[Is])...);
+    }
+
+    template <class Make>
+    void run(benchmark::State& state, Make&& make)
+    {
+        bench::Tally tally;
+        for (auto _ : state)
+        {
+            tally = bench::traverse(make());
+        }
+        bench::report(state, tally);
+    }
+
+    template <class Site>
+    void run_site(benchmark::State& state, Site&& site)
+    {
+        bench::Tally tally;
+        for (auto _ : state)
+        {
+            tally = {};
+            site(
+                [&](const auto& set)
+                {
+                    tally += bench::traverse(set);
+                });
+        }
+        bench::report(state, tally);
+    }
+
+    template <std::size_t dim>
+    auto& adapted_mesh(benchmark::State& state)
+    {
+        auto& c = bench::adapted_case<dim>(static_cast<std::size_t>(state.range(0)), static_cast<std::size_t>(state.range(1)));
+        bench::report_mesh(state, c.mesh);
+        return c.mesh;
     }
 } // namespace
 
-// --- Tier 1: raw operator on fixed uniform boxes ---------------------------
+// --- Operators on a front ------------------------------------------------------
 
-static void BM_Intersection3_uniform_static(benchmark::State& state)
+// intersection(a, N - 1 unit translates of a).
+template <std::size_t dim, std::size_t N>
+static void BM_Intersection_static(benchmark::State& state)
 {
-    auto [s1, s2, s3] = make_three_boxes<2>();
-    for (auto _ : state)
-    {
-        benchmark::DoNotOptimize(consume(samurai::intersection(samurai::intersection(s1, s2), s3)));
-    }
-}
-
-static void BM_Intersection3_uniform_dynamic(benchmark::State& state)
-{
-    auto [s1, s2, s3] = make_three_boxes<2>();
-    for (auto _ : state)
-    {
-        benchmark::DoNotOptimize(consume(samurai::dyn::intersection(samurai::dyn::self(s1), samurai::dyn::self(s2), samurai::dyn::self(s3))));
-    }
-}
-
-static void BM_Intersection3_on_uniform_static(benchmark::State& state)
-{
-    auto [s1, s2, s3] = make_three_boxes<2>();
-    for (auto _ : state)
-    {
-        benchmark::DoNotOptimize(consume(samurai::intersection(samurai::intersection(s1, s2), s3).on(7)));
-    }
-}
-
-static void BM_Intersection3_on_uniform_dynamic(benchmark::State& state)
-{
-    auto [s1, s2, s3] = make_three_boxes<2>();
-    for (auto _ : state)
-    {
-        benchmark::DoNotOptimize(
-            consume(samurai::dyn::intersection(samurai::dyn::self(s1), samurai::dyn::self(s2), samurai::dyn::self(s3)).on(7)));
-    }
-}
-
-static void BM_TranslatedIntersection_uniform_static(benchmark::State& state)
-{
-    auto [s1, s2, s3]                          = make_three_boxes<2>();
-    xt::xtensor_fixed<int, xt::xshape<2>> sten = {1, 0};
-    for (auto _ : state)
-    {
-        benchmark::DoNotOptimize(consume(samurai::intersection(s1, samurai::translate(s2, sten))));
-    }
-}
-
-static void BM_TranslatedIntersection_uniform_dynamic(benchmark::State& state)
-{
-    auto [s1, s2, s3]                          = make_three_boxes<2>();
-    xt::xtensor_fixed<int, xt::xshape<2>> sten = {1, 0};
-    for (auto _ : state)
-    {
-        benchmark::DoNotOptimize(
-            consume(samurai::dyn::intersection(samurai::dyn::self(s1), samurai::dyn::translate(samurai::dyn::self(s2), sten))));
-    }
-}
-
-BENCHMARK(BM_Intersection3_uniform_static);
-BENCHMARK(BM_Intersection3_uniform_dynamic);
-BENCHMARK(BM_Intersection3_on_uniform_static);
-BENCHMARK(BM_Intersection3_on_uniform_dynamic);
-BENCHMARK(BM_TranslatedIntersection_uniform_static);
-BENCHMARK(BM_TranslatedIntersection_uniform_dynamic);
-
-// --- Tier 2: cross-level set algebra on an adapted mesh --------------------
-
-// intersection(all_cells[l], cells[l+1]).on(l): projection footprint.
-template <std::size_t dim>
-static void BM_ProjectionFootprint_adapted_static(benchmark::State& state)
-{
-    const std::size_t max_level = (dim == 2) ? 11 : 8;
-    auto mesh                   = make_adapted_mesh<dim>(1. / static_cast<double>(state.range(0)), max_level);
-    using mesh_id_t             = typename std::decay_t<decltype(mesh)>::mesh_id_t;
-
-    const auto min_l = mesh[mesh_id_t::cells].min_level();
-    const auto max_l = mesh[mesh_id_t::cells].max_level();
-
-    for (auto _ : state)
-    {
-        std::size_t acc = 0;
-        for (std::size_t level = min_l; level < max_l; ++level)
+    const auto& lca = front<dim>();
+    const auto t    = translations<dim, N - 1>();
+    run(state,
+        [&]
         {
-            acc += consume(samurai::intersection(mesh[mesh_id_t::all_cells][level], mesh[mesh_id_t::cells][level + 1]).on(level));
-        }
-        benchmark::DoNotOptimize(acc);
-    }
-    state.counters["cells"] = static_cast<double>(mesh.nb_cells(mesh_id_t::cells));
+            return static_intersection(lca, t, std::make_index_sequence<N - 1>{});
+        });
+}
+
+template <std::size_t dim, std::size_t N>
+static void BM_Intersection_dynamic(benchmark::State& state)
+{
+    const auto& lca = front<dim>();
+    const auto t    = translations<dim, N - 1>();
+    run(state,
+        [&]
+        {
+            return dynamic_intersection(lca, t, std::make_index_sequence<N - 1>{});
+        });
+}
+
+// intersection(a, translate(a, e_x)).on(L - 1).
+template <std::size_t dim>
+static void BM_IntersectionCoarsen_static(benchmark::State& state)
+{
+    const auto& lca = front<dim>();
+    const auto t    = translations<dim, 1>();
+    run(state,
+        [&]
+        {
+            return static_intersection(lca, t, std::make_index_sequence<1>{}).on(front_level<dim>() - 1);
+        });
 }
 
 template <std::size_t dim>
-static void BM_ProjectionFootprint_adapted_dynamic(benchmark::State& state)
+static void BM_IntersectionCoarsen_dynamic(benchmark::State& state)
 {
-    const std::size_t max_level = (dim == 2) ? 11 : 8;
-    auto mesh                   = make_adapted_mesh<dim>(1. / static_cast<double>(state.range(0)), max_level);
-    using mesh_id_t             = typename std::decay_t<decltype(mesh)>::mesh_id_t;
-
-    const auto min_l = mesh[mesh_id_t::cells].min_level();
-    const auto max_l = mesh[mesh_id_t::cells].max_level();
-
-    for (auto _ : state)
-    {
-        std::size_t acc = 0;
-        for (std::size_t level = min_l; level < max_l; ++level)
+    const auto& lca = front<dim>();
+    const auto t    = translations<dim, 1>();
+    run(state,
+        [&]
         {
-            acc += consume(samurai::dyn::intersection(samurai::dyn::self(mesh[mesh_id_t::all_cells][level]),
-                                                      samurai::dyn::self(mesh[mesh_id_t::cells][level + 1]))
-                               .on(level));
-        }
-        benchmark::DoNotOptimize(acc);
-    }
-    state.counters["cells"] = static_cast<double>(mesh.nb_cells(mesh_id_t::cells));
+            return dynamic_intersection(lca, t, std::make_index_sequence<1>{}).on(front_level<dim>() - 1);
+        });
 }
 
-// intersection(cells[l], translate(cells[l], stencil)): ghost-filling stencil.
+BENCHMARK(BM_Intersection_static<2, 2>);
+BENCHMARK(BM_Intersection_dynamic<2, 2>);
+BENCHMARK(BM_Intersection_static<2, 3>);
+BENCHMARK(BM_Intersection_dynamic<2, 3>);
+BENCHMARK(BM_Intersection_static<2, 5>);
+BENCHMARK(BM_Intersection_dynamic<2, 5>);
+BENCHMARK(BM_Intersection_static<3, 2>);
+BENCHMARK(BM_Intersection_dynamic<3, 2>);
+BENCHMARK(BM_Intersection_static<3, 3>);
+BENCHMARK(BM_Intersection_dynamic<3, 3>);
+BENCHMARK(BM_Intersection_static<3, 5>);
+BENCHMARK(BM_Intersection_dynamic<3, 5>);
+BENCHMARK(BM_IntersectionCoarsen_static<2>);
+BENCHMARK(BM_IntersectionCoarsen_dynamic<2>);
+BENCHMARK(BM_IntersectionCoarsen_static<3>);
+BENCHMARK(BM_IntersectionCoarsen_dynamic<3>);
+
+// --- Library expressions on an adapted mesh --------------------------------------
+
+// The ghost projection of update_ghost_mr, every level.
 template <std::size_t dim>
-static void BM_StencilTranslation_adapted_static(benchmark::State& state)
+static void BM_GhostProjection_static(benchmark::State& state)
 {
-    const std::size_t max_level = (dim == 2) ? 11 : 8;
-    auto mesh                   = make_adapted_mesh<dim>(1. / static_cast<double>(state.range(0)), max_level);
-    using mesh_id_t             = typename std::decay_t<decltype(mesh)>::mesh_id_t;
-
-    const auto min_l = mesh[mesh_id_t::cells].min_level();
-    const auto max_l = mesh[mesh_id_t::cells].max_level();
-
-    xt::xtensor_fixed<int, xt::xshape<dim>> stencil;
-    stencil.fill(0);
-    stencil[0] = 1;
-
-    for (auto _ : state)
-    {
-        std::size_t acc = 0;
-        for (std::size_t level = min_l; level <= max_l; ++level)
-        {
-            acc += consume(samurai::intersection(mesh[mesh_id_t::cells][level], samurai::translate(mesh[mesh_id_t::cells][level], stencil)));
-        }
-        benchmark::DoNotOptimize(acc);
-    }
-    state.counters["cells"] = static_cast<double>(mesh.nb_cells(mesh_id_t::cells));
+    const auto& mesh = adapted_mesh<dim>(state);
+    using mesh_id_t  = typename std::decay_t<decltype(mesh)>::mesh_id_t;
+    run_site(state,
+             [&](auto&& f)
+             {
+                 for (std::size_t level = mesh.max_level(); level >= 1; --level)
+                 {
+                     f(samurai::intersection(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::proj_cells][level - 1]).on(level - 1));
+                 }
+             });
 }
 
 template <std::size_t dim>
-static void BM_StencilTranslation_adapted_dynamic(benchmark::State& state)
+static void BM_GhostProjection_dynamic(benchmark::State& state)
 {
-    const std::size_t max_level = (dim == 2) ? 11 : 8;
-    auto mesh                   = make_adapted_mesh<dim>(1. / static_cast<double>(state.range(0)), max_level);
-    using mesh_id_t             = typename std::decay_t<decltype(mesh)>::mesh_id_t;
-
-    const auto min_l = mesh[mesh_id_t::cells].min_level();
-    const auto max_l = mesh[mesh_id_t::cells].max_level();
-
-    xt::xtensor_fixed<int, xt::xshape<dim>> stencil;
-    stencil.fill(0);
-    stencil[0] = 1;
-
-    for (auto _ : state)
-    {
-        std::size_t acc = 0;
-        for (std::size_t level = min_l; level <= max_l; ++level)
-        {
-            acc += consume(samurai::dyn::intersection(samurai::dyn::self(mesh[mesh_id_t::cells][level]),
-                                                      samurai::dyn::translate(samurai::dyn::self(mesh[mesh_id_t::cells][level]), stencil)));
-        }
-        benchmark::DoNotOptimize(acc);
-    }
-    state.counters["cells"] = static_cast<double>(mesh.nb_cells(mesh_id_t::cells));
+    const auto& mesh = adapted_mesh<dim>(state);
+    using mesh_id_t  = typename std::decay_t<decltype(mesh)>::mesh_id_t;
+    run_site(state,
+             [&](auto&& f)
+             {
+                 for (std::size_t level = mesh.max_level(); level >= 1; --level)
+                 {
+                     f(samurai::dyn::intersection(samurai::dyn::self(mesh[mesh_id_t::reference][level]),
+                                                  samurai::dyn::self(mesh[mesh_id_t::proj_cells][level - 1]))
+                           .on(level - 1));
+                 }
+             });
 }
 
-BENCHMARK(BM_ProjectionFootprint_adapted_static<2>)->Arg(1000)->Arg(100000);
-BENCHMARK(BM_ProjectionFootprint_adapted_dynamic<2>)->Arg(1000)->Arg(100000);
-BENCHMARK(BM_ProjectionFootprint_adapted_static<3>)->Arg(1000)->Arg(100000);
-BENCHMARK(BM_ProjectionFootprint_adapted_dynamic<3>)->Arg(1000)->Arg(100000);
-BENCHMARK(BM_StencilTranslation_adapted_static<2>)->Arg(1000)->Arg(100000);
-BENCHMARK(BM_StencilTranslation_adapted_dynamic<2>)->Arg(1000)->Arg(100000);
-BENCHMARK(BM_StencilTranslation_adapted_static<3>)->Arg(1000)->Arg(100000);
-BENCHMARK(BM_StencilTranslation_adapted_dynamic<3>)->Arg(1000)->Arg(100000);
+// The same-level faces of for_each_interface, every level and direction.
+template <std::size_t dim>
+static void BM_Interfaces_static(benchmark::State& state)
+{
+    const auto& mesh  = adapted_mesh<dim>(state);
+    using mesh_id_t   = typename std::decay_t<decltype(mesh)>::mesh_id_t;
+    const auto& cells = mesh[mesh_id_t::cells];
+    run_site(state,
+             [&](auto&& f)
+             {
+                 for (std::size_t d = 0; d < dim; ++d)
+                 {
+                     const auto direction = bench::unit<dim>(d);
+                     for (std::size_t level = cells.min_level(); level <= cells.max_level(); ++level)
+                     {
+                         f(samurai::intersection(cells[level], samurai::translate(cells[level], -direction)));
+                     }
+                 }
+             });
+}
+
+template <std::size_t dim>
+static void BM_Interfaces_dynamic(benchmark::State& state)
+{
+    const auto& mesh  = adapted_mesh<dim>(state);
+    using mesh_id_t   = typename std::decay_t<decltype(mesh)>::mesh_id_t;
+    const auto& cells = mesh[mesh_id_t::cells];
+    run_site(state,
+             [&](auto&& f)
+             {
+                 for (std::size_t d = 0; d < dim; ++d)
+                 {
+                     const xt::xtensor_fixed<int, xt::xshape<dim>> direction = -bench::unit<dim>(d);
+                     for (std::size_t level = cells.min_level(); level <= cells.max_level(); ++level)
+                     {
+                         f(samurai::dyn::intersection(samurai::dyn::self(cells[level]),
+                                                      samurai::dyn::translate(samurai::dyn::self(cells[level]), direction)));
+                     }
+                 }
+             });
+}
+
+namespace
+{
+    template <std::size_t dim>
+    void mesh_args(benchmark::internal::Benchmark* b)
+    {
+        b->Args({static_cast<long>(bench::default_max_level<dim>()), (dim == 2) ? 16 : 8});
+        b->Unit(benchmark::kMicrosecond);
+    }
+} // namespace
+
+BENCHMARK(BM_GhostProjection_static<2>)->Apply(mesh_args<2>);
+BENCHMARK(BM_GhostProjection_dynamic<2>)->Apply(mesh_args<2>);
+BENCHMARK(BM_GhostProjection_static<3>)->Apply(mesh_args<3>);
+BENCHMARK(BM_GhostProjection_dynamic<3>)->Apply(mesh_args<3>);
+BENCHMARK(BM_Interfaces_static<2>)->Apply(mesh_args<2>);
+BENCHMARK(BM_Interfaces_dynamic<2>)->Apply(mesh_args<2>);
+BENCHMARK(BM_Interfaces_static<3>)->Apply(mesh_args<3>);
+BENCHMARK(BM_Interfaces_dynamic<3>)->Apply(mesh_args<3>);
 
 BENCHMARK_MAIN();

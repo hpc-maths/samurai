@@ -31,7 +31,10 @@ set(SAMURAI_BENCHMARK_SOURCES
     benchmark_dynamic_set.cpp
     benchmark_fv_scheme.cpp
     benchmark_search.cpp
-    benchmark_set.cpp
+    benchmark_set_call_sites.cpp
+    benchmark_set_mesh_shape.cpp
+    benchmark_set_operators.cpp
+    benchmark_set_projection.cpp
     benchmark_update_fields.cpp
     benchmark_update_ghost.cpp
 )
