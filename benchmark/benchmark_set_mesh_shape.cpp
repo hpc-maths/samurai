@@ -9,7 +9,6 @@
 // Inputs: a box cut into K stripes along one axis (half of them kept, so the
 // number of cells does not change with K), and a front cut into P slabs.
 
-#include <array>
 #include <cstddef>
 #include <vector>
 
@@ -121,12 +120,10 @@ static void BM_Partitioned(benchmark::State& state)
     std::vector<samurai::LevelCellArray<dim>> subdomains;
     for (value_t p = 0; p < parts; ++p)
     {
-        std::array<value_t, dim> lo{};
-        std::array<value_t, dim> hi;
-        hi.fill(n);
-        lo[axis] = p * width;
-        hi[axis] = (p + 1) * width;
-        subdomains.push_back(bench::make_box<dim>(level, lo, hi));
+        samurai::Box<value_t, dim> slab(xt::zeros<value_t>({dim}), xt::ones<value_t>({dim}) * n);
+        slab.min_corner()[axis] = p * width;
+        slab.max_corner()[axis] = (p + 1) * width;
+        subdomains.emplace_back(level, slab);
     }
 
     bench::Tally tally;

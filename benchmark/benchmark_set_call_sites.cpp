@@ -44,18 +44,6 @@ namespace
         return c;
     }
 
-    template <std::size_t dim>
-    std::array<samurai::DirectionVector<dim>, dim> positive_directions()
-    {
-        std::array<samurai::DirectionVector<dim>, dim> dirs;
-        for (std::size_t d = 0; d < dim; ++d)
-        {
-            dirs[d].fill(0);
-            dirs[d][d] = 1;
-        }
-        return dirs;
-    }
-
     // Time accumulated by samurai's timers during the benchmark loop, in ms
     // per iteration, to split a library operation into its phases.
     class PhaseTimers
@@ -316,10 +304,12 @@ namespace
     template <class Mesh, class F>
     void site_interfaces(const Mesh& mesh, F&& f)
     {
-        using mesh_id_t   = typename Mesh::mesh_id_t;
-        const auto& cells = mesh[mesh_id_t::cells];
-        for (const auto& direction : positive_directions<Mesh::dim>())
+        using mesh_id_t       = typename Mesh::mesh_id_t;
+        const auto& cells     = mesh[mesh_id_t::cells];
+        const auto directions = samurai::positive_cartesian_directions<Mesh::dim>();
+        for (std::size_t d = 0; d < Mesh::dim; ++d)
         {
+            const samurai::DirectionVector<Mesh::dim> direction = xt::view(directions, d);
             for (std::size_t level = cells.min_level(); level <= cells.max_level(); ++level)
             {
                 f(level, samurai::intersection(cells[level], samurai::translate(cells[level], -direction)));
@@ -526,8 +516,7 @@ template <std::size_t dim>
 static void BM_SiteOp_Detail(benchmark::State& state)
 {
     auto& u     = get_case<dim>(state).u;
-    auto detail = samurai::make_scalar_field<double>("detail", u.mesh());
-    detail.fill(0);
+    auto detail = samurai::make_scalar_field<double>("detail", u.mesh(), 0.);
     for (auto _ : state)
     {
         site_detail(u.mesh(),
@@ -544,10 +533,8 @@ static void BM_SiteOp_Tag(benchmark::State& state)
 {
     auto& u     = get_case<dim>(state).u;
     auto& mesh  = u.mesh();
-    auto detail = samurai::make_scalar_field<double>("detail", mesh);
-    auto tag    = samurai::make_scalar_field<std::uint8_t>("tag", mesh);
-    detail.fill(0);
-    tag.fill(0);
+    auto detail = samurai::make_scalar_field<double>("detail", mesh, 0.);
+    auto tag    = samurai::make_scalar_field<std::uint8_t>("tag", mesh, std::uint8_t{0});
     for (auto _ : state)
     {
         site_tag(mesh,
@@ -592,8 +579,10 @@ static void BM_Op_AdaptStep(benchmark::State& state)
     {
         state.PauseTiming();
         auto mesh = c.mesh;
-        auto u    = samurai::make_scalar_field<double>("u", mesh);
-        bench::init_balls<dim>(u, static_cast<std::size_t>(state.range(1)), bench::step_shift<dim>(mesh.max_level()));
+        auto u    = samurai::make_scalar_field<double>(
+            "u",
+            mesh,
+            bench::balls_indicator<dim>(static_cast<std::size_t>(state.range(1)), bench::step_shift(mesh)));
         samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
         auto adapt = samurai::make_MRAdapt(u);
         state.ResumeTiming();

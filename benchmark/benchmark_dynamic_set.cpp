@@ -57,11 +57,12 @@ namespace
     template <Algebra algebra, class Mesh, class F>
     void site_interfaces(const Mesh& mesh, F&& f)
     {
-        using mesh_id_t   = typename Mesh::mesh_id_t;
-        const auto& cells = mesh[mesh_id_t::cells];
+        using mesh_id_t       = typename Mesh::mesh_id_t;
+        const auto& cells     = mesh[mesh_id_t::cells];
+        const auto directions = samurai::positive_cartesian_directions<Mesh::dim>();
         for (std::size_t d = 0; d < Mesh::dim; ++d)
         {
-            const auto direction = bench::unit<Mesh::dim>(d, -1);
+            const samurai::DirectionVector<Mesh::dim> direction = -xt::view(directions, d);
             for (std::size_t level = cells.min_level(); level <= cells.max_level(); ++level)
             {
                 if constexpr (algebra == Algebra::static_)

@@ -20,7 +20,9 @@
 
 #include <benchmark/benchmark.h>
 
-#include <xtensor/containers/xfixed.hpp>
+#include <xtensor/core/xoperation.hpp>
+#include <xtensor/generators/xbuilder.hpp>
+#include <xtensor/views/xview.hpp>
 
 #include <samurai/algorithm.hpp>
 #include <samurai/bc.hpp>
@@ -29,6 +31,8 @@
 #include <samurai/level_cell_array.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
+#include <samurai/static_algorithm.hpp>
+#include <samurai/stencil.hpp>
 #include <samurai/subset/node.hpp>
 
 namespace bench
@@ -165,89 +169,20 @@ namespace bench
         return centers;
     }
 
-    // Outermost coordinate slowest, the order add_interval_back expects.
-    // cell[0] is left to `row`.
-    template <std::size_t axis, class Coords, class Row>
-    void for_each_row(Coords& cell, const Coords& lo, const Coords& hi, Row&& row)
-    {
-        if constexpr (axis == 0)
-        {
-            row();
-        }
-        else
-        {
-            for (cell[axis] = lo[axis]; cell[axis] < hi[axis]; ++cell[axis])
-            {
-                for_each_row<axis - 1>(cell, lo, hi, row);
-            }
-        }
-    }
-
-    template <std::size_t dim, class value_t>
-    xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> row_index(const std::array<value_t, dim>& cell)
-    {
-        xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> yz;
-        for (std::size_t d = 1; d < dim; ++d)
-        {
-            yz[d - 1] = cell[d];
-        }
-        return yz;
-    }
-
     // The cells of [0, 2^level)^dim for which `inside` holds.
     template <std::size_t dim, class Predicate>
     samurai::LevelCellArray<dim> make_lca(std::size_t level, Predicate&& inside)
     {
-        using lca_t   = samurai::LevelCellArray<dim>;
-        using value_t = typename lca_t::value_t;
-
-        const value_t n = value_t(1) << level;
-        lca_t lca(level);
-
-        std::array<value_t, dim> cell{};
-        std::array<value_t, dim> lo{};
-        std::array<value_t, dim> hi;
-        hi.fill(n);
-
-        for_each_row<dim - 1>(cell,
-                              lo,
-                              hi,
-                              [&]()
-                              {
-                                  const auto yz = row_index(cell);
-                                  value_t start = -1;
-                                  for (cell[0] = 0; cell[0] <= n; ++cell[0])
-                                  {
-                                      const bool in = (cell[0] < n) && inside(cell);
-                                      if (in && start < 0)
-                                      {
-                                          start = cell[0];
-                                      }
-                                      else if (!in && start >= 0)
-                                      {
-                                          lca.add_interval_back({start, cell[0]}, yz);
-                                          start = -1;
-                                      }
-                                  }
-                              });
-        return lca;
-    }
-
-    // Built row by row, without testing every cell as make_lca does.
-    template <std::size_t dim>
-    samurai::LevelCellArray<dim> make_box(std::size_t level,
-                                          const std::array<typename samurai::LevelCellArray<dim>::value_t, dim>& lo,
-                                          const std::array<typename samurai::LevelCellArray<dim>::value_t, dim>& hi)
-    {
         samurai::LevelCellArray<dim> lca(level);
-        auto cell = lo;
-        for_each_row<dim - 1>(cell,
-                              lo,
-                              hi,
-                              [&]()
-                              {
-                                  lca.add_interval_back({lo[0], hi[0]}, row_index(cell));
-                              });
+        samurai::static_nested_loop<dim>(0,
+                                         1 << level,
+                                         [&](const auto& cell)
+                                         {
+                                             if (inside(cell))
+                                             {
+                                                 lca.add_point_back(cell[0], xt::view(cell, xt::range(1, dim)));
+                                             }
+                                         });
         return lca;
     }
 
@@ -259,22 +194,12 @@ namespace bench
         const value_t n = value_t(1) << level;
         const double nd = static_cast<double>(n);
 
-        auto in_box = [n](const auto& cell)
-        {
-            for (std::size_t d = 0; d < dim; ++d)
-            {
-                if (cell[d] < n / 4 || cell[d] >= 3 * n / 4)
-                {
-                    return false;
-                }
-            }
-            return true;
-        };
+        const samurai::Box<value_t, dim> box(xt::ones<value_t>({dim}) * (n / 4), xt::ones<value_t>({dim}) * (3 * n / 4));
 
         switch (shape)
         {
             case Shape::box:
-                return make_lca<dim>(level, in_box);
+                return samurai::LevelCellArray<dim>(level, box);
             case Shape::shell:
                 return make_lca<dim>(level,
                                      [nd](const auto& cell)
@@ -293,7 +218,8 @@ namespace bench
                 return make_lca<dim>(level,
                                      [=](const auto& cell)
                                      {
-                                         return in_box(cell) && ((cell[axis] - n / 4) / slab) % 2 == 0;
+                                         return xt::all(cell >= box.min_corner() && cell < box.max_corner())
+                                             && ((cell[axis] - n / 4) / slab) % 2 == 0;
                                      });
             }
             case Shape::balls:
@@ -360,15 +286,6 @@ namespace bench
         state.counters["in_itv"]  = static_cast<double>(lca[0].size());
     }
 
-    template <std::size_t dim>
-    xt::xtensor_fixed<int, xt::xshape<dim>> unit(std::size_t axis, int value = 1)
-    {
-        xt::xtensor_fixed<int, xt::xshape<dim>> v;
-        v.fill(0);
-        v[axis] = value;
-        return v;
-    }
-
     enum class Reach
     {
         unit,    // +-e_d: the operands overlap almost entirely
@@ -377,13 +294,20 @@ namespace bench
 
     // The directions of the star stencil, +-e_0, +-e_1, ..., in turn.
     template <std::size_t dim, std::size_t N>
-    std::array<xt::xtensor_fixed<int, xt::xshape<dim>>, N> translations(Reach reach)
+    std::array<samurai::DirectionVector<dim>, N> translations(Reach reach)
     {
-        std::array<xt::xtensor_fixed<int, xt::xshape<dim>>, N> t;
-        for (std::size_t i = 0; i < N; ++i)
+        std::array<samurai::DirectionVector<dim>, N> t;
+        std::size_t i = 0;
+        for (int radius = 1; i < N; radius += (reach == Reach::growing) ? 1 : 0)
         {
-            const int radius = (reach == Reach::growing) ? 1 + static_cast<int>(i / (2 * dim)) : 1;
-            t[i]             = unit<dim>((i / 2) % dim, (i % 2 == 0) ? radius : -radius);
+            samurai::for_each_cartesian_direction<dim>(
+                [&](const auto& direction)
+                {
+                    if (i < N)
+                    {
+                        t[i++] = radius * direction;
+                    }
+                });
         }
         return t;
     }
@@ -428,49 +352,44 @@ namespace bench
 
     // The mesh adapted to this indicator is refined to the finest level along
     // every ball surface. `shift` moves the balls along the diagonal.
-    template <std::size_t dim, class Field>
-    void init_balls(Field& u, std::size_t nballs, double shift = 0.)
+    template <std::size_t dim>
+    auto balls_indicator(std::size_t nballs, double shift)
     {
-        const auto centers  = ball_centers<dim>(nballs, 0.25, 0.75);
-        const double radius = 0.2 / std::pow(static_cast<double>(nballs), 1. / static_cast<double>(dim));
-
-        u.resize();
-        samurai::for_each_cell(u.mesh(),
-                               [&](const auto& cell)
-                               {
-                                   const auto x = cell.center();
-                                   bool in      = false;
-                                   for (const auto& c : centers)
-                                   {
-                                       double r2 = 0;
-                                       for (std::size_t d = 0; d < dim; ++d)
-                                       {
-                                           const double dx = x[d] - c[d] - shift;
-                                           r2 += dx * dx;
-                                       }
-                                       in = in || (r2 <= radius * radius);
-                                   }
-                                   u[cell] = in ? 1. : 0.;
-                               });
+        return [centers = ball_centers<dim>(nballs, 0.25, 0.75),
+                radius  = 0.2 / std::pow(static_cast<double>(nballs), 1. / static_cast<double>(dim)),
+                shift](const auto& x)
+        {
+            for (const auto& c : centers)
+            {
+                double r2 = 0;
+                for (std::size_t d = 0; d < dim; ++d)
+                {
+                    const double dx = x[d] - c[d] - shift;
+                    r2 += dx * dx;
+                }
+                if (r2 <= radius * radius)
+                {
+                    return 1.;
+                }
+            }
+            return 0.;
+        };
     }
 
     constexpr double mr_epsilon = 1e-3;
 
     // How far the fronts move in one time step.
-    template <std::size_t dim>
-    double step_shift(std::size_t max_level)
+    template <class Mesh>
+    double step_shift(const Mesh& mesh)
     {
-        return 4. / static_cast<double>(std::size_t(1) << max_level);
+        return 4. * mesh.min_cell_length();
     }
 
     template <std::size_t dim>
     mr_mesh_t<dim> make_unit_mesh(std::size_t max_level)
     {
-        xt::xtensor_fixed<double, xt::xshape<dim>> min_corner;
-        xt::xtensor_fixed<double, xt::xshape<dim>> max_corner;
-        min_corner.fill(0);
-        max_corner.fill(1);
-        return samurai::mra::make_mesh(samurai::Box<double, dim>(min_corner, max_corner), mr_config<dim>(max_level));
+        return samurai::mra::make_mesh(samurai::Box<double, dim>(xt::zeros<double>({dim}), xt::ones<double>({dim})),
+                                       mr_config<dim>(max_level));
     }
 
     template <std::size_t dim>
@@ -479,11 +398,10 @@ namespace bench
         mr_mesh_t<dim> mesh;
         mr_field_t<dim> u;
 
-        AdaptedCase(std::size_t max_level, std::size_t nballs, double shift)
+        AdaptedCase(std::size_t max_level, std::size_t nballs, bool moved)
             : mesh(make_unit_mesh<dim>(max_level))
-            , u(samurai::make_scalar_field<double>("u", mesh))
+            , u(samurai::make_scalar_field<double>("u", mesh, balls_indicator<dim>(nballs, moved ? step_shift(mesh) : 0.)))
         {
-            init_balls<dim>(u, nballs, shift);
             samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
             samurai::make_MRAdapt(u)(samurai::mra_config().epsilon(mr_epsilon));
         }
@@ -501,7 +419,7 @@ namespace bench
         auto& entry = cache[{max_level, nballs, moved}];
         if (!entry)
         {
-            entry = std::make_unique<AdaptedCase<dim>>(max_level, nballs, moved ? step_shift<dim>(max_level) : 0.);
+            entry = std::make_unique<AdaptedCase<dim>>(max_level, nballs, moved);
         }
         return *entry;
     }
