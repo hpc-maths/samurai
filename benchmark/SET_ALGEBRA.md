@@ -25,11 +25,11 @@ binary.
 
 | Binary | Question |
 | --- | --- |
-| `bench_set_operators` | Cost of each operator at one level: floor against a raw loop, arity of intersection / union / difference, nested against flat, expansion and contraction width, materialization. |
-| `bench_set_projection` | Cost of `.on()`: coarsening and refinement against the level difference, compared with the same set already built; coarsening of composite expressions, chained projections, expansion of a projection, operands at different levels. |
+| `bench_set_operators` | Cost of the operators at one level: the floor of a traversal against a raw loop, the arity of intersection and union (with in-phase operands and nested binary operators as controls), and the expansion width. |
+| `bench_set_projection` | Cost of `.on()`: coarsening against the level difference, compared with the same coarse set already built and with building it once; refinement as a control; coarsening of an N-ary intersection, of a chained projection and inside an expansion. |
 | `bench_set_mesh_shape` | Effect of the shape of a level: the same cells cut into K stripes along each axis, and the same front cut into P subdomains along each axis. |
-| `bench_set_call_sites` | Every expression the library evaluates, copied from its source (`BM_Site_*`), the same sets with the library's field operator (`BM_SiteOp_*`), the library operations themselves (`BM_Op_*`) and two variants that read coarse sets the mesh already caches (`BM_SiteCached_*`). |
-| `bench_dynamic_set` | Static against dynamic (runtime) algebra on the same expressions. |
+| `bench_set_call_sites` | The expressions of the library functions that run at every time step, copied from their source (`BM_Site_*`), the same sets with the library's field operator (`BM_SiteOp_*`), the library operations themselves (`BM_Op_*`) and two variants that read coarse sets the mesh already stores (`BM_SiteCached_*`). |
+| `bench_dynamic_set` | Static against dynamic (runtime) algebra on two library expressions. |
 
 `BM_Site_X / BM_SiteOp_X` is the share of the set algebra in the function that
 evaluates X. `BM_Op_AdaptStep` and `BM_Op_MeshConstruction` also report the
@@ -126,16 +126,25 @@ MPI partitions and for meshes with many small fronts.
 
 **6. Fixed cost of a traversal.** `self(lca)` costs 1.9 ns per interval on a
 box against 0.26 ns for a loop over the `LevelCellArray` (7.5 times) in 2D, 2.6
-times in 3D. It is the floor below which no expression can go.
+times in 3D. It is the floor below which no expression can go. In 1D it costs
+the same as the loop (683 ns against 689 ns on the front, measured on
+2026-10-13).
 
-**7. Dynamic algebra.** The runtime version is 7 to 22 times slower than the
-static one on the same expressions (3D ghost projection: 966 µs against 131 µs).
+**7. Dynamic algebra.** The runtime version is 7 to 18 times slower than the
+static one on the ghost projection and the interfaces (3D ghost projection:
+966 µs against 131 µs; 3D interfaces: 2.85 ms against 158 µs, measured on
+2026-10-13).
 
 ### Where the set algebra is not the bottleneck
 
 The prediction of the ghosts (13 to 14% algebra), the upwind flux (14%) and 1D
 in general are dominated by the field operators. Improving the algebra will
 not speed them up much.
+
+Refinement is not a bottleneck either: `self(a).on(l)` with `l` above the
+set's level costs no more than traversing the refined set already built
+(`BM_Refine` against `BM_RefinePrebuilt`, 3D at one level of difference: 39 µs
+against 42 µs, measured on 2026-10-13).
 
 ## Limits
 

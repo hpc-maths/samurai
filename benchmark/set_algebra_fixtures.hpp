@@ -1,21 +1,9 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-// Fixtures shared by the set algebra benchmarks (benchmark_set_*.cpp).
-//
-// Two families of inputs:
-//
-//   - synthetic LevelCellArrays at one level, whose shape is chosen to stress
-//     one property of the traversal at a time: a compact box, a thin spherical
-//     shell (the footprint of a front at one level of an adapted mesh), a box
-//     cut into K stripes along a chosen axis (fragmentation along that axis at
-//     a constant number of cells) and K separated balls;
-//   - MR-adapted meshes in 1D, 2D and 3D, refined around the surfaces of K
-//     balls, built once per binary and shared by its benchmarks.
-//
-// Every traversal goes through a Tally, which consumes the intervals emitted
-// by the set: an unconsumed lazy expression is legal C++ and the compiler is
-// free to remove it.
+// Inputs and helpers shared by the set algebra benchmarks: synthetic
+// LevelCellArrays at one level, each shape chosen to stress one property of
+// the traversal, and MR-adapted meshes refined around the surfaces of balls.
 
 #pragma once
 
@@ -69,7 +57,8 @@ namespace bench
         }
     };
 
-    // Traverses the set once and returns what it emitted.
+    // The callback consumes every interval: the compiler may otherwise drop
+    // the traversal of a lazy expression.
     template <class Set>
     Tally traverse(const Set& set)
     {
@@ -83,8 +72,8 @@ namespace bench
         return tally;
     }
 
-    // Output size of one iteration, and the time per emitted interval: the
-    // figure to compare across shapes, operators and dimensions.
+    // `t/itv`, the time per emitted interval, is the figure to compare across
+    // shapes, operators and dimensions.
     inline void report(benchmark::State& state, const Tally& tally)
     {
         state.counters["itv"]   = static_cast<double>(tally.intervals);
@@ -93,8 +82,7 @@ namespace bench
                                                      benchmark::Counter::kIsIterationInvariantRate | benchmark::Counter::kInvert);
     }
 
-    // Rebuilds the expression returned by `make` and traverses it at every
-    // iteration, then reports what it emitted.
+    // The expression is rebuilt at every iteration, as the library does.
     template <class Make>
     void run(benchmark::State& state, Make&& make)
     {
@@ -106,9 +94,8 @@ namespace bench
         report(state, tally);
     }
 
-    // Runs `site` at every iteration with a callback f(level, set) that
-    // traverses each set, reports what they emitted and returns the number of
-    // sets of one iteration.
+    // `site` passes each set it evaluates to f(level, set). Returns the number
+    // of sets of one iteration.
     template <class Site>
     std::size_t run_site(benchmark::State& state, Site&& site)
     {
@@ -136,8 +123,8 @@ namespace bench
     enum class Shape : int
     {
         box,     // [n/4, 3n/4)^dim
-        shell,   // |r - 0.3 n| < 3 cells: one front at one level
-        stripes, // the box, keeping k stripes along one axis (half its cells)
+        shell,   // |r - 0.3 n| < 3 cells: the footprint of a front at one level
+        stripes, // the box cut into 2k slabs along one axis, every other kept
         balls,   // k balls, half the volume of the box in total
     };
 
@@ -178,9 +165,8 @@ namespace bench
         return centers;
     }
 
-    // Calls `row` for every row of [lo, hi), that is every value of the
-    // coordinates 1 to `axis` of `cell`, outermost coordinate slowest: the
-    // order add_interval_back expects. cell[0] is left to `row`.
+    // Outermost coordinate slowest, the order add_interval_back expects.
+    // cell[0] is left to `row`.
     template <std::size_t axis, class Coords, class Row>
     void for_each_row(Coords& cell, const Coords& lo, const Coords& hi, Row&& row)
     {
@@ -197,7 +183,6 @@ namespace bench
         }
     }
 
-    // The coordinates of the row of `cell`, as add_interval_back takes them.
     template <std::size_t dim, class value_t>
     xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> row_index(const std::array<value_t, dim>& cell)
     {
@@ -209,8 +194,7 @@ namespace bench
         return yz;
     }
 
-    // The LevelCellArray of the cells of [0, 2^level)^dim for which `inside`
-    // holds.
+    // The cells of [0, 2^level)^dim for which `inside` holds.
     template <std::size_t dim, class Predicate>
     samurai::LevelCellArray<dim> make_lca(std::size_t level, Predicate&& inside)
     {
@@ -249,7 +233,7 @@ namespace bench
         return lca;
     }
 
-    // The box [lo, hi) at `level`, built from its rows only.
+    // Built row by row, without testing every cell as make_lca does.
     template <std::size_t dim>
     samurai::LevelCellArray<dim> make_box(std::size_t level,
                                           const std::array<typename samurai::LevelCellArray<dim>::value_t, dim>& lo,
@@ -267,8 +251,7 @@ namespace bench
         return lca;
     }
 
-    // `axis` and `k` are read by the stripes (axis, number of stripes) and
-    // `k` by the balls (number of balls).
+    // `axis` and `k` only matter to the stripes; `k` to the balls.
     template <std::size_t dim>
     samurai::LevelCellArray<dim> make_shape(Shape shape, std::size_t level, std::size_t axis = 0, std::size_t k = 1)
     {
@@ -306,7 +289,6 @@ namespace bench
                                      });
             case Shape::stripes:
             {
-                // n/2 cells along `axis`, cut into 2k slabs, the even ones kept
                 const value_t slab = std::max<value_t>(1, n / (4 * static_cast<value_t>(k)));
                 return make_lca<dim>(level,
                                      [=](const auto& cell)
@@ -343,9 +325,8 @@ namespace bench
         return samurai::LevelCellArray<dim>(level);
     }
 
-    // Number of non-empty rows (distinct yz) of a LevelCellArray: the unit of
-    // the per-row work of a traversal (row lookup, projection and expansion
-    // buffers). Each interval of lca[1] spans that many rows.
+    // Number of non-empty rows: the unit of the per-row work of a traversal
+    // (row lookup, coarsening and expansion buffers).
     template <std::size_t dim>
     std::size_t count_rows(const samurai::LevelCellArray<dim>& lca)
     {
@@ -364,6 +345,14 @@ namespace bench
         }
     }
 
+    // The front of an adapted mesh at one level: a thin shell in 2D and 3D;
+    // in 1D, where a shell has only two intervals, 4096 small segments.
+    template <std::size_t dim>
+    samurai::LevelCellArray<dim> make_front(std::size_t level)
+    {
+        return (dim == 1) ? make_shape<dim>(Shape::balls, level, 0, 4096) : make_shape<dim>(Shape::shell, level);
+    }
+
     template <std::size_t dim>
     void report_input(benchmark::State& state, const samurai::LevelCellArray<dim>& lca)
     {
@@ -371,7 +360,6 @@ namespace bench
         state.counters["in_itv"]  = static_cast<double>(lca[0].size());
     }
 
-    // `value` times the unit vector along `axis`.
     template <std::size_t dim>
     xt::xtensor_fixed<int, xt::xshape<dim>> unit(std::size_t axis, int value = 1)
     {
@@ -381,15 +369,13 @@ namespace bench
         return v;
     }
 
-    // How far the translations of an N-ary expression reach.
     enum class Reach
     {
-        unit,    // +-e_d only: operands overlap almost entirely
-        growing, // +-r e_d with r growing every 2 dim operands: all distinct
+        unit,    // +-e_d: the operands overlap almost entirely
+        growing, // +-r e_d, r growing every 2 dim operands: all operands differ
     };
 
-    // The N translations of the operands of an N-ary expression: the
-    // directions of the star stencil, +-e_0, +-e_1, ..., in turn.
+    // The directions of the star stencil, +-e_0, +-e_1, ..., in turn.
     template <std::size_t dim, std::size_t N>
     std::array<xt::xtensor_fixed<int, xt::xshape<dim>>, N> translations(Reach reach)
     {
@@ -402,8 +388,7 @@ namespace bench
         return t;
     }
 
-    // op(self(a), translate(a, t[0]), ..., translate(a, t[N - 1])): the
-    // stencil pattern of the library.
+    // The stencil pattern of the library.
     template <class Op, class LCA, class Translations, std::size_t... Is>
     auto make_nary(Op&& op, const LCA& lca, const Translations& t, std::index_sequence<Is...>)
     {
@@ -418,16 +403,11 @@ namespace bench
     {
         return samurai::union_(s...);
     };
-    inline constexpr auto difference_op = [](const auto&... s)
-    {
-        return samurai::difference(s...);
-    };
 
     //////////////////////////////////////////////////////////////////////
     // MR-adapted meshes
     //////////////////////////////////////////////////////////////////////
 
-    // Default finest level per dimension.
     template <std::size_t dim>
     constexpr std::size_t default_max_level()
     {
@@ -446,9 +426,8 @@ namespace bench
     template <std::size_t dim>
     using mr_field_t = decltype(samurai::make_scalar_field<double>("u", std::declval<mr_mesh_t<dim>&>()));
 
-    // Indicator of the union of `nballs` balls: the mesh adapted to it is
-    // refined to the finest level along every ball surface. `shift` moves the
-    // balls along the diagonal.
+    // The mesh adapted to this indicator is refined to the finest level along
+    // every ball surface. `shift` moves the balls along the diagonal.
     template <std::size_t dim, class Field>
     void init_balls(Field& u, std::size_t nballs, double shift = 0.)
     {
@@ -477,7 +456,7 @@ namespace bench
 
     constexpr double mr_epsilon = 1e-3;
 
-    // One time step of the fronts: 4 finest cells along the diagonal.
+    // How far the fronts move in one time step.
     template <std::size_t dim>
     double step_shift(std::size_t max_level)
     {
@@ -513,8 +492,8 @@ namespace bench
         AdaptedCase& operator=(const AdaptedCase&) = delete;
     };
 
-    // The adapted mesh of (max_level, nballs), built once per binary. `moved`
-    // gives the mesh of the next time step (balls shifted by step_shift).
+    // Built once per binary and shared by its benchmarks. `moved` gives the
+    // mesh of the next time step.
     template <std::size_t dim>
     AdaptedCase<dim>& adapted_case(std::size_t max_level, std::size_t nballs, bool moved = false)
     {
@@ -527,8 +506,7 @@ namespace bench
         return *entry;
     }
 
-    // Leaves, leaf intervals and levels of an adapted mesh, so that every
-    // report says what it was measured on.
+    // So that every report says what it was measured on.
     template <class Mesh>
     void report_mesh(benchmark::State& state, const Mesh& mesh)
     {

@@ -1,29 +1,14 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-// Cost of moving a set between levels, in 1D, 2D and 3D.
+// Cost of reading a set at another level with .on(l), in 1D, 2D and 3D. The
+// coarsening is the suspect: for every coarse row it gathers the intervals of
+// all the fine rows it covers (subset_utils::transform_to_loi), and nothing
+// keeps the result between two evaluations.
 //
-// A set at level L is read at another level either explicitly, with .on(l),
-// or implicitly, when the operands of an intersection / union / difference
-// live at different levels (the operator works at the finest one and refines
-// the others). The coarsening .on(l < L) builds, for every coarse row, the
-// list of the intervals of the 2^(L - l) fine rows it covers per dimension
-// (subset_utils::transform_to_loi): that temporary list is the suspected
-// bottleneck when going from a fine to a coarse level.
-//
-// Sections:
-//
-//   1. Coarsening against the level difference s, compared with traversing
-//      the same set already built at the coarse level (the floor), and with
-//      the cost of building it once.
-//   2. Refinement against s.
-//   3. Coarsening of a composite expression: an N-ary intersection read one
-//      level below, against the same intersection at its own level.
-//   4. Chained projections, as written in the graduation (.on(l-1).on(l)).
-//   5. Expansion of a coarsened set, the mesh construction pattern
-//      (expand(self(cells[l]).on(l-2), r)).
-//   6. Implicit level change: an intersection between operands at different
-//      levels, with and without .on() to the coarse level.
+// Input: a front at the fine level L (a thin shell in 2D and 3D, many
+// segments in 1D). `t/in_row` is the time per fine row, the unit of work of
+// the coarsening.
 
 #include <array>
 #include <cstddef>
@@ -35,8 +20,8 @@
 
 namespace
 {
+    using bench::make_front;
     using bench::run;
-    using bench::Shape;
 
     template <std::size_t dim>
     constexpr std::size_t fine_level()
@@ -44,29 +29,19 @@ namespace
         return (dim == 1) ? 20 : ((dim == 2) ? 11 : 8);
     }
 
-    // The fine set: a front (thin shell) in 2D and 3D, many segments in 1D.
     template <std::size_t dim>
-    samurai::LevelCellArray<dim> make_front(std::size_t level)
-    {
-        return (dim == 1) ? bench::make_shape<dim>(Shape::balls, level, 0, 4096) : bench::make_shape<dim>(Shape::shell, level);
-    }
-
-    template <std::size_t dim>
-    const samurai::LevelCellArray<dim>& fine(Shape shape)
+    const samurai::LevelCellArray<dim>& fine()
     {
         static const auto front = make_front<dim>(fine_level<dim>());
-        static const auto box   = bench::make_shape<dim>(Shape::box, fine_level<dim>());
-        return (shape == Shape::box) ? box : front;
+        return front;
     }
 
-    // self(fine).on(L - s), built once.
     template <std::size_t dim>
     samurai::LevelCellArray<dim> coarsened(const samurai::LevelCellArray<dim>& lca, std::size_t s)
     {
         return samurai::LevelCellArray<dim>(samurai::self(lca).on(fine_level<dim>() - s));
     }
 
-    // Time per fine input row: the unit of work of the coarsening.
     template <std::size_t dim>
     void report_fine_rows(benchmark::State& state, const samurai::LevelCellArray<dim>& lca)
     {
@@ -76,13 +51,16 @@ namespace
     }
 } // namespace
 
-// --- 1. Coarsening against the level difference ------------------------------
+// --- Coarsening against the level difference --------------------------------
 
-// self(fine).on(L - s). Arg: s.
-template <std::size_t dim, Shape shape>
+// The cost of self(a).on(L - s) per fine row as s grows, compared with
+// traversing the coarse set already built (BM_CoarsenPrebuilt) and with
+// building it once (BM_CoarsenBuild): the gain a cached coarse set would
+// bring. Arg: s.
+template <std::size_t dim>
 static void BM_Coarsen(benchmark::State& state)
 {
-    const auto& lca     = fine<dim>(shape);
+    const auto& lca     = fine<dim>();
     const std::size_t s = static_cast<std::size_t>(state.range(0));
     run(state,
         [&]
@@ -92,11 +70,10 @@ static void BM_Coarsen(benchmark::State& state)
     report_fine_rows(state, lca);
 }
 
-// The floor of BM_Coarsen: the same coarse set, already built. Arg: s.
-template <std::size_t dim, Shape shape>
+template <std::size_t dim>
 static void BM_CoarsenPrebuilt(benchmark::State& state)
 {
-    const auto& lca   = fine<dim>(shape);
+    const auto& lca   = fine<dim>();
     const auto coarse = coarsened(lca, static_cast<std::size_t>(state.range(0)));
     run(state,
         [&]
@@ -106,12 +83,10 @@ static void BM_CoarsenPrebuilt(benchmark::State& state)
     report_fine_rows(state, lca);
 }
 
-// Building the coarse LevelCellArray once: what a cached coarse set would
-// cost per mesh change. Arg: s.
-template <std::size_t dim, Shape shape>
+template <std::size_t dim>
 static void BM_CoarsenBuild(benchmark::State& state)
 {
-    const auto& lca     = fine<dim>(shape);
+    const auto& lca     = fine<dim>();
     const std::size_t s = static_cast<std::size_t>(state.range(0));
     for (auto _ : state)
     {
@@ -121,21 +96,20 @@ static void BM_CoarsenBuild(benchmark::State& state)
     report_fine_rows(state, lca);
 }
 
-#define SAMURAI_BENCH_COARSEN(DIM, SHAPE)                                              \
-    BENCHMARK(BM_Coarsen<DIM, SHAPE>)->Arg(1)->Arg(2)->Arg(3)->Arg(4)->Arg(6);         \
-    BENCHMARK(BM_CoarsenPrebuilt<DIM, SHAPE>)->Arg(1)->Arg(2)->Arg(3)->Arg(4)->Arg(6); \
-    BENCHMARK(BM_CoarsenBuild<DIM, SHAPE>)->Arg(1)->Arg(2)->Arg(3)->Arg(4)->Arg(6);
+#define SAMURAI_BENCH_COARSEN(DIM)                                              \
+    BENCHMARK(BM_Coarsen<DIM>)->Arg(1)->Arg(2)->Arg(3)->Arg(4)->Arg(6);         \
+    BENCHMARK(BM_CoarsenPrebuilt<DIM>)->Arg(1)->Arg(2)->Arg(3)->Arg(4)->Arg(6); \
+    BENCHMARK(BM_CoarsenBuild<DIM>)->Arg(1)->Arg(2)->Arg(3)->Arg(4)->Arg(6);
 
-SAMURAI_BENCH_COARSEN(1, Shape::shell)
-SAMURAI_BENCH_COARSEN(2, Shape::shell)
-SAMURAI_BENCH_COARSEN(2, Shape::box)
-SAMURAI_BENCH_COARSEN(3, Shape::shell)
-SAMURAI_BENCH_COARSEN(3, Shape::box)
+SAMURAI_BENCH_COARSEN(1)
+SAMURAI_BENCH_COARSEN(2)
+SAMURAI_BENCH_COARSEN(3)
 
-// --- 2. Refinement against the level difference ------------------------------
+// --- Refinement against the level difference --------------------------------
 
-// self(coarse).on(Lc + s), the coarse front at Lc = L - s: the output is the
-// same region at the same resolution for every s. Arg: s.
+// Control for the coarsening: self(coarse).on(L) against the refined set
+// already built (BM_RefinePrebuilt). The coarse front lives at L - s, so the
+// output covers the same region at the same resolution for every s. Arg: s.
 //
 // BM_Refine<3> is also a codegen canary: the fully inlined 3D refinement is so
 // register-tight that perturbing the Projection code was measured to cost
@@ -158,7 +132,6 @@ static void BM_Refine(benchmark::State& state)
     bench::report_input(state, coarse);
 }
 
-// The floor of BM_Refine: the refined set, already built. Arg: s.
 template <std::size_t dim>
 static void BM_RefinePrebuilt(benchmark::State& state)
 {
@@ -180,16 +153,14 @@ BENCHMARK(BM_RefinePrebuilt<2>)->Arg(1)->Arg(2)->Arg(4)->Arg(6);
 BENCHMARK(BM_Refine<3>)->Arg(1)->Arg(2)->Arg(4);
 BENCHMARK(BM_RefinePrebuilt<3>)->Arg(1)->Arg(2)->Arg(4);
 
-// --- 3. Coarsening of a composite expression ---------------------------------
+// --- Coarsening of a composite expression -----------------------------------
 
 namespace
 {
-    // intersection(a, N - 1 unit translates of a), read at its own level or
-    // one level below.
     template <std::size_t dim, std::size_t N, bool coarsen>
     void run_composite(benchmark::State& state)
     {
-        const auto& lca = fine<dim>(Shape::shell);
+        const auto& lca = fine<dim>();
         const auto t    = bench::translations<dim, N - 1>(bench::Reach::unit);
         run(state,
             [&]
@@ -208,15 +179,15 @@ namespace
     }
 } // namespace
 
-// intersection(a, N - 1 unit translates of a), at its own level.
+// An N-ary intersection read one level below (BM_CompositeCoarsen) against the
+// same intersection at its own level (BM_Composite): does each coarse row
+// re-evaluate the whole expression on the fine rows it covers?
 template <std::size_t dim, std::size_t N>
 static void BM_Composite(benchmark::State& state)
 {
     run_composite<dim, N, false>(state);
 }
 
-// The same intersection read one level below: each coarse row re-evaluates
-// the whole expression on the fine rows it covers.
 template <std::size_t dim, std::size_t N>
 static void BM_CompositeCoarsen(benchmark::State& state)
 {
@@ -235,55 +206,37 @@ SAMURAI_BENCH_COMPOSITE(1)
 SAMURAI_BENCH_COMPOSITE(2)
 SAMURAI_BENCH_COMPOSITE(3)
 
-// --- 4. Chained projections ----------------------------------------------------
+// --- Chained projections --------------------------------------------------------
 
-namespace
-{
-    // self(a).on(L - 1).on(level).
-    template <std::size_t dim>
-    void run_coarsen_then(benchmark::State& state, std::size_t level)
-    {
-        const auto& lca = fine<dim>(Shape::shell);
-        run(state,
-            [&]
-            {
-                return samurai::self(lca).on(fine_level<dim>() - 1).on(level);
-            });
-        report_fine_rows(state, lca);
-    }
-} // namespace
-
-// self(a).on(L - 1).on(L): the rounding of a set up to whole coarse cells,
-// as the graduation writes it.
+// self(a).on(L - 1).on(L), the rounding up to whole coarse cells that
+// make_graduation (algorithm/graduation.hpp) writes: compare with BM_Coarsen/1
+// to see whether each coarse row is coarsened again for every fine row.
 template <std::size_t dim>
 static void BM_CoarsenThenRefine(benchmark::State& state)
 {
-    run_coarsen_then<dim>(state, fine_level<dim>());
-}
-
-// self(a).on(L - 1).on(L - 2) against BM_Coarsen/2, which reaches the same
-// set in one projection.
-template <std::size_t dim>
-static void BM_CoarsenTwice(benchmark::State& state)
-{
-    run_coarsen_then<dim>(state, fine_level<dim>() - 2);
+    const auto& lca = fine<dim>();
+    run(state,
+        [&]
+        {
+            return samurai::self(lca).on(fine_level<dim>() - 1).on(fine_level<dim>());
+        });
+    report_fine_rows(state, lca);
 }
 
 BENCHMARK(BM_CoarsenThenRefine<1>);
 BENCHMARK(BM_CoarsenThenRefine<2>);
 BENCHMARK(BM_CoarsenThenRefine<3>);
-BENCHMARK(BM_CoarsenTwice<1>);
-BENCHMARK(BM_CoarsenTwice<2>);
-BENCHMARK(BM_CoarsenTwice<3>);
 
-// --- 5. Expansion of a coarsened set --------------------------------------------
+// --- Expansion of a coarsened set ------------------------------------------------
 
-// expand(self(a).on(L - s), 1): the prediction ghosts of the mesh
-// construction (s = 1 and 2). Arg: s.
+// expand(self(a).on(L - s), 1), the prediction ghosts of
+// MRMesh::update_sub_mesh_impl (s = 1 and 2), against the same expansion of a
+// coarse set already built (BM_ExpandCoarsenPrebuilt): does the expansion
+// coarsen again for every neighbouring row? Arg: s.
 template <std::size_t dim>
 static void BM_ExpandCoarsen(benchmark::State& state)
 {
-    const auto& lca     = fine<dim>(Shape::shell);
+    const auto& lca     = fine<dim>();
     const std::size_t s = static_cast<std::size_t>(state.range(0));
     run(state,
         [&]
@@ -293,11 +246,10 @@ static void BM_ExpandCoarsen(benchmark::State& state)
     report_fine_rows(state, lca);
 }
 
-// The same on a coarse set already built. Arg: s.
 template <std::size_t dim>
 static void BM_ExpandCoarsenPrebuilt(benchmark::State& state)
 {
-    const auto& lca   = fine<dim>(Shape::shell);
+    const auto& lca   = fine<dim>();
     const auto coarse = coarsened(lca, static_cast<std::size_t>(state.range(0)));
     run(state,
         [&]
@@ -313,58 +265,5 @@ BENCHMARK(BM_ExpandCoarsen<2>)->Arg(1)->Arg(2);
 BENCHMARK(BM_ExpandCoarsenPrebuilt<2>)->Arg(1)->Arg(2);
 BENCHMARK(BM_ExpandCoarsen<3>)->Arg(1)->Arg(2);
 BENCHMARK(BM_ExpandCoarsenPrebuilt<3>)->Arg(1)->Arg(2);
-
-// --- 6. Implicit level change ---------------------------------------------------
-
-namespace
-{
-    // intersection(fine front at L, coarse box at L - s), read at L or at
-    // L - s. Arg: s.
-    template <std::size_t dim, bool coarsen>
-    void run_mixed_levels(benchmark::State& state)
-    {
-        const auto& lca     = fine<dim>(Shape::shell);
-        const std::size_t s = static_cast<std::size_t>(state.range(0));
-        const auto coarse   = bench::make_shape<dim>(Shape::box, fine_level<dim>() - s);
-        run(state,
-            [&]
-            {
-                auto set = samurai::intersection(lca, coarse);
-                if constexpr (coarsen)
-                {
-                    return set.on(fine_level<dim>() - s);
-                }
-                else
-                {
-                    return set;
-                }
-            });
-        report_fine_rows(state, lca);
-    }
-} // namespace
-
-// intersection(fine front at L, coarse box at L - s): the operator works at L
-// and refines the box on the fly. Arg: s.
-template <std::size_t dim>
-static void BM_MixedLevels(benchmark::State& state)
-{
-    run_mixed_levels<dim, false>(state);
-}
-
-// The same intersection read at the coarse level, the pattern of the
-// projection and of the tagging: intersection(cells[l], all_cells[l-1]).on(l-1).
-// Arg: s.
-template <std::size_t dim>
-static void BM_MixedLevelsCoarsen(benchmark::State& state)
-{
-    run_mixed_levels<dim, true>(state);
-}
-
-BENCHMARK(BM_MixedLevels<1>)->Arg(1)->Arg(2)->Arg(4);
-BENCHMARK(BM_MixedLevelsCoarsen<1>)->Arg(1)->Arg(2)->Arg(4);
-BENCHMARK(BM_MixedLevels<2>)->Arg(1)->Arg(2)->Arg(4);
-BENCHMARK(BM_MixedLevelsCoarsen<2>)->Arg(1)->Arg(2)->Arg(4);
-BENCHMARK(BM_MixedLevels<3>)->Arg(1)->Arg(2)->Arg(4);
-BENCHMARK(BM_MixedLevelsCoarsen<3>)->Arg(1)->Arg(2)->Arg(4);
 
 BENCHMARK_MAIN();

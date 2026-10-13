@@ -1,21 +1,8 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-// The set expressions samurai evaluates, as the library writes them, on
-// MR-adapted meshes in 1D, 2D and 3D, next to the library operations that
-// evaluate them.
-//
-// Each BM_Site_* benchmark rebuilds, level by level, the expressions of one
-// library function (copied from the source cited above it) and traverses
-// them with a callback that only counts: its time is the cost of the set
-// algebra alone in that function. Where the function applies a cheap field
-// operator to the set, BM_SiteOp_* applies that operator instead, so that
-// Site / SiteOp is the share of the set algebra in the function.
-//
-// BM_Op_* time the library operations themselves (ghost update, one
-// adaptation step, mesh construction, graduation, field transfer, upwind
-// flux). The adaptation step also reports the time of its phases, read from
-// samurai's timers, in ms per iteration.
+// Weight of the set algebra in the operations samurai runs at every time
+// step, on MR-adapted meshes in 1D, 2D and 3D.
 //
 // Args: (max_level, number of balls). The mesh is refined to max_level along
 // the surfaces of the balls (bench::adapted_case); more balls means more,
@@ -69,8 +56,8 @@ namespace
         return dirs;
     }
 
-    // Time spent in samurai's own timers during the benchmark loop, reported
-    // in ms per iteration (the timers are only active when enabled).
+    // Time accumulated by samurai's timers during the benchmark loop, in ms
+    // per iteration, to split a library operation into its phases.
     class PhaseTimers
     {
       public:
@@ -105,7 +92,6 @@ namespace
         std::vector<double> m_before;
     };
 
-    // bench::run_site, with the number of sets of one iteration.
     template <class Site>
     void run_site(benchmark::State& state, Site&& site)
     {
@@ -113,25 +99,12 @@ namespace
     }
 
     /////////////////////////////////////////////////////////////////////
-    // The sites
+    // The sites: the expressions of one library function, copied from the
+    // source cited above each, each set passed to f(level, set)
     /////////////////////////////////////////////////////////////////////
-
-    // Mesh_base::update_mesh_neighbour (mesh.hpp): the union of the cells of
-    // all the finer levels, projected level by level.
-    template <class Mesh, class F>
-    void site_mesh_union(const Mesh& mesh, F&& f)
-    {
-        using mesh_id_t = typename Mesh::mesh_id_t;
-        for (std::size_t level = mesh.max_level(); level >= 1; --level)
-        {
-            f(level - 1, samurai::union_(mesh[mesh_id_t::cells][level], mesh.get_union()[level]).on(level - 1));
-        }
-    }
 
     // MRMesh::update_sub_mesh_impl (mr/mesh.hpp): the ghosts the prediction
     // needs one and two levels below each cell, then the projection cells.
-    // `subdomain_at(level)` gives the subdomain at `level`: see
-    // projected_subdomain and cached_subdomain.
     template <class Mesh, class SubdomainAt, class F>
     void site_mesh_prediction_ghosts(const Mesh& mesh, SubdomainAt&& subdomain_at, F&& f)
     {
@@ -156,8 +129,7 @@ namespace
         }
     }
 
-    // What the library does: the finest subdomain projected with .on(level)
-    // each time.
+    // What the library does.
     template <class Mesh>
     auto projected_subdomain(const Mesh& mesh)
     {
@@ -167,9 +139,7 @@ namespace
         };
     }
 
-    // Not what the library does today: the subdomain read from the pyramid
-    // the mesh already stores (mesh.subdomain(level)), the gain of a cached
-    // coarse set.
+    // Not what the library does: the pyramid the mesh already stores.
     template <class Mesh>
     auto cached_subdomain(const Mesh& mesh)
     {
@@ -179,10 +149,8 @@ namespace
         };
     }
 
-    // Mesh_base::construct_corners (mesh.hpp): the inner cells at each corner
-    // and edge of the domain, at the finest level, for every diagonal
-    // direction. Runs at every mesh construction although the domain does not
-    // change.
+    // Mesh_base::construct_corners (mesh.hpp). Runs at every mesh
+    // construction although its result only depends on the domain.
     template <class Mesh, class F>
     void site_corners(const Mesh& mesh, F&& f)
     {
@@ -249,14 +217,10 @@ namespace
         }
     }
 
-    // update_outer_ghosts (algorithm/update_outer_ghost.hpp), without the
-    // boundary condition itself: corner ghosts projected one and two levels
-    // down (project_corner_below), boundary ghosts projected from the level
-    // above (project_bc) and predicted to the level above (predict_bc), for
-    // every level and Cartesian direction, with one layer of boundary ghosts
-    // (Dirichlet). predict_bc builds a LevelCellArray
-    // (domain_boundary_outer_layer) on every call. `domain_at(level)` gives
-    // the domain at `level`: see projected_domain and cached_domain.
+    // update_outer_ghosts (algorithm/update_outer_ghost.hpp) without the
+    // boundary condition itself: project_corner_below, project_bc and
+    // predict_bc, with one layer of boundary ghosts (Dirichlet). predict_bc
+    // builds a LevelCellArray (domain_boundary_outer_layer) on every call.
     template <class Mesh, class DomainAt, class F>
     void site_outer_ghosts(const Mesh& mesh, DomainAt&& domain_at, F&& f)
     {
@@ -300,8 +264,7 @@ namespace
         }
     }
 
-    // What the library does: the finest domain projected with .on(level)
-    // each time.
+    // What the library does.
     template <class Mesh>
     auto projected_domain(const Mesh& mesh)
     {
@@ -311,9 +274,7 @@ namespace
         };
     }
 
-    // Not what the library does today: the domain read from the pyramid the
-    // mesh already stores (mesh.domain(level)), the gain of a cached coarse
-    // set.
+    // Not what the library does: the pyramid the mesh already stores.
     template <class Mesh>
     auto cached_domain(const Mesh& mesh)
     {
@@ -350,27 +311,8 @@ namespace
         }
     }
 
-    // make_graduation on tags (algorithm/graduation.hpp, the AMR path): every
-    // direction of the star stencil, every level.
-    template <class Mesh, class F>
-    void site_graduation_tag(const Mesh& mesh, F&& f)
-    {
-        using mesh_id_t    = typename Mesh::mesh_id_t;
-        const auto stencil = samurai::star_stencil<Mesh::dim>();
-        for (std::size_t level = mesh.min_level() + 1; level <= mesh.max_level(); ++level)
-        {
-            for (std::size_t i = 0; i < stencil.shape()[0]; ++i)
-            {
-                auto s = xt::view(stencil, i);
-                f(level,
-                  samurai::intersection(samurai::translate(mesh[mesh_id_t::cells][level], s), mesh[mesh_id_t::cells][level - 1]).on(level));
-            }
-        }
-    }
-
-    // for_each_interface (interface.hpp): the faces between two cells of the
-    // same level, then between a cell and a finer one, in both orientations,
-    // for every Cartesian direction.
+    // for_each_interface (interface.hpp): faces between cells of the same
+    // level, then between a cell and a finer one.
     template <class Mesh, class F>
     void site_interfaces(const Mesh& mesh, F&& f)
     {
@@ -412,17 +354,9 @@ namespace
 // Set algebra alone
 /////////////////////////////////////////////////////////////////////////
 
-template <std::size_t dim>
-static void BM_Site_MeshUnion(benchmark::State& state)
-{
-    const auto& mesh = get_case<dim>(state).mesh;
-    run_site(state,
-             [&](auto&& f)
-             {
-                 site_mesh_union(mesh, f);
-             });
-}
-
+// BM_Site_X traverses the sets of site X with a callback that only counts:
+// the time the set algebra takes in the library function, to set against
+// BM_SiteOp_X or BM_Op_* below.
 template <std::size_t dim>
 static void BM_Site_MeshPredictionGhosts(benchmark::State& state)
 {
@@ -478,6 +412,9 @@ static void BM_Site_OuterGhosts(benchmark::State& state)
              });
 }
 
+// BM_SiteCached_X: site X reading the coarse domain or subdomain the mesh
+// already stores instead of coarsening the finest one at every use. The gap
+// with BM_Site_X is what caching coarse sets would save.
 template <std::size_t dim>
 static void BM_SiteCached_OuterGhosts(benchmark::State& state)
 {
@@ -523,17 +460,6 @@ static void BM_Site_Tag(benchmark::State& state)
 }
 
 template <std::size_t dim>
-static void BM_Site_GraduationTag(benchmark::State& state)
-{
-    const auto& mesh = get_case<dim>(state).mesh;
-    run_site(state,
-             [&](auto&& f)
-             {
-                 site_graduation_tag(mesh, f);
-             });
-}
-
-template <std::size_t dim>
 static void BM_Site_Interfaces(benchmark::State& state)
 {
     const auto& mesh = get_case<dim>(state).mesh;
@@ -559,6 +485,11 @@ static void BM_Site_FieldTransfer(benchmark::State& state)
 /////////////////////////////////////////////////////////////////////////
 // The same sets with the field operator of the library
 /////////////////////////////////////////////////////////////////////////
+
+// BM_SiteOp_X applies to each set of site X the operator the library applies
+// there: BM_Site_X / BM_SiteOp_X is the share of the set algebra in the
+// function. Defined for the sites that apply one field operator to each set;
+// the other sites compare with a BM_Op_*.
 
 template <std::size_t dim>
 static void BM_SiteOp_GhostProjection(benchmark::State& state)
@@ -633,6 +564,10 @@ static void BM_SiteOp_Tag(benchmark::State& state)
 // Library operations
 /////////////////////////////////////////////////////////////////////////
 
+// BM_Op_* time the library operations that contain the sites: the total each
+// BM_Site_* is a share of.
+
+// Contains the ghost projection, prediction and outer ghosts.
 template <std::size_t dim>
 static void BM_Op_UpdateGhost(benchmark::State& state)
 {
@@ -644,9 +579,8 @@ static void BM_Op_UpdateGhost(benchmark::State& state)
     }
 }
 
-// One adaptation step: the field of the moved fronts, on the mesh adapted to
-// the unmoved ones. The copies are not timed. Counters: time of the phases
-// of the adaptation, in ms per step.
+// One adaptation step, the field of the moved fronts on the mesh adapted to
+// the unmoved ones: where the time of a step goes, phase by phase.
 template <std::size_t dim>
 static void BM_Op_AdaptStep(benchmark::State& state)
 {
@@ -671,8 +605,9 @@ static void BM_Op_AdaptStep(benchmark::State& state)
     timers.report(state);
 }
 
-// MRMesh(cells, reference mesh): every derived mesh id, the union, the
-// neighbourhood. Builds the mesh of the moved fronts.
+// MRMesh(cells, reference mesh), as the adaptation builds the mesh of the
+// moved fronts. Contains the corners and the prediction ghosts; its phase
+// counters split it further.
 template <std::size_t dim>
 static void BM_Op_MeshConstruction(benchmark::State& state)
 {
@@ -688,6 +623,8 @@ static void BM_Op_MeshConstruction(benchmark::State& state)
     timers.report(state);
 }
 
+// make_graduation, the MR path. A pipeline of materialized sets, so it has
+// no BM_Site_ counterpart: its whole time is set algebra.
 template <std::size_t dim>
 static void BM_Op_Graduation(benchmark::State& state)
 {
@@ -707,7 +644,8 @@ static void BM_Op_Graduation(benchmark::State& state)
     }
 }
 
-// update_fields from the mesh of the fronts to the mesh of the moved fronts.
+// update_fields from the mesh of the fronts to the mesh of the moved fronts,
+// the total of BM_Site_FieldTransfer.
 template <std::size_t dim>
 static void BM_Op_FieldTransfer(benchmark::State& state)
 {
@@ -726,8 +664,7 @@ static void BM_Op_FieldTransfer(benchmark::State& state)
     }
 }
 
-// Upwind convection flux: the interfaces of section `site_interfaces` plus
-// the flux computation itself.
+// Upwind convection flux, the total of BM_Site_Interfaces.
 template <std::size_t dim>
 static void BM_Op_UpwindFlux(benchmark::State& state)
 {
@@ -773,7 +710,6 @@ namespace
 } // namespace
 
 #define SAMURAI_BENCH_CALL_SITES(DIM)                                          \
-    BENCHMARK(BM_Site_MeshUnion<DIM>)->Apply(mesh_args<DIM>);                  \
     BENCHMARK(BM_Site_MeshPredictionGhosts<DIM>)->Apply(mesh_args<DIM>);       \
     BENCHMARK(BM_SiteCached_MeshPredictionGhosts<DIM>)->Apply(mesh_args<DIM>); \
     BENCHMARK(BM_Site_Corners<DIM>)->Apply(mesh_args<DIM>);                    \
@@ -789,7 +725,6 @@ namespace
     BENCHMARK(BM_SiteOp_Detail<DIM>)->Apply(mesh_args<DIM>);                   \
     BENCHMARK(BM_Site_Tag<DIM>)->Apply(mesh_args<DIM>);                        \
     BENCHMARK(BM_SiteOp_Tag<DIM>)->Apply(mesh_args<DIM>);                      \
-    BENCHMARK(BM_Site_GraduationTag<DIM>)->Apply(mesh_args<DIM>);              \
     BENCHMARK(BM_Op_Graduation<DIM>)->Apply(mesh_args<DIM>);                   \
     BENCHMARK(BM_Site_FieldTransfer<DIM>)->Apply(mesh_args<DIM>);              \
     BENCHMARK(BM_Op_FieldTransfer<DIM>)->Apply(mesh_args<DIM>);                \

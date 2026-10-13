@@ -1,24 +1,13 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-// How the shape of a level, and the way it is cut, drives the cost of the
-// set algebra, in 1D, 2D and 3D.
+// How the shape of a level drives the cost of the set algebra, in 1D, 2D and
+// 3D. To start a row, a traverser searches the intervals of the parent row
+// linearly (LCAView::get_traverser_impl), so the cost should grow with the
+// length of the parent rows.
 //
-// A LevelCellArray stores, per dimension, the intervals of each row and the
-// offsets that link a row to its sub-rows. To start a row, a traverser looks
-// up the interval holding its coordinate among the intervals of the parent
-// row (LCAView::get_traverser_impl). That lookup is linear, so its cost grows
-// with the number of intervals of the parent row.
-//
-// Sections:
-//
-//   1. Fragmentation: the same number of cells (a box cut into K stripes, half
-//      of them kept) as K grows, along each axis in turn. Along x (axis 0) K
-//      only adds intervals per row; along the other axes it adds intervals to
-//      the parent rows that every row lookup scans.
-//   2. Partitioning: the same front traversed as P subdomains, the way P MPI
-//      processes would see it (each process intersects the mesh with its
-//      subdomain), for slabs cut along each axis.
+// Inputs: a box cut into K stripes along one axis (half of them kept, so the
+// number of cells does not change with K), and a front cut into P slabs.
 
 #include <array>
 #include <cstddef>
@@ -49,7 +38,7 @@ namespace
         return lca;
     }
 
-    // Args: (axis, K) with K = 1, 4, ..., up to slabs of one cell.
+    // Args: (axis, K), K up to slabs of one cell wide.
     template <std::size_t dim>
     void stripes_args(benchmark::internal::Benchmark* b)
     {
@@ -64,8 +53,12 @@ namespace
     }
 } // namespace
 
-// --- 1. Fragmentation ------------------------------------------------------------
+// --- Fragmentation ----------------------------------------------------------------
 
+// A plain traversal, a coarsening and an expansion of the same cells as the
+// box is cut into more stripes along each axis. Along x the cut only adds
+// output intervals; along the other axes it lengthens the parent rows that
+// every row lookup scans. Args: (axis, K).
 template <std::size_t dim>
 static void BM_FragmentedSelf(benchmark::State& state)
 {
@@ -74,33 +67,6 @@ static void BM_FragmentedSelf(benchmark::State& state)
         [&]
         {
             return samurai::self(lca);
-        });
-}
-
-// intersection(a, translate(a, e_x)): the flux / stencil pattern.
-template <std::size_t dim>
-static void BM_FragmentedTranslateX(benchmark::State& state)
-{
-    const auto lca = stripes<dim>(state);
-    const auto t   = bench::unit<dim>(0);
-    run(state,
-        [&]
-        {
-            return samurai::intersection(lca, samurai::translate(lca, t));
-        });
-}
-
-// intersection(a, translate(a, e_outer)): the same along the outermost axis,
-// where the translate reads other rows than its partner.
-template <std::size_t dim>
-static void BM_FragmentedTranslateOuter(benchmark::State& state)
-{
-    const auto lca = stripes<dim>(state);
-    const auto t   = bench::unit<dim>(dim - 1);
-    run(state,
-        [&]
-        {
-            return samurai::intersection(lca, samurai::translate(lca, t));
         });
 }
 
@@ -126,22 +92,21 @@ static void BM_FragmentedExpand(benchmark::State& state)
         });
 }
 
-#define SAMURAI_BENCH_FRAGMENTED(DIM)                                      \
-    BENCHMARK(BM_FragmentedSelf<DIM>)->Apply(stripes_args<DIM>);           \
-    BENCHMARK(BM_FragmentedTranslateX<DIM>)->Apply(stripes_args<DIM>);     \
-    BENCHMARK(BM_FragmentedTranslateOuter<DIM>)->Apply(stripes_args<DIM>); \
-    BENCHMARK(BM_FragmentedCoarsen<DIM>)->Apply(stripes_args<DIM>);        \
+#define SAMURAI_BENCH_FRAGMENTED(DIM)                               \
+    BENCHMARK(BM_FragmentedSelf<DIM>)->Apply(stripes_args<DIM>);    \
+    BENCHMARK(BM_FragmentedCoarsen<DIM>)->Apply(stripes_args<DIM>); \
     BENCHMARK(BM_FragmentedExpand<DIM>)->Apply(stripes_args<DIM>);
 
 SAMURAI_BENCH_FRAGMENTED(1)
 SAMURAI_BENCH_FRAGMENTED(2)
 SAMURAI_BENCH_FRAGMENTED(3)
 
-// --- 2. Partitioning ----------------------------------------------------------------
+// --- Partitioning -------------------------------------------------------------------
 
-// The front (a shell; many segments in 1D) intersected with each of P slabs
-// cut along `axis`, all of them traversed: the total work of P processes.
-// Args: (axis, P).
+// The same front seen by P processes, each intersecting it with its slab:
+// does the total work grow with P, and does it depend on the axis of the cut?
+// Sequential, so only the cost of the partition shape is measured. Args:
+// (axis, P).
 template <std::size_t dim>
 static void BM_Partitioned(benchmark::State& state)
 {
@@ -150,7 +115,7 @@ static void BM_Partitioned(benchmark::State& state)
     const auto parts    = static_cast<value_t>(state.range(1));
     const auto level    = shape_level<dim>();
     const value_t n     = value_t(1) << level;
-    const auto front    = (dim == 1) ? bench::make_shape<dim>(Shape::balls, level, 0, 4096) : bench::make_shape<dim>(Shape::shell, level);
+    const auto front    = bench::make_front<dim>(level);
     const value_t width = n / parts;
 
     std::vector<samurai::LevelCellArray<dim>> subdomains;
