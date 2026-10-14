@@ -311,11 +311,18 @@ namespace samurai
                 // Copy the Jacobian coefficients into the PETSc matrix (careful: the dense matrices are stored in column-major order)
                 PetscScalar* array;
                 MatDenseGetArray(B, &array);
-                for (int j = 0; j < n_comp; j++)
+                if constexpr (field_t::is_scalar)
                 {
-                    for (int i = 0; i < n_comp; i++)
+                    array[0] = jac_coeffs; // the Jacobian of a scalar field is a scalar
+                }
+                else
+                {
+                    for (int j = 0; j < n_comp; j++)
                     {
-                        array[j * n_comp + i] = jac_coeffs(i, j);
+                        for (int i = 0; i < n_comp; i++)
+                        {
+                            array[j * n_comp + i] = jac_coeffs(i, j);
+                        }
                     }
                 }
                 MatDenseRestoreArray(B, &array);
