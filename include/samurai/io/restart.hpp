@@ -151,14 +151,6 @@ namespace samurai
         }
     }
 
-    template <class Config>
-    void dump(HighFive::File& file, const UniformMesh<Config>& mesh)
-    {
-        using Mesh      = UniformMesh<Config>;
-        using mesh_id_t = typename Mesh::mesh_id_t;
-        dump(file, mesh[mesh_id_t::cells]);
-    }
-
     void dump_field(HighFive::File& file, const auto& mesh, const auto& field)
     {
         auto data = extract_data_as_vector(field, mesh);
@@ -175,6 +167,15 @@ namespace samurai
         {
             (dump_field(file, mesh, fields), ...);
         }
+    }
+
+    template <class Config>
+    void dump(HighFive::File& file, const UniformMesh<Config>& mesh, const auto&... fields)
+    {
+        using Mesh      = UniformMesh<Config>;
+        using mesh_id_t = typename Mesh::mesh_id_t;
+        dump(file, mesh[mesh_id_t::cells]);
+        dump_fields(file, mesh[mesh_id_t::cells], fields...);
     }
 
     template <class D, class Config>
@@ -421,22 +422,10 @@ namespace samurai
         ca = load<ca_t>(file);
     }
 
-    template <class Config, class... Fields>
-    void load(const HighFive::File& file, UniformMesh<Config>& mesh, Fields&... fields)
+    // Each dataset of a restart file is split in one partition per writing process,
+    // so the file can only be read back with the same number of processes.
+    inline void check_n_process(const HighFive::File& file)
     {
-        using ca_type = typename UniformMesh<Config>::ca_type;
-
-        ca_type ca;
-        load(file, ca);
-        UniformMesh<Config> new_mesh{ca};
-        std::swap(mesh, new_mesh);
-        load_fields(file, mesh, fields...);
-    }
-
-    template <class Mesh, class... Fields>
-    void load(const HighFive::File& file, Mesh& mesh, Fields&... fields)
-    {
-        using ca_type = typename Mesh::ca_type;
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
         auto size = static_cast<std::size_t>(world.size());
@@ -452,6 +441,28 @@ namespace samurai
                             n_process,
                             size));
         }
+    }
+
+    template <class Config, class... Fields>
+    void load(const HighFive::File& file, UniformMesh<Config>& mesh, Fields&... fields)
+    {
+        using ca_type = typename UniformMesh<Config>::ca_type;
+
+        check_n_process(file);
+
+        ca_type ca;
+        load(file, ca);
+        UniformMesh<Config> new_mesh{ca};
+        std::swap(mesh, new_mesh);
+        load_fields(file, mesh, fields...);
+    }
+
+    template <class Mesh, class... Fields>
+    void load(const HighFive::File& file, Mesh& mesh, Fields&... fields)
+    {
+        using ca_type = typename Mesh::ca_type;
+
+        check_n_process(file);
 
         auto min_level = H5Easy::load<std::size_t>(file, "/mesh/min_level");
         auto max_level = H5Easy::load<std::size_t>(file, "/mesh/max_level");
