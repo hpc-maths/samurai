@@ -115,6 +115,9 @@ namespace bench
     // The sets of one mesh
     //////////////////////////////////////////////////////////////////////
 
+    // MRMesh::config_t::prediction_stencil_radius of the adapted meshes.
+    inline constexpr int prediction_stencil_radius = 1;
+
     // Named after the MRMesh members they are copied from (make_site_inputs
     // in mr_fixtures.hpp), with accessors where the mesh has one.
     template <std::size_t dim>
@@ -122,9 +125,6 @@ namespace bench
     {
         using ca_t  = samurai::CellArray<dim>;
         using lca_t = typename ca_t::lca_type;
-
-        // MRMesh::config_t::prediction_stencil_radius
-        static constexpr int prediction_stencil_radius = 1;
 
         // mesh.min_level() and mesh.max_level(): the bounds of the mesh
         // configuration, not of the cells.

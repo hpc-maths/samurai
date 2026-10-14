@@ -130,7 +130,7 @@ namespace bench
         using mesh_t    = mr_mesh_t<dim>;
         using mesh_id_t = typename mesh_t::mesh_id_t;
         static_assert(std::is_same_v<typename mesh_t::ca_type, typename SiteInputs<dim>::ca_t>);
-        static_assert(mesh_t::config_t::prediction_stencil_radius == SiteInputs<dim>::prediction_stencil_radius);
+        static_assert(mesh_t::config_t::prediction_stencil_radius == prediction_stencil_radius);
 
         SiteInputs<dim> in;
         in.min_level        = mesh.min_level();

@@ -28,7 +28,7 @@ namespace bench::sites
     template <std::size_t dim, class SubdomainAt, class F>
     void mesh_prediction_ghosts(const SiteInputs<dim>& in, SubdomainAt&& subdomain_at, F&& f)
     {
-        constexpr int pred_r = SiteInputs<dim>::prediction_stencil_radius;
+        constexpr int pred_r = prediction_stencil_radius;
         const auto& cells    = in.cells;
         const auto& cag      = in.cells_and_ghosts;
         for (std::size_t level = cells.min_level(); level <= cells.max_level(); ++level)
