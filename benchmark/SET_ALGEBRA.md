@@ -10,30 +10,58 @@ baseline for the work on the algebra: rerun them before and after a change.
 micromamba activate samurai-env
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_BENCHMARKS=ON
 ninja -C build bench_set_operators bench_set_projection bench_set_mesh_shape \
-               bench_set_call_sites bench_dynamic_set
+               bench_set_call_sites bench_dynamic_set \
+               generate_set_algebra_inputs bench_set_library_ops
+./build/benchmark/generate_set_algebra_inputs
 ./build/benchmark/bench_set_call_sites --benchmark_filter='<3>'
 ```
+
+`generate_set_algebra_inputs` adapts the meshes and writes their sets to
+`build/benchmark/set_algebra_inputs/` (8 MB, a few seconds). The build does not
+run it, so the inputs stay the same while the set algebra changes. Run it once,
+and again only to change the meshes. With `SAMURAI_SET_ALGEBRA_INPUTS=<dir>` in
+the environment, the generator and the binaries that read the files use another
+directory, so two builds can share one set of inputs.
 
 For numbers worth comparing, use `--benchmark_repetitions=3
 --benchmark_report_aggregates_only=true` and keep the machine idle.
 
 Every benchmark reports `itv` and `cells` (what the set emitted per iteration)
-and `t/itv`, the time per emitted interval. Inputs come from
-`set_algebra_fixtures.hpp`: synthetic `LevelCellArray`s with a controlled shape,
-and MR-adapted meshes refined around the surfaces of K balls, built once per
-binary.
+and `t/itv`, the time per emitted interval. The benchmarks on adapted meshes
+also report the mesh: `leaves`, `leaf_itv` and `levels`.
 
-| Binary | Question |
-| --- | --- |
-| `bench_set_operators` | Cost of the operators at one level: the floor of a traversal against a raw loop, the arity of intersection and union (with in-phase operands and nested binary operators as controls), and the expansion width. |
-| `bench_set_projection` | Cost of `.on()`: coarsening against the level difference, compared with the same coarse set already built and with building it once; refinement as a control; coarsening of an N-ary intersection, of a chained projection and inside an expansion. |
-| `bench_set_mesh_shape` | Effect of the shape of a level: the same cells cut into K stripes along each axis, and the same front cut into P subdomains along each axis. |
-| `bench_set_call_sites` | The expressions of the library functions that run at every time step, copied from their source (`BM_Site_*`), the same sets with the library's field operator (`BM_SiteOp_*`), the library operations themselves (`BM_Op_*`) and two variants that read coarse sets the mesh already stores (`BM_SiteCached_*`). |
-| `bench_dynamic_set` | Static against dynamic (runtime) algebra on two library expressions. |
+Most binaries need only samurai's interval structures (`LevelCellArray`,
+`CellArray`, `ListOfIntervals`, `Box`) and the set algebra, so they still build
+if the algebra is optimized or replaced. Their inputs come from three headers:
 
-`BM_Site_X / BM_SiteOp_X` is the share of the set algebra in the function that
-evaluates X. `BM_Op_AdaptStep` and `BM_Op_MeshConstruction` also report the
-time of their phases, read from samurai's timers, in ms per iteration.
+- `set_algebra_fixtures.hpp` holds the traversal and its counters, and
+  synthetic `LevelCellArray`s with a controlled shape.
+- `site_inputs.hpp` holds `SiteInputs`, the sets the library call sites read
+  from an MR-adapted mesh (cells, ghosts, reference, projection cells, union,
+  domain and subdomain pyramids, corners), and reads and writes the files. The
+  file format is described at the top of the header, so another implementation
+  of the algebra can run on the same inputs.
+- `set_call_sites.hpp` holds the call site expressions copied from the library,
+  which read their operands from `SiteInputs`.
+
+`mr_fixtures.hpp` builds the MR-adapted meshes, refined around the surfaces of K
+balls, and copies their sets into `SiteInputs`. Only
+`generate_set_algebra_inputs` and `bench_set_library_ops` include it.
+
+| Binary | Needs | Question |
+| --- | --- | --- |
+| `bench_set_operators` | algebra | Cost of the operators at one level: the floor of a traversal against a raw loop, the arity of intersection and union (with in-phase operands and nested binary operators as controls), and the expansion width. |
+| `bench_set_projection` | algebra | Cost of `.on()`: coarsening against the level difference, compared with the same coarse set already built and with building it once; refinement as a control; coarsening of an N-ary intersection, of a chained projection and inside an expansion. |
+| `bench_set_mesh_shape` | algebra | Effect of the shape of a level: the same cells cut into K stripes along each axis, and the same front cut into P subdomains along each axis. |
+| `bench_set_call_sites` | algebra, input files | The expressions of the library functions that run at every time step, copied from their source (`BM_Site_*`), and two variants that read coarse sets the mesh already stores (`BM_SiteCached_*`). |
+| `bench_dynamic_set` | algebra, input files | Static against dynamic (runtime) algebra on two library expressions. |
+| `bench_set_library_ops` | mesh, MR adaptation, fields, schemes | The sets of `BM_Site_*` with the library's field operator (`BM_SiteOp_*`), and the library operations themselves (`BM_Op_*`), on the meshes and arguments of `bench_set_call_sites`. |
+
+`BM_Site_X` (`bench_set_call_sites`) divided by `BM_SiteOp_X`
+(`bench_set_library_ops`) is the share of the set algebra in the function that
+evaluates X; item 8 below explains why this ratio comes out low.
+`BM_Op_AdaptStep` and `BM_Op_MeshConstruction` also report the time of their
+phases, read from samurai's timers, in ms per iteration.
 
 ## Baseline
 
@@ -41,6 +69,10 @@ Measured on 2026-10-12 at commit 450fe11d, sequential build, GCC 15.3
 (conda-forge), Release, aarch64 Linux with 18 CPUs, medians of 3 repetitions.
 Meshes: 1D max level 16 with 16 and 256 balls, 2D max level 10 and 12 (25k to
 235k leaves), 3D max level 7 (136k and 198k leaves), min level 2.
+
+The `BM_Site_*` and `bench_dynamic_set` figures in this section were measured
+when they shared a translation unit with the library operations. Compiled on
+their own, as they now are, they run faster: see item 8.
 
 ### Weight of the set algebra in samurai's operations
 
@@ -134,6 +166,20 @@ the same as the loop (683 ns against 689 ns on the front, measured on
 static one on the ghost projection and the interfaces (3D ghost projection:
 966 µs against 131 µs; 3D interfaces: 2.85 ms against 158 µs, measured on
 2026-10-13).
+
+**8. Inlining lost in large translation units.** GCC inlines the functions
+that build the traversers (`get_traverser_impl`) only while the translation
+unit is small. Compiled with the mesh, the MR adaptation and the schemes, GCC
+15 runs out of its unit growth budget (`--param inline-unit-growth`), keeps
+them out of line, and the same expressions on the same sets run 1.1 to 1.5
+times slower in 3D: `BM_Site_Interfaces<3>/7/8` takes 646 µs in a large unit
+and 440 µs alone, `BM_Site_GhostProjection<3>/7/8` 109 µs and 71 µs, the static
+ghost projection of `bench_dynamic_set` 132 µs and 72 µs. Raising the budget
+gives the fast figures back. An application that includes the mesh and the
+schemes is in the slow case, so `BM_Site_X / BM_SiteOp_X`, which compares a
+small unit with a large one, understates the share of the algebra. Forcing the
+inlining of the traverser construction should recover the difference in
+applications (measured on 2026-10-14).
 
 ### Where the set algebra is not the bottleneck
 

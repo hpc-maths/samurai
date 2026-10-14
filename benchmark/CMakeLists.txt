@@ -32,6 +32,7 @@ set(SAMURAI_BENCHMARK_SOURCES
     benchmark_fv_scheme.cpp
     benchmark_search.cpp
     benchmark_set_call_sites.cpp
+    benchmark_set_library_ops.cpp
     benchmark_set_mesh_shape.cpp
     benchmark_set_operators.cpp
     benchmark_set_projection.cpp
@@ -48,6 +49,18 @@ endfunction()
 
 foreach(source IN LISTS SAMURAI_BENCHMARK_SOURCES)
     samurai_add_benchmark(${source})
+endforeach()
+
+# bench_set_call_sites and bench_dynamic_set read the sets of the MR-adapted
+# meshes from files, so they build with the interval structures and the set
+# algebra alone. generate_set_algebra_inputs writes the files; it is run by
+# hand and not as a build step, so that the inputs stay the same while the set
+# algebra changes. SAMURAI_SET_ALGEBRA_INPUTS in the environment overrides the
+# directory at run time.
+add_executable(generate_set_algebra_inputs generate_set_algebra_inputs.cpp)
+target_link_libraries(generate_set_algebra_inputs samurai benchmark::benchmark)
+foreach(target generate_set_algebra_inputs bench_set_call_sites bench_dynamic_set)
+    target_compile_definitions(${target} PRIVATE SAMURAI_SET_ALGEBRA_INPUTS_DIR="${CMAKE_CURRENT_BINARY_DIR}/set_algebra_inputs")
 endforeach()
 
 # Load balancing micro-benchmarks: MPI-only, its own MPI-aware main(), and

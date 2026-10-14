@@ -1,20 +1,19 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-// Inputs and helpers shared by the set algebra benchmarks: synthetic
-// LevelCellArrays at one level, each shape chosen to stress one property of
-// the traversal, and MR-adapted meshes refined around the surfaces of balls.
+// Helpers shared by the set algebra benchmarks: the traversal of a set and its
+// counters, and synthetic LevelCellArrays at one level, each shape chosen to
+// stress one property of the traversal. Needs only the interval structures
+// and the set algebra; the MR-adapted meshes are in mr_fixtures.hpp.
 
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <map>
-#include <memory>
 #include <numbers>
-#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -24,13 +23,8 @@
 #include <xtensor/generators/xbuilder.hpp>
 #include <xtensor/views/xview.hpp>
 
-#include <samurai/algorithm.hpp>
-#include <samurai/bc.hpp>
 #include <samurai/box.hpp>
-#include <samurai/field.hpp>
 #include <samurai/level_cell_array.hpp>
-#include <samurai/mr/adapt.hpp>
-#include <samurai/mr/mesh.hpp>
 #include <samurai/static_algorithm.hpp>
 #include <samurai/stencil.hpp>
 #include <samurai/subset/node.hpp>
@@ -327,117 +321,4 @@ namespace bench
     {
         return samurai::union_(s...);
     };
-
-    //////////////////////////////////////////////////////////////////////
-    // MR-adapted meshes
-    //////////////////////////////////////////////////////////////////////
-
-    template <std::size_t dim>
-    constexpr std::size_t default_max_level()
-    {
-        return (dim == 1) ? 16 : ((dim == 2) ? 10 : 7);
-    }
-
-    template <std::size_t dim>
-    auto mr_config(std::size_t max_level)
-    {
-        return samurai::mesh_config<dim>().min_level(2).max_level(max_level).max_stencil_size(2).disable_minimal_ghost_width();
-    }
-
-    template <std::size_t dim>
-    using mr_mesh_t = decltype(samurai::mra::make_mesh(std::declval<samurai::Box<double, dim>>(), mr_config<dim>(4)));
-
-    template <std::size_t dim>
-    using mr_field_t = decltype(samurai::make_scalar_field<double>("u", std::declval<mr_mesh_t<dim>&>()));
-
-    // The mesh adapted to this indicator is refined to the finest level along
-    // every ball surface. `shift` moves the balls along the diagonal.
-    template <std::size_t dim>
-    auto balls_indicator(std::size_t nballs, double shift)
-    {
-        return [centers = ball_centers<dim>(nballs, 0.25, 0.75),
-                radius  = 0.2 / std::pow(static_cast<double>(nballs), 1. / static_cast<double>(dim)),
-                shift](const auto& x)
-        {
-            for (const auto& c : centers)
-            {
-                double r2 = 0;
-                for (std::size_t d = 0; d < dim; ++d)
-                {
-                    const double dx = x[d] - c[d] - shift;
-                    r2 += dx * dx;
-                }
-                if (r2 <= radius * radius)
-                {
-                    return 1.;
-                }
-            }
-            return 0.;
-        };
-    }
-
-    constexpr double mr_epsilon = 1e-3;
-
-    // How far the fronts move in one time step.
-    template <class Mesh>
-    double step_shift(const Mesh& mesh)
-    {
-        return 4. * mesh.min_cell_length();
-    }
-
-    template <std::size_t dim>
-    mr_mesh_t<dim> make_unit_mesh(std::size_t max_level)
-    {
-        return samurai::mra::make_mesh(samurai::Box<double, dim>(xt::zeros<double>({dim}), xt::ones<double>({dim})),
-                                       mr_config<dim>(max_level));
-    }
-
-    template <std::size_t dim>
-    struct AdaptedCase
-    {
-        mr_mesh_t<dim> mesh;
-        mr_field_t<dim> u;
-
-        AdaptedCase(std::size_t max_level, std::size_t nballs, bool moved)
-            : mesh(make_unit_mesh<dim>(max_level))
-            , u(samurai::make_scalar_field<double>("u", mesh, balls_indicator<dim>(nballs, moved ? step_shift(mesh) : 0.)))
-        {
-            samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
-            samurai::make_MRAdapt(u)(samurai::mra_config().epsilon(mr_epsilon));
-        }
-
-        AdaptedCase(const AdaptedCase&)            = delete;
-        AdaptedCase& operator=(const AdaptedCase&) = delete;
-    };
-
-    // Built once per binary and shared by its benchmarks. `moved` gives the
-    // mesh of the next time step.
-    template <std::size_t dim>
-    AdaptedCase<dim>& adapted_case(std::size_t max_level, std::size_t nballs, bool moved = false)
-    {
-        static std::map<std::tuple<std::size_t, std::size_t, bool>, std::unique_ptr<AdaptedCase<dim>>> cache;
-        auto& entry = cache[{max_level, nballs, moved}];
-        if (!entry)
-        {
-            entry = std::make_unique<AdaptedCase<dim>>(max_level, nballs, moved);
-        }
-        return *entry;
-    }
-
-    // So that every report says what it was measured on.
-    template <class Mesh>
-    void report_mesh(benchmark::State& state, const Mesh& mesh)
-    {
-        using mesh_id_t       = typename Mesh::mesh_id_t;
-        std::size_t intervals = 0;
-        samurai::for_each_interval(mesh[mesh_id_t::cells],
-                                   [&](std::size_t, const auto&, const auto&)
-                                   {
-                                       ++intervals;
-                                   });
-        state.counters["leaves"]   = static_cast<double>(mesh.nb_cells(mesh_id_t::cells));
-        state.counters["leaf_itv"] = static_cast<double>(intervals);
-        state.counters["levels"]   = static_cast<double>(mesh[mesh_id_t::cells].max_level() - mesh[mesh_id_t::cells].min_level() + 1);
-    }
-
 } // namespace bench

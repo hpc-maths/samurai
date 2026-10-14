@@ -14,6 +14,8 @@
 
 #include <benchmark/benchmark.h>
 
+#include <samurai/algorithm.hpp>
+
 #include "set_algebra_fixtures.hpp"
 
 namespace

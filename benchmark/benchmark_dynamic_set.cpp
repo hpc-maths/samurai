@@ -2,18 +2,24 @@
 // SPDX-License-Identifier:  BSD-3-Clause
 
 // Price of the dynamic set algebra (include/samurai/subset/dynamic/) against
-// the static one, on two expressions the library evaluates, on the MR-adapted
-// meshes of benchmark_set_call_sites.cpp. Each benchmark builds the expression
-// inside the timed loop, as the library does, so the dynamic figure includes
-// the construction of its heap-allocated nodes.
+// the static one, on two expressions the library evaluates, on the sets of the
+// MR-adapted meshes of bench_set_call_sites (read from the files of
+// generate_set_algebra_inputs). Each benchmark builds the expression inside
+// the timed loop, as the library does, so the dynamic figure includes the
+// construction of its heap-allocated nodes.
 
 #include <cstddef>
 
 #include <benchmark/benchmark.h>
 
-#include "set_algebra_fixtures.hpp"
+#include <xtensor/views/xview.hpp>
 
+#include <samurai/stencil.hpp>
 #include <samurai/subset/dynamic/dynamic.hpp>
+#include <samurai/subset/node.hpp>
+
+#include "set_algebra_fixtures.hpp"
+#include "site_inputs.hpp"
 
 namespace
 {
@@ -23,24 +29,15 @@ namespace
         dynamic,
     };
 
-    template <std::size_t dim>
-    const auto& adapted_mesh(benchmark::State& state)
-    {
-        const auto& c = bench::adapted_case<dim>(static_cast<std::size_t>(state.range(0)), static_cast<std::size_t>(state.range(1)));
-        bench::report_mesh(state, c.mesh);
-        return c.mesh;
-    }
-
     // update_ghost_mr (algorithm/update_ghost_mr.hpp): projection of the
     // ghosts, a coarsening.
-    template <Algebra algebra, class Mesh, class F>
-    void site_ghost_projection(const Mesh& mesh, F&& f)
+    template <Algebra algebra, std::size_t dim, class F>
+    void site_ghost_projection(const bench::SiteInputs<dim>& in, F&& f)
     {
-        using mesh_id_t = typename Mesh::mesh_id_t;
-        for (std::size_t level = mesh.max_level(); level >= 1; --level)
+        for (std::size_t level = in.max_level; level >= 1; --level)
         {
-            const auto& reference  = mesh[mesh_id_t::reference][level];
-            const auto& proj_cells = mesh[mesh_id_t::proj_cells][level - 1];
+            const auto& reference  = in.reference[level];
+            const auto& proj_cells = in.proj_cells[level - 1];
             if constexpr (algebra == Algebra::static_)
             {
                 f(level - 1, samurai::intersection(reference, proj_cells).on(level - 1));
@@ -54,15 +51,14 @@ namespace
 
     // for_each_interface (interface.hpp): faces between cells of the same
     // level, a same-level translate.
-    template <Algebra algebra, class Mesh, class F>
-    void site_interfaces(const Mesh& mesh, F&& f)
+    template <Algebra algebra, std::size_t dim, class F>
+    void site_interfaces(const bench::SiteInputs<dim>& in, F&& f)
     {
-        using mesh_id_t       = typename Mesh::mesh_id_t;
-        const auto& cells     = mesh[mesh_id_t::cells];
-        const auto directions = samurai::positive_cartesian_directions<Mesh::dim>();
-        for (std::size_t d = 0; d < Mesh::dim; ++d)
+        const auto& cells     = in.cells;
+        const auto directions = samurai::positive_cartesian_directions<dim>();
+        for (std::size_t d = 0; d < dim; ++d)
         {
-            const samurai::DirectionVector<Mesh::dim> direction = -xt::view(directions, d);
+            const samurai::DirectionVector<dim> direction = -xt::view(directions, d);
             for (std::size_t level = cells.min_level(); level <= cells.max_level(); ++level)
             {
                 if constexpr (algebra == Algebra::static_)
@@ -82,22 +78,22 @@ namespace
     template <Algebra algebra, std::size_t dim>
     void run_ghost_projection(benchmark::State& state)
     {
-        const auto& mesh = adapted_mesh<dim>(state);
+        const auto& in = bench::site_inputs<dim>(state);
         bench::run_site(state,
                         [&](auto&& f)
                         {
-                            site_ghost_projection<algebra>(mesh, f);
+                            site_ghost_projection<algebra>(in, f);
                         });
     }
 
     template <Algebra algebra, std::size_t dim>
     void run_interfaces(benchmark::State& state)
     {
-        const auto& mesh = adapted_mesh<dim>(state);
+        const auto& in = bench::site_inputs<dim>(state);
         bench::run_site(state,
                         [&](auto&& f)
                         {
-                            site_interfaces<algebra>(mesh, f);
+                            site_interfaces<algebra>(in, f);
                         });
     }
 } // namespace
@@ -130,6 +126,7 @@ static void BM_Interfaces_dynamic(benchmark::State& state)
 
 namespace
 {
+    // One of bench::mesh_cases: the most fronts at the default max level.
     template <std::size_t dim>
     void mesh_args(benchmark::internal::Benchmark* b)
     {
