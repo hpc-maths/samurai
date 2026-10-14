@@ -47,8 +47,8 @@ namespace samurai
         auto& mesh = field.mesh();
 
         const auto& domain      = mesh.domain();
-        const auto& min_indices = domain.min_indices();
-        const auto& max_indices = domain.max_indices();
+        const auto& min_indices = mesh.domain_min_indices();
+        const auto& max_indices = mesh.domain_max_indices();
 
         const auto& mesh_ref = mesh[mesh_id_t::reference];
 
@@ -226,9 +226,9 @@ namespace samurai
         auto& mesh           = tag.mesh();
         const auto& mesh_ref = mesh[mesh_id_t::reference];
 
-        auto& domain     = mesh.domain();
-        auto min_indices = domain.min_indices();
-        auto max_indices = domain.max_indices();
+        auto& domain            = mesh.domain();
+        const auto& min_indices = mesh.domain_min_indices();
+        const auto& max_indices = mesh.domain_max_indices();
 
         const std::size_t delta_l = domain.level() - level;
 
