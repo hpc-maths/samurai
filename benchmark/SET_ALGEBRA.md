@@ -11,17 +11,20 @@ micromamba activate samurai-env
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_BENCHMARKS=ON
 ninja -C build bench_set_operators bench_set_projection bench_set_mesh_shape \
                bench_set_call_sites bench_dynamic_set \
-               generate_set_algebra_inputs bench_set_library_ops
-./build/benchmark/generate_set_algebra_inputs
+               bench_set_library_ops
 ./build/benchmark/bench_set_call_sites --benchmark_filter='<3>'
 ```
 
 `generate_set_algebra_inputs` adapts the meshes and writes their sets to
-`build/benchmark/set_algebra_inputs/` (8 MB, a few seconds). The build does not
-run it, so the inputs stay the same while the set algebra changes. Run it once,
-and again only to change the meshes. With `SAMURAI_SET_ALGEBRA_INPUTS=<dir>` in
-the environment, the generator and the binaries that read the files use another
-directory, so two builds can share one set of inputs.
+`build/benchmark/set_algebra_inputs/` (8 MB, a few seconds). The build runs it
+once, before the first build of `bench_set_call_sites` or `bench_dynamic_set`,
+and not again when the library changes, so the inputs stay the same while the
+set algebra changes. To regenerate them, delete the directory or run the
+generator. With `-DSAMURAI_BENCHMARK_GENERATE_SET_ALGEBRA_INPUTS=OFF`, these two
+binaries build without the mesh stack, and the generator is run by hand. With
+`SAMURAI_SET_ALGEBRA_INPUTS=<dir>` in the environment, the generator and the
+binaries that read the files use another directory, so two builds can share
+one set of inputs.
 
 For numbers worth comparing, use `--benchmark_repetitions=3
 --benchmark_report_aggregates_only=true` and keep the machine idle.
