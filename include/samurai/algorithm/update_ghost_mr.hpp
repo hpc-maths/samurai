@@ -14,7 +14,8 @@
 //   update_ghost_mr_aggregated(...)        the algorithm below
 //   exchange_subdomains_merged(...)        one non-blocking, field-merged
 //                                          subdomain exchange per neighbour
-//   pack_subdomain_send / unpack_subdomain_recv   (de)serialise one field
+//   subdomain_exchange_intervals<bool>(...)  the cells sent to / received
+//                                          from one neighbour
 //
 // This header is included last by update.hpp: the algorithm calls
 // outer_subdomain_corner<...> (explicit template argument, so the template must
@@ -24,14 +25,16 @@
 // Algorithm. Per level (top-down then bottom-up), the subdomain ghosts of all
 // fields are exchanged in a single non-blocking round per neighbour: fields are
 // independent, so they are packed into one buffer per neighbour and the
-// receives are posted before the sends. Periodic ghosts keep their per-dimension
-// ordering through update_ghost_periodic. What is deliberately NOT merged:
+// receives are posted before the sends; a neighbour with which there is nothing
+// to exchange gets no message (see neighbour_exchange.hpp). Periodic ghosts
+// keep their per-dimension ordering through update_ghost_periodic. What is
+// deliberately NOT merged:
 //   - across levels: the projection reference[L] -> proj_cells[L-1] reads ghosts
 //     synchronised at level L (inter-level wavefront);
 //   - subdomain vs periodic, and periodic dim vs dim: a periodic send reads
 //     field(level, i - shift), which is not restricted to mesh.subdomain(level) and
 //     may thus read a subdomain ghost just synchronised, and periodic dimensions
-//     accumulate at corners — hence the subdomain -> periodic -> dim ordering.
+//     accumulate at corners - hence the subdomain -> periodic -> dim ordering.
 
 #include <algorithm>
 #include <iterator>
@@ -43,6 +46,7 @@
 #include "../numeric/projection.hpp"
 #include "../timers.hpp"
 
+#include "neighbour_exchange.hpp" // exchange_intervals, neighbour_exchange
 #include "update_outer_ghost.hpp" // update_outer_ghosts
 #include "update_periodic.hpp"    // update_ghost_periodic
 #include "update_subdomain.hpp"   // outer_subdomain_corner
@@ -56,65 +60,41 @@ namespace mpi = boost::mpi;
 namespace samurai::detail
 {
 #ifdef SAMURAI_WITH_MPI
-    // Append, for a single field, the subdomain "send" data for one
-    // neighbour into `buf`: the inner-interface cells owned by this rank and
-    // then the outer-subdomain corners owned by this rank (the send side of
-    // the subdomain ghost exchange).
-    template <class Field>
-    void pack_subdomain_send(std::size_t level,
-                             Field& field,
-                             const typename Field::mesh_t::mpi_subdomain_t& neighbour,
-                             std::vector<typename Field::value_type>& buf)
+    // The cells of the subdomain ghost exchange with one neighbour, in packing
+    // order. to_send: the inner-interface cells this rank owns that the
+    // neighbour holds, then the outer-subdomain corners this rank owns that the
+    // neighbour holds. !to_send: the same two sets with the roles of the two
+    // ranks swapped, i.e. what the neighbour sends to this rank. Evaluated once
+    // per neighbour and shared by every field of the exchange.
+    template <bool to_send, class Field>
+    auto subdomain_exchange_intervals(std::size_t level, Field& field, const typename Field::mesh_t::mpi_subdomain_t& neighbour)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
         auto& mesh      = field.mesh();
 
-        auto out_interface = intersection(mesh[mesh_id_t::reference][level],
-                                          neighbour.mesh[mesh_id_t::reference][level],
-                                          mesh.subdomain(level));
-        out_interface(
-            [&](const auto& i, const auto& index)
-            {
-                std::copy(field(level, i, index).begin(), field(level, i, index).end(), std::back_inserter(buf));
-            });
+        exchange_intervals<typename Field::mesh_t> intervals;
+        auto push = [&](const auto& i, const auto& index)
+        {
+            intervals.push_back(i, index);
+        };
 
-        auto subdomain_corners = outer_subdomain_corner<true>(level, field, neighbour);
+        if constexpr (to_send)
+        {
+            intersection(mesh[mesh_id_t::reference][level], neighbour.mesh[mesh_id_t::reference][level], mesh.subdomain(level))(push);
+        }
+        else
+        {
+            intersection(neighbour.mesh[mesh_id_t::reference][level], mesh[mesh_id_t::reference][level], neighbour.mesh.subdomain(level))(
+                push);
+        }
+
+        auto subdomain_corners = outer_subdomain_corner<to_send>(level, field, neighbour);
         for_each_interval(subdomain_corners,
                           [&](const auto, const auto& i, const auto& index)
                           {
-                              std::copy(field(level, i, index).begin(), field(level, i, index).end(), std::back_inserter(buf));
+                              push(i, index);
                           });
-    }
-
-    // Read back, for a single field, the subdomain "recv" data for one
-    // neighbour from the iterator `it` (advanced in place). The recv side of
-    // the subdomain ghost exchange; it uses the very same intersections as the
-    // send side, so the packing order matches by construction.
-    template <class Field, class It>
-    void unpack_subdomain_recv(std::size_t level, Field& field, const typename Field::mesh_t::mpi_subdomain_t& neighbour, It& it)
-    {
-        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
-        auto& mesh      = field.mesh();
-
-        auto in_interface = intersection(neighbour.mesh[mesh_id_t::reference][level],
-                                         mesh[mesh_id_t::reference][level],
-                                         neighbour.mesh.subdomain(level));
-        in_interface(
-            [&](const auto& i, const auto& index)
-            {
-                const auto n = static_cast<std::ptrdiff_t>(i.size() * Field::n_comp);
-                std::copy(it, it + n, field(level, i, index).begin());
-                it += n;
-            });
-
-        auto subdomain_corners = outer_subdomain_corner<false>(level, field, neighbour);
-        for_each_interval(subdomain_corners,
-                          [&](const auto, const auto& i, const auto& index)
-                          {
-                              const auto n = static_cast<std::ptrdiff_t>(i.size() * Field::n_comp);
-                              std::copy(it, it + n, field(level, i, index).begin());
-                              it += n;
-                          });
+        return intervals;
     }
 #endif // SAMURAI_WITH_MPI
 
@@ -128,61 +108,53 @@ namespace samurai::detail
     {
 #ifdef SAMURAI_WITH_MPI
         using value_t   = typename Field::value_type;
-        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+        using mesh_t    = typename Field::mesh_t;
+        using mesh_id_t = typename mesh_t::mesh_id_t;
         static_assert((std::is_same_v<value_t, typename Fields::value_type> && ...),
                       "aggregated ghost update requires all fields to share the same value_type");
 
-        auto& mesh = field.mesh();
-        mpi::communicator world;
+        auto& mesh                = field.mesh();
         const auto& neighbourhood = mesh.mpi_neighbourhood();
-        const std::size_t n       = neighbourhood.size();
-
-        // Symmetric guard: both ranks of a pair evaluate the identical
-        // predicate, so they agree on whether a message is exchanged (no
-        // deadlock, no mismatch).
-        auto active = [&](const auto& neighbour)
+        if (neighbourhood.empty() || mesh[mesh_id_t::reference][level].empty())
         {
-            return !mesh[mesh_id_t::reference][level].empty() && !neighbour.mesh[mesh_id_t::reference][level].empty();
-        };
-
-        // Sized up front so element addresses stay stable for the whole
-        // exchange (isend/irecv keep references to these buffers).
-        std::vector<std::vector<value_t>> to_send(n);
-        std::vector<std::vector<value_t>> to_recv(n);
-        std::vector<mpi::request> req;
-        req.reserve(2 * n);
-
-        for (std::size_t k = 0; k < n; ++k)
-        {
-            if (active(neighbourhood[k]))
-            {
-                req.push_back(world.irecv(neighbourhood[k].rank, world.rank(), to_recv[k]));
-            }
+            return;
         }
 
+        // send[k] here and recv[.] on neighbour k are the same cells, evaluated
+        // from the two copies of the two meshes: both ranks agree on the size of
+        // the message between them, and on whether it is empty.
+        const std::size_t n                   = neighbourhood.size();
+        constexpr std::size_t values_per_cell = (Field::n_comp + ... + Fields::n_comp);
+        std::vector<exchange_intervals<mesh_t>> send(n);
+        std::vector<exchange_intervals<mesh_t>> recv(n);
+        std::vector<std::size_t> send_count(n);
+        std::vector<std::size_t> recv_count(n);
         for (std::size_t k = 0; k < n; ++k)
         {
-            if (!active(neighbourhood[k]))
+            if (neighbourhood[k].mesh[mesh_id_t::reference][level].empty())
             {
                 continue;
             }
-            pack_subdomain_send(level, field, neighbourhood[k], to_send[k]);
-            (pack_subdomain_send(level, other_fields, neighbourhood[k], to_send[k]), ...);
-            req.push_back(world.isend(neighbourhood[k].rank, neighbourhood[k].rank, to_send[k]));
+            send[k]       = subdomain_exchange_intervals<true>(level, field, neighbourhood[k]);
+            recv[k]       = subdomain_exchange_intervals<false>(level, field, neighbourhood[k]);
+            send_count[k] = send[k].n_cells() * values_per_cell;
+            recv_count[k] = recv[k].n_cells() * values_per_cell;
         }
 
-        mpi::wait_all(req.begin(), req.end());
-
-        for (std::size_t k = 0; k < n; ++k)
-        {
-            if (!active(neighbourhood[k]))
+        neighbour_exchange<value_t>(
+            neighbourhood,
+            send_count,
+            recv_count,
+            [&](std::size_t k, auto& buf)
             {
-                continue;
-            }
-            auto it = to_recv[k].cbegin();
-            unpack_subdomain_recv(level, field, neighbourhood[k], it);
-            (unpack_subdomain_recv(level, other_fields, neighbourhood[k], it), ...);
-        }
+                pack_intervals(level, field, send[k], buf);
+                (pack_intervals(level, other_fields, send[k], buf), ...);
+            },
+            [&](std::size_t k, auto& it)
+            {
+                unpack_intervals(level, field, recv[k], it);
+                (unpack_intervals(level, other_fields, recv[k], it), ...);
+            });
 #endif // SAMURAI_WITH_MPI
     }
 

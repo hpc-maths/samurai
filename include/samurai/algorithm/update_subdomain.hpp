@@ -9,6 +9,7 @@
 #include "../algorithm.hpp"
 #include "../array_of_interval_and_point.hpp"
 #include "../stencil.hpp"
+#include "neighbour_exchange.hpp"
 
 #ifdef SAMURAI_WITH_MPI
 #include <boost/mpi.hpp>
@@ -81,6 +82,9 @@ namespace samurai
         return lca;
     }
 
+    // Subdomain tag update at one level: the tags of the cells this rank owns
+    // are sent to every neighbour that holds them as ghosts, which overwrites
+    // (erase) or ors (default) its own tags with them.
     template <class Field>
     void update_tag_subdomains([[maybe_unused]] std::size_t level, [[maybe_unused]] Field& tag, [[maybe_unused]] bool erase = false)
     {
@@ -88,61 +92,64 @@ namespace samurai
         using mesh_t    = typename Field::mesh_t;
         using value_t   = typename Field::value_type;
         using mesh_id_t = typename mesh_t::mesh_id_t;
-        std::vector<mpi::request> req;
 
-        auto& mesh = tag.mesh();
-        mpi::communicator world;
-        std::vector<std::vector<value_t>> to_send(mesh.mpi_neighbourhood().size());
-
-        std::size_t i_neigh = 0;
-        for (auto& neighbour : mesh.mpi_neighbourhood())
+        const auto& mesh          = tag.mesh();
+        const auto& neighbourhood = mesh.mpi_neighbourhood();
+        const auto& own           = mesh[mesh_id_t::reference][level];
+        if (neighbourhood.empty() || own.empty())
         {
-            if (!mesh[mesh_id_t::reference][level].empty() && !neighbour.mesh[mesh_id_t::reference][level].empty())
-            {
-                auto out_interface = intersection(mesh[mesh_id_t::reference][level],
-                                                  neighbour.mesh[mesh_id_t::reference][level],
-                                                  mesh.subdomain(level));
-                out_interface(
-                    [&](const auto& i, const auto& index)
-                    {
-                        std::copy(tag(level, i, index).begin(), tag(level, i, index).end(), std::back_inserter(to_send[i_neigh]));
-                    });
-
-                req.push_back(world.isend(neighbour.rank, neighbour.rank, to_send[i_neigh++]));
-            }
+            return;
         }
 
-        for (auto& neighbour : mesh.mpi_neighbourhood())
+        // out[k]: the cells of this subdomain that neighbour k holds;
+        // in[k]: the cells of the subdomain of neighbour k that this rank holds.
+        // out[k] here and in[.] on neighbour k are the same set (see
+        // neighbour_exchange.hpp).
+        const std::size_t n = neighbourhood.size();
+        std::vector<detail::exchange_intervals<mesh_t>> out(n);
+        std::vector<detail::exchange_intervals<mesh_t>> in(n);
+        std::vector<std::size_t> send_count(n);
+        std::vector<std::size_t> recv_count(n);
+        for (std::size_t k = 0; k < n; ++k)
         {
-            if (!mesh[mesh_id_t::reference][level].empty() && !neighbour.mesh[mesh_id_t::reference][level].empty())
+            const auto& other = neighbourhood[k].mesh[mesh_id_t::reference][level];
+            if (other.empty())
             {
-                std::vector<value_t> to_recv;
-                std::ptrdiff_t count = 0;
-
-                world.recv(neighbour.rank, world.rank(), to_recv);
-
-                auto in_interface = intersection(mesh[mesh_id_t::reference][level],
-                                                 neighbour.mesh[mesh_id_t::reference][level],
-                                                 neighbour.mesh.subdomain(level));
-                in_interface(
-                    [&](const auto& i, const auto& index)
-                    {
-                        xt::xtensor<value_t, 1> neigh_tag = xt::empty_like(tag(level, i, index));
-                        std::copy(to_recv.begin() + count, to_recv.begin() + count + static_cast<std::ptrdiff_t>(i.size()), neigh_tag.begin());
-                        if (erase)
-                        {
-                            tag(level, i, index) = neigh_tag;
-                        }
-                        else
-                        {
-                            tag(level, i, index) |= neigh_tag;
-                        }
-                        count += static_cast<std::ptrdiff_t>(i.size());
-                    });
+                continue;
             }
+            intersection(own, other, mesh.subdomain(level))(
+                [&](const auto& i, const auto& index)
+                {
+                    out[k].push_back(i, index);
+                });
+            intersection(own, other, neighbourhood[k].mesh.subdomain(level))(
+                [&](const auto& i, const auto& index)
+                {
+                    in[k].push_back(i, index);
+                });
+            send_count[k] = out[k].n_cells() * Field::n_comp;
+            recv_count[k] = in[k].n_cells() * Field::n_comp;
         }
-        mpi::wait_all(req.begin(), req.end());
 
+        detail::neighbour_exchange<value_t>(
+            neighbourhood,
+            send_count,
+            recv_count,
+            [&](std::size_t k, auto& buf)
+            {
+                detail::pack_intervals(level, tag, out[k], buf);
+            },
+            [&](std::size_t k, auto& it)
+            {
+                for (std::size_t m = 0; m < in[k].size(); ++m)
+                {
+                    for (auto& t : tag(level, in[k].interval(m), in[k].index(m)))
+                    {
+                        t = erase ? *it : static_cast<value_t>(t | *it);
+                        ++it;
+                    }
+                }
+            });
 #endif
     }
 }
