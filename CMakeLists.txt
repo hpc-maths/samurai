@@ -13,6 +13,9 @@ project(samurai VERSION ${SAMURAI_VERSION} LANGUAGES CXX C)
 # Extra CMake search paths (FindParMETIS, FindPTScotch, etc.)
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
+# Defines CMAKE_INSTALL_INCLUDEDIR, used by the install interface of the samurai target
+include(GNUInstallDirs)
+
 if (NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 20)
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
