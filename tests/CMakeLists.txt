@@ -28,6 +28,11 @@ set(COMMON_BASE
     main.cpp
 )
 
+# Helper translation units, compiled next to the test file that uses them.
+set(TEST_TIMERS_HELPERS
+    timers_other_translation_unit.cpp
+)
+
 set(SAMURAI_TESTS
     test_adapt.cpp
     test_bc.cpp
@@ -77,7 +82,11 @@ endif()
 if (SPLIT_TESTS)
     foreach(filename IN LISTS SAMURAI_TESTS)
         string(REPLACE ".cpp" "" targetname ${filename})
-        add_executable(${targetname} ${COMMON_BASE} ${filename} ${SAMURAI_HEADERS})
+        set(helpers)
+        if(targetname STREQUAL "test_timers")
+            set(helpers ${TEST_TIMERS_HELPERS})
+        endif()
+        add_executable(${targetname} ${COMMON_BASE} ${filename} ${helpers} ${SAMURAI_HEADERS})
         target_include_directories(${targetname} PRIVATE ${SAMURAI_INCLUDE_DIR})
 
         if(MSVC)
@@ -92,7 +101,7 @@ if (SPLIT_TESTS)
     endforeach()
 endif()
 
-add_executable(test_samurai_lib ${COMMON_BASE} ${SAMURAI_TESTS} ${SAMURAI_HEADERS})
+add_executable(test_samurai_lib ${COMMON_BASE} ${SAMURAI_TESTS} ${TEST_TIMERS_HELPERS} ${SAMURAI_HEADERS})
 target_include_directories(test_samurai_lib PRIVATE ${SAMURAI_INCLUDE_DIR})
 
 if(MSVC)
