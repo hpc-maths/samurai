@@ -40,6 +40,7 @@ set(SAMURAI_TESTS
     test_domain_with_hole.cpp
     test_field.cpp
     test_find.cpp
+    test_flux_based_nonlin.cpp
     test_for_each.cpp
     test_fv_operators.cpp
     test_ghost_update.cpp
