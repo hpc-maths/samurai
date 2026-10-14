@@ -17,6 +17,8 @@
 
 #include <array>
 #include <cmath>
+#include <limits>
+#include <type_traits>
 
 #include <gtest/gtest.h>
 
@@ -721,6 +723,85 @@ namespace samurai
     TEST(fv_operators, convection_vector_exact_3d)
     {
         check_convection_exact_vector<3>();
+    }
+
+    // The schemes built from a constant velocity vector own a copy of it: changing
+    // (or destroying) the caller's vector after construction must not change the
+    // scheme. The mesh and the boundary condition are sized for WENO5 (stencil 6).
+    template <class MakeScheme>
+    void check_convection_owns_velocity(MakeScheme make_scheme)
+    {
+        const std::size_t level = 4;
+        auto mesh               = uniform_mesh<1>(level, 6);
+        auto u                  = make_scalar_field<double>("u", mesh);
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          u[cell] = std::sin(2 * M_PI * cell.center(0));
+                      });
+        make_bc<Dirichlet<3>>(u, 0.);
+
+        VelocityVector<1> velocity{1.5};
+        auto conv      = make_scheme(u, velocity);
+        auto reference = conv(u);
+
+        velocity(0) = 10.;
+        auto result = conv(u);
+
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          EXPECT_EQ(result[cell], reference[cell]);
+                      });
+    }
+
+    TEST(fv_operators, convection_upwind_owns_velocity)
+    {
+        check_convection_owns_velocity(
+            [](auto& u, const auto& velocity)
+            {
+                return make_convection_upwind<std::decay_t<decltype(u)>>(velocity);
+            });
+    }
+
+    TEST(fv_operators, convection_weno5_owns_velocity)
+    {
+        check_convection_owns_velocity(
+            [](auto& u, const auto& velocity)
+            {
+                return make_convection_weno5<std::decay_t<decltype(u)>>(velocity);
+            });
+    }
+
+    // The smooth Rusanov scheme reads the velocity in the ghosts next to each
+    // interface, so it must update them before it is applied. The velocity is set
+    // in the cells only (NaN in the ghosts): with u = 1 and a constant velocity,
+    // div(v u) = 0 everywhere.
+    TEST(fv_operators, convection_smooth_rusanov_updates_velocity_ghosts)
+    {
+        auto mesh = uniform_mesh<1>(4);
+
+        auto u = make_scalar_field<double>("u", mesh, 1.);
+        make_bc<Dirichlet<1>>(u, 1.);
+
+        auto velocity = make_vector_field<double, 1>("velocity", mesh);
+        velocity.fill(std::numeric_limits<double>::quiet_NaN());
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          velocity[cell] = 1.;
+                      });
+        make_bc<Dirichlet<1>>(velocity, 1.);
+
+        auto rusanov = make_convection_smooth_rusanov_incompressible<decltype(u)>(velocity);
+        auto result  = rusanov(u);
+
+        EXPECT_TRUE(velocity.ghosts_updated());
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          EXPECT_NEAR(result[cell], 0., tol);
+                      });
     }
 
     // Identity returns the field unchanged, everywhere.
