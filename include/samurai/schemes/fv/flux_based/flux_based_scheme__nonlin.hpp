@@ -1,6 +1,8 @@
 #pragma once
 #include "flux_based_scheme.hpp"
 
+#include <cassert>
+
 #include <fmt/format.h>
 #include <stdexcept>
 
@@ -162,6 +164,7 @@ namespace samurai
 
             void set_level(std::size_t l)
             {
+                assert(l <= max_level);
                 level   = l;
                 delta_l = (finer_level_flux < 0) ? max_level - l : std::min(l + static_cast<std::size_t>(finer_level_flux), max_level) - l;
                 n_fine_fluxes           = (1 << ((dim - 1) * delta_l));
@@ -460,11 +463,13 @@ namespace samurai
             // Level jumps (level -- level+1)
             // Using MPI the max_level of the subdomain can be lower than the global max_level.
             // If a jump occurs with a neighbor subdomain, we have to check if max_level + 1 is reached.
+            // There is no jump above the max_level of the mesh.
 #ifdef SAMURAI_WITH_MPI
-            for (std::size_t level = min_level; level <= max_level; ++level)
+            const auto jump_max_level = std::min(max_level + 1, mesh.max_level());
 #else
-            for (std::size_t level = min_level; level < max_level; ++level)
+            const auto jump_max_level = max_level;
 #endif
+            for (std::size_t level = min_level; level < jump_max_level; ++level)
             {
                 auto h_l   = mesh.cell_length(level);
                 auto h_lp1 = mesh.cell_length(level + 1);
