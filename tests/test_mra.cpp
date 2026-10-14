@@ -101,4 +101,24 @@ namespace samurai
         tuple_test(true);
         tuple_test(false);
     }
+
+    // Building an adaptation with a user prediction function is a normal call: it must not write to stdout (#570).
+    TEST(MRA, custom_prediction_fn_does_not_print)
+    {
+        auto mesh  = init_mesh();
+        auto field = samurai::make_scalar_field<double>("field", mesh);
+        init_field(field);
+        auto prediction_fn = [](auto& new_field, const auto& old_field)
+        {
+            return samurai::prediction<1, true>(new_field, old_field);
+        };
+
+        testing::internal::CaptureStdout();
+        auto adapt      = samurai::make_MRAdapt(prediction_fn, field);
+        auto mra_config = samurai::mra_config();
+        adapt(mra_config);
+        const std::string out = testing::internal::GetCapturedStdout();
+
+        EXPECT_EQ(out, "");
+    }
 }

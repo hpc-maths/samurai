@@ -449,7 +449,6 @@ namespace samurai
 
         if (field1.mesh() != field2.mesh())
         {
-            std::cout << "mesh different" << std::endl;
             return false;
         }
 
