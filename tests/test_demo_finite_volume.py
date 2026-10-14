@@ -327,7 +327,7 @@ def test_finite_volume_burgers_os(max_level, enable_flux_reconstruction, eps, co
         "--nfiles=1",
         "--min-level=3",
         f"--max-level={max_level}",
-        f"mr-eps={eps}",
+        f"--mr-eps={eps}",
     ]
     if enable_flux_reconstruction:
         cmd.append("--enable-max-level-flux")
