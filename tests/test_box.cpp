@@ -6,6 +6,7 @@
 #include <xtensor/containers/xarray.hpp>
 
 #include <samurai/box.hpp>
+#include <samurai/level_cell_array.hpp>
 
 namespace samurai
 {
@@ -175,6 +176,26 @@ namespace samurai
         double subdivision_length = -1;
         auto approx_box           = approximate_box(box, tol, subdivision_length);
         EXPECT_TRUE(xt::all(xt::abs(approx_box.length() - box.length()) <= tol * box.length())); // the approximation fits the tolerance
+    }
+
+    // A given scaling factor is the cell length at level 0, but the box is made of
+    // cells of its own level: [0.25, 0.75)^2 is exactly the cells [2, 6)^2 of level 3.
+    TEST(level_cell_array, box_with_given_scaling_factor)
+    {
+        constexpr std::size_t dim = 2;
+        Box<double, dim> box{
+            {0.25, 0.25},
+            {0.75, 0.75}
+        };
+        LevelCellArray<dim> lca(3, box, {0., 0.}, 0.05, 1.);
+
+        Box<int, dim> indices{
+            {2, 2},
+            {6, 6}
+        };
+        LevelCellArray<dim> expected(3, indices);
+        EXPECT_EQ(lca.nb_cells(), 16);
+        EXPECT_EQ(lca, expected);
     }
 
     /**
