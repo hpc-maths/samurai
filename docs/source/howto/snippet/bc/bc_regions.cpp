@@ -29,11 +29,10 @@ int main(int argc, char** argv)
 
     // u = 0 on the whole boundary, then u = 1 where y > 0.5
     samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
-    auto upper = samurai::make_bc_region(mesh,
-                                         [](const auto& x)
-                                         {
-                                             return x[1] > 0.5;
-                                         });
+    auto upper = [](const auto& x)
+    {
+        return x[1] > 0.5;
+    };
     samurai::make_bc<samurai::Dirichlet<1>>(u, 1.)->on(upper);
 
     // w = 1 on the boundary of the cells of the left column
