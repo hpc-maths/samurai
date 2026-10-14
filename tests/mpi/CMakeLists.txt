@@ -42,6 +42,12 @@ endforeach()
 # Graph construction test (always built with MPI; no external library needed)
 add_mpi_gtest(test_lb_graph)
 
+# PETSc block solvers in parallel (only if PETSc is enabled)
+if(WITH_PETSC)
+    add_mpi_gtest(test_petsc_block_fieldsplit)
+    samurai_test_petsc(test_petsc_block_fieldsplit)
+endif()
+
 # ParMETIS tests (only if ParMETIS is available)
 if(SAMURAI_WITH_PARMETIS)
     add_mpi_gtest(test_lb_metis)
