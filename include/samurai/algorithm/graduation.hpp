@@ -582,7 +582,9 @@ namespace samurai
                     {
                         return {};
                     }
-                    return exchange_level_mpi(graded_l, mpi_neighbourhood, static_cast<int>(max_size * (1 + phase) + ll));
+                    return exchange_level_mpi(graded_l,
+                                              mpi_neighbourhood,
+                                              static_cast<int>(max_size * static_cast<std::size_t>(1 + phase) + ll));
                 };
                 const auto grow_F = [&](size_t ll, lca_t&& piece)
                 {
