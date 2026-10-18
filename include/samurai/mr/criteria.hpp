@@ -105,7 +105,8 @@ namespace samurai
                                 }
                                 return false;
                             };
-                            ((tag_data[offsets + 2 * ii] |= (tag2refine(offsets)) * static_cast<std::uint8_t>(CellFlag::refine)), ...);
+                            constexpr auto refine_flag = static_cast<std::uint8_t>(CellFlag::refine);
+                            ((tag_data[offsets + 2 * ii] |= (tag2refine(offsets) ? refine_flag : std::uint8_t{0})), ...);
                         },
                         fine_offsets);
                 }

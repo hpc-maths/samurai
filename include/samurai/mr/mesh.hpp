@@ -59,8 +59,8 @@ namespace samurai
         [[deprecated("Use max_stencil_radius() method instead")]] static constexpr int max_stencil_width      = max_stencil_width_;
         [[deprecated("Use prediction_stencil_radius instead")]] static constexpr int prediction_order         = prediction_order_;
         [[deprecated("Use graduation_width() method instead")]] static constexpr std::size_t graduation_width = graduation_width_;
-        [[deprecated("Use ghost_width() method instead")]] static constexpr int ghost_width = std::max(static_cast<int>(max_stencil_width),
-                                                                                                       static_cast<int>(prediction_order));
+        [[deprecated("Use ghost_width() method instead")]] static constexpr int ghost_width = std::max(static_cast<int>(max_stencil_width_),
+                                                                                                       static_cast<int>(prediction_order_));
 
         // new interface
         static constexpr int prediction_stencil_radius = prediction_order_;

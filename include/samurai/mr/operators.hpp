@@ -78,10 +78,11 @@ namespace samurai
                 }
                 else
                 {
+                    constexpr auto not_coarsen = static_cast<std::uint8_t>(~static_cast<std::uint8_t>(CellFlag::coarsen));
                     std::apply(
                         [&](auto... offsets)
                         {
-                            ((tag_data[offsets + 2 * ii] &= ~static_cast<std::uint8_t>(CellFlag::coarsen)), ...);
+                            ((tag_data[offsets + 2 * ii] &= not_coarsen), ...);
                         },
                         fine_offsets);
                 }
@@ -290,9 +291,9 @@ namespace samurai
                                 }
 #endif
                                 const auto& c = coeff[ki + kj * interp_size];
-                                for (std::size_t k = 0; k < 4; ++k)
+                                for (std::size_t child = 0; child < 4; ++child)
                                 {
-                                    d[k] -= c[k] * src;
+                                    d[child] -= c[child] * src;
                                 }
                             }
                         }
@@ -330,9 +331,9 @@ namespace samurai
 #endif
 
                                     const auto& c = coeff[ki + kj * interp_size];
-                                    for (std::size_t k = 0; k < 4; ++k)
+                                    for (std::size_t child = 0; child < 4; ++child)
                                     {
-                                        d[k] -= c[k] * src;
+                                        d[child] -= c[child] * src;
                                     }
                                 }
                             }
