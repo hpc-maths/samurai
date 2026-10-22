@@ -148,7 +148,8 @@ By default a condition applies to the whole boundary.
 | one or more `samurai::DirectionVector<dim>` | the boundary faces whose outward normal is one of the given directions |
 | a `std::array` of `samurai::DirectionVector<dim>` | same, from an array |
 | a set expression | the cells of the set that touch the boundary, in every Cartesian direction where they touch it |
-| `samurai::make_bc_region(mesh, predicate)` | the boundary faces, in the Cartesian directions, whose center `x` satisfies `predicate(x)` |
+| a predicate | the boundary faces, in the Cartesian directions, whose center `x` satisfies `predicate(x)` |
+| `samurai::make_bc_region(mesh, predicate)` | same, as a region object |
 
 The predicate takes an `xt::xtensor_fixed<double, xt::xshape<dim>>` and returns `bool`.
 A diagonal direction such as `{-1, -1}` (the bottom-left corner) is accepted; it has an effect only on a condition that fills diagonal directions (see [Ghosts beyond the condition](#ghosts-beyond-the-condition)).
@@ -165,11 +166,11 @@ The demo `demos/FiniteVolume/diff_heated_cavity.cpp` uses directions:
 A predicate selects the upper half of the boundary:
 
 ```c++
-samurai::make_bc<samurai::Dirichlet<1>>(u, 1.)->on(samurai::make_bc_region(mesh,
-                                                                             [](const auto& x)
-                                                                             {
-                                                                                 return x[1] > 0.5;
-                                                                             }));
+samurai::make_bc<samurai::Dirichlet<1>>(u, 1.)->on(
+    [](const auto& x)
+    {
+        return x[1] > 0.5;
+    });
 ```
 
 A set expression selects the cells of the left boundary:

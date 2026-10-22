@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <concepts>
 #include <functional>
 #include <memory>
 #include <type_traits>
@@ -542,6 +543,7 @@ namespace samurai
     }
 
     template <std::size_t dim, class TInterval, class... dir_t>
+        requires(std::convertible_to<const dir_t&, DirectionVector<dim>> && ...)
     auto make_bc_region(const dir_t&... d)
     {
         constexpr std::size_t nd = sizeof...(dir_t);
@@ -586,10 +588,11 @@ namespace samurai
         Bc(const lca_t& domain, const bcvalue_t& bcv, bool dummy);
 
         Bc(const Bc& bc);
-        Bc& operator=(const Bc& bc);
+        Bc(Bc&& bc) noexcept = default;
 
-        Bc(Bc&& bc) noexcept            = default;
-        Bc& operator=(Bc&& bc) noexcept = default;
+        // m_domain is a reference to the domain of the mesh: it cannot be rebound.
+        Bc& operator=(const Bc&) = delete;
+        Bc& operator=(Bc&&)      = delete;
 
         virtual std::unique_ptr<Bc> clone() const = 0;
         virtual int stencil_size() const          = 0;
@@ -679,20 +682,6 @@ namespace samurai
         , m_domain(bc.m_domain)
         , m_region(bc.m_region)
     {
-    }
-
-    template <class Field>
-    Bc<Field>& Bc<Field>::operator=(const Bc& bc)
-    {
-        if (this == &bc)
-        {
-            return *this;
-        }
-        bcvalue_impl bcvalue = bc.p_bcvalue->clone();
-        std::swap(p_bcvalue, bcvalue);
-        m_domain = bc.m_domain;
-        m_region = bc.m_region;
-        return *this;
     }
 
     template <class Field>
