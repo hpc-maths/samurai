@@ -410,7 +410,7 @@ namespace samurai
      *                       In case of level jump l/l+1, the cells of 'interface_cells' are of different levels,
      *                       while both cells of 'comput_cells' are at level l+1 and one of them is a ghost.
      */
-    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, bool include_periodic, class Mesh, class Func>
+    template <Run run_type = Run::Sequential, Get get_type = Get::Cells, bool include_periodic = true, class Mesh, class Func>
     void for_each_interior_interface(const Mesh& mesh, const DirectionVector<Mesh::dim>& direction, Func&& f)
     {
         static constexpr std::size_t dim = Mesh::dim;
