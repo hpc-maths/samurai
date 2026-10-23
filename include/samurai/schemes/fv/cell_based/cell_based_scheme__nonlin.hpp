@@ -128,8 +128,11 @@ namespace samurai
         template <class jacobian_function_t>
         void set_jacobian_function(jacobian_function_t jacobian_function)
         {
-            m_scheme_definition.jacobian_function       = jacobian_function;
-            m_scheme_definition.local_jacobian_function = jacobian_function;
+            m_scheme_definition.jacobian_function = jacobian_function;
+            if constexpr (cfg::stencil_size == 1)
+            {
+                m_scheme_definition.local_jacobian_function = jacobian_function;
+            }
         }
 
         void jacobian_coefficients(StencilJacobian<cfg>& jac, const stencil_cells_t& stencil_cells, input_field_t& field) const
