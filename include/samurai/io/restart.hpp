@@ -21,6 +21,9 @@ namespace mpi = boost::mpi;
 #include "../concepts.hpp"
 #include "../interval.hpp"
 #include "../level_cell_array.hpp"
+#include "../load_balancing/load_balancer.hpp"
+#include "../load_balancing/strategies/sfc.hpp"
+#include "../load_balancing/weight.hpp"
 #include "../mesh.hpp"
 #include "../uniform_mesh.hpp"
 #include "metadata.hpp"
@@ -236,25 +239,190 @@ namespace samurai
         dump(fs::current_path(), filename, std::forward<Callback>(metadata), mesh, fields...);
     }
 
-    template <class T>
-    auto load(const HighFive::File& file, const std::string& name)
+    namespace detail
     {
-        auto xfer_props = HighFive::DataTransferProps{};
+        // Every dataset of a restart file is one array cut into contiguous
+        // partitions, one per process that wrote it; "<name>/partition" holds the
+        // n_process + 1 bounds of these partitions. A process reading the file
+        // takes the contiguous block [first, last) of partitions, so the number
+        // of processes that read a file does not have to match the number that
+        // wrote it. With as many readers as writers, each reader gets the
+        // partition written by the process of the same rank.
+        struct PartitionRange
+        {
+            std::size_t first;
+            std::size_t last;
+        };
+
+        inline void check_mesh_dim(const HighFive::File& file, std::size_t expected)
+        {
+            auto dim = H5Easy::load<std::size_t>(file, "/mesh/dim");
+            if (dim != expected)
+            {
+                throw std::runtime_error(
+                    fmt::format("The dimension of the mesh is not the same as the one of the mesh to be loaded. {} != {}", dim, expected));
+            }
+        }
+
+        template <class array_t>
+        void load_geometry(const HighFive::File& file, array_t& array)
+        {
+            // HighFive v3 does not support xfixed_container so we have to load into an xtensor_container first
+            array.set_origin_point(H5Easy::load<xt::xtensor<double, 1>>(file, "/mesh/origin_point"));
+            array.set_scaling_factor(H5Easy::load<double>(file, "/mesh/scaling_factor"));
+        }
+
+        inline PartitionRange partitions_to_read(const HighFive::File& file)
+        {
 #ifdef SAMURAI_WITH_MPI
-        xfer_props.add(HighFive::UseCollectiveIO{});
-        mpi::communicator world;
-        auto rank = static_cast<std::size_t>(world.rank());
+            mpi::communicator world;
+            auto rank = static_cast<std::size_t>(world.rank());
+            auto size = static_cast<std::size_t>(world.size());
 #else
-        std::size_t rank = 0;
+            std::size_t rank = 0;
+            std::size_t size = 1;
 #endif
-        auto partition = H5Easy::load<std::vector<std::size_t>>(file, fmt::format("{}/partition", name));
+            auto n_process = H5Easy::load<std::size_t>(file, "/n_process");
+            return {rank * n_process / size, (rank + 1) * n_process / size};
+        }
 
-        auto dataset = file.getDataSet(fmt::format("{}/data", name));
+        // Reads the partitions of `range` of the dataset `name`, and returns one
+        // vector per partition.
+        // NOTE: Under MPI, collective: every process must call it for the same
+        // datasets in the same order, even when its range is empty.
+        template <class T>
+        std::vector<std::vector<T>> load_partitions(const HighFive::File& file, const std::string& name, const PartitionRange& range)
+        {
+            auto xfer_props = HighFive::DataTransferProps{};
+#ifdef SAMURAI_WITH_MPI
+            xfer_props.add(HighFive::UseCollectiveIO{});
+#endif
+            auto bounds = H5Easy::load<std::vector<std::size_t>>(file, fmt::format("{}/partition", name));
+            if (bounds.size() != H5Easy::load<std::size_t>(file, "/n_process") + 1)
+            {
+                throw std::runtime_error(
+                    fmt::format("The partition of {} does not match the number of processes stored in the restart file.", name));
+            }
 
-        auto dataset_slice = dataset.select({partition[rank]}, {partition[rank + 1] - partition[rank]});
-        T output(partition[rank + 1] - partition[rank]);
-        dataset_slice.read_raw(output.data(), xfer_props);
-        return output;
+            // The partitions of the range are contiguous in the file: read them in one call.
+            auto dataset = file.getDataSet(fmt::format("{}/data", name));
+            std::vector<T> data(bounds[range.last] - bounds[range.first]);
+            dataset.select({bounds[range.first]}, {data.size()}).read_raw(data.data(), xfer_props);
+
+            std::vector<std::vector<T>> partitions;
+            partitions.reserve(range.last - range.first);
+            for (std::size_t p = range.first; p < range.last; ++p)
+            {
+                auto begin = data.begin() + static_cast<std::ptrdiff_t>(bounds[p] - bounds[range.first]);
+                auto end   = data.begin() + static_cast<std::ptrdiff_t>(bounds[p + 1] - bounds[range.first]);
+                partitions.emplace_back(begin, end);
+            }
+            return partitions;
+        }
+
+        // Reads the cells of `level` written by each partition of `range`, in
+        // the LevelCellArray layout of the process that wrote them. A level with
+        // no cell in the whole file has no group, and gives empty arrays.
+        template <class lca_t>
+        std::vector<lca_t> load_level_partitions(const HighFive::File& file, std::size_t level, const PartitionRange& range)
+        {
+            constexpr std::size_t dim = lca_t::dim;
+            using interval_t          = typename lca_t::interval_t;
+
+            std::vector<lca_t> partitions(range.last - range.first, lca_t{level});
+            if (!file.exist(fmt::format("/mesh/level/{}", level)))
+            {
+                return partitions;
+            }
+
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                auto intervals = load_partitions<interval_t>(file, fmt::format("/mesh/level/{}/dim/{}/intervals", level, d), range);
+                for (std::size_t p = 0; p < partitions.size(); ++p)
+                {
+                    partitions[p][d] = std::move(intervals[p]);
+                }
+            }
+            for (std::size_t d = 1; d < dim; ++d)
+            {
+                auto offsets = load_partitions<std::size_t>(file, fmt::format("/mesh/level/{}/dim/{}/offsets", level, d), range);
+                for (std::size_t p = 0; p < partitions.size(); ++p)
+                {
+                    partitions[p].offsets(d) = std::move(offsets[p]);
+                }
+            }
+            return partitions;
+        }
+
+        // Reads the cells written by each partition of `range`, in the
+        // CellArray layout of the process that wrote them. The field values of
+        // a partition are stored in the cell order of its CellArray.
+        template <class ca_t>
+        std::vector<ca_t> load_cell_array_partitions(const HighFive::File& file, const PartitionRange& range)
+        {
+            using lca_t = typename ca_t::lca_type;
+
+            check_mesh_dim(file, ca_t::dim);
+
+            auto min_level = H5Easy::load<std::size_t>(file, "/mesh/min_level");
+            auto max_level = H5Easy::load<std::size_t>(file, "/mesh/max_level");
+
+            std::vector<ca_t> partitions(range.last - range.first);
+            for (std::size_t level = min_level; level <= max_level; ++level)
+            {
+                auto lcas = load_level_partitions<lca_t>(file, level, range);
+                for (std::size_t p = 0; p < partitions.size(); ++p)
+                {
+                    partitions[p][level] = std::move(lcas[p]);
+                }
+            }
+            for (auto& ca : partitions)
+            {
+                ca.update_index();
+            }
+            return partitions;
+        }
+
+        // Union of the cells of several partitions. A single partition is
+        // returned as is, so that a file read with the number of processes that
+        // wrote it gives back the very same arrays.
+        template <std::size_t dim, class interval_t>
+        LevelCellArray<dim, interval_t> merge_partitions(const std::vector<LevelCellArray<dim, interval_t>>& partitions, std::size_t level)
+        {
+            if (partitions.size() == 1)
+            {
+                return partitions.front();
+            }
+            LevelCellList<dim, interval_t> lcl{level};
+            for (const auto& partition : partitions)
+            {
+                for_each_interval(partition,
+                                  [&](std::size_t, const auto& interval, const auto& index)
+                                  {
+                                      lcl[index].add_interval(interval);
+                                  });
+            }
+            return {lcl};
+        }
+
+        template <std::size_t dim, class interval_t, std::size_t max_size>
+        CellArray<dim, interval_t, max_size> merge_partitions(const std::vector<CellArray<dim, interval_t, max_size>>& partitions)
+        {
+            if (partitions.size() == 1)
+            {
+                return partitions.front();
+            }
+            CellList<dim, interval_t, max_size> cl;
+            for (const auto& partition : partitions)
+            {
+                for_each_interval(partition,
+                                  [&](std::size_t level, const auto& interval, const auto& index)
+                                  {
+                                      cl[level][index].add_interval(interval);
+                                  });
+            }
+            return {cl};
+        }
     }
 
     // Files written before "/mesh/is_box" existed are read as non-box domains.
@@ -263,17 +431,111 @@ namespace samurai
         return file.exist("/mesh/is_box") && H5Easy::load<bool>(file, "/mesh/is_box");
     }
 
-    template <std::size_t dim_, class interval_t>
-    void load(const HighFive::File& file, LevelCellArray<dim_, interval_t>& lca)
+    namespace detail
     {
-        // using lca_type = LevelCellArray<dim_, interval_t>;
-
-        auto dim = H5Easy::load<std::size_t>(file, "/mesh/dim");
-        if (dim != dim_)
+        template <class Mesh, class interval_t, class index_t, std::size_t... Is>
+        const auto&
+        mesh_interval(const Mesh& mesh, std::size_t level, const interval_t& interval, const index_t& index, std::index_sequence<Is...>)
         {
-            throw std::runtime_error(
-                fmt::format("The dimension of the mesh is not the same as the one of the mesh to be loaded. {} != {}", dim, dim_));
+            return mesh.get_interval(level, interval, index[Is]...);
         }
+
+        // Fills `field` with the values of each partition of `range`. The values
+        // of a partition follow the cell order of its CellArray, and land at
+        // the place of the same cells in the mesh of the field.
+        template <class Field, class ca_t>
+        void load_field(const HighFive::File& file, const PartitionRange& range, const std::vector<ca_t>& partitions, Field& field)
+        {
+            using size_type = typename Field::size_type;
+
+            if (field.name().empty())
+            {
+                throw std::runtime_error("The field has no name.");
+            }
+
+            if (!file.exist(fmt::format("/fields/{}", field.name())))
+            {
+                throw std::runtime_error(fmt::format("The field {} does not exist in the file.", field.name()));
+            }
+
+            auto n_comp = H5Easy::load<std::size_t>(file, fmt::format("/fields/{}/n_comp", field.name()));
+            if (n_comp != Field::n_comp)
+            {
+                throw std::runtime_error(
+                    fmt::format("The number of components of the field ({}) does not match the expected number of components ({}).",
+                                n_comp,
+                                Field::n_comp));
+            }
+
+            auto data = load_partitions<typename Field::value_type>(file, fmt::format("/fields/{}/data", field.name()), range);
+
+            field.resize();
+
+            for (std::size_t p = 0; p < partitions.size(); ++p)
+            {
+                if (data[p].size() != partitions[p].nb_cells() * Field::n_comp)
+                {
+                    throw std::runtime_error(fmt::format("The field {} does not have one value per cell in the restart file.", field.name()));
+                }
+
+                std::size_t k = 0;
+                for_each_interval(
+                    partitions[p],
+                    [&](std::size_t level, const auto& interval, const auto& index)
+                    {
+                        const auto& in_mesh = mesh_interval(field.mesh(), level, interval, index, std::make_index_sequence<ca_t::dim - 1>{});
+                        for (auto i = interval.start; i < interval.end; ++i)
+                        {
+                            auto cell_index = static_cast<size_type>(in_mesh.index + i);
+                            if constexpr (Field::is_scalar)
+                            {
+                                field[cell_index] = data[p][k++];
+                            }
+                            else
+                            {
+                                for (size_type c = 0; c < Field::n_comp; ++c)
+                                {
+                                    field[cell_index][c] = data[p][k++];
+                                }
+                            }
+                        }
+                    });
+            }
+        }
+
+        template <class ca_t, class... Fields>
+        void load_fields(const HighFive::File& file, const PartitionRange& range, const std::vector<ca_t>& partitions, Fields&... fields)
+        {
+            (load_field(file, range, partitions, fields), ...);
+        }
+
+#ifdef SAMURAI_WITH_MPI
+        // Spreads the cells evenly over the processes with the SFC Hilbert
+        // strategy, moving the values of the fields with them.
+        template <class Mesh, class... Fields>
+        void balance_after_load(Mesh& mesh, Fields&... fields)
+        {
+            namespace lb = load_balancing;
+
+            auto balancer = lb::make_load_balancer<lb::SFC<lb::Hilbert>>();
+            if constexpr (sizeof...(Fields) > 0)
+            {
+                balancer.load_balance(lb::weight::uniform(), fields...);
+            }
+            else
+            {
+                // The load balancer moves cells together with at least one field.
+                auto cells = make_scalar_field<int>("cells", mesh);
+                balancer.load_balance(lb::weight::uniform(), cells);
+            }
+        }
+#endif
+    }
+
+    template <std::size_t dim, class interval_t>
+    void load(const HighFive::File& file, LevelCellArray<dim, interval_t>& lca)
+    {
+        detail::check_mesh_dim(file, dim);
 
         auto min_level = H5Easy::load<std::size_t>(file, "/mesh/min_level");
         auto max_level = H5Easy::load<std::size_t>(file, "/mesh/max_level");
@@ -283,181 +545,62 @@ namespace samurai
                 fmt::format("The mesh to be loaded is not a LevelCellArray. min_level != max_level. {} != {}", min_level, max_level));
         }
 
-        lca = {min_level};
-
-        // HighFive v3 does not support xfixed_container so we have to load into an xtensor_container first
-        // auto origin_point   = H5Easy::load<typename lca_type::coords_t>(file, "/mesh/origin_point");
-        auto origin_point   = H5Easy::load<xt::xtensor<double, 1>>(file, "/mesh/origin_point");
-        auto scaling_factor = H5Easy::load<double>(file, "/mesh/scaling_factor");
-
-        lca.set_origin_point(origin_point);
-        lca.set_scaling_factor(scaling_factor);
-        if (load_is_box(file))
-        {
-            lca.box_like();
-        }
-
         if (!file.exist(fmt::format("/mesh/level/{}", min_level)))
         {
             throw std::runtime_error(fmt::format("The mesh to be loaded does not contain the level {}.", min_level));
         }
 
-        for (std::size_t d = 0; d < dim; ++d)
+        auto partitions = detail::load_level_partitions<LevelCellArray<dim, interval_t>>(file, min_level, detail::partitions_to_read(file));
+        lca             = detail::merge_partitions(partitions, min_level);
+        detail::load_geometry(file, lca);
+        if (load_is_box(file))
         {
-            lca[d] = load<std::vector<interval_t>>(file, fmt::format("/mesh/level/{}/dim/{}/intervals", min_level, d));
-        }
-        for (std::size_t d = 1; d < dim; ++d)
-        {
-            lca.offsets(d) = load<std::vector<std::size_t>>(file, fmt::format("/mesh/level/{}/dim/{}/offsets", min_level, d));
-        }
-    }
-
-    template <std::size_t dim_, class interval_t, std::size_t max_size>
-    void load(const HighFive::File& file, CellArray<dim_, interval_t, max_size>& ca)
-    {
-        // using ca_type = CellArray<dim_, interval_t, max_size>;
-
-        auto dim = H5Easy::load<std::size_t>(file, "/mesh/dim");
-        if (dim != dim_)
-        {
-            throw std::runtime_error(
-                fmt::format("The dimension of the mesh is not the same as the one of the mesh to be loaded. {} != {}", dim, dim_));
-        }
-
-        auto min_level = H5Easy::load<std::size_t>(file, "/mesh/min_level");
-        auto max_level = H5Easy::load<std::size_t>(file, "/mesh/max_level");
-        // HighFive v3 does not support xfixed_container so we have to load into an xtensor_container first
-        // auto origin_point   = H5Easy::load<typename ca_type::coords_t>(file, "/mesh/origin_point");
-        auto origin_point   = H5Easy::load<xt::xtensor<double, 1>>(file, "/mesh/origin_point");
-        auto scaling_factor = H5Easy::load<double>(file, "/mesh/scaling_factor");
-
-        ca.clear();
-        ca.set_origin_point(origin_point);
-        ca.set_scaling_factor(scaling_factor);
-
-        for (std::size_t level = min_level; level <= max_level; ++level)
-        {
-            if (file.exist(fmt::format("/mesh/level/{}", level)))
-            {
-                for (std::size_t d = 0; d < dim; ++d)
-                {
-                    ca[level][d] = load<std::vector<interval_t>>(file, fmt::format("/mesh/level/{}/dim/{}/intervals", level, d));
-                }
-                for (std::size_t d = 1; d < dim; ++d)
-                {
-                    ca[level].offsets(d) = load<std::vector<std::size_t>>(file, fmt::format("/mesh/level/{}/dim/{}/offsets", level, d));
-                }
-            }
+            lca.box_like();
         }
     }
 
-    void load_field(const HighFive::File& file, const auto& mesh, auto& field)
+    template <std::size_t dim, class interval_t, std::size_t max_size>
+    void load(const HighFive::File& file, CellArray<dim, interval_t, max_size>& ca)
     {
-        using Field     = std::decay_t<decltype(field)>;
-        using size_type = typename Field::size_type;
-
-        if (field.name().empty())
-        {
-            throw std::runtime_error("The field has no name.");
-        }
-
-        if (!file.exist(fmt::format("/fields/{}", field.name())))
-        {
-            throw std::runtime_error(fmt::format("The field {} does not exist in the file.", field.name()));
-        }
-
-        auto n_comp = H5Easy::load<std::size_t>(file, fmt::format("/fields/{}/n_comp", field.name()));
-        if (n_comp != Field::n_comp)
-        {
-            throw std::runtime_error(
-                fmt::format("The number of components of the field ({}) does not match the expected number of components ({}).",
-                            n_comp,
-                            Field::n_comp));
-        }
-
-        using data_t = std::vector<typename Field::value_type>;
-
-        auto data = load<data_t>(file, fmt::format("/fields/{}/data", field.name()));
-
-        field.resize();
-
-        std::size_t index = 0;
-        for_each_cell(mesh,
-                      [&](auto cell)
-                      {
-                          if constexpr (Field::n_comp == 1)
-                          {
-                              field[cell] = data[index++];
-                          }
-                          else
-                          {
-                              for (size_type i = 0; i < field.n_comp; ++i)
-                              {
-                                  field[cell][i] = data[index + i];
-                              }
-                              index += field.n_comp;
-                          }
-                      });
-    }
-
-    template <class... Fields>
-    void load_fields(const HighFive::File& file, auto& mesh, Fields&... fields)
-    {
-        if (sizeof...(Fields) > 0)
-        {
-            (load_field(file, mesh, fields), ...);
-        }
-    }
-
-    template <std::size_t dim, class interval_t, class lca_t = LevelCellArray<dim, interval_t>>
-    void load(const HighFive::File& file, lca_t& lca)
-    {
-        lca = load<lca_t>(file);
-    }
-
-    template <std::size_t dim, class interval_t, std::size_t max_size, class ca_t = CellArray<dim, interval_t, max_size>>
-    void load(const HighFive::File& file, ca_t& ca)
-    {
-        ca = load<ca_t>(file);
+        auto partitions = detail::load_cell_array_partitions<CellArray<dim, interval_t, max_size>>(file, detail::partitions_to_read(file));
+        ca              = detail::merge_partitions(partitions);
+        detail::load_geometry(file, ca);
     }
 
     template <class Config, class... Fields>
     void load(const HighFive::File& file, UniformMesh<Config>& mesh, Fields&... fields)
     {
+        // The cells of a uniform mesh are a single LevelCellArray.
         using ca_type = typename UniformMesh<Config>::ca_type;
 
-        ca_type ca;
-        load(file, ca);
+        detail::check_mesh_dim(file, ca_type::dim);
+        auto level      = H5Easy::load<std::size_t>(file, "/mesh/min_level");
+        auto range      = detail::partitions_to_read(file);
+        auto partitions = detail::load_level_partitions<ca_type>(file, level, range);
+        auto ca         = detail::merge_partitions(partitions, level);
+        detail::load_geometry(file, ca);
+
         UniformMesh<Config> new_mesh{ca};
         std::swap(mesh, new_mesh);
-        load_fields(file, mesh, fields...);
+        detail::load_fields(file, range, partitions, fields...);
     }
 
+    // The file can be read by any number of processes. Under MPI, when that
+    // number differs from the number of processes that wrote the file, the
+    // cells and the fields are then balanced over the processes.
     template <class Mesh, class... Fields>
     void load(const HighFive::File& file, Mesh& mesh, Fields&... fields)
     {
         using ca_type = typename Mesh::ca_type;
-#ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
-        auto size = static_cast<std::size_t>(world.size());
-#else
-        std::size_t size = 1;
-#endif
-
-        auto n_process = H5Easy::load<std::size_t>(file, "n_process");
-        if (n_process != size)
-        {
-            throw std::runtime_error(
-                fmt::format("The number of processes in the restart file ({}) does not match the current number of processes ({}).",
-                            n_process,
-                            size));
-        }
 
         auto min_level = H5Easy::load<std::size_t>(file, "/mesh/min_level");
         auto max_level = H5Easy::load<std::size_t>(file, "/mesh/max_level");
 
-        ca_type ca;
-        load(file, ca);
+        auto range      = detail::partitions_to_read(file);
+        auto partitions = detail::load_cell_array_partitions<ca_type>(file, range);
+        auto ca         = detail::merge_partitions(partitions);
+        detail::load_geometry(file, ca);
+
         auto mesh_cfg = mesh.cfg();
         mesh_cfg.min_level(min_level).max_level(max_level).disable_args_parse();
         Mesh new_mesh{ca, mesh_cfg};
@@ -466,7 +609,15 @@ namespace samurai
             new_mesh.box_like();
         }
         std::swap(mesh, new_mesh);
-        load_fields(file, mesh, fields...);
+        detail::load_fields(file, range, partitions, fields...);
+
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
+        if (H5Easy::load<std::size_t>(file, "/n_process") != static_cast<std::size_t>(world.size()))
+        {
+            detail::balance_after_load(mesh, fields...);
+        }
+#endif
     }
 
     template <class Mesh, class... Fields>

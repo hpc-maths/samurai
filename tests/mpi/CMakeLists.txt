@@ -39,6 +39,30 @@ foreach(np IN LISTS MPI_TEST_PROCS)
     set_tests_properties(test_ghost_update_parallel_np${np} PROPERTIES TIMEOUT 600)
 endforeach()
 
+# Restart files read by another number of processes than the one that wrote
+# them: the `write` test runs once on 3 processes, then the `read` test runs on
+# fewer, as many and more processes. They share their files through the
+# working directory.
+add_executable(test_restart_process_count main.cpp test_restart_process_count.cpp)
+target_include_directories(test_restart_process_count PRIVATE ${SAMURAI_INCLUDE_DIR})
+target_link_libraries(test_restart_process_count samurai gtest)
+set(RESTART_DIR ${CMAKE_CURRENT_BINARY_DIR}/restart_process_count)
+file(MAKE_DIRECTORY ${RESTART_DIR})
+add_test(NAME test_restart_process_count_write_np3
+         COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} 3 ${MPIEXEC_PREFLAGS}
+                 $<TARGET_FILE:test_restart_process_count> ${MPIEXEC_POSTFLAGS} --gtest_filter=*.write
+         WORKING_DIRECTORY ${RESTART_DIR})
+set_tests_properties(test_restart_process_count_write_np3 PROPERTIES PROCESSORS 3 TIMEOUT 120
+                     FIXTURES_SETUP restart_process_count_files)
+foreach(np 1 2 3 4)
+    add_test(NAME test_restart_process_count_read_np${np}
+             COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS}
+                     $<TARGET_FILE:test_restart_process_count> ${MPIEXEC_POSTFLAGS} --gtest_filter=*.read
+             WORKING_DIRECTORY ${RESTART_DIR})
+    set_tests_properties(test_restart_process_count_read_np${np} PROPERTIES PROCESSORS ${np} TIMEOUT 120
+                         FIXTURES_REQUIRED restart_process_count_files)
+endforeach()
+
 # Graph construction test (always built with MPI; no external library needed)
 add_mpi_gtest(test_lb_graph)
 
