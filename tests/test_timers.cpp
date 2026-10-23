@@ -55,6 +55,14 @@ namespace
     }
 } // namespace
 
+namespace samurai_test
+{
+    // Defined in timers_other_translation_unit.cpp: starts and stops the timer
+    // `name` on `samurai::times::timers` and returns whether that registry is
+    // enabled, as seen from that translation unit.
+    bool time_in_other_translation_unit(const std::string& name);
+}
+
 // ============================================================================
 // Test suite: enable / disable
 // ============================================================================
@@ -517,6 +525,24 @@ namespace samurai
         const auto line_end          = plain.find('\n', pos);
         const std::string footer_row = plain.substr(pos, line_end - pos);
         EXPECT_NE(footer_row.find("100.0%"), std::string::npos);
+    }
+
+    // ============================================================================
+    // Test suite: global registry
+    // ============================================================================
+
+    TEST(timers, global_registry_shared_across_translation_units)
+    {
+        times::timers.enable();
+        const bool enabled_in_other_tu = samurai_test::time_in_other_translation_unit("timer_in_other_tu");
+
+        testing::internal::CaptureStdout();
+        times::timers.print();
+        const std::string out = testing::internal::GetCapturedStdout();
+        times::timers.disable();
+
+        EXPECT_TRUE(enabled_in_other_tu);
+        EXPECT_TRUE(output_contains(out, "timer_in_other_tu"));
     }
 
 } // namespace samurai
