@@ -64,6 +64,7 @@ set(SAMURAI_TESTS
     test_prediction_coefficients.cpp
     test_projection_prediction_roundtrip.cpp
     test_restart.cpp
+    test_restart_include.cpp
     test_scaling.cpp
     test_sfc_curves.cpp
     test_static_dispatch.cpp

@@ -10,6 +10,9 @@ namespace fs = std::filesystem;
 
 #include <highfive/H5Easy.hpp>
 #include <highfive/H5PropertyList.hpp>
+// H5Easy only enables its xtensor support when xtensor was included before it.
+// Including the plug-in explicitly lets this header compile whatever comes first.
+#include <highfive/xtensor.hpp>
 
 #ifdef SAMURAI_WITH_MPI
 #include <boost/mpi.hpp>
