@@ -14,6 +14,8 @@
 
 #include <gtest/gtest.h>
 
+#include <samurai/concepts.hpp>
+#include <samurai/field/concepts.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/schemes/fv.hpp>
 
@@ -23,14 +25,11 @@ namespace
 {
     constexpr std::size_t dim = 2;
 
-    using mesh_t  = decltype(samurai::mra::make_mesh(std::declval<samurai::Box<double, dim>>(), samurai::mesh_config<dim>()));
-    using field_t = decltype(samurai::make_scalar_field<double>("u", std::declval<mesh_t&>()));
-
     // Coupled heat system, one implicit time step:
     //   (1 + dt k) u + dt diff(u) - dt k v = u_n
     //   (1 + dt k) v + dt diff(v) - dt k u = v_n
-    template <samurai::petsc::BlockAssemblyType assembly_type>
-    void solve_coupled_heat(mesh_t& mesh, field_t& unp1, field_t& vnp1, bool& fields_IS_owned, int& iterations)
+    template <samurai::petsc::BlockAssemblyType assembly_type, samurai::mesh_like Mesh, samurai::field_like Field>
+    void solve_coupled_heat(Mesh& mesh, Field& unp1, Field& vnp1, bool& fields_IS_owned, int& iterations)
     {
         auto bump = [](const auto& x)
         {
@@ -44,8 +43,8 @@ namespace
 
         double dt = 1e-3;
         double k  = 10;
-        auto diff = samurai::make_diffusion_order2<field_t>();
-        auto id   = samurai::make_identity<field_t>();
+        auto diff = samurai::make_diffusion_order2<Field>();
+        auto id   = samurai::make_identity<Field>();
         auto Aii  = (1 + dt * k) * id + dt * diff;
         auto Aij  = (-dt * k) * id;
 
@@ -110,6 +109,8 @@ namespace
         auto config = samurai::mesh_config<dim>().min_level(5).max_level(5);
         auto mesh   = samurai::mra::make_mesh(box, config);
 
+        using mesh_id_t = typename decltype(mesh)::mesh_id_t;
+
         using enum samurai::petsc::BlockAssemblyType;
 
         auto u_nest  = samurai::make_scalar_field<double>("u", mesh, 0.);
@@ -129,7 +130,7 @@ namespace
         EXPECT_GT(mono_its, 0);
 
         double max_diff = 0;
-        samurai::for_each_cell(mesh[mesh_t::mesh_id_t::cells],
+        samurai::for_each_cell(mesh[mesh_id_t::cells],
                                [&](const auto& cell)
                                {
                                    max_diff = std::max(max_diff, std::abs(u_mono[cell] - u_nest[cell]));
