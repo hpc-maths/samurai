@@ -286,12 +286,12 @@ namespace samurai
             return {rank * n_process / size, (rank + 1) * n_process / size};
         }
 
-        // Reads the partitions of `range` of the dataset `name`, and returns one
+        // Reads the partitions of `block` of the dataset `name`, and returns one
         // vector per partition.
         // NOTE: Under MPI, collective: every process must call it for the same
-        // datasets in the same order, even when its range is empty.
+        // datasets in the same order, even when its block is empty.
         template <class T>
-        std::vector<std::vector<T>> load_partitions(const HighFive::File& file, const std::string& name, const PartitionRange& range)
+        std::vector<std::vector<T>> load_partitions(const HighFive::File& file, const std::string& name, const PartitionRange& block)
         {
             auto xfer_props = HighFive::DataTransferProps{};
 #ifdef SAMURAI_WITH_MPI
@@ -304,32 +304,32 @@ namespace samurai
                     fmt::format("The partition of {} does not match the number of processes stored in the restart file.", name));
             }
 
-            // The partitions of the range are contiguous in the file: read them in one call.
+            // The partitions of the block are contiguous in the file: read them in one call.
             auto dataset = file.getDataSet(fmt::format("{}/data", name));
-            std::vector<T> data(bounds[range.last] - bounds[range.first]);
-            dataset.select({bounds[range.first]}, {data.size()}).read_raw(data.data(), xfer_props);
+            std::vector<T> data(bounds[block.last] - bounds[block.first]);
+            dataset.select({bounds[block.first]}, {data.size()}).read_raw(data.data(), xfer_props);
 
             std::vector<std::vector<T>> partitions;
-            partitions.reserve(range.last - range.first);
-            for (std::size_t p = range.first; p < range.last; ++p)
+            partitions.reserve(block.last - block.first);
+            for (std::size_t p = block.first; p < block.last; ++p)
             {
-                auto begin = data.begin() + static_cast<std::ptrdiff_t>(bounds[p] - bounds[range.first]);
-                auto end   = data.begin() + static_cast<std::ptrdiff_t>(bounds[p + 1] - bounds[range.first]);
+                auto begin = data.begin() + static_cast<std::ptrdiff_t>(bounds[p] - bounds[block.first]);
+                auto end   = data.begin() + static_cast<std::ptrdiff_t>(bounds[p + 1] - bounds[block.first]);
                 partitions.emplace_back(begin, end);
             }
             return partitions;
         }
 
-        // Reads the cells of `level` written by each partition of `range`, in
+        // Reads the cells of `level` written by each partition of `block`, in
         // the LevelCellArray layout of the process that wrote them. A level with
         // no cell in the whole file has no group, and gives empty arrays.
         template <class lca_t>
-        std::vector<lca_t> load_level_partitions(const HighFive::File& file, std::size_t level, const PartitionRange& range)
+        std::vector<lca_t> load_level_partitions(const HighFive::File& file, std::size_t level, const PartitionRange& block)
         {
             constexpr std::size_t dim = lca_t::dim;
             using interval_t          = typename lca_t::interval_t;
 
-            std::vector<lca_t> partitions(range.last - range.first, lca_t{level});
+            std::vector<lca_t> partitions(block.last - block.first, lca_t{level});
             if (!file.exist(fmt::format("/mesh/level/{}", level)))
             {
                 return partitions;
@@ -337,7 +337,7 @@ namespace samurai
 
             for (std::size_t d = 0; d < dim; ++d)
             {
-                auto intervals = load_partitions<interval_t>(file, fmt::format("/mesh/level/{}/dim/{}/intervals", level, d), range);
+                auto intervals = load_partitions<interval_t>(file, fmt::format("/mesh/level/{}/dim/{}/intervals", level, d), block);
                 for (std::size_t p = 0; p < partitions.size(); ++p)
                 {
                     partitions[p][d] = std::move(intervals[p]);
@@ -345,7 +345,7 @@ namespace samurai
             }
             for (std::size_t d = 1; d < dim; ++d)
             {
-                auto offsets = load_partitions<std::size_t>(file, fmt::format("/mesh/level/{}/dim/{}/offsets", level, d), range);
+                auto offsets = load_partitions<std::size_t>(file, fmt::format("/mesh/level/{}/dim/{}/offsets", level, d), block);
                 for (std::size_t p = 0; p < partitions.size(); ++p)
                 {
                     partitions[p].offsets(d) = std::move(offsets[p]);
@@ -354,11 +354,11 @@ namespace samurai
             return partitions;
         }
 
-        // Reads the cells written by each partition of `range`, in the
+        // Reads the cells written by each partition of `block`, in the
         // CellArray layout of the process that wrote them. The field values of
         // a partition are stored in the cell order of its CellArray.
         template <class ca_t>
-        std::vector<ca_t> load_cell_array_partitions(const HighFive::File& file, const PartitionRange& range)
+        std::vector<ca_t> load_cell_array_partitions(const HighFive::File& file, const PartitionRange& block)
         {
             using lca_t = typename ca_t::lca_type;
 
@@ -367,10 +367,10 @@ namespace samurai
             auto min_level = H5Easy::load<std::size_t>(file, "/mesh/min_level");
             auto max_level = H5Easy::load<std::size_t>(file, "/mesh/max_level");
 
-            std::vector<ca_t> partitions(range.last - range.first);
+            std::vector<ca_t> partitions(block.last - block.first);
             for (std::size_t level = min_level; level <= max_level; ++level)
             {
-                auto lcas = load_level_partitions<lca_t>(file, level, range);
+                auto lcas = load_level_partitions<lca_t>(file, level, block);
                 for (std::size_t p = 0; p < partitions.size(); ++p)
                 {
                     partitions[p][level] = std::move(lcas[p]);
@@ -440,11 +440,11 @@ namespace samurai
             return mesh.get_interval(level, interval, index[Is]...);
         }
 
-        // Fills `field` with the values of each partition of `range`. The values
+        // Fills `field` with the values of each partition of `block`. The values
         // of a partition follow the cell order of its CellArray, and land at
         // the place of the same cells in the mesh of the field.
         template <class Field, class ca_t>
-        void load_field(const HighFive::File& file, const PartitionRange& range, const std::vector<ca_t>& partitions, Field& field)
+        void load_field(const HighFive::File& file, const PartitionRange& block, const std::vector<ca_t>& partitions, Field& field)
         {
             using size_type = typename Field::size_type;
 
@@ -467,7 +467,7 @@ namespace samurai
                                 Field::n_comp));
             }
 
-            auto data = load_partitions<typename Field::value_type>(file, fmt::format("/fields/{}/data", field.name()), range);
+            auto data = load_partitions<typename Field::value_type>(file, fmt::format("/fields/{}/data", field.name()), block);
 
             field.resize();
 
@@ -504,9 +504,9 @@ namespace samurai
         }
 
         template <class ca_t, class... Fields>
-        void load_fields(const HighFive::File& file, const PartitionRange& range, const std::vector<ca_t>& partitions, Fields&... fields)
+        void load_fields(const HighFive::File& file, const PartitionRange& block, const std::vector<ca_t>& partitions, Fields&... fields)
         {
-            (load_field(file, range, partitions, fields), ...);
+            (load_field(file, block, partitions, fields), ...);
         }
 
 #ifdef SAMURAI_WITH_MPI
@@ -575,14 +575,14 @@ namespace samurai
 
         detail::check_mesh_dim(file, ca_type::dim);
         auto level      = H5Easy::load<std::size_t>(file, "/mesh/min_level");
-        auto range      = detail::partitions_to_read(file);
-        auto partitions = detail::load_level_partitions<ca_type>(file, level, range);
+        auto block      = detail::partitions_to_read(file);
+        auto partitions = detail::load_level_partitions<ca_type>(file, level, block);
         auto ca         = detail::merge_partitions(partitions, level);
         detail::load_geometry(file, ca);
 
         UniformMesh<Config> new_mesh{ca};
         std::swap(mesh, new_mesh);
-        detail::load_fields(file, range, partitions, fields...);
+        detail::load_fields(file, block, partitions, fields...);
     }
 
     // The file can be read by any number of processes. Under MPI, when that
@@ -596,8 +596,8 @@ namespace samurai
         auto min_level = H5Easy::load<std::size_t>(file, "/mesh/min_level");
         auto max_level = H5Easy::load<std::size_t>(file, "/mesh/max_level");
 
-        auto range      = detail::partitions_to_read(file);
-        auto partitions = detail::load_cell_array_partitions<ca_type>(file, range);
+        auto block      = detail::partitions_to_read(file);
+        auto partitions = detail::load_cell_array_partitions<ca_type>(file, block);
         auto ca         = detail::merge_partitions(partitions);
         detail::load_geometry(file, ca);
 
@@ -609,7 +609,7 @@ namespace samurai
             new_mesh.box_like();
         }
         std::swap(mesh, new_mesh);
-        detail::load_fields(file, range, partitions, fields...);
+        detail::load_fields(file, block, partitions, fields...);
 
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
