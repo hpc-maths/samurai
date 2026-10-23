@@ -433,13 +433,6 @@ namespace samurai
 
     namespace detail
     {
-        template <class Mesh, class interval_t, class index_t, std::size_t... Is>
-        const auto&
-        mesh_interval(const Mesh& mesh, std::size_t level, const interval_t& interval, const index_t& index, std::index_sequence<Is...>)
-        {
-            return mesh.get_interval(level, interval, index[Is]...);
-        }
-
         // Fills `field` with the values of each partition of `block`. The values
         // of a partition follow the cell order of its CellArray, and land at
         // the place of the same cells in the mesh of the field.
@@ -479,27 +472,27 @@ namespace samurai
                 }
 
                 std::size_t k = 0;
-                for_each_interval(
-                    partitions[p],
-                    [&](std::size_t level, const auto& interval, const auto& index)
-                    {
-                        const auto& in_mesh = mesh_interval(field.mesh(), level, interval, index, std::make_index_sequence<ca_t::dim - 1>{});
-                        for (auto i = interval.start; i < interval.end; ++i)
-                        {
-                            auto cell_index = static_cast<size_type>(in_mesh.index + i);
-                            if constexpr (Field::is_scalar)
-                            {
-                                field[cell_index] = data[p][k++];
-                            }
-                            else
-                            {
-                                for (size_type c = 0; c < Field::n_comp; ++c)
-                                {
-                                    field[cell_index][c] = data[p][k++];
-                                }
-                            }
-                        }
-                    });
+                for_each_interval(partitions[p],
+                                  [&](std::size_t level, const auto& interval, const auto& index)
+                                  {
+                                      // An interval of a partition lies inside one interval of the mesh, where its cells are contiguous.
+                                      auto first = static_cast<size_type>(field.mesh().get_index(level, interval.start, index));
+                                      for (auto i = interval.start; i < interval.end; ++i)
+                                      {
+                                          auto cell_index = first + static_cast<size_type>(i - interval.start);
+                                          if constexpr (Field::is_scalar)
+                                          {
+                                              field[cell_index] = data[p][k++];
+                                          }
+                                          else
+                                          {
+                                              for (size_type c = 0; c < Field::n_comp; ++c)
+                                              {
+                                                  field[cell_index][c] = data[p][k++];
+                                              }
+                                          }
+                                      }
+                                  });
             }
         }
 
