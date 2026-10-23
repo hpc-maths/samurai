@@ -11,10 +11,9 @@
 #include <samurai/amr/mesh.hpp>
 #include <samurai/box.hpp>
 #include <samurai/field.hpp>
+#include <samurai/io/restart.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
-
-#include <samurai/io/restart.hpp>
 
 #include "mpi_test_utils.hpp"
 
