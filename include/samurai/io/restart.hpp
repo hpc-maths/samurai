@@ -255,6 +255,7 @@ namespace samurai
         {
             std::size_t first;
             std::size_t last;
+            std::size_t n_process; // number of processes that wrote the file
         };
 
         inline void check_mesh_dim(const HighFive::File& file, std::size_t expected)
@@ -286,22 +287,45 @@ namespace samurai
             std::size_t size = 1;
 #endif
             auto n_process = H5Easy::load<std::size_t>(file, "/n_process");
-            return {rank * n_process / size, (rank + 1) * n_process / size};
+            return {rank * n_process / size, (rank + 1) * n_process / size, n_process};
         }
 
-        // Reads the partitions of `block` of the dataset `name`, and returns one
-        // vector per partition.
+        // The values of the partitions of a block, one after the other in a
+        // single buffer.
+        template <class T>
+        struct PartitionData
+        {
+            std::vector<T> values;
+            std::vector<std::size_t> bounds; // partition p is [bounds[p], bounds[p + 1]) in values
+
+            std::size_t size(std::size_t p) const
+            {
+                return bounds[p + 1] - bounds[p];
+            }
+
+            // The values of partition p. A buffer that holds a single partition is moved out.
+            std::vector<T> extract(std::size_t p)
+            {
+                if (bounds.size() == 2)
+                {
+                    return std::move(values);
+                }
+                return {values.begin() + static_cast<std::ptrdiff_t>(bounds[p]), values.begin() + static_cast<std::ptrdiff_t>(bounds[p + 1])};
+            }
+        };
+
+        // Reads the partitions of `block` of the dataset `name`.
         // NOTE: Under MPI, collective: every process must call it for the same
         // datasets in the same order, even when its block is empty.
         template <class T>
-        std::vector<std::vector<T>> load_partitions(const HighFive::File& file, const std::string& name, const PartitionRange& block)
+        PartitionData<T> load_partitions(const HighFive::File& file, const std::string& name, const PartitionRange& block)
         {
             auto xfer_props = HighFive::DataTransferProps{};
 #ifdef SAMURAI_WITH_MPI
             xfer_props.add(HighFive::UseCollectiveIO{});
 #endif
             auto bounds = H5Easy::load<std::vector<std::size_t>>(file, fmt::format("{}/partition", name));
-            if (bounds.size() != H5Easy::load<std::size_t>(file, "/n_process") + 1)
+            if (bounds.size() != block.n_process + 1)
             {
                 throw std::runtime_error(
                     fmt::format("The partition of {} does not match the number of processes stored in the restart file.", name));
@@ -309,16 +333,13 @@ namespace samurai
 
             // The partitions of the block are contiguous in the file: read them in one call.
             auto dataset = file.getDataSet(fmt::format("{}/data", name));
-            std::vector<T> data(bounds[block.last] - bounds[block.first]);
-            dataset.select({bounds[block.first]}, {data.size()}).read_raw(data.data(), xfer_props);
+            PartitionData<T> partitions;
+            partitions.values.resize(bounds[block.last] - bounds[block.first]);
+            dataset.select({bounds[block.first]}, {partitions.values.size()}).read_raw(partitions.values.data(), xfer_props);
 
-            std::vector<std::vector<T>> partitions;
-            partitions.reserve(block.last - block.first);
-            for (std::size_t p = block.first; p < block.last; ++p)
+            for (std::size_t p = block.first; p <= block.last; ++p)
             {
-                auto begin = data.begin() + static_cast<std::ptrdiff_t>(bounds[p] - bounds[block.first]);
-                auto end   = data.begin() + static_cast<std::ptrdiff_t>(bounds[p + 1] - bounds[block.first]);
-                partitions.emplace_back(begin, end);
+                partitions.bounds.push_back(bounds[p] - bounds[block.first]);
             }
             return partitions;
         }
@@ -343,7 +364,7 @@ namespace samurai
                 auto intervals = load_partitions<interval_t>(file, fmt::format("/mesh/level/{}/dim/{}/intervals", level, d), block);
                 for (std::size_t p = 0; p < partitions.size(); ++p)
                 {
-                    partitions[p][d] = std::move(intervals[p]);
+                    partitions[p][d] = intervals.extract(p);
                 }
             }
             for (std::size_t d = 1; d < dim; ++d)
@@ -351,7 +372,7 @@ namespace samurai
                 auto offsets = load_partitions<std::size_t>(file, fmt::format("/mesh/level/{}/dim/{}/offsets", level, d), block);
                 for (std::size_t p = 0; p < partitions.size(); ++p)
                 {
-                    partitions[p].offsets(d) = std::move(offsets[p]);
+                    partitions[p].offsets(d) = offsets.extract(p);
                 }
             }
             return partitions;
@@ -387,14 +408,15 @@ namespace samurai
         }
 
         // Union of the cells of several partitions. A single partition is
-        // returned as is, so that a file read with the number of processes that
+        // moved out as is, so that a file read with the number of processes that
         // wrote it gives back the very same arrays.
         template <std::size_t dim, class interval_t>
-        LevelCellArray<dim, interval_t> merge_partitions(const std::vector<LevelCellArray<dim, interval_t>>& partitions, std::size_t level)
+        LevelCellArray<dim, interval_t> merge_partitions(std::vector<LevelCellArray<dim, interval_t>>& partitions, std::size_t level)
         {
             if (partitions.size() == 1)
             {
-                return partitions.front();
+                // cppcheck-suppress returnStdMoveLocal  // front() is not a local: without the move it would be copied
+                return std::move(partitions.front());
             }
             LevelCellList<dim, interval_t> lcl{level};
             for (const auto& partition : partitions)
@@ -409,11 +431,12 @@ namespace samurai
         }
 
         template <std::size_t dim, class interval_t, std::size_t max_size>
-        CellArray<dim, interval_t, max_size> merge_partitions(const std::vector<CellArray<dim, interval_t, max_size>>& partitions)
+        CellArray<dim, interval_t, max_size> merge_partitions(std::vector<CellArray<dim, interval_t, max_size>>& partitions)
         {
             if (partitions.size() == 1)
             {
-                return partitions.front();
+                // cppcheck-suppress returnStdMoveLocal  // front() is not a local: without the move it would be copied
+                return std::move(partitions.front());
             }
             CellList<dim, interval_t, max_size> cl;
             for (const auto& partition : partitions)
@@ -443,6 +466,7 @@ namespace samurai
         void load_field(const HighFive::File& file, const PartitionRange& block, const std::vector<ca_t>& partitions, Field& field)
         {
             using size_type = typename Field::size_type;
+            using mesh_id_t = typename std::decay_t<decltype(field.mesh())>::mesh_id_t;
 
             if (field.name().empty())
             {
@@ -467,14 +491,50 @@ namespace samurai
 
             field.resize();
 
-            for (std::size_t p = 0; p < partitions.size(); ++p)
+            // The partitions are one after the other in the buffer: k runs over all of them.
+            std::size_t k    = 0;
+            auto copy_values = [&](size_type cell_index)
             {
-                if (data[p].size() != partitions[p].nb_cells() * Field::n_comp)
+                if constexpr (Field::is_scalar)
+                {
+                    field[cell_index] = data.values[k++];
+                }
+                else
+                {
+                    for (size_type c = 0; c < Field::n_comp; ++c)
+                    {
+                        field[cell_index][c] = data.values[k++];
+                    }
+                }
+            };
+            auto check_size = [&](std::size_t n_values, std::size_t n_cells)
+            {
+                if (n_values != n_cells * Field::n_comp)
                 {
                     throw std::runtime_error(fmt::format("The field {} does not have one value per cell in the restart file.", field.name()));
                 }
+            };
 
-                std::size_t k = 0;
+            // The mesh was built from the single partition (moved out by
+            // merge_partitions), whose cell order is the order of the values.
+            if (partitions.size() == 1)
+            {
+                const auto& cells = field.mesh()[mesh_id_t::cells];
+                check_size(data.values.size(), cells.nb_cells());
+                for_each_interval(cells,
+                                  [&](std::size_t, const auto& interval, const auto&)
+                                  {
+                                      for (auto i = interval.start; i < interval.end; ++i)
+                                      {
+                                          copy_values(static_cast<size_type>(interval.index + i));
+                                      }
+                                  });
+                return;
+            }
+
+            for (std::size_t p = 0; p < partitions.size(); ++p)
+            {
+                check_size(data.size(p), partitions[p].nb_cells());
                 for_each_interval(partitions[p],
                                   [&](std::size_t level, const auto& interval, const auto& index)
                                   {
@@ -482,18 +542,7 @@ namespace samurai
                                       auto first = static_cast<size_type>(field.mesh().get_index(level, interval.start, index));
                                       for (auto i = interval.start; i < interval.end; ++i)
                                       {
-                                          auto cell_index = first + static_cast<size_type>(i - interval.start);
-                                          if constexpr (Field::is_scalar)
-                                          {
-                                              field[cell_index] = data[p][k++];
-                                          }
-                                          else
-                                          {
-                                              for (size_type c = 0; c < Field::n_comp; ++c)
-                                              {
-                                                  field[cell_index][c] = data[p][k++];
-                                              }
-                                          }
+                                          copy_values(first + static_cast<size_type>(i - interval.start));
                                       }
                                   });
             }
@@ -609,7 +658,7 @@ namespace samurai
 
 #ifdef SAMURAI_WITH_MPI
         mpi::communicator world;
-        if (H5Easy::load<std::size_t>(file, "/n_process") != static_cast<std::size_t>(world.size()))
+        if (block.n_process != static_cast<std::size_t>(world.size()))
         {
             detail::balance_after_load(mesh, fields...);
         }
