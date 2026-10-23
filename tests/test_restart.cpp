@@ -137,10 +137,21 @@ namespace samurai
     {
         auto mesh = create_mesh<2>(1);
         dump("mesh", mesh);
+
+        // The file is edited without MPI-IO, so a single process must do it:
+        // HDF5 locks the file, and every other process would fail to open it.
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
+        world.barrier();
+        if (world.rank() == 0)
+#endif
         {
             HighFive::File file("mesh.h5", HighFive::File::ReadWrite);
             file.unlink("/mesh/is_box");
         }
+#ifdef SAMURAI_WITH_MPI
+        world.barrier();
+#endif
 
         decltype(mesh) mesh2;
         load("mesh", mesh2);
