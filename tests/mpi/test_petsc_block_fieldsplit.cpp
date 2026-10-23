@@ -3,6 +3,24 @@
 
 // PCFIELDSPLIT on a block operator, in parallel.
 //
+// The test solves a coupled heat system for u and v on the unit square
+// Omega = [0, 1]^2, discretized by a uniform mesh at level 5:
+//
+//   du/dt = Laplacian(u) + k (v - u)
+//   dv/dt = Laplacian(v) + k (u - v)      with k = 10,
+//
+// with the initial condition
+//
+//   u(0, x) = exp(-100 |x - (0.5, 0.5)|^2),   v(0, x) = 0,
+//
+// and homogeneous Neumann conditions du/dn = dv/dn = 0 on the whole boundary.
+// One backward Euler step with dt = 1e-3 gives the 2x2 block system
+//
+//   [ A  B ] [ u^{n+1} ]   [ u^n ]
+//   [ B  A ] [ v^{n+1} ] = [ v^n ],   A = (1 + dt k) Id + dt Diff,   B = -dt k Id,
+//
+// where Diff = make_diffusion_order2() discretizes -Laplacian.
+//
 // set_pc_fieldsplit() hands PETSc one index set per unknown. PETSc reads them as
 // global indices of the matrix, so on every rank they must lie in the rows owned
 // by that rank. The test checks this for the monolithic assembly, then solves the
@@ -25,9 +43,7 @@ namespace
 {
     constexpr std::size_t dim = 2;
 
-    // Coupled heat system, one implicit time step:
-    //   (1 + dt k) u + dt diff(u) - dt k v = u_n
-    //   (1 + dt k) v + dt diff(v) - dt k u = v_n
+    // Solves the block system described at the top of the file.
     template <samurai::petsc::BlockAssemblyType assembly_type, samurai::mesh_like Mesh, samurai::field_like Field>
     void solve_coupled_heat(Mesh& mesh, Field& unp1, Field& vnp1, bool& fields_IS_owned, int& iterations)
     {
