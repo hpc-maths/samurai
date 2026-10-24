@@ -134,6 +134,45 @@ namespace samurai
         test_save(mesh);
     }
 
+    TEST(hdf5, vertices_shared_with_non_dyadic_cell_length)
+    {
+        // With a scaling factor of 0.1 the cell lengths are not dyadic numbers, so the physical
+        // coordinates of a vertex shared by several cells, or by two levels, are not bitwise
+        // equal when computed from each cell. The vertex must still be written only once.
+        static constexpr std::size_t dim = 2;
+        CellList<dim> cl({-1., -1.}, 0.1);
+        for (int j = 0; j < 40; ++j)
+        {
+            cl[3][{j}].add_interval({0, 20});
+        }
+        for (int j = 0; j < 80; ++j)
+        {
+            cl[4][{j}].add_interval({40, 80});
+        }
+        CellArray<dim> ca(cl);
+
+        auto [coords, connectivity] = extract_coords_and_connectivity(ca);
+
+        // 21 x 41 vertices on level 3 and 41 x 81 on level 4, the 41 level 3 vertices of the
+        // interface being level 4 vertices too.
+        constexpr std::size_t expected_nb_points = 21 * 41 + 41 * 81 - 41;
+        ASSERT_EQ(coords.shape(0), expected_nb_points);
+        ASSERT_EQ(connectivity.shape(0), ca.nb_cells());
+
+        // Every cell must reference vertices at its own corners.
+        std::size_t index = 0;
+        for_each_cell(ca,
+                      [&](const auto& cell)
+                      {
+                          for (std::size_t d = 0; d < dim; ++d)
+                          {
+                              EXPECT_NEAR(coords(connectivity(index, 0), d), cell.corner(d), 1e-14);
+                              EXPECT_NEAR(coords(connectivity(index, 2), d), cell.corner(d) + cell.length, 1e-14);
+                          }
+                          ++index;
+                      });
+    }
+
     TYPED_TEST(hdf5_test, metadata)
     {
         static constexpr std::size_t dim = TypeParam::value;
