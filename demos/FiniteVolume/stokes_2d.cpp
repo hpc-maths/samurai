@@ -61,6 +61,7 @@ void configure_solver(Solver& block_solver)
         PCFieldSplitSchurGetSubKSP(pc, nullptr, &sub_ksp);
         KSP A_ksp     = sub_ksp[0];
         KSP schur_ksp = sub_ksp[1];
+        PetscFree(sub_ksp); // frees the array only, the sub-solvers belong to the preconditioner
 
         // Set LU by default for the A block (diffusion). Consider using 'hypre' for large problems,
         // using the option '-fieldsplit_velocity_[np1]_pc_type hypre'.
