@@ -56,200 +56,48 @@ namespace HighFive
 namespace samurai
 {
 
-    template <class T>
-    void dump(HighFive::File& file, const std::string& name, const std::vector<T>& data)
-    {
-        auto xfer_props = HighFive::DataTransferProps{};
-#ifdef SAMURAI_WITH_MPI
-        xfer_props.add(HighFive::UseCollectiveIO{});
-        mpi::communicator world;
-        auto rank = static_cast<std::size_t>(world.rank());
-        auto size = static_cast<std::size_t>(world.size());
-
-        std::vector<std::size_t> local_sizes(size);
-        // Gather all sizes from all processes
-        mpi::all_gather(world, data.size(), local_sizes);
-#else
-        std::size_t rank = 0;
-        std::size_t size = 1;
-
-        std::vector<std::size_t> local_sizes(size, data.size());
-#endif
-
-        // Calculate cumulative sizes
-        std::vector<std::size_t> cumulative_sizes(local_sizes.size() + 1, 0);
-        for (std::size_t i = 0; i < local_sizes.size(); ++i)
-        {
-            cumulative_sizes[i + 1] = cumulative_sizes[i] + local_sizes[i];
-        }
-
-        if (cumulative_sizes.back() == 0)
-        {
-            return;
-        }
-
-        H5Easy::dump(file, fmt::format("{}/partition", name), cumulative_sizes);
-        auto dataset = file.createDataSet<T>(fmt::format("{}/data", name),
-                                             HighFive::DataSpace(std::vector<std::size_t>{cumulative_sizes.back()}));
-
-        auto dataset_slice = dataset.select({cumulative_sizes[rank]}, {data.size()});
-        dataset_slice.write_raw(data.data(), HighFive::AtomicType<T>{}, xfer_props);
-    }
-
-    template <std::size_t dim, class interval_t>
-    void dump(HighFive::File& file, const LevelCellArray<dim, interval_t>& lca, bool with_metadata = true)
-    {
-        if (with_metadata)
-        {
-#ifdef SAMURAI_WITH_MPI
-            mpi::communicator world;
-            auto size = world.size();
-#else
-            std::size_t size = 1;
-#endif
-            H5Easy::dump(file, "/n_process", size);
-            H5Easy::dump(file, "/mesh/dim", dim);
-            H5Easy::dump(file, "/mesh/min_level", lca.level());
-            H5Easy::dump(file, "/mesh/max_level", lca.level());
-            // HighFive v3 does not support xfixed_container so we have to dump from an xtensor_container first
-            H5Easy::dump(file, "/mesh/origin_point", xt::xtensor<double, 1>{lca.origin_point()});
-            H5Easy::dump(file, "/mesh/scaling_factor", lca.scaling_factor());
-            H5Easy::dump(file, "/mesh/is_box", lca.is_box());
-        }
-
-        for (std::size_t d = 0; d < dim; ++d)
-        {
-            auto name = fmt::format("/mesh/level/{}/dim/{}/intervals", lca.level(), d);
-            dump(file, name, lca[d]);
-        }
-        for (std::size_t d = 1; d < dim; ++d)
-        {
-            auto name = fmt::format("/mesh/level/{}/dim/{}/offsets", lca.level(), d);
-            dump(file, name, lca.offsets(d));
-        }
-    }
-
-    template <std::size_t dim, class interval_t, std::size_t max_size>
-    void dump(HighFive::File& file, const CellArray<dim, interval_t, max_size>& ca)
-    {
-#ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
-        auto min_level = mpi::all_reduce(world, ca.min_level(), mpi::minimum<std::size_t>());
-        auto max_level = mpi::all_reduce(world, ca.max_level(), mpi::maximum<std::size_t>());
-        auto size      = world.size();
-#else
-        std::size_t min_level = ca.min_level();
-        std::size_t max_level = ca.max_level();
-        std::size_t size      = 1;
-#endif
-
-        H5Easy::dump(file, "/n_process", size);
-        H5Easy::dump(file, "/mesh/dim", dim);
-        H5Easy::dump(file, "/mesh/min_level", min_level);
-        H5Easy::dump(file, "/mesh/max_level", max_level);
-        // HighFive v3 does not support xfixed_container so we have to dump from an xtensor_container first
-        H5Easy::dump(file, "/mesh/origin_point", xt::xtensor<double, 1>{ca.origin_point()});
-        H5Easy::dump(file, "/mesh/scaling_factor", ca.scaling_factor());
-
-        for (std::size_t level = min_level; level <= max_level; ++level)
-        {
-            dump(file, ca[level], false); // false to avoid dumping metadata for each level
-        }
-    }
-
-    template <class Config>
-    void dump(HighFive::File& file, const UniformMesh<Config>& mesh)
-    {
-        using Mesh      = UniformMesh<Config>;
-        using mesh_id_t = typename Mesh::mesh_id_t;
-        dump(file, mesh[mesh_id_t::cells]);
-    }
-
-    void dump_field(HighFive::File& file, const auto& mesh, const auto& field)
-    {
-        auto data = extract_data_as_vector(field, mesh);
-
-        H5Easy::dump(file, fmt::format("/fields/{}/n_comp", field.name()), field.n_comp);
-
-        dump(file, fmt::format("/fields/{}/data", field.name()), data);
-    }
-
-    template <class... Fields>
-    void dump_fields(HighFive::File& file, const auto& mesh, const Fields&... fields)
-    {
-        if (sizeof...(Fields) > 0)
-        {
-            (dump_field(file, mesh, fields), ...);
-        }
-    }
-
-    template <class D, class Config>
-    void dump(HighFive::File& file, const Mesh_base<D, Config>& mesh, const auto&... fields)
-    {
-        using Mesh      = Mesh_base<D, Config>;
-        using mesh_id_t = typename Mesh::mesh_id_t;
-        dump(file, mesh[mesh_id_t::cells]);
-        H5Easy::dump(file, "/mesh/min_level", mesh.min_level(), H5Easy::DumpMode::Overwrite);
-        H5Easy::dump(file, "/mesh/max_level", mesh.max_level(), H5Easy::DumpMode::Overwrite);
-        // The domain is rebuilt from the cells on load, which cannot tell whether it is a box.
-        H5Easy::dump(file, "/mesh/is_box", mesh.domain().is_box());
-        dump_fields(file, mesh[mesh_id_t::cells], fields...);
-    }
-
-    template <class Mesh, class... Fields>
-        requires mesh_like<Mesh>
-    void dump(const fs::path& path, const std::string& filename, const Mesh& mesh, const Fields&... fields)
-    {
-        HighFive::FileAccessProps fapl;
-#ifdef SAMURAI_WITH_MPI
-        fapl.add(HighFive::MPIOFileAccess{MPI_COMM_WORLD, MPI_INFO_NULL});
-        fapl.add(HighFive::MPIOCollectiveMetadata{});
-#endif
-        HighFive::File file(fmt::format("{}.h5", (path / filename).string()), HighFive::File::Overwrite, fapl);
-        dump(file, mesh, fields...);
-    }
-
-    // Same as above, with a user callback to write arbitrary metadata (time,
-    // simulation parameters, ...) into the checkpoint file. The callback is a
-    // template parameter invoked in place: no std::function, no allocation.
-    template <class Callback, class Mesh, class... Fields>
-        requires mesh_like<Mesh> && std::invocable<Callback&&, MetadataWriter&>
-    void dump(const fs::path& path, const std::string& filename, Callback&& metadata, const Mesh& mesh, const Fields&... fields)
-    {
-        HighFive::FileAccessProps fapl;
-#ifdef SAMURAI_WITH_MPI
-        fapl.add(HighFive::MPIOFileAccess{MPI_COMM_WORLD, MPI_INFO_NULL});
-        fapl.add(HighFive::MPIOCollectiveMetadata{});
-#endif
-        HighFive::File file(fmt::format("{}.h5", (path / filename).string()), HighFive::File::Overwrite, fapl);
-        dump(file, mesh, fields...);
-        MetadataWriter writer(file); // no XDMF for a checkpoint: HDF5 only
-        // NOTE: Under MPI, this callback must be executed collectively on all ranks.
-        std::forward<Callback>(metadata)(writer);
-    }
-
-    template <class Mesh, class... Fields>
-        requires mesh_like<Mesh>
-    void dump(const std::string& filename, const Mesh& mesh, const Fields&... fields)
-    {
-        dump(fs::current_path(), filename, mesh, fields...);
-    }
-
-    template <class Callback, class Mesh, class... Fields>
-        requires mesh_like<Mesh> && std::invocable<Callback&, MetadataWriter&>
-    void dump(const std::string& filename, Callback&& metadata, const Mesh& mesh, const Fields&... fields)
-    {
-        dump(fs::current_path(), filename, std::forward<Callback>(metadata), mesh, fields...);
-    }
-
-    // Files written before "/mesh/is_box" existed are read as non-box domains.
-    inline bool load_is_box(const HighFive::File& file)
-    {
-        return file.exist("/mesh/is_box") && H5Easy::load<bool>(file, "/mesh/is_box");
-    }
-
     namespace detail
     {
+        template <class T>
+        void dump_partitions(HighFive::File& file, const std::string& name, const std::vector<T>& data)
+        {
+            auto xfer_props = HighFive::DataTransferProps{};
+#ifdef SAMURAI_WITH_MPI
+            xfer_props.add(HighFive::UseCollectiveIO{});
+            mpi::communicator world;
+            auto rank = static_cast<std::size_t>(world.rank());
+            auto size = static_cast<std::size_t>(world.size());
+
+            std::vector<std::size_t> local_sizes(size);
+            // Gather all sizes from all processes
+            mpi::all_gather(world, data.size(), local_sizes);
+#else
+            std::size_t rank = 0;
+            std::size_t size = 1;
+
+            std::vector<std::size_t> local_sizes(size, data.size());
+#endif
+
+            // Calculate cumulative sizes
+            std::vector<std::size_t> cumulative_sizes(local_sizes.size() + 1, 0);
+            for (std::size_t i = 0; i < local_sizes.size(); ++i)
+            {
+                cumulative_sizes[i + 1] = cumulative_sizes[i] + local_sizes[i];
+            }
+
+            if (cumulative_sizes.back() == 0)
+            {
+                return;
+            }
+
+            H5Easy::dump(file, fmt::format("{}/partition", name), cumulative_sizes);
+            auto dataset = file.createDataSet<T>(fmt::format("{}/data", name),
+                                                 HighFive::DataSpace(std::vector<std::size_t>{cumulative_sizes.back()}));
+
+            auto dataset_slice = dataset.select({cumulative_sizes[rank]}, {data.size()});
+            dataset_slice.write_raw(data.data(), HighFive::AtomicType<T>{}, xfer_props);
+        }
+
         // Every dataset of a restart file is one array cut into contiguous
         // partitions, one per process that wrote it; "<name>/partition" holds the
         // n_process + 1 bounds of these partitions. A process reading the file
@@ -413,6 +261,12 @@ namespace samurai
             return partitions;
         }
 
+        // Files written before "/mesh/is_box" existed are read as non-box domains.
+        inline bool load_is_box(const HighFive::File& file)
+        {
+            return file.exist("/mesh/is_box") && H5Easy::load<bool>(file, "/mesh/is_box");
+        }
+
         // Union of the cells of several partitions. A single partition is
         // moved out as is, so that a file read with the number of processes that
         // wrote it gives back the very same arrays.
@@ -454,6 +308,24 @@ namespace samurai
                                   });
             }
             return {cl};
+        }
+
+        void dump_field(HighFive::File& file, const auto& mesh, const auto& field)
+        {
+            auto data = extract_data_as_vector(field, mesh);
+
+            H5Easy::dump(file, fmt::format("/fields/{}/n_comp", field.name()), field.n_comp);
+
+            dump_partitions(file, fmt::format("/fields/{}/data", field.name()), data);
+        }
+
+        template <class... Fields>
+        void dump_fields(HighFive::File& file, const auto& mesh, const Fields&... fields)
+        {
+            if (sizeof...(Fields) > 0)
+            {
+                (dump_field(file, mesh, fields), ...);
+            }
         }
 
         // Fills `field` with the values of each partition of `block`. The values
@@ -575,6 +447,134 @@ namespace samurai
     }
 
     template <std::size_t dim, class interval_t>
+    void dump(HighFive::File& file, const LevelCellArray<dim, interval_t>& lca, bool with_metadata = true)
+    {
+        if (with_metadata)
+        {
+#ifdef SAMURAI_WITH_MPI
+            mpi::communicator world;
+            auto size = world.size();
+#else
+            std::size_t size = 1;
+#endif
+            H5Easy::dump(file, "/n_process", size);
+            H5Easy::dump(file, "/mesh/dim", dim);
+            H5Easy::dump(file, "/mesh/min_level", lca.level());
+            H5Easy::dump(file, "/mesh/max_level", lca.level());
+            // HighFive v3 does not support xfixed_container so we have to dump from an xtensor_container first
+            H5Easy::dump(file, "/mesh/origin_point", xt::xtensor<double, 1>{lca.origin_point()});
+            H5Easy::dump(file, "/mesh/scaling_factor", lca.scaling_factor());
+            H5Easy::dump(file, "/mesh/is_box", lca.is_box());
+        }
+
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            auto name = fmt::format("/mesh/level/{}/dim/{}/intervals", lca.level(), d);
+            detail::dump_partitions(file, name, lca[d]);
+        }
+        for (std::size_t d = 1; d < dim; ++d)
+        {
+            auto name = fmt::format("/mesh/level/{}/dim/{}/offsets", lca.level(), d);
+            detail::dump_partitions(file, name, lca.offsets(d));
+        }
+    }
+
+    template <std::size_t dim, class interval_t, std::size_t max_size>
+    void dump(HighFive::File& file, const CellArray<dim, interval_t, max_size>& ca)
+    {
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
+        auto min_level = mpi::all_reduce(world, ca.min_level(), mpi::minimum<std::size_t>());
+        auto max_level = mpi::all_reduce(world, ca.max_level(), mpi::maximum<std::size_t>());
+        auto size      = world.size();
+#else
+        std::size_t min_level = ca.min_level();
+        std::size_t max_level = ca.max_level();
+        std::size_t size      = 1;
+#endif
+
+        H5Easy::dump(file, "/n_process", size);
+        H5Easy::dump(file, "/mesh/dim", dim);
+        H5Easy::dump(file, "/mesh/min_level", min_level);
+        H5Easy::dump(file, "/mesh/max_level", max_level);
+        // HighFive v3 does not support xfixed_container so we have to dump from an xtensor_container first
+        H5Easy::dump(file, "/mesh/origin_point", xt::xtensor<double, 1>{ca.origin_point()});
+        H5Easy::dump(file, "/mesh/scaling_factor", ca.scaling_factor());
+
+        for (std::size_t level = min_level; level <= max_level; ++level)
+        {
+            dump(file, ca[level], false); // false to avoid dumping metadata for each level
+        }
+    }
+
+    template <class Config>
+    void dump(HighFive::File& file, const UniformMesh<Config>& mesh)
+    {
+        using Mesh      = UniformMesh<Config>;
+        using mesh_id_t = typename Mesh::mesh_id_t;
+        dump(file, mesh[mesh_id_t::cells]);
+    }
+
+    template <class D, class Config>
+    void dump(HighFive::File& file, const Mesh_base<D, Config>& mesh, const auto&... fields)
+    {
+        using Mesh      = Mesh_base<D, Config>;
+        using mesh_id_t = typename Mesh::mesh_id_t;
+        dump(file, mesh[mesh_id_t::cells]);
+        H5Easy::dump(file, "/mesh/min_level", mesh.min_level(), H5Easy::DumpMode::Overwrite);
+        H5Easy::dump(file, "/mesh/max_level", mesh.max_level(), H5Easy::DumpMode::Overwrite);
+        // The domain is rebuilt from the cells on load, which cannot tell whether it is a box.
+        H5Easy::dump(file, "/mesh/is_box", mesh.domain().is_box());
+        detail::dump_fields(file, mesh[mesh_id_t::cells], fields...);
+    }
+
+    template <class Mesh, class... Fields>
+        requires mesh_like<Mesh>
+    void dump(const fs::path& path, const std::string& filename, const Mesh& mesh, const Fields&... fields)
+    {
+        HighFive::FileAccessProps fapl;
+#ifdef SAMURAI_WITH_MPI
+        fapl.add(HighFive::MPIOFileAccess{MPI_COMM_WORLD, MPI_INFO_NULL});
+        fapl.add(HighFive::MPIOCollectiveMetadata{});
+#endif
+        HighFive::File file(fmt::format("{}.h5", (path / filename).string()), HighFive::File::Overwrite, fapl);
+        dump(file, mesh, fields...);
+    }
+
+    // Same as above, with a user callback to write arbitrary metadata (time,
+    // simulation parameters, ...) into the checkpoint file. The callback is a
+    // template parameter invoked in place: no std::function, no allocation.
+    template <class Callback, class Mesh, class... Fields>
+        requires mesh_like<Mesh> && std::invocable<Callback&&, MetadataWriter&>
+    void dump(const fs::path& path, const std::string& filename, Callback&& metadata, const Mesh& mesh, const Fields&... fields)
+    {
+        HighFive::FileAccessProps fapl;
+#ifdef SAMURAI_WITH_MPI
+        fapl.add(HighFive::MPIOFileAccess{MPI_COMM_WORLD, MPI_INFO_NULL});
+        fapl.add(HighFive::MPIOCollectiveMetadata{});
+#endif
+        HighFive::File file(fmt::format("{}.h5", (path / filename).string()), HighFive::File::Overwrite, fapl);
+        dump(file, mesh, fields...);
+        MetadataWriter writer(file); // no XDMF for a checkpoint: HDF5 only
+        // NOTE: Under MPI, this callback must be executed collectively on all ranks.
+        std::forward<Callback>(metadata)(writer);
+    }
+
+    template <class Mesh, class... Fields>
+        requires mesh_like<Mesh>
+    void dump(const std::string& filename, const Mesh& mesh, const Fields&... fields)
+    {
+        dump(fs::current_path(), filename, mesh, fields...);
+    }
+
+    template <class Callback, class Mesh, class... Fields>
+        requires mesh_like<Mesh> && std::invocable<Callback&, MetadataWriter&>
+    void dump(const std::string& filename, Callback&& metadata, const Mesh& mesh, const Fields&... fields)
+    {
+        dump(fs::current_path(), filename, std::forward<Callback>(metadata), mesh, fields...);
+    }
+
+    template <std::size_t dim, class interval_t>
     void load(const HighFive::File& file, LevelCellArray<dim, interval_t>& lca)
     {
         detail::check_mesh_dim(file, dim);
@@ -595,7 +595,7 @@ namespace samurai
         auto partitions = detail::load_level_partitions<LevelCellArray<dim, interval_t>>(file, min_level, detail::partitions_to_read(file));
         lca             = detail::merge_partitions(partitions, min_level);
         detail::load_geometry(file, lca);
-        if (load_is_box(file))
+        if (detail::load_is_box(file))
         {
             lca.box_like();
         }
@@ -646,7 +646,7 @@ namespace samurai
         auto mesh_cfg = mesh.cfg();
         mesh_cfg.min_level(min_level).max_level(max_level).disable_args_parse();
         Mesh new_mesh{ca, mesh_cfg};
-        if (load_is_box(file))
+        if (detail::load_is_box(file))
         {
             new_mesh.box_like();
         }
