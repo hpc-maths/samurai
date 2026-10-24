@@ -208,7 +208,7 @@ namespace
         /// band [0, 0.7) along x, the other ranks share the rest in equal,
         /// contiguous bands -> a chain of neighbours with a heavy first rank.
         template <class Field, class Weight>
-        static void make_banded_imbalance(Mesh& mesh, Field& u, const Weight& weight)
+        static void make_banded_imbalance(Field& u, const Weight& weight)
         {
             mpi::communicator world;
             const int size = world.size();
@@ -245,7 +245,7 @@ namespace
         const auto cells_before = mesh[mesh_id_t::cells];
         const auto count_before = TestFixture::global_count(mesh);
 
-        TestFixture::make_banded_imbalance(mesh, u, weight);
+        TestFixture::make_banded_imbalance(u, weight);
         EXPECT_TRUE_ALL_RANKS(samurai::load_balancing::imbalance(mesh, weight) > 0.1); // really imbalanced
 
         // The quantum-aware anti-overshoot guard makes local diffusion converge
@@ -281,7 +281,7 @@ namespace
         auto u      = TestFixture::make_analytic_field(mesh);
         auto weight = lb::weight::uniform();
 
-        TestFixture::make_banded_imbalance(mesh, u, weight);
+        TestFixture::make_banded_imbalance(u, weight);
 
         auto balancer      = lb::make_load_balancer<lb::Diffusion>();
         const double bound = (TestFixture::dim == 2) ? 0.10 : 0.15;
@@ -378,7 +378,7 @@ namespace
         const auto cells_before = mesh[mesh_id_t::cells];
         const auto count_before = TestFixture::global_count(mesh);
 
-        TestFixture::make_banded_imbalance(mesh, u, weight);
+        TestFixture::make_banded_imbalance(u, weight);
 
         auto balancer = lb::make_load_balancer<lb::Diffusion>();
         auto stats    = balancer.load_balance_with_stats(weight, u);

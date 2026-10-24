@@ -31,8 +31,6 @@ namespace samurai
         {
             static constexpr std::size_t dim = Field::dim;
             using cfg                        = FluxConfig<SchemeType::NonLinear, size, Field, Field>;
-            // The default stencil starts at -size / 2 + 1: the left cell of the face has the index size / 2 - 1.
-            static constexpr std::size_t left = size / 2 - 1;
 
             FluxDefinition<cfg> flux;
             static_for<0, dim>::apply(
@@ -43,7 +41,9 @@ namespace samurai
                     double ad                  = a[d];
                     flux[d].cons_flux_function = [ad](FluxValue<cfg>& f, const StencilData<cfg>&, const StencilValues<cfg>& u)
                     {
-                        f = ad * u[left];
+                        // The default stencil starts at -size / 2 + 1: the left cell of the face has the index size / 2 - 1.
+                        static constexpr std::size_t left = size / 2 - 1;
+                        f                                 = ad * u[left];
                     };
                 });
             return make_flux_based_scheme(flux);

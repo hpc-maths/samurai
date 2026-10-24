@@ -180,7 +180,7 @@ namespace
                                           }};
 
     template <class Strategy>
-    auto flux_after(const std::string& name, const Strategy& strategy)
+    auto flux_after(const Strategy& strategy)
     {
         auto mesh = make_staircase_mesh();
         auto u    = samurai::make_vector_field<n_comp>("u", mesh);
@@ -276,9 +276,8 @@ namespace
     // Stripe-like control (row blocks): expected to already pass.
     TEST_F(load_balancing_flux, flux_row_blocks)
     {
-        auto oracle = flux_after("oracle", oracle_strategy);
-        auto test   = flux_after("row_blocks",
-                               LambdaStrategy{[](const auto& cell, int, int size)
+        auto oracle = flux_after(oracle_strategy);
+        auto test   = flux_after(LambdaStrategy{[](const auto& cell, int, int size)
                                               {
                                                   const auto bj = cell.indices[1] >> (cell.level - 3);
                                                   return static_cast<int>(bj % size);
@@ -291,9 +290,8 @@ namespace
     // breaks the flux assembly.
     TEST_F(load_balancing_flux, flux_block_checkerboard)
     {
-        auto oracle = flux_after("oracle", oracle_strategy);
-        auto test   = flux_after("block_checkerboard",
-                               LambdaStrategy{[](const auto& cell, int, int size)
+        auto oracle = flux_after(oracle_strategy);
+        auto test   = flux_after(LambdaStrategy{[](const auto& cell, int, int size)
                                               {
                                                   const auto bi = cell.indices[0] >> (cell.level - 3);
                                                   const auto bj = cell.indices[1] >> (cell.level - 3);
@@ -305,9 +303,8 @@ namespace
     // Cell-wise checkerboard: every sibling group split, maximal boundary.
     TEST_F(load_balancing_flux, flux_fine_checkerboard)
     {
-        auto oracle = flux_after("oracle", oracle_strategy);
-        auto test   = flux_after("fine_checkerboard",
-                               LambdaStrategy{[](const auto& cell, int, int size)
+        auto oracle = flux_after(oracle_strategy);
+        auto test   = flux_after(LambdaStrategy{[](const auto& cell, int, int size)
                                               {
                                                   return static_cast<int>((cell.indices[0] + cell.indices[1]) % size);
                                               }});
@@ -318,8 +315,8 @@ namespace
     // refined staircase. This is the partition that fails in the demo.
     TEST_F(load_balancing_flux, flux_hilbert)
     {
-        auto oracle = flux_after("oracle", oracle_strategy);
-        auto test   = flux_after("hilbert", lb::SFC<lb::Hilbert>{});
+        auto oracle = flux_after(oracle_strategy);
+        auto test   = flux_after(lb::SFC<lb::Hilbert>{});
         compare_to_oracle(oracle, test, "hilbert");
     }
 

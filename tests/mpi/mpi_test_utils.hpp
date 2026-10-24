@@ -28,7 +28,7 @@
 #define EXPECT_TRUE_ALL_RANKS(cond)                                                                                                      \
     do                                                                                                                                   \
     {                                                                                                                                    \
-        const bool local_ok_ = static_cast<bool>(cond);                                                                                  \
+        const bool local_ok_(cond);                                                                                                      \
         boost::mpi::communicator world_;                                                                                                 \
         const bool global_ok_ = boost::mpi::all_reduce(world_, local_ok_, std::logical_and<bool>());                                     \
         EXPECT_TRUE(global_ok_) << "condition '" << #cond << "' failed on at least one rank (locally: " << (local_ok_ ? "ok" : "FAILED") \

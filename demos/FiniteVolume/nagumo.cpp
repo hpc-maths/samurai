@@ -111,9 +111,9 @@ int main(int argc, char* argv[])
         return e / (1 + e);
     };
 
-    auto exact_solution = [&](double x, double t)
+    auto exact_solution = [&](double x, double time)
     {
-        return beta(x - c * t);
+        return beta(x - c * time);
     };
 
     if (restart_file.empty())

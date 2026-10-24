@@ -1476,31 +1476,28 @@ namespace samurai
         for (int level_offset = -2; level_offset <= 2; ++level_offset)
         {
             std::size_t target_level = static_cast<std::size_t>(5 + level_offset);
-            if (target_level >= 0)
+            int scale                = 1 << std::abs(level_offset);
+            xt::xtensor_fixed<int, xt::xshape<2>> translation;
+
+            if (level_offset >= 0)
             {
-                int scale = 1 << std::abs(level_offset);
-                xt::xtensor_fixed<int, xt::xshape<2>> translation;
+                translation = {scale, 0};
+            }
+            else
+            {
+                translation = {1, 0};
+            }
 
-                if (level_offset >= 0)
-                {
-                    translation = {scale, 0};
-                }
-                else
-                {
-                    translation = {1, 0};
-                }
-
-                bool found = false;
-                apply(intersection(self(lca).on(target_level), translate(self(lca).on(target_level), translation)),
-                      [&](auto&, auto)
-                      {
-                          found = true;
-                      });
-                // Should be empty for non-zero translations of single cells
-                if (translation[0] != 0 || translation[1] != 0)
-                {
-                    EXPECT_FALSE(found);
-                }
+            bool found = false;
+            apply(intersection(self(lca).on(target_level), translate(self(lca).on(target_level), translation)),
+                  [&](auto&, auto)
+                  {
+                      found = true;
+                  });
+            // Should be empty for non-zero translations of single cells
+            if (translation[0] != 0 || translation[1] != 0)
+            {
+                EXPECT_FALSE(found);
             }
         }
     }
