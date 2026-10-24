@@ -33,8 +33,8 @@ Every benchmark reports:
 
 `bench_set_call_sites`, `bench_dynamic_set` and `bench_set_graduation` read
 their sets from files that `generate_set_algebra_inputs` writes to
-`build/benchmark/set_algebra_inputs/` (16 MB, 3 seconds). The generator
-adapts the meshes and writes their sets.
+`build/benchmark/set_algebra_inputs/` (16 MB, 3 seconds; with the sweep,
+103 MB, 20 seconds). The generator adapts the meshes and writes their sets.
 
 The build runs the generator before the first build of these binaries, and
 again when one of the sources that decide the content of the files changes:
@@ -57,7 +57,7 @@ so the inputs stay fixed while the set algebra changes.
 | `bench_set_projection` | algebra | Cost of `.on()`: coarsening against the level difference, compared with the same coarse set already built and with building it once; refinement as a control; coarsening of an N-ary intersection, of a chained projection and inside an expansion. |
 | `bench_set_mesh_shape` | algebra | Effect of the shape of a level: the same cells cut into K stripes along each axis, and the same front cut into P subdomains along each axis. |
 | `bench_set_call_sites` | algebra, input files | The expressions of the library functions that run at every time step or mesh construction, copied from their source (`BM_Site_*`); two variants that read coarse sets the mesh already stores (`BM_SiteCached_*`); and the ways to consume a set (`BM_Mode_*`), for each registered backend. |
-| `bench_dynamic_set` | algebra, input files | The same sites with the `static` and `dynamic` backends, on the main 2D and 3D meshes: the price of the runtime algebra. |
+| `bench_dynamic_set` | algebra, input files | The same sites with the `static` and `dynamic` backends, on the main 2D and 3D meshes and, with the sweep, the sweep meshes: the price of the runtime algebra. |
 | `bench_set_graduation` | algebra, `make_graduation`, input files | Cost of `make_graduation` on the cells the adaptation passes to it, before graduation. It reports the cells before (`cells_in`) and after (`cells_out`). |
 | `bench_set_library_ops` | mesh, MR adaptation, fields, schemes | The sets of `BM_Site_*` with the library's field operator (`BM_SiteOp_*`), and the library operations themselves (`BM_Op_*`), on the meshes and arguments of `bench_set_call_sites`. `BM_Op_AdaptStep` and `BM_Op_MeshConstruction` also report the time of their phases, read from samurai's timers, in ms per iteration. |
 
@@ -68,7 +68,8 @@ headers:
 
 - `set_algebra_fixtures.hpp`: the traversal and its counters, and synthetic
   `LevelCellArray`s of controlled shape. A synthetic benchmark takes the level
-  of its sets as first argument: 20 in 1D, 11 in 2D and 8 in 3D.
+  of its sets as first argument: 20 in 1D, 11 in 2D and 8 in 3D, or the levels
+  of the sweep.
 - `site_inputs.hpp`: `SiteInputs`, the sets the call sites read from an adapted
   mesh (cells, ghosts, reference, projection cells, union, domain and subdomain
   pyramids, corners, the cells of the next adaptation step before graduation
@@ -147,6 +148,37 @@ other sets than the static one:
 | `BM_Mode_Contract` | 3D | `dyn::contract` returns other cells than the static one |
 
 The `keep` function of `benchmark_dynamic_set.cpp` holds this list.
+
+## Sweep over the level
+
+To draw the time against the number of intervals, configure with
+`-DSAMURAI_BENCHMARK_SET_ALGEBRA_SWEEP=ON`. The synthetic benchmarks
+(`bench_set_operators`, `bench_set_projection`, `bench_set_mesh_shape`) then
+run at a range of levels instead of one, and the generator writes one more mesh
+per max level, which the call sites read. `bench::sweep_cases` lists these
+meshes, all in the box with a max stencil radius of 1:
+
+| Dimension | Max levels | Balls |
+| --- | --- | ---: |
+| 1D | 12, 14, 16, 18, 19 | 256 |
+| 2D | 8 to 13 | 16 |
+| 3D | 5 to 9 | 8 |
+
+The option is off by default because the largest meshes of the sweep take most
+of the generation time and disk space. It has its own stamp in the inputs
+directory, so turning it on generates the meshes it adds.
+
+The level is the first argument of every benchmark, so a filter on the other
+arguments selects one curve. Each point reports the intervals of its input
+(`in_itv` for a synthetic set, `leaf_itv` for a mesh) and of its output
+(`itv`):
+
+```bash
+cmake -S . -B build -DSAMURAI_BENCHMARK_SET_ALGEBRA_SWEEP=ON
+ninja -C build bench_set_operators bench_dynamic_set
+./build/benchmark/bench_set_operators --benchmark_filter='BM_Self<2, Shape::shell>/'
+./build/benchmark/bench_dynamic_set --benchmark_filter='BM_Site_Tag<3>/[0-9]+/8/1$'
+```
 
 ## Coverage
 
@@ -356,6 +388,20 @@ version is 5 to 21 times slower than the static one (3D ghost projection:
 than the static one and takes 290 s per iteration on the 3D prediction ghosts
 of the mesh construction, so `bench_dynamic_set` leaves those sites out
 ([Sites the dynamic backend leaves out](#sites-the-dynamic-backend-leaves-out)).
+
+### Sweep
+
+Measured on 2026-10-18 on the same machine, single runs of 0.1 s with the
+machine lightly loaded: indicative, not medians.
+
+On the meshes of the sweep, the time of a site is linear in the number of
+intervals, and the dynamic algebra keeps the same ratio to the static one at
+every level: 7 to 8 times for the ghost projection and the tags in 2D (max
+level 8 to 13, 304 to 15,031 intervals for the projection), 8 to 9 times in 3D
+(max level 5 to 9), 11 to 19 times for the 3D interfaces (3D, max level 9:
+8.4 ms static, 109 ms dynamic, 1.0 million intervals). The synthetic sets show
+the same: `BM_Self<3, shell>` costs 1.0 to 1.5 ns per interval and
+`BM_Expand<3>/L/1` 29 to 31 ns from level 5 to 9.
 
 ### Where the set algebra is not the bottleneck
 
