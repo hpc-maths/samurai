@@ -123,6 +123,15 @@ int main(int argc, char* argv[])
 {
     samurai::initialize(argc, argv);
 
+    // samurai::initialize() starts PETSc without a help message, so PETSc's
+    // -help cannot show this demo's options: print them here.
+    PetscBool help_requested = PETSC_FALSE;
+    PetscOptionsHasHelp(NULL, &help_requested);
+    if (help_requested)
+    {
+        PetscPrintf(PETSC_COMM_WORLD, "%s", help);
+    }
+
     constexpr std::size_t dim     = 2;
     constexpr unsigned int n_comp = 1;
     using Mesh                    = decltype(create_uniform_mesh<dim>(1));
