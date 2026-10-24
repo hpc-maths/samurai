@@ -4,6 +4,7 @@
 #include <chrono>
 #include <string>
 #include <thread>
+#include <utility>
 
 #include <gtest/gtest.h>
 
@@ -54,6 +55,34 @@ namespace
     void busy_sleep_ms(int ms)
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+    }
+
+    /// Enabled timers holding a single `child` timed inside `parent`.
+    samurai::Timers timed_child_in_parent(const std::string& parent, const std::string& child)
+    {
+        samurai::Timers t;
+        t.enable();
+        t.start(parent);
+        t.start(child);
+        busy_sleep_ms(2);
+        t.stop(child);
+        t.stop(parent);
+        return t;
+    }
+
+    /// Print the report of `t` and run `check` on the printed text. print() is
+    /// collective under MPI, but only the root process prints the report gathered
+    /// from all processes, so `check` runs there only.
+    template <class Check>
+    void check_report(const samurai::Timers& t, Check&& check)
+    {
+        testing::internal::CaptureStdout();
+        t.print();
+        const std::string out = testing::internal::GetCapturedStdout();
+        if (samurai::test::is_root_process())
+        {
+            std::forward<Check>(check)(out);
+        }
     }
 } // namespace
 
@@ -237,19 +266,14 @@ namespace samurai
         }
 
         // Both names should appear in print output with tree structure
-        testing::internal::CaptureStdout();
-        t.print();
-        const std::string out = testing::internal::GetCapturedStdout();
-
-        if (!test::is_root_process())
-        {
-            return;
-        }
-
-        EXPECT_TRUE(output_contains(out, "outer"));
-        EXPECT_TRUE(output_contains(out, "inner"));
-        // inner must be indented under outer (connector present)
-        EXPECT_TRUE(output_contains(out, "`-- inner") || output_contains(out, "+-- inner"));
+        check_report(t,
+                     [](const std::string& out)
+                     {
+                         EXPECT_TRUE(output_contains(out, "outer"));
+                         EXPECT_TRUE(output_contains(out, "inner"));
+                         // inner must be indented under outer (connector present)
+                         EXPECT_TRUE(output_contains(out, "`-- inner") || output_contains(out, "+-- inner"));
+                     });
     }
 
     // ============================================================================
@@ -273,26 +297,21 @@ namespace samurai
         t.stop("shared");
         t.stop("B");
 
-        testing::internal::CaptureStdout();
-        t.print();
-        const std::string out = testing::internal::GetCapturedStdout();
+        check_report(t,
+                     [](const std::string& out)
+                     {
+                         const std::string plain = strip_ansi(out);
 
-        if (!test::is_root_process())
-        {
-            return;
-        }
-
-        const std::string plain = strip_ansi(out);
-
-        // "shared" should appear twice in the output (once under A, once under B)
-        std::size_t count = 0;
-        std::size_t pos   = 0;
-        while ((pos = plain.find("shared", pos)) != std::string::npos)
-        {
-            ++count;
-            pos += 6;
-        }
-        EXPECT_GE(count, 2U);
+                         // "shared" should appear twice in the output (once under A, once under B)
+                         std::size_t count = 0;
+                         std::size_t pos   = 0;
+                         while ((pos = plain.find("shared", pos)) != std::string::npos)
+                         {
+                             ++count;
+                             pos += 6;
+                         }
+                         EXPECT_GE(count, 2U);
+                     });
     }
 
     // ============================================================================
@@ -301,58 +320,32 @@ namespace samurai
 
     TEST(timers, print_contains_timer_header)
     {
-        Timers t;
-        t.enable();
-        t.start("total runtime");
-        t.start("alpha");
-        busy_sleep_ms(2);
-        t.stop("alpha");
-        t.stop("total runtime");
-
-        testing::internal::CaptureStdout();
-        t.print();
-        const std::string out = testing::internal::GetCapturedStdout();
-
-        if (!test::is_root_process())
-        {
-            return;
-        }
-
-        EXPECT_TRUE(output_contains(out, "Timers"));
-        EXPECT_TRUE(output_contains(out, "Timer"));
+        check_report(timed_child_in_parent("total runtime", "alpha"),
+                     [](const std::string& out)
+                     {
+                         EXPECT_TRUE(output_contains(out, "Timers"));
+                         EXPECT_TRUE(output_contains(out, "Timer"));
 #ifdef SAMURAI_WITH_MPI
-        EXPECT_TRUE(output_contains(out, "Min (s)"));
-        EXPECT_TRUE(output_contains(out, "Max (s)"));
-        EXPECT_TRUE(output_contains(out, "Ave (s)"));
+                         EXPECT_TRUE(output_contains(out, "Min (s)"));
+                         EXPECT_TRUE(output_contains(out, "Max (s)"));
+                         EXPECT_TRUE(output_contains(out, "Ave (s)"));
 #else
-        EXPECT_TRUE(output_contains(out, "Elapsed (s)"));
+                         EXPECT_TRUE(output_contains(out, "Elapsed (s)"));
 #endif
-        EXPECT_TRUE(output_contains(out, "% total"));
-        EXPECT_TRUE(output_contains(out, "% parent"));
-        EXPECT_TRUE(output_contains(out, "Calls"));
+                         EXPECT_TRUE(output_contains(out, "% total"));
+                         EXPECT_TRUE(output_contains(out, "% parent"));
+                         EXPECT_TRUE(output_contains(out, "Calls"));
+                     });
     }
 
     TEST(timers, print_contains_timer_names)
     {
-        Timers t;
-        t.enable();
-        t.start("root_timer");
-        t.start("child_timer");
-        busy_sleep_ms(2);
-        t.stop("child_timer");
-        t.stop("root_timer");
-
-        testing::internal::CaptureStdout();
-        t.print();
-        const std::string out = testing::internal::GetCapturedStdout();
-
-        if (!test::is_root_process())
-        {
-            return;
-        }
-
-        EXPECT_TRUE(output_contains(out, "root_timer"));
-        EXPECT_TRUE(output_contains(out, "child_timer"));
+        check_report(timed_child_in_parent("root_timer", "child_timer"),
+                     [](const std::string& out)
+                     {
+                         EXPECT_TRUE(output_contains(out, "root_timer"));
+                         EXPECT_TRUE(output_contains(out, "child_timer"));
+                     });
     }
 
     TEST(timers, print_shows_untimed_row_when_total_runtime_exists)
@@ -367,17 +360,12 @@ namespace samurai
         busy_sleep_ms(2); // this 2 ms is untimed
         t.stop("total runtime");
 
-        testing::internal::CaptureStdout();
-        t.print();
-        const std::string out = testing::internal::GetCapturedStdout();
-
-        if (!test::is_root_process())
-        {
-            return;
-        }
-
-        EXPECT_TRUE(output_contains(out, "(untimed)"));
-        EXPECT_TRUE(output_contains(out, "total runtime"));
+        check_report(t,
+                     [](const std::string& out)
+                     {
+                         EXPECT_TRUE(output_contains(out, "(untimed)"));
+                         EXPECT_TRUE(output_contains(out, "total runtime"));
+                     });
     }
 
     TEST(timers, print_no_untimed_row_without_total_runtime)
@@ -388,18 +376,13 @@ namespace samurai
         busy_sleep_ms(2);
         t.stop("only_timer");
 
-        testing::internal::CaptureStdout();
-        t.print();
-        const std::string out = testing::internal::GetCapturedStdout();
-
-        if (!test::is_root_process())
-        {
-            return;
-        }
-
-        EXPECT_FALSE(output_contains(out, "(untimed)"));
-        // Should still show a "Total" footer
-        EXPECT_TRUE(output_contains(out, "Total"));
+        check_report(t,
+                     [](const std::string& out)
+                     {
+                         EXPECT_FALSE(output_contains(out, "(untimed)"));
+                         // Should still show a "Total" footer
+                         EXPECT_TRUE(output_contains(out, "Total"));
+                     });
     }
 
     TEST(timers, print_shows_overcommit_row_on_negative_untimed)
@@ -499,24 +482,19 @@ namespace samurai
             t.stop("counted");
         }
 
-        testing::internal::CaptureStdout();
-        t.print();
-        const std::string out = testing::internal::GetCapturedStdout();
-
-        if (!test::is_root_process())
-        {
-            return;
-        }
-
-        // The "5" call count must appear on the "counted" row.
-        // We check the stripped output contains "5" near the timer name.
-        const std::string plain = strip_ansi(out);
-        const auto timer_pos    = plain.find("counted");
-        ASSERT_NE(timer_pos, std::string::npos);
-        // The call count column comes after the timer name — search the rest of that line.
-        const auto line_end   = plain.find('\n', timer_pos);
-        const std::string row = plain.substr(timer_pos, line_end - timer_pos);
-        EXPECT_NE(row.find('5'), std::string::npos);
+        check_report(t,
+                     [](const std::string& out)
+                     {
+                         // The "5" call count must appear on the "counted" row.
+                         // We check the stripped output contains "5" near the timer name.
+                         const std::string plain = strip_ansi(out);
+                         const auto timer_pos    = plain.find("counted");
+                         ASSERT_NE(timer_pos, std::string::npos);
+                         // The call count column comes after the timer name — search the rest of that line.
+                         const auto line_end   = plain.find('\n', timer_pos);
+                         const std::string row = plain.substr(timer_pos, line_end - timer_pos);
+                         EXPECT_NE(row.find('5'), std::string::npos);
+                     });
     }
 
     // ============================================================================
@@ -537,21 +515,18 @@ namespace samurai
         t.stop("slow");
         t.stop("parent");
 
-        testing::internal::CaptureStdout();
-        t.print();
-        const std::string plain = strip_ansi(testing::internal::GetCapturedStdout());
+        check_report(t,
+                     [](const std::string& out)
+                     {
+                         const std::string plain = strip_ansi(out);
 
-        if (!test::is_root_process())
-        {
-            return;
-        }
-
-        // "slow" should appear before "fast" in the output
-        const auto pos_slow = plain.find("slow");
-        const auto pos_fast = plain.find("fast");
-        ASSERT_NE(pos_slow, std::string::npos);
-        ASSERT_NE(pos_fast, std::string::npos);
-        EXPECT_LT(pos_slow, pos_fast);
+                         // "slow" should appear before "fast" in the output
+                         const auto pos_slow = plain.find("slow");
+                         const auto pos_fast = plain.find("fast");
+                         ASSERT_NE(pos_slow, std::string::npos);
+                         ASSERT_NE(pos_fast, std::string::npos);
+                         EXPECT_LT(pos_slow, pos_fast);
+                     });
     }
 
     // ============================================================================
@@ -566,22 +541,19 @@ namespace samurai
         busy_sleep_ms(5);
         t.stop("total runtime");
 
-        testing::internal::CaptureStdout();
-        t.print();
-        const std::string plain = strip_ansi(testing::internal::GetCapturedStdout());
+        check_report(t,
+                     [](const std::string& out)
+                     {
+                         const std::string plain = strip_ansi(out);
 
-        if (!test::is_root_process())
-        {
-            return;
-        }
-
-        // Footer line: "total runtime   X.XXX  100.0%"
-        // The footer line contains "100.0%" on the same line as "total runtime"
-        const auto pos = plain.rfind("total runtime");
-        ASSERT_NE(pos, std::string::npos);
-        const auto line_end          = plain.find('\n', pos);
-        const std::string footer_row = plain.substr(pos, line_end - pos);
-        EXPECT_NE(footer_row.find("100.0%"), std::string::npos);
+                         // Footer line: "total runtime   X.XXX  100.0%"
+                         // The footer line contains "100.0%" on the same line as "total runtime"
+                         const auto pos = plain.rfind("total runtime");
+                         ASSERT_NE(pos, std::string::npos);
+                         const auto line_end          = plain.find('\n', pos);
+                         const std::string footer_row = plain.substr(pos, line_end - pos);
+                         EXPECT_NE(footer_row.find("100.0%"), std::string::npos);
+                     });
     }
 
     // ============================================================================
@@ -593,17 +565,13 @@ namespace samurai
         times::timers.enable();
         const bool enabled_in_other_tu = samurai_test::time_in_other_translation_unit("timer_in_other_tu");
 
-        testing::internal::CaptureStdout();
-        times::timers.print();
-        const std::string out = testing::internal::GetCapturedStdout();
-        times::timers.disable();
-
         EXPECT_TRUE(enabled_in_other_tu);
-        if (!test::is_root_process())
-        {
-            return;
-        }
-        EXPECT_TRUE(output_contains(out, "timer_in_other_tu"));
+        check_report(times::timers,
+                     [](const std::string& out)
+                     {
+                         EXPECT_TRUE(output_contains(out, "timer_in_other_tu"));
+                     });
+        times::timers.disable();
     }
 
 } // namespace samurai
