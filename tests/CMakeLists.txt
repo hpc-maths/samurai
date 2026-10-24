@@ -122,7 +122,7 @@ endif()
 # so a later PETSc test in the same binary would abort. Isolating them also keeps
 # SAMURAI_WITH_PETSC off the main suite, avoiding pulling PETSc into every TU.
 if(WITH_PETSC)
-    add_executable(test_fv_operators_petsc ${COMMON_BASE} test_fv_operators.cpp ${SAMURAI_HEADERS})
+    add_executable(test_fv_operators_petsc ${COMMON_BASE} test_fv_operators.cpp test_petsc_solvers.cpp ${SAMURAI_HEADERS})
     target_include_directories(test_fv_operators_petsc PRIVATE ${SAMURAI_INCLUDE_DIR})
     if(MSVC)
         target_compile_options(test_fv_operators_petsc PUBLIC /bigobj)

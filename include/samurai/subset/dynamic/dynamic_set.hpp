@@ -63,11 +63,11 @@ namespace samurai
 
       protected:
 
-        ISet()                       = default;
-        ISet(const ISet&)            = default;
-        ISet(ISet&&)                 = default;
-        ISet& operator=(const ISet&) = default;
-        ISet& operator=(ISet&&)      = default;
+        ISet()                           = default;
+        ISet(const ISet&)                = default;
+        ISet(ISet&&) noexcept            = default;
+        ISet& operator=(const ISet&)     = default;
+        ISet& operator=(ISet&&) noexcept = default;
     };
 
     ////////////////////////////////////////////////////////////////////////

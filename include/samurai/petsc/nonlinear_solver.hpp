@@ -6,6 +6,8 @@
 #include <petsc.h>
 
 #include <stdexcept>
+#include <type_traits>
+#include <utility>
 
 namespace samurai
 {
@@ -90,31 +92,28 @@ namespace samurai
                 _destroy_petsc_objects();
             }
 
-            NonLinearSolverBase& operator=(const NonLinearSolverBase& other)
-            {
-                if (this != &other)
-                {
-                    this->destroy_petsc_objects();
-                    this->m_assembly  = other.m_assembly;
-                    this->m_snes      = other.m_snes;
-                    this->m_J         = other.m_J;
-                    this->m_is_set_up = other.m_is_set_up;
-                }
-                return *this;
-            }
+            // The solver owns its PETSc objects: a copy would share them and destroy them twice.
+            NonLinearSolverBase(const NonLinearSolverBase&)            = delete;
+            NonLinearSolverBase& operator=(const NonLinearSolverBase&) = delete;
 
-            NonLinearSolverBase& operator=(NonLinearSolverBase&& other)
+            // Only throws if moving the assembly does (it falls back to a copy for the schemes that are not nothrow-movable).
+            NonLinearSolverBase& operator=(NonLinearSolverBase&& other) noexcept(std::is_nothrow_move_assignable_v<Assembly>
+                                                                                 && std::is_nothrow_move_assignable_v<worker_output_field_t>)
             {
                 if (this != &other)
                 {
-                    this->destroy_petsc_objects();
-                    this->m_assembly  = other.m_assembly;
-                    this->m_snes      = other.m_snes;
-                    this->m_J         = other.m_J;
-                    this->m_is_set_up = other.m_is_set_up;
-                    other.m_snes      = nullptr; // Prevent SNES destruction when 'other' object is destroyed
-                    other.m_J         = nullptr;
-                    other.m_is_set_up = false;
+                    // Non-virtual on purpose: the derived classes move-assign their own PETSc objects.
+                    _destroy_petsc_objects();
+                    m_assembly                   = std::move(other.m_assembly);
+                    m_snes                       = std::exchange(other.m_snes, nullptr);
+                    m_J                          = std::exchange(other.m_J, nullptr);
+                    m_is_set_up                  = std::exchange(other.m_is_set_up, false);
+                    m_reuse_allocated_matrix     = std::exchange(other.m_reuse_allocated_matrix, false);
+                    m_stop_program_on_divergence = other.m_stop_program_on_divergence;
+                    m_worker_output_field        = std::move(other.m_worker_output_field);
+                    configure                    = std::move(other.configure);
+                    after_matrix_assembly        = std::move(other.after_matrix_assembly);
+                    monitor                      = std::move(other.monitor);
                 }
                 return *this;
             }
