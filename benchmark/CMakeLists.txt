@@ -39,6 +39,7 @@ set(SAMURAI_BENCHMARK_SOURCES
     benchmark_search.cpp
     benchmark_set_call_sites.cpp
     benchmark_set_graduation.cpp
+    benchmark_set_library_ops.cpp
     benchmark_set_mesh_shape.cpp
     benchmark_set_operators.cpp
     benchmark_set_projection.cpp
