@@ -3,10 +3,11 @@
 
 // Price of the dynamic set algebra (include/samurai/subset/dynamic/) against
 // the static one: the call sites of bench_set_call_sites with both backends,
-// on the main 2D and 3D meshes of bench::mesh_cases. Each site builds its
-// expressions inside the timed loop, as the library does, so the dynamic
-// figure includes the construction of their heap-allocated nodes. The ratio
-// dynamic/BM_Site_X / static/BM_Site_X is the price of the runtime tree.
+// on the main 2D and 3D meshes of bench::mesh_cases and, with the sweep, on
+// those of bench::sweep_cases. Each site builds its expressions inside the
+// timed loop, as the library does, so the dynamic figure includes the
+// construction of their heap-allocated nodes. The ratio dynamic/BM_Site_X /
+// static/BM_Site_X is the price of the runtime tree.
 
 #include <algorithm>
 #include <array>
@@ -23,14 +24,27 @@
 
 namespace
 {
-    // The most fronts at the default max level, stencil radius 1.
+    // The most fronts at the default max level, stencil radius 1; with the
+    // sweep, the meshes of bench::sweep_cases.
     template <std::size_t dim>
     std::vector<bench::MeshCase> mesh_cases()
     {
-        constexpr std::size_t nballs = (dim == 2) ? 16 : 8;
-        return {
-            {bench::default_max_level<dim>(), nballs, 1}
+        constexpr std::size_t nballs    = (dim == 2) ? 16 : 8;
+        constexpr std::size_t max_level = bench::default_max_level<dim>();
+        std::vector<bench::MeshCase> cases{
+            {max_level, nballs, 1}
         };
+        if constexpr (bench::sweep_enabled)
+        {
+            for (const auto& c : bench::sweep_cases<dim>())
+            {
+                if (c.max_level != max_level)
+                {
+                    cases.push_back(c);
+                }
+            }
+        }
+        return cases;
     }
 
     // Without the sites the dynamic algebra gets wrong: they compute other

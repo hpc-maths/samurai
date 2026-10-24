@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -81,16 +82,53 @@ namespace bench
         return {static_cast<std::size_t>(state.range(0)), static_cast<std::size_t>(state.range(1)), static_cast<int>(state.range(2))};
     }
 
+    // The sweep over the max level, at the number of balls of the main mesh
+    // of each dimension and stencil radius 1: for curves of the time against
+    // the number of intervals. Only with the sweep (sweep_enabled): its 3D
+    // meshes are the largest inputs. The max level stays below the
+    // max_refinement_level of the mesh configuration (20): an MR mesh puts
+    // prediction ghosts one level above its max level, and make_graduation
+    // keeps one LevelCellArray per level below max_refinement_level only.
+    template <std::size_t dim>
+    std::vector<MeshCase> sweep_cases()
+    {
+        std::vector<std::size_t> levels;
+        std::size_t nballs = 0;
+        if constexpr (dim == 1)
+        {
+            levels = {12, 14, 16, 18, 19};
+            nballs = 256;
+        }
+        else if constexpr (dim == 2)
+        {
+            levels = {8, 9, 10, 11, 12, 13};
+            nballs = 16;
+        }
+        else
+        {
+            levels = {5, 6, 7, 8, 9};
+            nballs = 8;
+        }
+        std::vector<MeshCase> cases;
+        for (const std::size_t level : levels)
+        {
+            cases.push_back({level, nballs, 1});
+        }
+        return cases;
+    }
+
     // Stencil radius 1 is the upwind scheme. The case of radius 3, the
-    // stencil of a WENO5 scheme, triples the ghost width.
+    // stencil of a WENO5 scheme, triples the ghost width. With the sweep, the
+    // meshes of sweep_cases follow.
     template <std::size_t dim>
     std::vector<MeshCase> mesh_cases()
     {
         constexpr std::size_t max_level = default_max_level<dim>();
+        std::vector<MeshCase> cases;
         if constexpr (dim == 1)
         {
             // a 1D front is a point: many of them to get a non-trivial mesh
-            return {
+            cases = {
                 {max_level, 16,  1},
                 {max_level, 256, 1},
                 {max_level, 256, 3}
@@ -98,7 +136,7 @@ namespace bench
         }
         else if constexpr (dim == 2)
         {
-            return {
+            cases = {
                 {max_level,     1,  1},
                 {max_level,     16, 1},
                 {max_level + 2, 16, 1},
@@ -107,12 +145,29 @@ namespace bench
         }
         else
         {
-            return {
+            cases = {
                 {max_level, 1, 1},
                 {max_level, 8, 1},
                 {max_level, 8, 3}
             };
         }
+        if constexpr (sweep_enabled)
+        {
+            for (const auto& c : sweep_cases<dim>())
+            {
+                if (std::find_if(cases.begin(),
+                                 cases.end(),
+                                 [&](const MeshCase& other)
+                                 {
+                                     return other.key() == c.key();
+                                 })
+                    == cases.end())
+                {
+                    cases.push_back(c);
+                }
+            }
+        }
+        return cases;
     }
 
     // The intervals of a CellArray, level by level.
