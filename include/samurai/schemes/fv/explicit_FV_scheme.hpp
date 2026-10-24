@@ -34,9 +34,12 @@ namespace samurai
         {
         }
 
-        virtual ~ExplicitFVScheme()
-        {
-        }
+        virtual ~ExplicitFVScheme() = default;
+
+        ExplicitFVScheme(const ExplicitFVScheme&)            = default;
+        ExplicitFVScheme& operator=(const ExplicitFVScheme&) = default;
+        ExplicitFVScheme(ExplicitFVScheme&&)                 = default;
+        ExplicitFVScheme& operator=(ExplicitFVScheme&&)      = default;
 
         auto& scheme()
         {
