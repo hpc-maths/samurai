@@ -1526,30 +1526,47 @@ namespace samurai
             assembly.create_matrix(A);
             assembly.assemble_matrix(A);
 
-            Vec x = petsc::create_petsc_vector_from(u);    // input unknowns (columns)
-            Vec y = petsc::create_petsc_vector_from(impl); // output values (rows), aliases impl
+            // The assembly lays the vectors out like the matrix: under MPI, they hold the owned cells only.
+            Vec x = assembly.create_solution_vector(u); // input unknowns (columns)
+            Vec y = assembly.create_rhs_vector(impl);   // output values (rows)
             MatMult(A, x, y);
+            assembly.copy_rhs(y, impl);
+
+            auto is_owned = [&]([[maybe_unused]] const auto& cell)
+            {
+#ifdef SAMURAI_WITH_MPI
+                return u.mesh().cell_ownership().owner_rank[static_cast<std::size_t>(cell.index)] == mpi::communicator().rank();
+#else
+                return true;
+#endif
+            };
 
             std::size_t k          = 0;
             std::size_t nb_checked = 0;
             for_each_cell(u.mesh(),
                           [&](const auto& cell)
                           {
-                              if (is_interior(cell, nx, half_width))
+                              if (!is_interior(cell, nx, half_width))
                               {
-                                  if constexpr (out_field_t::is_scalar)
-                                  {
-                                      EXPECT_NEAR(impl[cell], explicit_values[k++], 1e-10);
-                                  }
-                                  else
-                                  {
-                                      for (std::size_t c = 0; c < out_field_t::n_comp; ++c)
-                                      {
-                                          EXPECT_NEAR(impl[cell](c), explicit_values[k++], 1e-10) << "c=" << c;
-                                      }
-                                  }
-                                  ++nb_checked;
+                                  return;
                               }
+                              if (!is_owned(cell)) // checked by the rank that owns it
+                              {
+                                  k += out_field_t::n_comp;
+                                  return;
+                              }
+                              if constexpr (out_field_t::is_scalar)
+                              {
+                                  EXPECT_NEAR(impl[cell], explicit_values[k++], 1e-10);
+                              }
+                              else
+                              {
+                                  for (std::size_t c = 0; c < out_field_t::n_comp; ++c)
+                                  {
+                                      EXPECT_NEAR(impl[cell](c), explicit_values[k++], 1e-10) << "c=" << c;
+                                  }
+                              }
+                              ++nb_checked;
                           });
             EXPECT_GT(nb_checked, 0u);
 
