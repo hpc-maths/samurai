@@ -1,4 +1,4 @@
-# New schemes/lbm formalism (see notes/schemes-lbm-design.md)
+# Demos written with the schemes/lbm formalism (see docs/source/LBM/schemes.md)
 
 add_executable(lbm-new-D1Q2-advection new_D1Q2_advection.cpp)
 target_link_libraries(lbm-new-D1Q2-advection samurai)
