@@ -242,6 +242,12 @@ namespace samurai
         dump(fs::current_path(), filename, std::forward<Callback>(metadata), mesh, fields...);
     }
 
+    // Files written before "/mesh/is_box" existed are read as non-box domains.
+    inline bool load_is_box(const HighFive::File& file)
+    {
+        return file.exist("/mesh/is_box") && H5Easy::load<bool>(file, "/mesh/is_box");
+    }
+
     namespace detail
     {
         // Every dataset of a restart file is one array cut into contiguous
@@ -449,16 +455,7 @@ namespace samurai
             }
             return {cl};
         }
-    }
 
-    // Files written before "/mesh/is_box" existed are read as non-box domains.
-    inline bool load_is_box(const HighFive::File& file)
-    {
-        return file.exist("/mesh/is_box") && H5Easy::load<bool>(file, "/mesh/is_box");
-    }
-
-    namespace detail
-    {
         // Fills `field` with the values of each partition of `block`. The values
         // of a partition follow the cell order of its CellArray, and land at
         // the place of the same cells in the mesh of the field.
