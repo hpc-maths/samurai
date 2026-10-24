@@ -25,18 +25,14 @@ A literal with a longer word is left alone: it keeps every break opportunity rat
 than spill out of its column or push a ")" onto a line of its own.
 """
 
-import re
-
 from docutils import nodes
 from sphinx.transforms import SphinxTransform
 
 NARROW = 37
 WIDE = 71
 
-# The lookbehind lets a match start only where a run of opening characters starts, so
-# that a run in the middle of the text is scanned once, not once per character.
-OPENING = re.compile(r"(?<![(\[{\"'])[(\[{\"']*$")
-CLOSING = re.compile(r"^[)\]}\"'.,;:!?]*")
+OPENING = "([{\"'"
+CLOSING = ")]}\"'.,;:!?"
 
 
 def _neighbour_text(node, step):
@@ -63,8 +59,11 @@ def hyphen_class(literal):
     if not any("-" in word for word in words):
         return None
     widths = [len(word) for word in words]
-    widths[0] += len(OPENING.search(_neighbour_text(literal, -1)).group())
-    widths[-1] += len(CLOSING.match(_neighbour_text(literal, 1)).group())
+    # A docutils Text may end with the line break of its source line.
+    before = _neighbour_text(literal, -1).removesuffix("\n")
+    after = _neighbour_text(literal, 1)
+    widths[0] += len(before) - len(before.rstrip(OPENING))
+    widths[-1] += len(after) - len(after.lstrip(CLOSING))
     if max(widths) <= NARROW:
         return "sm-hyphenated"
     if max(widths) <= WIDE:

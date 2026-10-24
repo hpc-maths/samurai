@@ -57,13 +57,39 @@ ROOT_REFUSED = frozenset(("id", "x", "y", "preserveAspectRatio"))
 ID_LISTS = frozenset(("aria-labelledby", "aria-describedby"))
 KINDS = ("half", "wide")
 
-# The possessive leading blanks and, without quotes, a target that ends on a non-blank
-# character keep the blanks around the target from being scanned again on backtracking.
-URL = re.compile(r"url\(\s*+(['\"])?((?(1).*?|(?:.*?\S)??))(?(1)\1)\s*\)")
+# A url() of a CSS value, its target in the group that matched: up to the first quote
+# followed by blanks and ")", or without quotes up to the blanks before the first ")".
+# When the url() starting here does not close, no later one on the line closes either,
+# unless it ends the line and its blanks reach the next lines: the last branch skips up
+# to there, so that each character is read a bounded number of times.
+URL = re.compile(
+    r"""url\(\s*+
+    (?: '((?:[^'\n]|'(?!\s*\)))*+)'\s*\)
+      | "((?:[^"\n]|"(?!\s*\)))*+)"\s*\)
+      | ((?:[^\s)]|[^\S\n]++(?=[^\s)]))*+)\s*\)
+      | (?:(?!url\([^\S\n]*\n)[^\n])*+
+    )""",
+    re.VERBOSE,
+)
 THEME_VAR = re.compile(r"var\(\s*--sm-([a-z0-9-]+)\s*\)")
 NAME = re.compile(r"-?[A-Za-z_][\w-]*")
 ID_SELECTOR = re.compile(r"#(-?[A-Za-z_][\w-]*)")
-RULE = re.compile(r"(?<![^{}])([^{}]*)\{([^{}]*)\}")
+
+
+def css_rules(css):
+    """Split ``css`` into its ``(selectors, block)`` rules and the text left around them."""
+    parts = re.split(r"([{}])", css)
+    runs, braces = parts[0::2], parts[1::2]
+    rules, rest = [], []
+    i = 0
+    while i < len(runs):
+        if braces[i : i + 2] == ["{", "}"]:
+            rules.append((runs[i], runs[i + 1]))
+            i += 2
+        else:
+            rest.append(runs[i] + "".join(braces[i : i + 1]))
+            i += 1
+    return rules, "".join(rest)
 
 
 class Node:
@@ -169,7 +195,9 @@ class _Figure:
         """``value`` with the ``url(#id)`` it holds prefixed."""
 
         def one(match):
-            target = match.group(2)
+            if match.lastindex is None:
+                return match.group()
+            target = match.group(match.lastindex)
             if not target.startswith("#"):
                 self.fail(node, f'{where} "{value}" is an external reference, url({target})')
             return f"url(#{self.ref(node, target[1:], where)})"
@@ -182,7 +210,8 @@ class _Figure:
         plain = value.removesuffix("!important").rstrip()
         if plain == "none" or plain.lower() == "currentcolor":
             return
-        if URL.fullmatch(plain):
+        # A url() alone; its target may not hold a line break.
+        if plain.startswith("url(") and plain.endswith(")") and "\n" not in plain[4:-1].strip():
             return
         match = THEME_VAR.fullmatch(plain)
         if match and match.group(1) in theme_variables():
@@ -224,7 +253,8 @@ class _Figure:
         if "@" in css:
             self.fail(node, "an at-rule (@import, @media, ...) is not allowed in a <style>")
         rules = []
-        for selectors, block in RULE.findall(css):
+        found, rest = css_rules(css)
+        for selectors, block in found:
             scoped = []
             for selector in self.split_selectors(node, selectors):
 
@@ -234,7 +264,7 @@ class _Figure:
                 scoped.append(f".{self.prefix} {ID_SELECTOR.sub(ident, selector)}")
             body = self.declarations(node, block, f'the rule "{selectors.strip()}":')
             rules.append(f"{','.join(scoped)}{{{body}}}")
-        rest = RULE.sub("", css).strip()
+        rest = rest.strip()
         if rest:
             self.fail(node, f'"{rest[:40]}" is not a CSS rule')
         return "".join(rules)
