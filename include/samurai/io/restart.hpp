@@ -144,6 +144,20 @@ namespace samurai
             return {rank * n_process / size, (rank + 1) * n_process / size, n_process};
         }
 
+        // A uniform mesh is replicated on every process, so each partition of
+        // its file is a full copy: a process reads one, partition rank % n_process.
+        inline PartitionRange replicated_partition_to_read(const HighFive::File& file)
+        {
+#ifdef SAMURAI_WITH_MPI
+            mpi::communicator world;
+            auto rank = static_cast<std::size_t>(world.rank());
+#else
+            std::size_t rank = 0;
+#endif
+            auto n_process = H5Easy::load<std::size_t>(file, "/n_process");
+            return {rank % n_process, rank % n_process + 1, n_process};
+        }
+
         // The values of the partitions of a block, one after the other in a
         // single buffer.
         template <class T>
@@ -618,7 +632,7 @@ namespace samurai
 
         detail::check_mesh_dim(file, ca_type::dim);
         auto level      = H5Easy::load<std::size_t>(file, "/mesh/min_level");
-        auto block      = detail::partitions_to_read(file);
+        auto block      = detail::replicated_partition_to_read(file);
         auto partitions = detail::load_level_partitions<ca_type>(file, level, block);
         auto ca         = detail::merge_partitions(partitions, level);
         detail::load_geometry(file, ca);

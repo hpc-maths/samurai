@@ -14,6 +14,7 @@
 #include <samurai/io/restart.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
+#include <samurai/uniform_mesh.hpp>
 
 #include "mpi_test_utils.hpp"
 
@@ -29,6 +30,8 @@ namespace
     {
         return samurai::mesh_config<dim>().min_level(3).max_level(7).disable_minimal_ghost_width().disable_args_parse();
     }
+
+    using uniform_mesh_t = samurai::UniformMesh<samurai::UniformConfig<dim>>;
 
     auto amr_config()
     {
@@ -154,6 +157,28 @@ namespace
 
         // An AMR mesh.
         write_cell_count("restart_amr_mesh", samurai::amr::make_mesh(box, amr_config()));
+
+        // A uniform mesh, which every process holds in full.
+        uniform_mesh_t uniform(box, 4);
+        auto s = samurai::make_scalar_field<double>("s", uniform);
+        auto w = samurai::make_vector_field<int, 2>("w", uniform);
+        samurai::for_each_cell(uniform,
+                               [&](const auto& cell)
+                               {
+                                   s[cell]    = linear(cell);
+                                   w[cell][0] = cell.indices[0];
+                                   w[cell][1] = cell.indices[1];
+                               });
+        auto n_uniform_cells = uniform.nb_cells(uniform_mesh_t::mesh_id_t::cells);
+        samurai::dump(
+            "restart_uniform",
+            [&](auto& metadata)
+            {
+                metadata.attribute("n_cells", n_uniform_cells);
+            },
+            uniform,
+            s,
+            w);
     }
 
     TEST_F(RestartProcessCount, read)
@@ -210,6 +235,34 @@ namespace
             {
                 expect_balanced(mesh);
             }
+        }
+        {
+            // Every process gets back the whole uniform mesh, whatever the
+            // number of processes.
+            uniform_mesh_t mesh;
+            auto s = samurai::make_scalar_field<double>("s", mesh);
+            auto w = samurai::make_vector_field<int, 2>("w", mesh);
+
+            std::size_t n_cells = 0;
+            samurai::load(
+                "restart_uniform",
+                [&](auto& metadata)
+                {
+                    n_cells = metadata.template attribute<std::size_t>("n_cells");
+                },
+                mesh,
+                s,
+                w);
+
+            EXPECT_TRUE_ALL_RANKS(mesh.nb_cells(uniform_mesh_t::mesh_id_t::cells) == n_cells);
+            bool exact = true;
+            samurai::for_each_cell(mesh,
+                                   [&](const auto& cell)
+                                   {
+                                       exact = exact && s[cell] == linear(cell) && w[cell][0] == cell.indices[0]
+                                            && w[cell][1] == cell.indices[1];
+                                   });
+            EXPECT_TRUE_ALL_RANKS(exact);
         }
     }
 }
