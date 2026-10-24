@@ -287,7 +287,7 @@ namespace
             benchmark::DoNotOptimize(tuple_checksum(nw, seq));
             benchmark::ClobberMemory();
         }
-        state.SetItemsProcessed(static_cast<int64_t>(state.iterations()) * static_cast<int64_t>(nfields));
+        state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(nfields));
         state.SetLabel(std::string(style) + " n=" + std::to_string(nfields));
     }
 
