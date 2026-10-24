@@ -122,9 +122,6 @@ namespace samurai
                double scaling_factor = 0);
 
         void update_sub_mesh_impl();
-
-        template <typename... T>
-        xt::xtensor<bool, 1> exists(mesh_id_t type, std::size_t level, interval_t interval, T... index) const;
     };
 
     template <class Config>
@@ -459,22 +456,6 @@ namespace samurai
                            });
         }
         this->cells()[mesh_id_t::reference] = {cell_list, false};
-    }
-
-    template <class Config>
-    template <typename... T>
-    SAMURAI_INLINE xt::xtensor<bool, 1> MRMesh<Config>::exists(mesh_id_t type, std::size_t level, interval_t interval, T... index) const
-    {
-        using coord_index_t      = typename interval_t::coord_index_t;
-        const auto& lca          = (*this)[type][level];
-        std::size_t size         = interval.size() / interval.step;
-        xt::xtensor<bool, 1> out = xt::empty<bool>({size});
-        std::size_t iout         = 0;
-        for (coord_index_t i = interval.start; i < interval.end; i += interval.step)
-        {
-            out[iout++] = find(lca, {i, index...}) != -1;
-        }
-        return out;
     }
 
     namespace detail
