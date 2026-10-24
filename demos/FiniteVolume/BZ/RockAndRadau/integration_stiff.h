@@ -7,6 +7,7 @@ typedef void (*func_rock)(const int*, const double*, const double*, double*);
 
 typedef void (*func_solout_radau)(int*, double*, double*, double*, double*, int*, int*, double*, int*, int*);
 
+// info receives the 7 RADAU5 statistics, rock4_integration fills 8 entries
 void radau5_integration(double tini,
                         double tend,
                         int neq,

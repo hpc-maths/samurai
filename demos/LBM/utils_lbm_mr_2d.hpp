@@ -12,8 +12,8 @@ auto get_adjacent_boundary_east(Mesh& mesh, std::size_t level, typename Mesh::me
     const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
 
-    std::size_t coeff = 1 << (mesh.max_level() - level); // When we are not at the finest
-                                                         // level, we must translate more
+    const int coeff = 1 << (mesh.max_level() - level); // When we are not at the finest
+                                                       // level, we must translate more
 
     return samurai::intersection(
         samurai::difference(samurai::difference(samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), -coeff * xp)),
@@ -30,7 +30,7 @@ auto get_adjacent_boundary_north(Mesh& mesh, std::size_t level, typename Mesh::m
     const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
 
-    std::size_t coeff = 1 << (mesh.max_level() - level);
+    const int coeff = 1 << (mesh.max_level() - level);
 
     return samurai::intersection(
         samurai::difference(samurai::difference(samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), -coeff * yp)),
@@ -47,7 +47,7 @@ auto get_adjacent_boundary_west(Mesh& mesh, std::size_t level, typename Mesh::me
     const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
 
-    std::size_t coeff = 1 << (mesh.max_level() - level);
+    const int coeff = 1 << (mesh.max_level() - level);
 
     return samurai::intersection(
         samurai::difference(samurai::difference(samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), coeff * xp)),
@@ -64,7 +64,7 @@ auto get_adjacent_boundary_south(Mesh& mesh, std::size_t level, typename Mesh::m
     const xt::xtensor_fixed<int, xt::xshape<2>> xp{1, 0};
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
 
-    std::size_t coeff = 1 << (mesh.max_level() - level);
+    const int coeff = 1 << (mesh.max_level() - level);
 
     return samurai::intersection(
         samurai::difference(samurai::difference(samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), coeff * yp)),
@@ -82,7 +82,7 @@ auto get_adjacent_boundary_northeast(Mesh& mesh, std::size_t level, typename Mes
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
     const xt::xtensor_fixed<int, xt::xshape<2>> d11{1, 1};
 
-    std::size_t coeff = 1 << (mesh.max_level() - level);
+    const int coeff = 1 << (mesh.max_level() - level);
 
     return samurai::intersection(
         samurai::difference(samurai::difference(samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), -coeff * d11)),
@@ -100,7 +100,7 @@ auto get_adjacent_boundary_northwest(Mesh& mesh, std::size_t level, typename Mes
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
     const xt::xtensor_fixed<int, xt::xshape<2>> d1m1{1, -1};
 
-    std::size_t coeff = 1 << (mesh.max_level() - level);
+    const int coeff = 1 << (mesh.max_level() - level);
 
     return samurai::intersection(
         samurai::difference(samurai::difference(samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), coeff * d1m1)),
@@ -118,7 +118,7 @@ auto get_adjacent_boundary_southwest(Mesh& mesh, std::size_t level, typename Mes
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
     const xt::xtensor_fixed<int, xt::xshape<2>> d11{1, 1};
 
-    std::size_t coeff = 1 << (mesh.max_level() - level);
+    const int coeff = 1 << (mesh.max_level() - level);
 
     return samurai::intersection(
         samurai::difference(samurai::difference(samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), coeff * d11)),
@@ -136,7 +136,7 @@ auto get_adjacent_boundary_southeast(Mesh& mesh, std::size_t level, typename Mes
     const xt::xtensor_fixed<int, xt::xshape<2>> yp{0, 1};
     const xt::xtensor_fixed<int, xt::xshape<2>> d1m1{1, -1};
 
-    std::size_t coeff = 1 << (mesh.max_level() - level);
+    const int coeff = 1 << (mesh.max_level() - level);
 
     return samurai::intersection(
         samurai::difference(samurai::difference(samurai::difference(mesh.domain(), samurai::translate(mesh.domain(), -coeff * d1m1)),

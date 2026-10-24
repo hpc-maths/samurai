@@ -179,7 +179,7 @@ auto init_f(samurai::MROMesh<Config>& mesh, const double radius, double rho0, do
                                auto x      = center[0];
                                auto y      = center[1];
 
-                               double rho = inside_obstacle(x, y, radius) ? rho0 : rho0;
+                               double rho = rho0; // the obstacle only zeroes the momentum
                                double qx  = inside_obstacle(x, y, radius) ? 0. : rho0 * u0;
                                double qy  = inside_obstacle(x, y, radius) ? 0. : 0.01 * rho0 * u0; // 0.; // TO start instability earlier
 

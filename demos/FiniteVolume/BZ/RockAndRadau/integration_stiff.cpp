@@ -1,5 +1,8 @@
 #include "integration_stiff.h"
 
+#include <algorithm>
+#include <vector>
+
 void radau5_integration(double tini,
                         double tend,
                         int neq,
@@ -35,29 +38,19 @@ void radau5_integration(double tini,
     int le    = 2 * mljac + mujac + 1;
     int lmas  = 0;
     int lwork = neq * (ljac + lmas + 3 * le + 12) + 20;
-    double work[lwork];
+    std::vector<double> work(static_cast<std::size_t>(lwork), 0.0);
+    // IWORK(1..20) holds parameters and statistics, IWORK(21..) the pivots of the LU decompositions
     int liwork = 3 * neq + 20;
-    int iwork[liwork];
+    std::vector<int> iwork(static_cast<std::size_t>(liwork), 0);
 
     double rpar;
     int ipar;
     int idid;
 
-    int i;
-
     // init values
     t  = tini;
     dt = 0.0;
     // for (ieq=0; ieq<neq; ++ieq) u[ieq] = uini[ieq];
-
-    for (i = 0; i < lwork; i++)
-    {
-        work[i] = 0.0;
-    }
-    for (i = 0; i < liwork; i++)
-    {
-        iwork[i] = 0.0;
-    }
 
     // directly calling fortran
     radau5_(&neq,
@@ -79,23 +72,16 @@ void radau5_integration(double tini,
             &mumas,
             solout,
             &iout,
-            work,
+            work.data(),
             &lwork,
-            iwork,
+            iwork.data(),
             &liwork,
             &rpar,
             &ipar,
             &idid);
 
-    // save & print statistics
-    info[0] = iwork[13];
-    info[1] = iwork[14];
-    info[2] = iwork[15];
-    info[3] = iwork[16];
-    info[4] = iwork[17];
-    info[5] = iwork[18];
-    info[6] = iwork[19];
-    info[7] = iwork[20];
+    // save statistics: RADAU5 returns seven of them, in IWORK(14..20)
+    std::copy_n(iwork.begin() + 13, 7, info);
 }
 
 void rock4_integration(double tini,
@@ -109,7 +95,7 @@ void rock4_integration(double tini,
     double t, dt;
     double atol, rtol;
     int iwork[12];
-    double work[8 * neq];
+    std::vector<double> work(8 * static_cast<std::size_t>(neq));
     int idid;
     // int ieq;
 
@@ -137,7 +123,7 @@ void rock4_integration(double tini,
     idid = 1;
 
     // directly calling fortran
-    rock4_(&neq, &t, &tend, &dt, u, fcn, &atol, &rtol, work, iwork, &idid);
+    rock4_(&neq, &t, &tend, &dt, u, fcn, &atol, &rtol, work.data(), iwork, &idid);
 
     // save & print statistics
     info[0] = iwork[4];
@@ -155,7 +141,7 @@ void rock4_integration_history(double tini, double tend, int neq, double* uini, 
     double t, dt;
     double atol, rtol;
     int iwork[12];
-    double work[8 * neq];
+    std::vector<double> work(8 * static_cast<std::size_t>(neq));
     int ieq;
     int idid;
     int icmpt;
@@ -190,7 +176,7 @@ void rock4_integration_history(double tini, double tend, int neq, double* uini, 
     while (idid == 2)
     {
         dt_rock[icmpt] = dt;
-        rock4_(&neq, &t, &tend, &dt, u, fcn, &atol, &rtol, work, iwork, &idid);
+        rock4_(&neq, &t, &tend, &dt, u, fcn, &atol, &rtol, work.data(), iwork, &idid);
         icmpt = icmpt + 1;
     }
 
