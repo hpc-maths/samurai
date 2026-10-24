@@ -57,9 +57,9 @@ foreach(source IN LISTS SAMURAI_BENCHMARK_SOURCES)
     samurai_add_benchmark(${source})
 endforeach()
 
-# bench_set_call_sites and bench_set_graduation read the sets of the
-# MR-adapted meshes from files, so they compile with the interval structures
-# and the set algebra alone. generate_set_algebra_inputs writes the
+# bench_set_call_sites, bench_dynamic_set and bench_set_graduation read the
+# sets of the MR-adapted meshes from files, so they compile with the interval
+# structures and the set algebra alone. generate_set_algebra_inputs writes the
 # files. The build runs it when the directory has no stamp and when the
 # sources that decide the content of the files change: the generator, the
 # meshes (mr_fixtures.hpp), and the list of meshes and the file format
@@ -73,7 +73,7 @@ option(SAMURAI_BENCHMARK_GENERATE_SET_ALGEBRA_INPUTS "Generate the set algebra i
 set(SAMURAI_SET_ALGEBRA_INPUTS_DIR ${CMAKE_CURRENT_BINARY_DIR}/set_algebra_inputs)
 add_executable(generate_set_algebra_inputs generate_set_algebra_inputs.cpp)
 target_link_libraries(generate_set_algebra_inputs samurai benchmark::benchmark)
-set(SAMURAI_SET_ALGEBRA_INPUT_READERS bench_set_call_sites bench_set_graduation)
+set(SAMURAI_SET_ALGEBRA_INPUT_READERS bench_set_call_sites bench_dynamic_set bench_set_graduation)
 foreach(target generate_set_algebra_inputs ${SAMURAI_SET_ALGEBRA_INPUT_READERS})
     target_compile_definitions(${target} PRIVATE SAMURAI_SET_ALGEBRA_INPUTS_DIR="${SAMURAI_SET_ALGEBRA_INPUTS_DIR}")
 endforeach()
