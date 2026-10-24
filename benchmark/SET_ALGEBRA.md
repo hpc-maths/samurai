@@ -275,6 +275,39 @@ ninja -C build bench_set_operators bench_dynamic_set
 ./build/benchmark/bench_dynamic_set --benchmark_filter='BM_Site_Tag<3>/[0-9]+/8/1/0$'
 ```
 
+### Plotting
+
+`plot_set_algebra.py` draws the curves of a sweep from the JSON output of one
+or more runs. It needs matplotlib, which `samurai-mpi-env` has
+(`micromamba install matplotlib-base` adds it to another environment):
+
+```bash
+./build/benchmark/bench_dynamic_set --benchmark_filter='BM_Site_(Tag|Interfaces)<3>/[0-9]+/8/1/0$' \
+    --benchmark_out=sweep.json --benchmark_out_format=json
+python benchmark/plot_set_algebra.py sweep.json --out plots
+```
+
+It writes one figure per benchmark family (`plots/BM_Site_Tag_3.png` for
+`BM_Site_Tag<3>`): `t/itv` against `itv` on log scales, one curve per backend,
+and, when the run has two backends, the ratio of their times. The options:
+
+- `--x level`, `--x leaf_itv` or `--x in_itv` changes the horizontal axis. A
+  family whose `itv` does not change with the level is drawn against the level.
+- `--filter <regex>` selects families by name.
+- `--ratio NUM DEN` chooses the backends of the ratio.
+- `run.json:label` prefixes the backends of a file with `label/`, to compare
+  two runs of the same backend: `before.json:old after.json:new --ratio
+  new/static old/static`.
+- `--min-points 1` also draws the meshes outside the sweep, which are single
+  points; by default a curve needs two.
+- `--format svg` or `--format pdf` writes the figures in that format instead
+  of PNG.
+
+The script uses the median aggregate of a run when it has one, and leaves out
+the benchmarks that stopped with an error. It reads only existing `.json`
+files and writes only in the `--out` directory, under names made from the
+family names.
+
 ## Coverage
 
 The library usages of the set algebra and the benchmark that measures each.
@@ -415,7 +448,7 @@ compare a new set algebra with samurai's:
    the intervals in samurai's order (rows by increasing z, then y; intervals
    by increasing x), or the hash differs.
 5. Compare the medians of its benchmarks with those of `static/` from the same
-   run.
+   run, for example with `plot_set_algebra.py --ratio <name> static`.
 
 ## Baseline
 
