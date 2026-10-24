@@ -421,17 +421,10 @@ Check it in the page module, and raise `ValueError` with the cell or the value a
 - Take every colour from the theme variables of `_static/css/samurai.css` (`var(--sm-ink)`, `var(--sm-red)`, ...) through the constants of `draw.py`, never a fixed colour, so that the figure follows the light and the dark themes.
   Add a variable there, in the light and in both dark blocks, when a figure needs a new colour.
 
-Codacy checks the Python files of a pull request (`docs/source/conf.py`, `docs/source/_ext/` and `cmake/*.py`) and reports the new issues it finds.
-It runs Pylint and Bandit with its own settings, and Prospector with the profile in `.prospector.yaml`.
-That profile runs pyflakes and pydocstyle at medium strictness:
-
-- pydocstyle checks the layout of every docstring and the imperative mood of the first line of a function or method docstring (D401), but not that a public module, class, method or function has one (D100 to D103);
-- it does check that a package `__init__.py`, an `__init__` method, a magic method and a nested class have one (D104 to D107);
-- D203 and D213 are off, so a class docstring follows its `class` line with no blank line, and a multi-line summary starts on the first line.
-
-pre-commit runs neither black nor pydocstyle, so two conventions of the figure modules rest on you.
+No hook formats or lints the Python files (`docs/source/conf.py`, `docs/source/_ext/` and `cmake/*.py`), so their conventions rest on you.
 Format the code you write with black at a line length of 100, and give every public function and class a docstring.
-Write the first line of a new function or method docstring in the imperative ("Draw the mesh ...", "Raise ..."), even though older docstrings start with "The ..." and D401 reports them.
+Follow the PEP 257 layout already used in the repository: a class docstring follows its `class` line with no blank line, and a multi-line summary starts on the first line.
+Write the first line of a new function or method docstring in the imperative ("Draw the mesh ...", "Raise ..."), even though older docstrings start with "The ...".
 
 ## Check your changes with pre-commit
 
