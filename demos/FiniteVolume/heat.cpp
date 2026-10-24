@@ -250,7 +250,7 @@ int main(int argc, char* argv[])
     {
         std::cout << std::endl;
         std::cout << "Run the following command to view the results:" << std::endl;
-        std::cout << "python <<path to samurai>>/python/read_mesh.py " << filename << "_ite_ --field u level --start 1 --end " << nsave
+        std::cout << "python <<path to samurai>>/python/read_mesh.py " << filename << "_ite_ --field u level --start 0 --end " << nsave
                   << std::endl;
     }
 
