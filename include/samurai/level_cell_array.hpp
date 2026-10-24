@@ -233,6 +233,10 @@ namespace samurai
         template <bool isIntervalListEmpty, bool isParentPointNew, size_t d>
         size_t add_interval_back_rec(const interval_t& x_interval, const fixed_array<value_t, Dim - 1>& yz);
 
+        /// The iterator on the first interval of self, or past its last one when at_end. Self is this class, const or not.
+        template <class Iterator, bool at_end, class Self>
+        static Iterator make_iterator(Self& self);
+
         /// Recursive construction from a level cell list along dimension > 0
         template <typename TGrid, std::size_t N>
         void init_from_level_cell_list(const TGrid& grid, std::array<value_t, dim - 1> index, std::integral_constant<std::size_t, N>);
@@ -524,96 +528,71 @@ namespace samurai
     ////////////////////////////////////////////////////////////////////
 
     template <std::size_t Dim, class TInterval>
-    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::begin() -> iterator
+    template <class Iterator, bool at_end, class Self>
+    SAMURAI_INLINE Iterator LevelCellArray<Dim, TInterval>::make_iterator(Self& self)
     {
-        typename iterator::offset_type_iterator offset_index;
-        typename iterator::iterator_container current_index;
-        typename iterator::coord_type index;
+        typename Iterator::offset_type_iterator offset_index;
+        typename Iterator::iterator_container current_index;
+        typename Iterator::coord_type index;
         index.fill(0); // not zero-initialized, and copied even when the array is empty
 
         for (std::size_t d = 0; d < dim; ++d)
         {
-            current_index[d] = m_cells[d].begin();
+            if constexpr (at_end)
+            {
+                current_index[d] = self.m_cells[d].end() - 1;
+            }
+            else
+            {
+                current_index[d] = self.m_cells[d].begin();
+            }
+        }
+        if constexpr (at_end)
+        {
+            ++current_index[0];
         }
 
-        for (std::size_t d = 0; d < dim - 1; ++d)
+        if (!self.empty())
         {
-            offset_index[d] = m_offsets[d].cbegin();
-            index[d]        = current_index[d + 1]->start;
+            for (std::size_t d = 0; d < dim - 1; ++d)
+            {
+                if constexpr (at_end)
+                {
+                    offset_index[d] = self.m_offsets[d].cend() - 2;
+                    index[d]        = current_index[d + 1]->end - 1;
+                }
+                else
+                {
+                    offset_index[d] = self.m_offsets[d].cbegin();
+                    index[d]        = current_index[d + 1]->start;
+                }
+            }
         }
-        return iterator(this, std::move(offset_index), std::move(current_index), std::move(index));
+        return Iterator(&self, std::move(offset_index), std::move(current_index), std::move(index));
+    }
+
+    template <std::size_t Dim, class TInterval>
+    SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::begin() -> iterator
+    {
+        return make_iterator<iterator, false>(*this);
     }
 
     template <std::size_t Dim, class TInterval>
     SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::end() -> iterator
     {
-        typename iterator::offset_type_iterator offset_index;
-        typename iterator::iterator_container current_index;
-        typename iterator::coord_type index;
-        index.fill(0); // not zero-initialized, and copied even when the array is empty
-
-        for (std::size_t d = 0; d < dim; ++d)
-        {
-            current_index[d] = m_cells[d].end() - 1;
-        }
-        ++current_index[0];
-
-        for (std::size_t d = 0; d < dim - 1; ++d)
-        {
-            offset_index[d] = m_offsets[d].cend() - 2;
-            index[d]        = current_index[d + 1]->end - 1;
-        }
-
-        return iterator(this, std::move(offset_index), std::move(current_index), std::move(index));
+        return make_iterator<iterator, true>(*this);
     }
 
     template <std::size_t Dim, class TInterval>
     SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::cbegin() const -> const_iterator
     {
-        typename const_iterator::offset_type_iterator offset_index;
-        typename const_iterator::iterator_container current_index;
-        typename const_iterator::coord_type index;
-        index.fill(0); // not zero-initialized, and copied even when the array is empty
-
-        for (std::size_t d = 0; d < dim; ++d)
-        {
-            current_index[d] = m_cells[d].cbegin();
-        }
-        if (!empty())
-        {
-            for (std::size_t d = 0; d < dim - 1; ++d)
-            {
-                offset_index[d] = m_offsets[d].cbegin();
-                index[d]        = current_index[d + 1]->start;
-            }
-        }
-        return const_iterator(this, std::move(offset_index), std::move(current_index), std::move(index));
+        return make_iterator<const_iterator, false>(*this);
     }
 
     template <std::size_t Dim, class TInterval>
     SAMURAI_INLINE auto LevelCellArray<Dim, TInterval>::cend() const -> const_iterator
     {
-        typename const_iterator::offset_type_iterator offset_index;
-        typename const_iterator::iterator_container current_index;
-        typename const_iterator::coord_type index;
-        index.fill(0); // not zero-initialized, and copied even when the array is empty
-
-        for (std::size_t d = 0; d < dim; ++d)
-        {
-            current_index[d] = m_cells[d].cend() - 1;
-        }
-        ++current_index[0];
-
-        if (!empty())
-        {
-            for (std::size_t d = 0; d < dim - 1; ++d)
-            {
-                offset_index[d] = m_offsets[d].cend() - 2;
-                index[d]        = current_index[d + 1]->end - 1;
-            }
-        }
-
-        return const_iterator(this, std::move(offset_index), std::move(current_index), std::move(index));
+        return make_iterator<const_iterator, true>(*this);
     }
 
     template <std::size_t Dim, class TInterval>
