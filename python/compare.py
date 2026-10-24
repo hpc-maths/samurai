@@ -111,7 +111,7 @@ def compare_meshes(file1, file2, tol, rtol=0.0):
         if exact_compare:
             mismatch = v1 != v2
             if np.any(mismatch):
-                ind = np.where(mismatch)[0]
+                ind = np.nonzero(mismatch)[0]
                 centers = cells1[index1[ind]].mean(axis=1)
                 worst = 0
                 print(
@@ -149,7 +149,7 @@ def compare_meshes(file1, file2, tol, rtol=0.0):
         threshold = tol + rtol * np.abs(v2)
 
         if np.any(abs_diff > threshold):
-            ind = np.where(abs_diff > threshold)[0]
+            ind = np.nonzero(abs_diff > threshold)[0]
             centers = cells1[index1[ind]].mean(axis=1)
             worst = np.argmax(abs_diff[ind])
             print(
