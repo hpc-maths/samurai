@@ -5,10 +5,12 @@
 // consume a set (set_modes.hpp), for one backend of the set algebra
 // (set_algebra_backend.hpp). register_call_sites<B, dim> registers them as
 // <B::name>/BM_Site_X<dim> and <B::name>/BM_Mode_X<dim>, so that
-// --benchmark_filter='^<name>/' selects the backend.
+// --benchmark_filter='^<name>/' selects the backend; register_partition_sites
+// registers those of an MPI rank on the partitions of a mesh.
 //
 // Args: (max_level, number of balls, stencil radius, geometry), see
-// bench::mesh_cases.
+// bench::mesh_cases, and the number of ranks for a partition, see
+// bench::partition_cases.
 //
 // Each site is written once against a context, Timing, which gives its
 // inputs and runs it in a benchmark.
@@ -47,6 +49,11 @@ namespace bench
         const backend_inputs_t<B, dim>& inputs(bool moved = false)
         {
             return backend_inputs<B, dim>(m_state, moved);
+        }
+
+        const std::vector<backend_inputs_t<B, dim>>& partition()
+        {
+            return backend_partition<B, dim>(m_state);
         }
 
         // site(f) passes each set it evaluates to f(level, set), which
@@ -169,11 +176,78 @@ namespace bench
                     sites::ownership_per_cell<B>(in, ghosts, f);
                 });
         }
+
+        // The sites on a partition run every rank in turn: the time is that
+        // of all the ranks, as if one process ran them all.
+        template <class Ranks>
+        auto partition_neighbours(const Ranks& ranks)
+        {
+            std::vector<decltype(sites::neighbours_of(ranks, 0))> neighbours;
+            for (std::size_t r = 0; r < ranks.size(); ++r)
+            {
+                neighbours.push_back(sites::neighbours_of(ranks, r));
+            }
+            return neighbours;
+        }
+
+        template <class B, class Ctx>
+        void PartitionFindNeighbourhood(Ctx& ctx)
+        {
+            const auto& ranks = ctx.partition();
+            ctx.empty(
+                [&](auto&& f)
+                {
+                    for (std::size_t r = 0; r < ranks.size(); ++r)
+                    {
+                        auto found = sites::find_neighbourhood<B>(ranks, r, f);
+                        benchmark::DoNotOptimize(found);
+                    }
+                });
+        }
+
+        template <class B, class Ctx>
+        void PartitionConstructSubdomain(Ctx& ctx)
+        {
+            const auto& ranks = ctx.partition();
+            ctx.build(
+                [&](auto&& emit)
+                {
+                    for (const auto& in : ranks)
+                    {
+                        sites::construct_subdomain<B>(in, emit);
+                    }
+                });
+        }
+
+        // Every rank peels towards each of its neighbours, from the partition
+        // as it is (see sites::diffusion_peel).
+        template <class B, class Ctx>
+        void PartitionDiffusionPeel(Ctx& ctx)
+        {
+            const auto& ranks     = ctx.partition();
+            const auto neighbours = partition_neighbours(ranks);
+            std::vector<double> loads;
+            for (const auto& in : ranks)
+            {
+                loads.push_back(sites::peel_load<B>(in));
+            }
+            ctx.build(
+                [&](auto&& emit)
+                {
+                    for (std::size_t r = 0; r < ranks.size(); ++r)
+                    {
+                        for (const auto* neighbour : neighbours[r])
+                        {
+                            sites::diffusion_peel<B>(ranks[r], *neighbour, loads[r], emit);
+                        }
+                    }
+                });
+        }
     } // namespace call_sites
 
-    // Calls v(name, periodic_only, run) for each site and each mode, where
-    // run(ctx) runs it in the context ctx (Timing of B in dim).
-    // periodic_only: the site has nothing to do on a mesh that is not
+    // Calls v(name, periodic_only, run) for each site of a whole mesh and
+    // each mode, where run(ctx) runs it in the context ctx (Timing of B in
+    // dim). periodic_only: the site has nothing to do on a mesh that is not
     // periodic.
     template <class B, std::size_t dim, class V>
     void for_each_call_site(V&& v)
@@ -242,22 +316,63 @@ namespace bench
 #undef BENCH_SITE
     }
 
+    // The same for the sites of an MPI rank on a partition: those that only
+    // run with MPI, and the variants with the neighbours of the sites that
+    // have one.
+    template <class B, std::size_t dim, class V>
+    void for_each_partition_site(V&& v)
+    {
+        const auto site = [&](const char* name, auto run, bool periodic_only = false)
+        {
+            v(name, periodic_only, run);
+        };
+        site("BM_Site_FindNeighbourhood",
+             [](auto& ctx)
+             {
+                 call_sites::PartitionFindNeighbourhood<B>(ctx);
+             });
+        site("BM_Site_ConstructSubdomain",
+             [](auto& ctx)
+             {
+                 call_sites::PartitionConstructSubdomain<B>(ctx);
+             });
+        // A site that each rank runs with its neighbours: KIND is traverse
+        // or build (see Timing).
+#define BENCH_PER_RANK(NAME, KIND, FUNCTION, PERIODIC_ONLY)                  \
+    site(                                                                    \
+        NAME,                                                                \
+        [](auto& ctx)                                                        \
+        {                                                                    \
+            const auto& ranks     = ctx.partition();                         \
+            const auto neighbours = call_sites::partition_neighbours(ranks); \
+            ctx.KIND(                                                        \
+                [&](auto&& f)                                                \
+                {                                                            \
+                    for (std::size_t r = 0; r < ranks.size(); ++r)           \
+                    {                                                        \
+                        FUNCTION<B>(ranks[r], neighbours[r], f);             \
+                    }                                                        \
+                });                                                          \
+        },                                                                   \
+        PERIODIC_ONLY)
+        BENCH_PER_RANK("BM_Site_SubdomainExchange", traverse, sites::subdomain_exchange, false);
+        BENCH_PER_RANK("BM_Site_MeshSubMesh", build, sites::mesh_sub_mesh, false);
+        BENCH_PER_RANK("BM_Site_Interfaces", traverse, sites::interfaces, false);
+        BENCH_PER_RANK("BM_Site_PeriodicGhosts", traverse, sites::periodic_ghosts, true);
+#undef BENCH_PER_RANK
+        site("BM_Site_DiffusionPeel",
+             [](auto& ctx)
+             {
+                 call_sites::PartitionDiffusionPeel<B>(ctx);
+             });
+    }
+
     namespace detail
     {
-        inline bool keep_all(std::string_view, std::size_t, const MeshCase&)
+        template <class B, std::size_t dim, class Keep>
+        void register_sites(const std::vector<MeshCase>& cases, bool partition, Keep&& keep)
         {
-            return true;
-        }
-    } // namespace detail
-
-    // Registers each site on the meshes c of `cases` for which
-    // keep(name, dim, c) holds, all of them by default; the periodic ghosts
-    // only on the periodic meshes, the others have none.
-    template <class B, std::size_t dim, class Keep = bool (*)(std::string_view, std::size_t, const MeshCase&)>
-    void register_call_sites(const std::vector<MeshCase>& cases, Keep&& keep = detail::keep_all)
-    {
-        for_each_call_site<B, dim>(
-            [&](const char* site, bool periodic_only, auto run)
+            const auto add = [&](const char* site, bool periodic_only, auto run)
             {
                 std::vector<MeshCase> site_cases;
                 std::copy_if(cases.begin(),
@@ -279,6 +394,38 @@ namespace bench
                                                            run(ctx);
                                                        }),
                           site_cases);
-            });
+            };
+            if (partition)
+            {
+                for_each_partition_site<B, dim>(add);
+            }
+            else
+            {
+                for_each_call_site<B, dim>(add);
+            }
+        }
+
+        inline bool keep_all(std::string_view, std::size_t, const MeshCase&)
+        {
+            return true;
+        }
+    } // namespace detail
+
+    // Registers each site on the meshes c of `cases` for which
+    // keep(name, dim, c) holds, all of them by default; the periodic ghosts
+    // only on the periodic meshes, the others have none.
+    template <class B, std::size_t dim, class Keep = bool (*)(std::string_view, std::size_t, const MeshCase&)>
+    void register_call_sites(const std::vector<MeshCase>& cases, Keep&& keep = detail::keep_all)
+    {
+        detail::register_sites<B, dim>(cases, false, keep);
+    }
+
+    // Registers the sites of an MPI rank on the partitions of `cases`
+    // (partition_cases), as <B::name>/BM_Site_X<dim>/<args>/<ranks>, with
+    // the same filter. The periodic ghosts only on the periodic partitions.
+    template <class B, std::size_t dim, class Keep = bool (*)(std::string_view, std::size_t, const MeshCase&)>
+    void register_partition_sites(const std::vector<MeshCase>& cases, Keep&& keep = detail::keep_all)
+    {
+        detail::register_sites<B, dim>(cases, true, keep);
     }
 } // namespace bench

@@ -15,6 +15,13 @@
 //   ca <name> <number of intervals>, then per interval: level start end [y [z]]
 //   lca corner <level> <number of intervals>, then per interval: start end [y [z]]
 // Each interval is the row [start, end) of cells at (y, z) of its level.
+//
+// A partition file holds a mesh split into subdomains, one block per rank:
+//   samurai-set-algebra-partition <format version> <dim> <number of ranks>
+// then, for each rank, the records of an inputs file (from its first line),
+// with the sets of the mesh of that rank, followed by
+//   ranks candidates <n> <rank>...
+//   ranks neighbours <n> <rank>...
 
 #pragma once
 
@@ -25,6 +32,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <initializer_list>
 #include <iostream>
 #include <map>
 #include <stdexcept>
@@ -78,10 +86,19 @@ namespace bench
         std::size_t nballs;
         int stencil_radius;
         Geometry geometry = Geometry::box;
+        // The number of subdomains the mesh is split into, 0 for the whole
+        // mesh (see partition_cases).
+        std::size_t ranks = 0;
 
         auto key() const
         {
-            return std::tuple{max_level, nballs, stencil_radius, geometry};
+            return std::tuple{max_level, nballs, stencil_radius, geometry, ranks};
+        }
+
+        // The case of the whole mesh.
+        MeshCase whole() const
+        {
+            return {max_level, nballs, stencil_radius, geometry};
         }
     };
 
@@ -93,6 +110,15 @@ namespace bench
                 static_cast<std::size_t>(state.range(1)),
                 static_cast<int>(state.range(2)),
                 static_cast<Geometry>(state.range(3))};
+    }
+
+    // The case of a partition benchmark, whose fifth argument is the number
+    // of subdomains.
+    inline MeshCase partition_case(const benchmark::State& state)
+    {
+        auto c  = mesh_case(state);
+        c.ranks = static_cast<std::size_t>(state.range(4));
+        return c;
     }
 
     // The sweep over the max level, at the number of balls of the main mesh
@@ -201,12 +227,39 @@ namespace bench
         }
     }
 
-    // Registers b on each case of `cases`.
+    // The partitions of the main mesh of each dimension, in the box and
+    // periodic: the mesh cut along a Hilbert curve into `ranks` pieces of
+    // equal number of cells (mr_fixtures.hpp, make_partition), as the SFC
+    // load balancer cuts it with one atom per cell and a unit weight.
+    template <std::size_t dim>
+    std::vector<MeshCase> partition_cases()
+    {
+        constexpr std::size_t max_level = default_max_level<dim>();
+        constexpr std::size_t nballs    = (dim == 1) ? 256 : ((dim == 2) ? 16 : 8);
+        std::vector<MeshCase> cases;
+        for (const std::size_t ranks : std::initializer_list<std::size_t>{2, 4, 16})
+        {
+            cases.push_back({max_level, nballs, 1, Geometry::box, ranks});
+        }
+        cases.push_back({max_level, nballs, 1, Geometry::periodic, 4});
+        return cases;
+    }
+
+    // Registers b on each case of `cases`, with the number of subdomains as
+    // fifth argument when it is a partition.
     inline void mesh_args(benchmark::internal::Benchmark* b, const std::vector<MeshCase>& cases)
     {
         for (const auto& c : cases)
         {
-            b->Args({static_cast<int64_t>(c.max_level), static_cast<int64_t>(c.nballs), c.stencil_radius, static_cast<int64_t>(c.geometry)});
+            std::vector<int64_t> args{static_cast<int64_t>(c.max_level),
+                                      static_cast<int64_t>(c.nballs),
+                                      c.stencil_radius,
+                                      static_cast<int64_t>(c.geometry)};
+            if (c.ranks > 0)
+            {
+                args.push_back(static_cast<int64_t>(c.ranks));
+            }
+            b->Args(args);
         }
         b->Unit(benchmark::kMicrosecond);
     }
@@ -293,6 +346,13 @@ namespace bench
         ca_t tag_remove_m;
         ca_t tag_add_p;
         ca_t tag_remove_p;
+
+        // In a partition, the ranks find_neighbourhood checks
+        // (Mesh_base::find_neighbourhood, mesh.hpp:1309-1413: those whose
+        // bounding box may touch the subdomain), and those it keeps, the MPI
+        // neighbourhood, in its order. Empty for a whole mesh.
+        std::vector<std::size_t> candidates;
+        std::vector<std::size_t> neighbours;
 
         // Member by member: what the generator checks after it reads back a
         // file it wrote.
@@ -418,6 +478,12 @@ namespace bench
         return inputs_dir() / (mesh_stem<dim>(c) + (moved ? "_moved" : "") + ".txt");
     }
 
+    template <std::size_t dim>
+    std::filesystem::path partition_file(const MeshCase& c)
+    {
+        return inputs_dir() / (mesh_stem<dim>(c) + "_ranks" + std::to_string(c.ranks) + ".txt");
+    }
+
     // Set is a LevelCellArray or a CellArray.
     template <class Set>
     void write_intervals(std::ostream& out, const Set& set, bool with_level)
@@ -438,12 +504,24 @@ namespace bench
                                  });
     }
 
-    inline constexpr const char* inputs_magic = "samurai-set-algebra-inputs";
+    inline constexpr const char* inputs_magic    = "samurai-set-algebra-inputs";
+    inline constexpr const char* partition_magic = "samurai-set-algebra-partition";
 
-    template <std::size_t dim>
-    void write_site_inputs(const SiteInputs<dim>& in, const std::filesystem::path& path)
+    inline void write_ranks(std::ostream& out, const char* name, const std::vector<std::size_t>& ranks)
     {
-        std::ofstream out(path);
+        out << "ranks " << name << ' ' << ranks.size();
+        for (const std::size_t r : ranks)
+        {
+            out << ' ' << r;
+        }
+        out << '\n';
+    }
+
+    // The records of one mesh; with its candidates and neighbours in a
+    // partition.
+    template <std::size_t dim>
+    void write_block(std::ostream& out, const SiteInputs<dim>& in, bool partition)
+    {
         out << inputs_magic << ' ' << inputs_format_version << ' ' << dim << '\n';
         out << "levels " << in.min_level << ' ' << in.max_level << '\n';
         out << "config " << in.graduation_width << ' ' << in.max_stencil_radius << '\n';
@@ -469,6 +547,33 @@ namespace bench
             out << "lca corner " << corner.level() << ' ' << corner[0].size() << '\n';
             write_intervals(out, corner, false);
         }
+        if (partition)
+        {
+            write_ranks(out, "candidates", in.candidates);
+            write_ranks(out, "neighbours", in.neighbours);
+        }
+    }
+
+    template <std::size_t dim>
+    void write_site_inputs(const SiteInputs<dim>& in, const std::filesystem::path& path)
+    {
+        std::ofstream out(path);
+        write_block(out, in, false);
+        if (!out)
+        {
+            throw std::runtime_error("cannot write " + path.string());
+        }
+    }
+
+    template <std::size_t dim>
+    void write_partition(const std::vector<SiteInputs<dim>>& ranks, const std::filesystem::path& path)
+    {
+        std::ofstream out(path);
+        out << partition_magic << ' ' << inputs_format_version << ' ' << dim << ' ' << ranks.size() << '\n';
+        for (const auto& in : ranks)
+        {
+            write_block(out, in, true);
+        }
         if (!out)
         {
             throw std::runtime_error("cannot write " + path.string());
@@ -490,18 +595,18 @@ namespace bench
         lcl[index].add_interval({start, end});
     }
 
-    // Reads the first four lines of a file.
+    // Reads the header of a block, from the word after its magic word,
+    // which the caller read into `magic`.
     template <std::size_t dim, class Fail>
-    void read_header(std::istream& file, SiteInputs<dim>& in, const Fail& fail)
+    void read_header(std::istream& file, const std::string& magic, SiteInputs<dim>& in, const Fail& fail)
     {
-        std::string magic;
         int version   = 0;
         std::size_t d = 0;
         std::string levels_key;
         std::string config_key;
         std::string geometry_key;
-        file >> magic >> version >> d >> levels_key >> in.min_level >> in.max_level >> config_key >> in.graduation_width
-            >> in.max_stencil_radius >> geometry_key >> in.domain_is_box;
+        file >> version >> d >> levels_key >> in.min_level >> in.max_level >> config_key >> in.graduation_width >> in.max_stencil_radius
+            >> geometry_key >> in.domain_is_box;
         for (auto&& p : in.periodic)
         {
             bool periodic = false;
@@ -561,6 +666,18 @@ namespace bench
         in.corners.emplace_back(lcl);
     }
 
+    // Reads the record "ranks <name> <n>" from <n> on: the n ranks.
+    inline void read_ranks(std::istream& file, std::vector<std::size_t>& ranks)
+    {
+        std::size_t n = 0;
+        file >> n;
+        ranks.resize(n);
+        for (auto& r : ranks)
+        {
+            file >> r;
+        }
+    }
+
     // Reads the rest of the record whose first two words are `key` and
     // `name`.
     template <std::size_t dim, class Fail>
@@ -574,6 +691,14 @@ namespace bench
         {
             read_corner(file, in);
         }
+        else if (key == "ranks" && name == "candidates")
+        {
+            read_ranks(file, in.candidates);
+        }
+        else if (key == "ranks" && name == "neighbours")
+        {
+            read_ranks(file, in.neighbours);
+        }
         else
         {
             throw fail("unknown record " + key + " " + name);
@@ -582,6 +707,37 @@ namespace bench
         {
             throw fail("truncated record " + key + " " + name);
         }
+    }
+
+    // Reads one block of records, its first line included, up to the end of
+    // the file or the first line of the next block, whose first word it
+    // leaves in `next`.
+    template <std::size_t dim, class Fail>
+    SiteInputs<dim> read_block(std::istream& file, std::string& next, const Fail& fail)
+    {
+        std::string magic = next;
+        if (magic.empty())
+        {
+            file >> magic;
+        }
+        next.clear();
+        SiteInputs<dim> in;
+        read_header(file, magic, in, fail);
+
+        std::string key;
+        std::string name;
+        while (file >> key)
+        {
+            if (key == inputs_magic)
+            {
+                next = key;
+                break;
+            }
+            file >> name;
+            read_record(file, key, name, in, fail);
+        }
+        set_domain_bounds(in);
+        return in;
     }
 
     inline std::ifstream open_inputs(const std::filesystem::path& path)
@@ -605,20 +761,42 @@ namespace bench
     template <std::size_t dim>
     SiteInputs<dim> read_site_inputs(const std::filesystem::path& path)
     {
+        auto file = open_inputs(path);
+        std::string next;
+        auto in = read_block<dim>(file, next, read_failure(path));
+        if (!next.empty())
+        {
+            throw read_failure(path)("more than one mesh");
+        }
+        return in;
+    }
+
+    template <std::size_t dim>
+    std::vector<SiteInputs<dim>> read_partition(const std::filesystem::path& path)
+    {
         auto file       = open_inputs(path);
         const auto fail = read_failure(path);
-        SiteInputs<dim> in;
-        read_header(file, in, fail);
-
-        std::string key;
-        std::string name;
-        while (file >> key)
+        std::string magic;
+        int version         = 0;
+        std::size_t d       = 0;
+        std::size_t n_ranks = 0;
+        file >> magic >> version >> d >> n_ranks;
+        if (magic != partition_magic || version != inputs_format_version || d != dim)
         {
-            file >> name;
-            read_record(file, key, name, in, fail);
+            throw fail("not a set algebra partition file of version " + std::to_string(inputs_format_version) + " in " + std::to_string(dim)
+                       + "D");
         }
-        set_domain_bounds(in);
-        return in;
+        std::vector<SiteInputs<dim>> ranks;
+        std::string next;
+        for (std::size_t r = 0; r < n_ranks; ++r)
+        {
+            ranks.push_back(read_block<dim>(file, next, fail));
+        }
+        if (!next.empty())
+        {
+            throw fail("more ranks than announced");
+        }
+        return ranks;
     }
 
     // Read once per binary. Reports the mesh it returns: a benchmark that
@@ -643,6 +821,47 @@ namespace bench
             }
         }
         report_mesh(state, it->second.cells);
+        return it->second;
+    }
+
+    // The meshes of the ranks of a partition, read once per binary. Reports
+    // the whole mesh, the number of ranks and of neighbour pairs (counted
+    // from each side).
+    template <std::size_t dim>
+    const std::vector<SiteInputs<dim>>& partition_inputs(benchmark::State& state)
+    {
+        static std::map<mesh_key_t, std::vector<SiteInputs<dim>>> cache;
+        const auto c = partition_case(state);
+        auto it      = cache.find(c.key());
+        if (it == cache.end())
+        {
+            try
+            {
+                it = cache.emplace(c.key(), read_partition<dim>(partition_file<dim>(c))).first;
+            }
+            catch (const std::exception& e)
+            {
+                std::cerr << e.what() << std::endl;
+                std::exit(EXIT_FAILURE); // NOLINT(concurrency-mt-unsafe)
+            }
+        }
+        std::size_t leaves    = 0;
+        std::size_t intervals = 0;
+        std::size_t pairs     = 0;
+        for (const auto& in : it->second)
+        {
+            leaves += in.cells.nb_cells();
+            bench::for_each_interval(in.cells,
+                                     [&](std::size_t, const auto&, const auto&)
+                                     {
+                                         ++intervals;
+                                     });
+            pairs += in.neighbours.size();
+        }
+        state.counters["leaves"]     = static_cast<double>(leaves);
+        state.counters["leaf_itv"]   = static_cast<double>(intervals);
+        state.counters["ranks"]      = static_cast<double>(it->second.size());
+        state.counters["neighbours"] = static_cast<double>(pairs);
         return it->second;
     }
 
@@ -733,6 +952,8 @@ namespace bench
         out.periodic           = in.periodic;
         out.domain_min         = in.domain_min;
         out.domain_max         = in.domain_max;
+        out.candidates         = in.candidates;
+        out.neighbours         = in.neighbours;
         const auto cell_arrays = named_cell_arrays(in);
         const auto out_arrays  = named_cell_arrays(out);
         for (std::size_t k = 0; k < cell_arrays.size(); ++k)
@@ -763,6 +984,32 @@ namespace bench
             if (it == cache.end())
             {
                 it = cache.emplace(&in, to_backend<B>(in)).first;
+            }
+            return it->second;
+        }
+    }
+
+    // partition_inputs() for backend B.
+    template <class B, std::size_t dim>
+    const std::vector<backend_inputs_t<B, dim>>& backend_partition(benchmark::State& state)
+    {
+        const auto& ranks = partition_inputs<dim>(state);
+        if constexpr (std::is_same_v<backend_inputs_t<B, dim>, SiteInputs<dim>>)
+        {
+            return ranks;
+        }
+        else
+        {
+            static std::map<const std::vector<SiteInputs<dim>>*, std::vector<backend_inputs_t<B, dim>>> cache;
+            auto it = cache.find(&ranks);
+            if (it == cache.end())
+            {
+                std::vector<backend_inputs_t<B, dim>> copies;
+                for (const auto& in : ranks)
+                {
+                    copies.push_back(to_backend<B>(in));
+                }
+                it = cache.emplace(&ranks, std::move(copies)).first;
             }
             return it->second;
         }

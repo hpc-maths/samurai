@@ -25,6 +25,9 @@ namespace
         bench::register_call_sites<B, 1>(bench::mesh_cases<1>());
         bench::register_call_sites<B, 2>(bench::mesh_cases<2>());
         bench::register_call_sites<B, 3>(bench::mesh_cases<3>());
+        bench::register_partition_sites<B, 1>(bench::partition_cases<1>());
+        bench::register_partition_sites<B, 2>(bench::partition_cases<2>());
+        bench::register_partition_sites<B, 3>(bench::partition_cases<3>());
         return true;
     }
 
