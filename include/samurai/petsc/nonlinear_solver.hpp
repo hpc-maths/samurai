@@ -71,7 +71,6 @@ namespace samurai
             {
                 if (m_J)
                 {
-                    m_assembly.destroy_local_to_global_mappings(m_J);
                     MatDestroy(&m_J);
                     m_J                      = nullptr;
                     m_reuse_allocated_matrix = false;
