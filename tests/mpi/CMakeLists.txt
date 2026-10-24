@@ -46,6 +46,17 @@ add_mpi_gtest(test_lb_graph)
 if(WITH_PETSC)
     add_mpi_gtest(test_petsc_block_fieldsplit)
     samurai_test_petsc(test_petsc_block_fieldsplit)
+
+    # The explicit/implicit consistency tests of test_fv_operators_petsc (built in
+    # tests/) compare op(u) with A*u, so they also check the parallel assembly of
+    # square and non-square operators. The rest of that suite is sequential.
+    foreach(np 1 ${MPI_TEST_PROCS})
+        add_test(NAME test_fv_operators_petsc_explicit_vs_implicit_np${np}
+                 COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS}
+                         $<TARGET_FILE:test_fv_operators_petsc> ${MPIEXEC_POSTFLAGS}
+                         --gtest_filter=fv_operators.explicit_vs_implicit_*)
+        set_tests_properties(test_fv_operators_petsc_explicit_vs_implicit_np${np} PROPERTIES PROCESSORS ${np} TIMEOUT 120)
+    endforeach()
 endif()
 
 # ParMETIS tests (only if ParMETIS is available)
