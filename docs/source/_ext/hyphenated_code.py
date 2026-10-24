@@ -33,7 +33,9 @@ from sphinx.transforms import SphinxTransform
 NARROW = 37
 WIDE = 71
 
-OPENING = re.compile(r"[(\[{\"']*$")
+# The lookbehind lets a match start only where a run of opening characters starts, so
+# that a run in the middle of the text is scanned once, not once per character.
+OPENING = re.compile(r"(?<![(\[{\"'])[(\[{\"']*$")
 CLOSING = re.compile(r"^[)\]}\"'.,;:!?]*")
 
 

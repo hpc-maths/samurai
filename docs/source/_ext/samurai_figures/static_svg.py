@@ -57,11 +57,13 @@ ROOT_REFUSED = frozenset(("id", "x", "y", "preserveAspectRatio"))
 ID_LISTS = frozenset(("aria-labelledby", "aria-describedby"))
 KINDS = ("half", "wide")
 
-URL = re.compile(r"url\(\s*(['\"]?)(.*?)\1\s*\)")
+# The possessive leading blanks and, without quotes, a target that ends on a non-blank
+# character keep the blanks around the target from being scanned again on backtracking.
+URL = re.compile(r"url\(\s*+(['\"])?((?(1).*?|(?:.*?\S)??))(?(1)\1)\s*\)")
 THEME_VAR = re.compile(r"var\(\s*--sm-([a-z0-9-]+)\s*\)")
 NAME = re.compile(r"-?[A-Za-z_][\w-]*")
 ID_SELECTOR = re.compile(r"#(-?[A-Za-z_][\w-]*)")
-RULE = re.compile(r"([^{}]*)\{([^{}]*)\}")
+RULE = re.compile(r"(?<![^{}])([^{}]*)\{([^{}]*)\}")
 
 
 class Node:
@@ -177,7 +179,7 @@ class _Figure:
     def colour(self, node, prop, value, where):
         """Fail unless ``value`` of the colour property ``prop`` follows the theme."""
         value = value.strip()
-        plain = re.sub(r"\s*!important$", "", value)
+        plain = value.removesuffix("!important").rstrip()
         if plain == "none" or plain.lower() == "currentcolor":
             return
         if URL.fullmatch(plain):

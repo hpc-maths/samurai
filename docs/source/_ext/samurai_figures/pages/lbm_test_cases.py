@@ -66,7 +66,9 @@ def velocities(name, anchor):
 
 # A rule of the form ``if (flag) { lambda = std::max(lambda, 2.); }``, which raises
 # lambda when a command line flag is set.
-_RAISE = re.compile(r"if \((\w+)\)\s*\{\s*lambda\s*=\s*std::max\(lambda,\s*([\d.]+)\);[^\n]*\s*\}")
+_RAISE = re.compile(
+    r"if \((\w+)\)\s*\{\s*lambda\s*=\s*std::max\(lambda,\s*([\d.]+)\);[^\n]*(?:\n\s*)?\}"
+)
 
 
 def lattice_velocity(name, flag=None):
