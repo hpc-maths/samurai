@@ -72,7 +72,9 @@ namespace samurai
 
         using expression_tag = field_expression_tag;
 
-        template <class Func, class... CTA, class U = std::enable_if<!std::is_base_of<Func, self_type>::value>>
+        // Without the constraint, copying a non-const lvalue picks this constructor over the copy constructor.
+        template <class Func, class... CTA>
+            requires(!std::is_same_v<std::remove_cvref_t<Func>, self_type>)
         field_function(Func&& f, CTA&&... e) noexcept;
 
         template <class... T>
@@ -116,7 +118,8 @@ namespace samurai
     };
 
     template <class F, class... CT>
-    template <class Func, class... CTA, class>
+    template <class Func, class... CTA>
+        requires(!std::is_same_v<std::remove_cvref_t<Func>, field_function<F, CT...>>)
     SAMURAI_INLINE field_function<F, CT...>::field_function(Func&& f, CTA&&... e) noexcept
         : m_e(std::forward<CTA>(e)...)
         , m_f(std::forward<Func>(f))
