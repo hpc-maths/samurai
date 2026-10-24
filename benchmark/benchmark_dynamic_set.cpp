@@ -50,8 +50,8 @@ namespace
         return cases;
     }
 
-    // Without the sites the dynamic algebra gets wrong: they compute other
-    // sets than the static algebra. On 2026-10-19:
+    // Without the sites the dynamic algebra gets wrong: their checksums
+    // differ from the reference (site_checksum.hpp). On 2026-10-19:
     // - the prediction ghosts of the mesh construction, alone
     //   (MeshPredictionGhosts, and its Cached variant) or within
     //   MRMesh::update_sub_mesh_impl (MeshSubMesh, on whole meshes and on
@@ -122,4 +122,7 @@ namespace
     const bool registered_dynamic = register_backend<bench::SamuraiDynamic>();
 } // namespace
 
-BENCHMARK_MAIN();
+int main(int argc, char** argv)
+{
+    return bench::run_benchmarks(argc, argv);
+}

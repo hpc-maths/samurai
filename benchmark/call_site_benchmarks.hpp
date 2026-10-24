@@ -12,16 +12,26 @@
 // bench::mesh_cases, and the number of ranks for a partition, see
 // bench::partition_cases.
 //
-// Each site is written once against a context, Timing, which gives its
-// inputs and runs it in a benchmark.
+// Each site is written once against a context, which gives its inputs and
+// runs it: Timing runs it in a benchmark, Recording computes its checksum
+// for generate_set_algebra_inputs. Before the timed loop, Timing computes
+// the checksum of the backend once and compares it with the reference the
+// generator wrote (site_checksum.hpp); on a mismatch the benchmark stops
+// with an error and bench::main returns a failure.
 
 #pragma once
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdlib>
+#include <exception>
+#include <iostream>
 #include <iterator>
+#include <map>
+#include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <benchmark/benchmark.h>
@@ -30,19 +40,43 @@
 #include "set_algebra_fixtures.hpp"
 #include "set_call_sites.hpp"
 #include "set_modes.hpp"
+#include "site_checksum.hpp"
 #include "site_inputs.hpp"
 
 namespace bench
 {
+    // The result of the check of each benchmark, by name: empty if the
+    // backend computed the reference sets, the mismatch otherwise. A
+    // benchmark runs several times (repetitions, iteration estimates); it is
+    // checked once.
+    inline std::map<std::string, std::string>& verifications()
+    {
+        static std::map<std::string, std::string> results;
+        return results;
+    }
+
+    inline std::size_t verification_failures()
+    {
+        return static_cast<std::size_t>(std::count_if(verifications().begin(),
+                                                      verifications().end(),
+                                                      [](const auto& result)
+                                                      {
+                                                          return !result.second.empty();
+                                                      }));
+    }
+
     // The context of a site in a benchmark of backend B: its inputs come
-    // from the files, and it runs in the timed loop.
+    // from the files, and it runs in the timed loop once its checksum
+    // matches the reference.
     template <class B, std::size_t dim>
     class Timing
     {
       public:
 
-        explicit Timing(benchmark::State& state)
+        Timing(benchmark::State& state, std::string site, bool partition)
             : m_state(state)
+            , m_site(std::move(site))
+            , m_case(partition ? partition_case(state) : mesh_case(state))
         {
         }
 
@@ -63,7 +97,14 @@ namespace bench
         template <class Site>
         void traverse(Site&& site)
         {
-            m_state.counters["sets"] = static_cast<double>(run_site<B>(m_state, site));
+            if (verify(
+                    [&]
+                    {
+                        return checksum_traverse_site<B, dim>(site);
+                    }))
+            {
+                m_state.counters["sets"] = static_cast<double>(run_site<B>(m_state, site));
+            }
         }
 
         // site(emit) builds level cell arrays and passes each one it keeps
@@ -72,7 +113,14 @@ namespace bench
         template <class Site>
         void build(Site&& site)
         {
-            m_state.counters["sets"] = static_cast<double>(run_build_site<B>(m_state, site));
+            if (verify(
+                    [&]
+                    {
+                        return checksum_build_site<B, dim>(site);
+                    }))
+            {
+                m_state.counters["sets"] = static_cast<double>(run_build_site<B>(m_state, site));
+            }
         }
 
         // site(f) passes each set it evaluates to f(level, set), which only
@@ -80,12 +128,140 @@ namespace bench
         template <class Site>
         void empty(Site&& site)
         {
-            m_state.counters["sets"] = static_cast<double>(run_empty_site<B>(m_state, site));
+            if (verify(
+                    [&]
+                    {
+                        return checksum_empty_site<B>(site);
+                    }))
+            {
+                m_state.counters["sets"] = static_cast<double>(run_empty_site<B>(m_state, site));
+            }
         }
 
       private:
 
+        // The name of the benchmark, without the backend.
+        std::string name() const
+        {
+            std::string name = m_site + "<" + std::to_string(dim) + ">";
+            for (const auto arg : {m_case.max_level, m_case.nballs, static_cast<std::size_t>(m_case.stencil_radius)})
+            {
+                name += "/" + std::to_string(arg);
+            }
+            name += "/" + std::to_string(static_cast<int>(m_case.geometry));
+            if (m_case.ranks > 0)
+            {
+                name += "/" + std::to_string(m_case.ranks);
+            }
+            return name;
+        }
+
+        template <class Checksum>
+        bool verify(Checksum&& checksum)
+        {
+            const std::string key = std::string(B::name) + "/" + name();
+            auto it               = verifications().find(key);
+            if (it == verifications().end())
+            {
+                std::string mismatch;
+                try
+                {
+                    mismatch = checksum_mismatch(checksum(), reference_checksum<dim>(m_case, m_site));
+                }
+                catch (const std::exception& e)
+                {
+                    mismatch = e.what();
+                }
+                if (!mismatch.empty())
+                {
+                    mismatch = "not the sets of the reference: " + mismatch;
+                    std::cerr << key << ": " << mismatch << std::endl;
+                }
+                it = verifications().emplace(key, std::move(mismatch)).first;
+            }
+            if (!it->second.empty())
+            {
+                m_state.SkipWithError(it->second);
+                return false;
+            }
+            return true;
+        }
+
         benchmark::State& m_state;
+        std::string m_site;
+        MeshCase m_case;
+    };
+
+    // The context of a site in generate_set_algebra_inputs: runs it once on
+    // the inputs it is given and keeps its checksum.
+    template <class B, std::size_t dim>
+    class Recording
+    {
+      public:
+
+        using inputs_t = backend_inputs_t<B, dim>;
+
+        // A whole mesh and the same mesh moved by one step.
+        Recording(const inputs_t& in, const inputs_t& moved)
+            : m_inputs(&in)
+            , m_moved(&moved)
+        {
+        }
+
+        // The ranks of a partition.
+        explicit Recording(const std::vector<inputs_t>& ranks)
+            : m_partition(&ranks)
+        {
+        }
+
+        const inputs_t& inputs(bool moved = false) const
+        {
+            const auto* in = moved ? m_moved : m_inputs;
+            if (in == nullptr)
+            {
+                throw std::logic_error("a partition site reads a whole mesh");
+            }
+            return *in;
+        }
+
+        const std::vector<inputs_t>& partition() const
+        {
+            if (m_partition == nullptr)
+            {
+                throw std::logic_error("a site of a whole mesh reads a partition");
+            }
+            return *m_partition;
+        }
+
+        template <class Site>
+        void traverse(Site&& site)
+        {
+            m_checksum = checksum_traverse_site<B, dim>(site);
+        }
+
+        template <class Site>
+        void build(Site&& site)
+        {
+            m_checksum = checksum_build_site<B, dim>(site);
+        }
+
+        template <class Site>
+        void empty(Site&& site)
+        {
+            m_checksum = checksum_empty_site<B>(site);
+        }
+
+        const SiteChecksum& checksum() const
+        {
+            return m_checksum;
+        }
+
+      private:
+
+        const inputs_t* m_inputs                 = nullptr;
+        const inputs_t* m_moved                  = nullptr;
+        const std::vector<inputs_t>* m_partition = nullptr;
+        SiteChecksum m_checksum;
     };
 
     // The sites that need more than their inputs. Each takes the context
@@ -246,9 +422,9 @@ namespace bench
     } // namespace call_sites
 
     // Calls v(name, periodic_only, run) for each site of a whole mesh and
-    // each mode, where run(ctx) runs it in the context ctx (Timing of B in
-    // dim). periodic_only: the site has nothing to do on a mesh that is not
-    // periodic.
+    // each mode, where run(ctx) runs it in the context ctx (Timing or
+    // Recording of B in dim). periodic_only: the site has nothing to do on
+    // a mesh that is not periodic.
     template <class B, std::size_t dim, class V>
     void for_each_call_site(V&& v)
     {
@@ -388,9 +564,9 @@ namespace bench
                 }
                 const std::string name = std::string(B::name) + "/" + site + "<" + std::to_string(dim) + ">";
                 mesh_args(benchmark::RegisterBenchmark(name,
-                                                       [run](benchmark::State& state)
+                                                       [site = std::string(site), partition, run](benchmark::State& state)
                                                        {
-                                                           Timing<B, dim> ctx(state);
+                                                           Timing<B, dim> ctx(state, site, partition);
                                                            run(ctx);
                                                        }),
                           site_cases);
@@ -427,5 +603,24 @@ namespace bench
     void register_partition_sites(const std::vector<MeshCase>& cases, Keep&& keep = detail::keep_all)
     {
         detail::register_sites<B, dim>(cases, true, keep);
+    }
+
+    // The main of the binaries that register sites: fails if a backend
+    // computed other sets than the reference.
+    inline int run_benchmarks(int argc, char** argv)
+    {
+        benchmark::Initialize(&argc, argv);
+        if (benchmark::ReportUnrecognizedArguments(argc, argv))
+        {
+            return EXIT_FAILURE;
+        }
+        benchmark::RunSpecifiedBenchmarks();
+        benchmark::Shutdown();
+        if (const auto failures = verification_failures(); failures > 0)
+        {
+            std::cerr << failures << " benchmark(s) computed other sets than the reference, see above" << std::endl;
+            return EXIT_FAILURE;
+        }
+        return EXIT_SUCCESS;
     }
 } // namespace bench

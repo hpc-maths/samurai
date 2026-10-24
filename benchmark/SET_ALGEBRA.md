@@ -33,16 +33,18 @@ Every benchmark reports:
 
 `bench_set_call_sites`, `bench_dynamic_set` and `bench_set_graduation` read
 their sets from files that `generate_set_algebra_inputs` writes to
-`build/benchmark/set_algebra_inputs/` (40 MB, 5 seconds; with the sweep,
+`build/benchmark/set_algebra_inputs/` (41 MB, 5 seconds; with the sweep,
 128 MB, 24 seconds). The generator adapts the meshes, splits some of them into
-subdomains, and writes their sets.
+subdomains, writes their sets, and writes the reference checksums of the call
+sites ([Result verification](#result-verification)).
 
 The build runs the generator before the first build of these binaries, and
 again when one of the sources that decide the content of the files changes:
 the generator, the meshes (`mr_fixtures.hpp`), the list of meshes and the file
-format (`site_inputs.hpp`), and the sites, which build the meshes of the ranks
-of a partition (`set_call_sites.hpp`). A change to the library does not
-trigger it, so the inputs stay fixed while the set algebra changes.
+format (`site_inputs.hpp`), the sites and modes (`set_call_sites.hpp`,
+`set_modes.hpp`, `call_site_benchmarks.hpp`) and the checksum
+(`site_checksum.hpp`). A change to the library does not trigger it, so the
+inputs and the reference stay fixed while the set algebra changes.
 
 - To regenerate the files by hand, delete the directory or run the generator.
 - With `-DSAMURAI_BENCHMARK_GENERATE_SET_ALGEBRA_INPUTS=OFF`, the binaries
@@ -88,6 +90,7 @@ headers:
   algebra (`dynamic`).
 - `call_site_benchmarks.hpp`: the list of sites and modes, their benchmarks,
   and their registration for one backend.
+- `site_checksum.hpp`: the checksum of what a site computes and its files.
 - `mr_fixtures.hpp`: the MR-adapted meshes and their partitions. Only
   `generate_set_algebra_inputs` and `bench_set_library_ops` include it.
 
@@ -192,10 +195,42 @@ expands a subdomain by a ghost reach of `2 R + 4 P + 4` cells of the coarsest
 level of the rank (`Mesh_base::ghost_physical_reach`), here 10 cells of level
 2, which is more than twice the domain.
 
-## Sites the dynamic backend leaves out
+## Result verification
 
-`bench_dynamic_set` leaves out the sites for which the dynamic algebra computes
-other sets than the static one:
+Each benchmark of `bench_set_call_sites` and `bench_dynamic_set` checks, once
+and outside the timed loop, that its backend computes the same sets as the
+reference. A backend that computes other sets therefore cannot be timed as if
+it were right.
+
+The generator runs every site and mode once with the static algebra, on every
+mesh and partition, and writes a checksum per site and level next to the
+inputs, in `<mesh>_checksums.txt` (format in `site_checksum.hpp`). For each
+level, the checksum holds the number of sets the site passed, their intervals
+and cells, and a 64-bit FNV-1a hash of the intervals in traversal order:
+start, end and (y, z) of each interval, with a marker before each set. The
+checksum is computed from the traversal, with adjacent intervals of a row
+merged, so it does not depend on how a backend stores its sets or splits its
+rows. For a site that only asks whether sets are empty, the checksum holds the
+answers.
+
+When a checksum differs from the reference, the benchmark stops with
+`SkipWithError`, which prints the first level that differs:
+
+```text
+dynamic/BM_Mode_FlatOn<2>/8/16/1/1  ERROR OCCURRED: 'not the sets of the reference: level 2: 4 sets, 25 intervals, 34 cells, hash d04e89af60cd62a7, 4 sets, 28 intervals, 40 cells, hash de3a5288cbb20525 in the reference'
+```
+
+The other benchmarks still run, and the binary then exits with a failure,
+which a script can test. A missing checksum file or entry is an error too:
+regenerate the inputs.
+
+The reference is the static algebra of the library the generator was built
+with. The sites were checked against the library once ([Coverage](#coverage)),
+and a change to the library does not regenerate the reference, so the check
+also catches a change to the static algebra that alters a result.
+
+`bench_dynamic_set` leaves out the sites whose checksums differ with the
+dynamic algebra, so every benchmark it runs passes:
 
 | Sites | Meshes | Cause |
 | --- | --- | --- |
@@ -205,8 +240,9 @@ other sets than the static one:
 | `BM_Mode_NestedOn`, `BM_Mode_FlatOn` | domain with a hole | `difference(domain2, translate(domain2, -direction))` reads the same node twice and misses cells at the min level |
 
 The last two rows share one cause: an expression that reads a node both as it
-is and translated. With one node per use, both give the sets of the static
-algebra. The `keep` function of `benchmark_dynamic_set.cpp` holds this list.
+is and translated. With one node per use, both give the reference sets. The
+`keep` function of `benchmark_dynamic_set.cpp` holds this list; remove an entry
+to see the mismatch.
 
 ## Sweep over the level
 
@@ -373,7 +409,12 @@ compare a new set algebra with samurai's:
    lives outside the repository). Its benchmarks are named
    `<name>/BM_Site_X<dim>/<args>`, so `--benchmark_filter='^<name>/'` runs only
    them.
-4. Compare the medians of its benchmarks with those of `static/` from the same
+4. Run the binary once with `--benchmark_min_time=1x`: it checks every site
+   against the reference in a few seconds and exits with a failure if one
+   differs ([Result verification](#result-verification)). `traverse` must emit
+   the intervals in samurai's order (rows by increasing z, then y; intervals
+   by increasing x), or the hash differs.
+5. Compare the medians of its benchmarks with those of `static/` from the same
    run.
 
 ## Baseline
@@ -485,7 +526,7 @@ version is 5 to 21 times slower than the static one (3D ghost projection:
 86.5 ms against 4.10 ms). Its expansion (`dyn::expand`) returns other cells
 than the static one and takes 290 s per iteration on the 3D prediction ghosts
 of the mesh construction, so `bench_dynamic_set` leaves those sites out
-([Sites the dynamic backend leaves out](#sites-the-dynamic-backend-leaves-out)).
+([Result verification](#result-verification)).
 
 ### Sweep, geometries and partitions
 
