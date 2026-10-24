@@ -121,4 +121,22 @@ namespace samurai
 
         EXPECT_EQ(out, "");
     }
+
+    // exists() must answer for every cell of the interval, not only the first one.
+    TEST(MRA, exists_covers_the_whole_interval)
+    {
+        constexpr std::size_t dim = 1;
+        auto box                  = samurai::Box<double, dim>({0.}, {1.});
+        auto mesh_cfg             = mesh_config<dim>().min_level(2).max_level(4);
+        auto mesh                 = mra::make_mesh(box, mesh_cfg);
+        using mesh_id_t           = typename decltype(mesh)::mesh_id_t;
+        using interval_t          = typename decltype(mesh)::interval_t;
+
+        // The mesh starts uniform at max_level: cells cover [0, 16) at level 4.
+        xt::xtensor<bool, 1> left_edge = {false, false, true, true, true};
+        EXPECT_EQ(mesh.exists(mesh_id_t::cells, 4, interval_t{-2, 3}), left_edge);
+
+        xt::xtensor<bool, 1> right_edge = {true, true, false, false, false};
+        EXPECT_EQ(mesh.exists(mesh_id_t::cells, 4, interval_t{14, 19}), right_edge);
+    }
 }

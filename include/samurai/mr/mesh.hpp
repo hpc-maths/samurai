@@ -466,23 +466,15 @@ namespace samurai
     SAMURAI_INLINE xt::xtensor<bool, 1> MRMesh<Config>::exists(mesh_id_t type, std::size_t level, interval_t interval, T... index) const
     {
         using coord_index_t      = typename interval_t::coord_index_t;
-        const auto& lca          = this->cells()[type][level];
+        const auto& lca          = (*this)[type][level];
         std::size_t size         = interval.size() / interval.step;
         xt::xtensor<bool, 1> out = xt::empty<bool>({size});
         std::size_t iout         = 0;
         for (coord_index_t i = interval.start; i < interval.end; i += interval.step)
         {
-            auto offset = find(lca, {i, index...});
-            if (offset == -1)
-            {
-                out[iout++] = false;
-            }
-            else
-            {
-                out[iout++] = true;
-            }
-            return out;
+            out[iout++] = find(lca, {i, index...}) != -1;
         }
+        return out;
     }
 
     namespace detail
