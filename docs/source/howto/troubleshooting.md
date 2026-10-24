@@ -225,19 +225,6 @@ This happens when a loop over a set reads neighbor or child cells that do not ex
 **Fix**: build the set you loop over so that every interval you read exists: intersect it with the cells of the level you read, or contract it.
 The tutorial [Apply a subset operator on a set expression](../tutorial/operator_on_subset.md#field-projection-on-the-intersection) reproduces this error and fixes it with `samurai::contract`.
 
-## A restart with another number of processes
-
-```text
-terminate called after throwing an instance of 'std::runtime_error'
-  what():  The number of processes in the restart file (4) does not match the current number of processes (2).
-```
-
-**Cause**: `samurai::load` read a checkpoint written by a different number of MPI processes.
-Each process reads back the part of the file written by the process of the same rank, so the counts must match.
-
-**Fix**: run the restarted program with the number of processes given first in the message, here `mpiexec -n 4`.
-See [Restart with the same number of MPI processes](restart.md#restart-with-the-same-number-of-mpi-processes) in the restart guide.
-
 ## A restarted field that is not in the checkpoint
 
 ```text

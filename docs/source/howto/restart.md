@@ -97,8 +97,7 @@ Without metadata, call `samurai::load(path, "checkpoint", mesh, u, v)`, or `samu
 `load` throws `std::runtime_error` when:
 
 - a field has no name, or no field with its name is in the file;
-- the number of components of a field differs from the dumped one;
-- the number of MPI processes differs from the one that wrote the file (see below).
+- the number of components of a field differs from the dumped one.
 
 ### Restore what the checkpoint does not hold
 
@@ -110,12 +109,20 @@ The checkpoint holds only the values on the real cells. After `load`:
 
 The demo `demos/FiniteVolume/advection_2d.cpp` follows this pattern with a `--restart-file` option: it creates an empty mesh, loads the file when the option is given, and builds the mesh from a box otherwise.
 
-## Restart with the same number of MPI processes
+## Restart on another number of MPI processes
 
-Run the restarted program with the same number of MPI processes as the program that wrote the checkpoint.
-Each process writes its own part of every dataset, and on restart each process reads back the part written by the process of the same rank, so it gets back its own subdomain.
-`load` compares the number of processes stored in the file with the current one and throws `std::runtime_error` if they differ.
-For a checkpoint written by 4 processes and loaded by 2, the message is `The number of processes in the restart file (4) does not match the current number of processes (2).`
+The restarted program can run on any number of MPI processes, whatever the number of processes that wrote the checkpoint.
+Each process writes its own part of every dataset, in rank order.
+On restart, `load` gives each process a contiguous block of these parts:
+
+- with as many processes as the writer, each process reads back the part written by the process of the same rank, and gets back its own subdomain;
+- with fewer processes, a process reads several consecutive parts and merges them;
+- with more processes, some processes read no part at first.
+
+When the number of processes differs from the writer's, `load` then balances the cells over all the processes with the SFC Hilbert strategy, the one `samurai::make_MRAdapt` uses with `--load-balancing-at`.
+The fields passed to `load` move with their cells.
+Fields created after `load` take the balanced mesh.
+A non-MPI build reads a checkpoint written by any number of processes, so you can inspect a parallel checkpoint on one process.
 
 `dump` and `load` are collective: every process must call them with the same directory and file name.
 The metadata callbacks run on every process too, so write and read the same values everywhere.

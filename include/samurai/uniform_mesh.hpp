@@ -6,6 +6,7 @@
 #include <fmt/format.h>
 
 #include <string_view>
+#include <type_traits>
 
 #include "box.hpp"
 #include "level_cell_array.hpp"
@@ -112,8 +113,10 @@ namespace samurai
         template <typename... T>
         const interval_t& get_interval(std::size_t level, const interval_t& interval, T... index) const;
 
-        template <class T1, typename... T>
+        template <class T1, typename... T, typename = std::enable_if_t<std::conjunction_v<std::is_convertible<T, coord_index_t>...>, void>>
         std::size_t get_index(T1 i, T... index) const;
+        template <class E>
+        std::size_t get_index(std::size_t level, coord_index_t i, const xt::xexpression<E>& others) const;
 
         void to_stream(std::ostream& os) const;
 
@@ -190,11 +193,18 @@ namespace samurai
     }
 
     template <class Config>
-    template <class T1, typename... T>
+    template <class T1, typename... T, typename U>
     SAMURAI_INLINE std::size_t UniformMesh<Config>::get_index(T1 i, T... index) const
     {
         auto interval = m_cells[mesh_id_t::reference].get_interval(interval_t{i, i + 1}, index...);
-        return interval.index + i;
+        return static_cast<std::size_t>(interval.index + i);
+    }
+
+    template <class Config>
+    template <class E>
+    SAMURAI_INLINE std::size_t UniformMesh<Config>::get_index(std::size_t, coord_index_t i, const xt::xexpression<E>& others) const
+    {
+        return static_cast<std::size_t>(m_cells[mesh_id_t::reference].get_index(i, others));
     }
 
     template <class Config>

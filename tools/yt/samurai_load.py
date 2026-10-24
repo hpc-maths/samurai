@@ -116,7 +116,7 @@ def _slice_partitioned(group, rank):
 
     A partitioned dataset is a group holding ``data`` (the concatenated buffer of
     every MPI rank) and ``partition`` (cumulative per-rank sizes, length
-    ``n_process + 1``); see ``dump(file, name, std::vector<T>)`` in
+    ``n_process + 1``); see ``detail::dump_partitions`` in
     ``restart.hpp``.
     """
     partition = group["partition"][()]

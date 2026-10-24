@@ -211,8 +211,8 @@ The test `tests/test_load_balancing.py` uses it this way to check every load bal
 - The cells each process owns depend on the number of processes and on load balancing.
   Do not rely on a cell being on a given rank.
 - The layout of the output files depends on the number of processes, but `compare.py` and ParaView read every layout.
-- A checkpoint written by `samurai::dump` must be read by `samurai::load` on the same number of processes, otherwise `load` throws `std::runtime_error`.
-  See the [restart how-to guide](restart.md).
+- A checkpoint written by `samurai::dump` on some number of processes can be read by `samurai::load` on another: `load` balances the cells again.
+  See the [restart how-to guide](restart.md#restart-on-another-number-of-mpi-processes).
 
 ## Related
 

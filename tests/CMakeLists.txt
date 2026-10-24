@@ -73,6 +73,7 @@ set(SAMURAI_TESTS
     test_subset.cpp
     test_subset_dynamic.cpp
     test_timers.cpp
+    test_uniform_mesh.cpp
     test_utils.cpp
     test_version.cpp
 )
