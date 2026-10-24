@@ -110,7 +110,7 @@ void compute_metrics(const auto& mesh, benchmark::State& state)
         ghosts_below_cells(
             [&](const auto& i, const auto&)
             {
-                nb_cells += 4 * i.size();
+                nb_cells += 4 * static_cast<int64_t>(i.size());
                 ++nb_intervals;
             });
     }
@@ -223,7 +223,7 @@ void benchmark_detail_with_ca(benchmark::State& state)
     samurai::for_each_level(mesh_detail,
                             [&](std::size_t level)
                             {
-                                nb_intervals += mesh_detail[level].shape()[0];
+                                nb_intervals += static_cast<int64_t>(mesh_detail[level].shape()[0]);
                             });
 
     state.SetItemsProcessed(4 * static_cast<int64_t>(mesh_detail.nb_cells()) * state.iterations());
