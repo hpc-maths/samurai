@@ -1386,13 +1386,58 @@ namespace samurai
             return std::max(1, static_cast<int>(std::ceil(reach / subdomain_dx)));
         };
 
+        // A test that finds no intersection evaluates the whole expanded
+        // subdomain, and the expansion spans hundreds of cells when the coarsest
+        // populated level is far below max_level. On a periodic grid, the
+        // candidates that touch a rank only through the periodic boundary fail
+        // the direct test and every periodic direction but one. The half-open
+        // bounding box of nestedExpand(set, width) is the box of the set widened
+        // by width on each side, so disjoint boxes prove a test empty without
+        // evaluating it; the neighbourhood is unchanged.
+        struct index_box
+        {
+            std::array<value_t, dim> min{};
+            std::array<value_t, dim> max{};
+            bool empty = true;
+        };
+
+        auto box_of = [](const lca_type& lca)
+        {
+            index_box box;
+            if (!lca.empty())
+            {
+                box.min   = lca.min_indices();
+                box.max   = lca.max_indices();
+                box.empty = false;
+            }
+            return box;
+        };
+        const index_box my_box = box_of(m_subdomain[max_level()]);
+        auto may_intersect     = [&](int width, const index_box& candidate_box, const auto& shift)
+        {
+            if (my_box.empty || candidate_box.empty)
+            {
+                return false;
+            }
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                if (my_box.min[d] - width >= candidate_box.max[d] + shift[d] || candidate_box.min[d] + shift[d] >= my_box.max[d] + width)
+                {
+                    return false;
+                }
+            }
+            return true;
+        };
+        const std::array<value_t, dim> no_shift{};
+
         m_mpi_neighbourhood.clear();
         for (std::size_t i = 0; i < candidate_ranks.size(); ++i)
         {
-            const int width = expansion_width(all_bboxes[static_cast<std::size_t>(candidate_ranks[i])]);
+            const int width               = expansion_width(all_bboxes[static_cast<std::size_t>(candidate_ranks[i])]);
+            const index_box candidate_box = box_of(candidate_subdomains[i]);
 
-            auto set = intersection(nestedExpand(m_subdomain[max_level()], width), candidate_subdomains[i]);
-            if (!set.empty())
+            if (may_intersect(width, candidate_box, no_shift)
+                && !intersection(nestedExpand(m_subdomain[max_level()], width), candidate_subdomains[i]).empty())
             {
                 m_mpi_neighbourhood.emplace_back(candidate_ranks[i]);
                 continue; // No need to check periodic boundaries if they are already neighbors
@@ -1401,7 +1446,11 @@ namespace samurai
             // Check periodic boundaries for this candidate
             for (const auto& direction : directions)
             {
-                auto shift        = direction * domain_size;
+                const xt::xtensor_fixed<value_t, xt::xshape<dim>> shift = direction * domain_size;
+                if (!may_intersect(width, candidate_box, shift))
+                {
+                    continue;
+                }
                 auto periodic_set = intersection(nestedExpand(m_subdomain[max_level()], width), translate(candidate_subdomains[i], shift));
 
                 if (!periodic_set.empty())
