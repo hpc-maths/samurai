@@ -84,7 +84,7 @@ namespace samurai
         {
             if (mesh.periodicity()[d])
             {
-                auto shift = get_periodic_shift(mesh.domain(), level, d);
+                auto shift = mesh.periodic_shift(level, d);
                 apply_on_interface(mesh[mesh_id_t::cells][level], translate(translate(mesh[mesh_id_t::cells][level], shift), -direction));
                 apply_on_interface(translate(mesh[mesh_id_t::cells][level], -shift), translate(mesh[mesh_id_t::cells][level], -direction));
             }
@@ -98,7 +98,7 @@ namespace samurai
             {
                 if (mesh.periodicity()[d])
                 {
-                    auto shift = get_periodic_shift(mesh.domain(), level, d);
+                    auto shift = mesh.periodic_shift(level, d);
                     apply_on_interface(mesh[mesh_id_t::cells][level],
                                        translate(translate(neigh.mesh[mesh_id_t::cells][level], shift), -direction));
                     apply_on_interface(translate(neigh.mesh[mesh_id_t::cells][level], -shift),
@@ -183,9 +183,9 @@ namespace samurai
         {
             if (mesh.periodicity()[d])
             {
-                auto shift = get_periodic_shift(mesh.domain(), level + 1, d);
+                auto shift = mesh.periodic_shift(level + 1, d);
                 apply_on_interface(mesh[mesh_id_t::cells][level], translate(mesh[mesh_id_t::cells][level + 1], shift));
-                shift = get_periodic_shift(mesh.domain(), level, d);
+                shift = mesh.periodic_shift(level, d);
                 apply_on_interface(translate(mesh[mesh_id_t::cells][level], -shift), mesh[mesh_id_t::cells][level + 1]);
             }
         }
@@ -198,9 +198,9 @@ namespace samurai
             {
                 if (mesh.periodicity()[d])
                 {
-                    auto shift = get_periodic_shift(mesh.domain(), level + 1, d);
+                    auto shift = mesh.periodic_shift(level + 1, d);
                     apply_on_interface(mesh[mesh_id_t::cells][level], translate(neigh.mesh[mesh_id_t::cells][level + 1], shift));
-                    shift = get_periodic_shift(mesh.domain(), level, d);
+                    shift = mesh.periodic_shift(level, d);
                     apply_on_interface(translate(neigh.mesh[mesh_id_t::cells][level], -shift), mesh[mesh_id_t::cells][level + 1]);
                 }
             }
@@ -287,9 +287,9 @@ namespace samurai
         {
             if (mesh.periodicity()[d])
             {
-                auto shift = get_periodic_shift(mesh.domain(), level + 1, d);
+                auto shift = mesh.periodic_shift(level + 1, d);
                 apply_on_interface(mesh[mesh_id_t::cells][level], translate(mesh[mesh_id_t::cells][level + 1], -shift));
-                shift = get_periodic_shift(mesh.domain(), level, d);
+                shift = mesh.periodic_shift(level, d);
                 apply_on_interface(translate(mesh[mesh_id_t::cells][level], shift), mesh[mesh_id_t::cells][level + 1]);
             }
         }
@@ -302,9 +302,9 @@ namespace samurai
             {
                 if (mesh.periodicity()[d])
                 {
-                    auto shift = get_periodic_shift(mesh.domain(), level + 1, d);
+                    auto shift = mesh.periodic_shift(level + 1, d);
                     apply_on_interface(mesh[mesh_id_t::cells][level], translate(neigh.mesh[mesh_id_t::cells][level + 1], -shift));
-                    shift = get_periodic_shift(mesh.domain(), level, d);
+                    shift = mesh.periodic_shift(level, d);
                     apply_on_interface(translate(neigh.mesh[mesh_id_t::cells][level], shift), mesh[mesh_id_t::cells][level + 1]);
                 }
             }
