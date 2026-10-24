@@ -139,6 +139,35 @@ namespace bench
         return nsets;
     }
 
+    // `site` builds level cell arrays of the backend B and passes each one it
+    // keeps to emit(level, lca). The time is that of building them; their
+    // intervals and cells are counted after the timed loop, on one more run.
+    // Returns the number of level cell arrays of one iteration.
+    template <class B, class Site>
+    std::size_t run_build_site(benchmark::State& state, Site&& site)
+    {
+        for (auto _ : state)
+        {
+            site(
+                [](std::size_t, const auto& lca)
+                {
+                    const auto* p = &lca;
+                    benchmark::DoNotOptimize(p);
+                    benchmark::ClobberMemory();
+                });
+        }
+        Tally tally;
+        std::size_t nsets = 0;
+        site(
+            [&](std::size_t, const auto& lca)
+            {
+                tally += traverse<B>(lca);
+                ++nsets;
+            });
+        report(state, tally);
+        return nsets;
+    }
+
     //////////////////////////////////////////////////////////////////////
     // Synthetic LevelCellArrays
     //////////////////////////////////////////////////////////////////////

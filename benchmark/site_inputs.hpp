@@ -196,6 +196,16 @@ namespace bench
         // iteration, update_cell_array_from_tag(cells, tag), when the fronts
         // have moved by one step. Not graded.
         ca_t ungraded_cells;
+        // The four sets update_cell_array_from_tag (algorithm/graduation.hpp)
+        // builds from the tags before it computes ungraded_cells, the members
+        // of the samurai::TagChanges that cells_changed_by_tag returns: the
+        // parents of the coarsened cells (add_m), the coarsened cells
+        // (remove_m), the children of the refined cells (add_p) and the
+        // refined cells (remove_p).
+        ca_t tag_add_m;
+        ca_t tag_remove_m;
+        ca_t tag_add_p;
+        ca_t tag_remove_p;
 
         // Member by member: what the generator checks after it reads back a
         // file it wrote.
@@ -249,7 +259,7 @@ namespace bench
     // Files
     //////////////////////////////////////////////////////////////////////
 
-    inline constexpr int inputs_format_version = 2;
+    inline constexpr int inputs_format_version = 3;
 
     // The CellArrays of the file, by record name. Inputs is SiteInputs<dim>,
     // const or not.
@@ -265,6 +275,10 @@ namespace bench
             std::pair{"domain_pyramid",    &in.domain_pyramid   },
             std::pair{"subdomain_pyramid", &in.subdomain_pyramid},
             std::pair{"ungraded_cells",    &in.ungraded_cells   },
+            std::pair{"tag_add_m",         &in.tag_add_m        },
+            std::pair{"tag_remove_m",      &in.tag_remove_m     },
+            std::pair{"tag_add_p",         &in.tag_add_p        },
+            std::pair{"tag_remove_p",      &in.tag_remove_p     },
         };
     }
 

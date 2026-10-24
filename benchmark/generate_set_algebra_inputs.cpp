@@ -2,7 +2,8 @@
 // SPDX-License-Identifier:  BSD-3-Clause
 
 // Adapts the meshes of bench::mesh_cases, unmoved and moved, and writes their
-// sets, and the cells of the next step before graduation, to the files
+// sets, and the cells of the next step before graduation with the sets
+// update_cell_array_from_tag builds them from, to the files
 // bench_set_call_sites, bench_dynamic_set and bench_set_graduation read
 // (format in site_inputs.hpp). Each file is read back and compared with
 // what it was written from.
