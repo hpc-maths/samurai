@@ -24,6 +24,7 @@
 
 #include <samurai/bc.hpp>
 #include <samurai/box.hpp>
+#include <samurai/domain_builder.hpp>
 #include <samurai/field.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
@@ -83,12 +84,29 @@ namespace bench
         return 4. * mesh.min_cell_length();
     }
 
-    // The mesh of c before adaptation, on the unit box.
+    // The mesh of c before adaptation, on its geometry: the unit box, the
+    // unit box with a hole as demos/FiniteVolume/linear_convection_obstacle
+    // builds it, or the periodic unit box.
     template <std::size_t dim>
     mr_mesh_t<dim> make_unit_mesh(const MeshCase& c)
     {
+        auto config = mr_config<dim>(c.max_level, c.stencil_radius);
         const samurai::Box<double, dim> unit_box(xt::zeros<double>({dim}), xt::ones<double>({dim}));
-        return samurai::mra::make_mesh(unit_box, mr_config<dim>(c.max_level, c.stencil_radius));
+        switch (c.geometry)
+        {
+            case Geometry::box:
+                break;
+            case Geometry::periodic:
+                config.periodic(true);
+                break;
+            case Geometry::hole:
+            {
+                samurai::DomainBuilder<dim> domain(unit_box);
+                domain.remove(samurai::Box<double, dim>(xt::ones<double>({dim}) * 0.5, xt::ones<double>({dim}) * 0.75));
+                return samurai::mra::make_mesh(domain, config);
+            }
+        }
+        return samurai::mra::make_mesh(unit_box, config);
     }
 
     template <std::size_t dim>
@@ -142,6 +160,8 @@ namespace bench
         in.max_level          = mesh.max_level();
         in.graduation_width   = mesh.graduation_width();
         in.max_stencil_radius = mesh.max_stencil_radius();
+        in.domain_is_box      = mesh.domain().is_box();
+        in.periodic           = mesh.periodicity();
         in.cells              = mesh[mesh_id_t::cells];
         in.cells_and_ghosts   = mesh[mesh_id_t::cells_and_ghosts];
         in.proj_cells         = mesh[mesh_id_t::proj_cells];
@@ -157,6 +177,7 @@ namespace bench
             {
                 in.corners.push_back(mesh.corner(direction));
             });
+        set_domain_bounds(in);
         return in;
     }
 

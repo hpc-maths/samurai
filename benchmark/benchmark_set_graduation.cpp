@@ -8,9 +8,9 @@
 // materialized sets, so its whole time is set algebra and the building of
 // LevelCellArrays.
 //
-// Args: (max_level, number of balls, stencil radius), see bench::mesh_cases.
+// Args: (max_level, number of balls, stencil radius, geometry), see
+// bench::mesh_cases.
 
-#include <array>
 #include <cstddef>
 #include <vector>
 
@@ -35,12 +35,10 @@ static void BM_Graduation(benchmark::State& state)
 {
     const auto& in = bench::site_inputs<dim>(state);
     const std::vector<samurai::MPI_Subdomain<NoMesh>> no_neighbours;
-    std::array<bool, dim> not_periodic;
-    not_periodic.fill(false);
 
     const auto graduate = [&](auto& ca)
     {
-        samurai::make_graduation(ca, in.domain_pyramid, no_neighbours, not_periodic, in.graduation_width, in.max_stencil_radius);
+        samurai::make_graduation(ca, in.domain_pyramid, no_neighbours, in.periodic, in.graduation_width, in.max_stencil_radius);
     };
 
     for (auto _ : state)
