@@ -72,5 +72,3 @@ if(MSVC)
     target_compile_options(finite-volume-level-set-amr PUBLIC /bigobj)
     target_compile_options(finite-volume-level-set-mra PUBLIC /bigobj)
 endif()
-
-# add_subdirectory(BZ)
