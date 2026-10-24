@@ -35,6 +35,20 @@
 #define SAMURAI_INLINE
 #endif
 
+/**
+ * @brief Emit an OpenMP directive only when samurai is built with OpenMP.
+ *
+ * `SAMURAI_OMP(parallel for)` expands to `#pragma omp parallel for` when SAMURAI_WITH_OPENMP is
+ * defined, and to nothing otherwise. A bare `#pragma omp` in a header would trigger
+ * -Wunknown-pragmas in every translation unit of an application built without OpenMP.
+ */
+#define SAMURAI_PRAGMA_STRING(x) #x
+#ifdef SAMURAI_WITH_OPENMP
+#define SAMURAI_OMP(directive) _Pragma(SAMURAI_PRAGMA_STRING(omp directive))
+#else
+#define SAMURAI_OMP(directive)
+#endif
+
 namespace samurai
 {
     static constexpr bool disable_color = true;

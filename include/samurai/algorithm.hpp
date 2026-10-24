@@ -13,6 +13,7 @@
 
 #include "cell.hpp"
 #include "mesh_holder.hpp"
+#include "samurai_config.hpp"
 
 #include "concepts.hpp"
 #include "subset/node.hpp"
@@ -174,12 +175,12 @@ namespace samurai
     template <class MeshIntervalType, class SetType, class Func>
     SAMURAI_INLINE void parallel_for_each_meshinterval(SetType& set, Func&& f)
     {
-#pragma omp parallel
-#pragma omp single nowait
+        SAMURAI_OMP(parallel)
+        SAMURAI_OMP(single nowait)
         set(
             [&](const auto& i, const auto& index)
             {
-#pragma omp task
+                SAMURAI_OMP(task)
                 {
                     MeshIntervalType mesh_interval(set.level());
                     mesh_interval.i     = i;
@@ -235,12 +236,12 @@ namespace samurai
         using cell_t        = Cell<dim, TInterval>;
         using index_value_t = typename cell_t::value_t;
 
-#pragma omp parallel
-#pragma omp single nowait
+        SAMURAI_OMP(parallel)
+        SAMURAI_OMP(single nowait)
         {
             for (auto it = lca.cbegin(); it != lca.cend(); ++it)
             {
-#pragma omp task
+                SAMURAI_OMP(task)
                 for (index_value_t i = it->start; i < it->end; ++i)
                 {
                     typename cell_t::indices_t index;
