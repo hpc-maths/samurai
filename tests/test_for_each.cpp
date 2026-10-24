@@ -87,6 +87,26 @@ namespace samurai
         EXPECT_EQ(nb_cells, 2);
     }
 
+    // A LevelCellArray has no level argument in get_index: for_each_cell used to pass the level
+    // anyway, which shifted every cell index.
+    TEST(set, for_each_cell_on_level_cell_array)
+    {
+        constexpr std::size_t dim = 2;
+        const std::size_t level   = 3;
+        LevelCellArray<dim> lca(level, Box<int, dim>({0, 0}, {8, 8}));
+        auto set = self(lca);
+
+        std::size_t nb_cells = 0;
+        for_each_cell(lca,
+                      set,
+                      [&](const auto& cell)
+                      {
+                          EXPECT_EQ(cell.index, lca.get_index(cell.indices));
+                          nb_cells++;
+                      });
+        EXPECT_EQ(nb_cells, 64u);
+    }
+
     // Regression test for #605: the overload taking a direction must be callable without explicit template arguments.
     TEST(for_each_interior_interface, direction_without_template_arguments)
     {
