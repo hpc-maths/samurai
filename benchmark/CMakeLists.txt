@@ -25,13 +25,21 @@ find_package(Threads)
 # Google Benchmark. To add a benchmark, add its source file to this list;
 # samurai_add_benchmark() below turns benchmark_<name>.cpp into the
 # bench_<name> executable.
+#
+# samurai is an INTERFACE target: it compiles nothing, but its compile
+# definitions (SAMURAI_ENABLE_INLINE, SAMURAI_FORCE_INLINE) decide how the set
+# algebra is inlined. The binaries that use only the interval structures and
+# the set algebra take it too, rather than its include directories, so that
+# they measure the algebra as an application compiles it.
 set(SAMURAI_BENCHMARK_SOURCES
     benchmark_celllist_construction.cpp
     benchmark_detail_computation.cpp
     benchmark_dynamic_set.cpp
     benchmark_fv_scheme.cpp
     benchmark_search.cpp
-    benchmark_set.cpp
+    benchmark_set_mesh_shape.cpp
+    benchmark_set_operators.cpp
+    benchmark_set_projection.cpp
     benchmark_update_fields.cpp
     benchmark_update_ghost.cpp
 )
