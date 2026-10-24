@@ -135,10 +135,13 @@ namespace samurai
                                                         return k % 2 == 0;
                                                     }))
                               {
-                                  for (auto& k : key.second)
-                                  {
-                                      k /= 2;
-                                  }
+                                  std::transform(key.second.cbegin(),
+                                                 key.second.cend(),
+                                                 key.second.begin(),
+                                                 [](auto k)
+                                                 {
+                                                     return k / 2;
+                                                 });
                                   --key.first;
                               }
 
