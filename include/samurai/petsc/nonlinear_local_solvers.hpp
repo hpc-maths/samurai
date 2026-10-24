@@ -7,6 +7,8 @@
 
 #include <fmt/format.h>
 #include <stdexcept>
+#include <type_traits>
+#include <utility>
 
 namespace samurai
 {
@@ -125,21 +127,29 @@ namespace samurai
 
           public:
 
-            NonLinearLocalSolvers& operator=(const NonLinearLocalSolvers& other)
-            {
-                if (this != &other)
-                {
-                    this->m_unknown = other.m_unknown;
-                }
-                return *this;
-            }
+            // The solvers own their PETSc objects: a copy would share them and destroy them twice.
+            NonLinearLocalSolvers(const NonLinearLocalSolvers&)            = delete;
+            NonLinearLocalSolvers& operator=(const NonLinearLocalSolvers&) = delete;
 
-            NonLinearLocalSolvers& operator=(NonLinearLocalSolvers&& other)
+            // Only throws if moving the scheme does (it falls back to a copy for the schemes that are not nothrow-movable).
+            NonLinearLocalSolvers& operator=(NonLinearLocalSolvers&& other) noexcept(std::is_nothrow_move_assignable_v<scheme_t>)
             {
                 if (this != &other)
                 {
-                    this->m_unknown = other.m_unknown;
-                    other.m_unknown = nullptr;
+                    destroy_petsc_objects();
+                    m_unknown        = std::exchange(other.m_unknown, nullptr);
+                    m_scheme         = std::move(other.m_scheme);
+                    m_is_set_up      = std::exchange(other.m_is_set_up, false);
+                    m_snes           = std::move(other.m_snes);
+                    m_J_coeffs       = std::move(other.m_J_coeffs);
+                    m_J              = std::move(other.m_J);
+                    m_f_scheme_value = std::move(other.m_f_scheme_value);
+                    m_r              = std::move(other.m_r);
+                    m_x              = std::move(other.m_x);
+                    m_b              = std::move(other.m_b);
+                    // 'other' must not destroy the PETSc objects it no longer owns.
+                    m_n_threads = std::exchange(other.m_n_threads, 0);
+                    configure   = std::move(other.configure);
                 }
                 return *this;
             }
