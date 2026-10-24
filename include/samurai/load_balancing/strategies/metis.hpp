@@ -108,7 +108,7 @@ namespace samurai::load_balancing
             idx_t numflag = 0;
             idx_t ncon    = 1;
             idx_t nparts  = world.size();
-            std::vector<real_t> tpwgts(static_cast<std::size_t>(ncon * nparts), 1.0 / static_cast<real_t>(nparts));
+            std::vector<real_t> tpwgts(static_cast<std::size_t>(ncon * nparts), real_t{1} / static_cast<real_t>(nparts));
             std::vector<real_t> ubvec(static_cast<std::size_t>(ncon), static_cast<real_t>(m_options.imbalance_tolerance));
             idx_t edgecut = 0;
             std::vector<idx_t> part(static_cast<std::size_t>(graph.nvtx_local()), -1);
@@ -122,7 +122,6 @@ namespace samurai::load_balancing
                 {
                     part[i] = world.rank();
                 }
-                real_t itr       = 1000.0;
                 real_t itr_val   = 1000.0;
                 idx_t options[3] = {0};
 

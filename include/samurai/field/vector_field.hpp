@@ -189,6 +189,7 @@ namespace samurai
 
     template <class mesh_t, class value_t, std::size_t n_comp_>
     SAMURAI_INLINE VectorField<mesh_t, value_t, n_comp_>::VectorField(const VectorField& field)
+        : inner_mesh_t() // the mesh is set by assign_from
     {
         this->assign_from(field);
     }

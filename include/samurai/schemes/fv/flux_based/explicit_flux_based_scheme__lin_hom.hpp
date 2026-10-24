@@ -1,5 +1,6 @@
 #pragma once
 // #include "../../../petsc/fv/flux_based_scheme_assembly.hpp"
+#include "../../../samurai_config.hpp"
 #include "../explicit_FV_scheme.hpp"
 #include "flux_based_scheme__lin_hom.hpp"
 
@@ -67,13 +68,11 @@ namespace samurai
             {
                 coarse_add(0, contribution(0));
             }
-            // clang-format off
-            #pragma omp simd
+            SAMURAI_OMP(simd)
             for (offset_t p = 0; p < n_pairs; ++p)
             {
-                coarse_add(first + p, contribution(first + 2*p) + contribution(first + 2*p + 1));
+                coarse_add(first + p, contribution(first + 2 * p) + contribution(first + 2 * p + 1));
             }
-            // clang-format on
             if ((n_fine - first) % 2 != 0)
             {
                 coarse_add(first + n_pairs, contribution(n_fine - 1));
@@ -111,12 +110,12 @@ namespace samurai
                         // clang-format off
                         if (left_cell.level == right_cell.level || i.size() == 1) // same level, or a single fine cell (always the case for a jump in the x-direction)
                         {
-                            #pragma omp simd
+                            SAMURAI_OMP(simd)
                             for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
                             {
                                 field_value(output_field, left_cell_index_init + ii, field_i) += left_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
                             }
-                            #pragma omp simd
+                            SAMURAI_OMP(simd)
                             for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
                             {
                                 field_value(output_field, right_cell_index_init + ii, field_i) += right_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
@@ -128,7 +127,7 @@ namespace samurai
                             add_fine_to_coarse(i,
                                                [&](auto k, auto contrib) { field_value(output_field, left_cell_index_init + k, field_i) += contrib; },
                                                [&](auto ii) { return left_cell_coeff * field_value(input_field, comput_index_init + ii, field_j); });
-                            #pragma omp simd
+                            SAMURAI_OMP(simd)
                             for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii) // iteration on the fine cells
                             {
                                 field_value(output_field, right_cell_index_init + ii, field_i) += right_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
@@ -137,7 +136,7 @@ namespace samurai
                         else // if (left_cell.level > right_cell.level)
                         {
                             // Same as above, the other way around.
-                            #pragma omp simd
+                            SAMURAI_OMP(simd)
                             for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
                             {
                                 field_value(output_field, left_cell_index_init + ii, field_i) += left_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
@@ -195,12 +194,12 @@ namespace samurai
                         // clang-format off
                         if (left_cell.level == right_cell.level || i.size() == 1) // same level, or a single fine cell (always the case for a jump in the x-direction)
                         {
-                            #pragma omp simd
+                            SAMURAI_OMP(simd)
                             for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
                             {
                                 left_contributions[static_cast<std::size_t>(ii)] += left_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
                             }
-                            #pragma omp simd
+                            SAMURAI_OMP(simd)
                             for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
                             {
                                 right_contributions[static_cast<std::size_t>(ii)] += right_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
@@ -212,7 +211,7 @@ namespace samurai
                             add_fine_to_coarse(i,
                                                [&](auto k, auto contrib) { left_contributions[static_cast<std::size_t>(k)] += contrib; },
                                                [&](auto ii) { return left_cell_coeff * field_value(input_field, comput_index_init + ii, field_j); });
-                            #pragma omp simd
+                            SAMURAI_OMP(simd)
                             for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii) // iteration on the fine cells
                             {
                                 right_contributions[static_cast<std::size_t>(ii)] += right_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
@@ -221,7 +220,7 @@ namespace samurai
                         else // if (left_cell.level > right_cell.level)
                         {
                             // Same as above, the other way around.
-                            #pragma omp simd
+                            SAMURAI_OMP(simd)
                             for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
                             {
                                 left_contributions[static_cast<std::size_t>(ii)] += left_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
@@ -237,18 +236,16 @@ namespace samurai
                 // Here, the non-SIMD loops of atomic instructions are more efficient than opening a critical section and
                 // execute SIMD loops.
 
-                // clang-format off
                 for (index_t ii = 0; ii < static_cast<index_t>(left_contributions.size()); ++ii)
                 {
-                    #pragma omp atomic update
+                    SAMURAI_OMP(atomic update)
                     field_value(output_field, left_cell_index_init + ii, field_i) += left_contributions[static_cast<std::size_t>(ii)];
                 }
                 for (index_t ii = 0; ii < static_cast<index_t>(right_contributions.size()); ++ii)
                 {
-                    #pragma omp atomic update
+                    SAMURAI_OMP(atomic update)
                     field_value(output_field, right_cell_index_init + ii, field_i) += right_contributions[static_cast<std::size_t>(ii)];
                 }
-                // clang-format on
             }
         }
 
@@ -327,14 +324,13 @@ namespace samurai
 
                                     using index_t = decltype(cell_index_init);
 
-                                // clang-format off
-
-                                #pragma omp simd
-                                for (index_t ii = 0; ii < static_cast<index_t>(stencil.interval().size()); ++ii)
-                                {
-                                    field_value(output_field, cell_index_init + ii, field_i) += coeff * field_value(input_field, comput_index_init + ii, field_j);
-                                }
-                                    // clang-format on
+                                    SAMURAI_OMP(simd)
+                                    for (index_t ii = 0; ii < static_cast<index_t>(stencil.interval().size()); ++ii)
+                                    {
+                                        field_value(output_field,
+                                                    cell_index_init + ii,
+                                                    field_i) += coeff * field_value(input_field, comput_index_init + ii, field_j);
+                                    }
                                 }
                             }
                         }

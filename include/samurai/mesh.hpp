@@ -936,9 +936,6 @@ namespace samurai
     template <class D, class Config>
     SAMURAI_INLINE void Mesh_base<D, Config>::construct_corners()
     {
-        static_assert(
-            dim <= 6,
-            "Corner construction is currently only implemented up to 6D due to the combinatorial number of cases. Please implement the general ND version if you need higher dimensions.");
         ScopedTimer timer("construct_corners");
         if constexpr (dim > 1)
         {
@@ -968,54 +965,20 @@ namespace samurai
                         }
                     }
 
-                    // Apply union_ to non-zero-component translates only.
-                    // for_each_diagonal_direction guarantees n >= 2.
-                    // In 3D: n == 2 for edge directions, n == 3 for true corner directions.
-                    // TODO: make a ND version
-                    if (n == 2)
-                    {
-                        m_corners.push_back(
-                            difference(domain_lca, union_(translate(domain_lca, nonzero_shifts[0]), translate(domain_lca, nonzero_shifts[1])))
-                                .to_lca());
-                    }
-                    else if (n == 3)
-                    {
-                        m_corners.push_back(difference(domain_lca,
-                                                       union_(translate(domain_lca, nonzero_shifts[0]),
-                                                              translate(domain_lca, nonzero_shifts[1]),
-                                                              translate(domain_lca, nonzero_shifts[2])))
-                                                .to_lca());
-                    }
-                    else if (n == 4)
-                    {
-                        m_corners.push_back(difference(domain_lca,
-                                                       union_(translate(domain_lca, nonzero_shifts[0]),
-                                                              translate(domain_lca, nonzero_shifts[1]),
-                                                              translate(domain_lca, nonzero_shifts[2]),
-                                                              translate(domain_lca, nonzero_shifts[3])))
-                                                .to_lca());
-                    }
-                    else if (n == 5)
-                    {
-                        m_corners.push_back(difference(domain_lca,
-                                                       union_(translate(domain_lca, nonzero_shifts[0]),
-                                                              translate(domain_lca, nonzero_shifts[1]),
-                                                              translate(domain_lca, nonzero_shifts[2]),
-                                                              translate(domain_lca, nonzero_shifts[3]),
-                                                              translate(domain_lca, nonzero_shifts[4])))
-                                                .to_lca());
-                    }
-                    else if (n == 6)
-                    {
-                        m_corners.push_back(difference(domain_lca,
-                                                       union_(translate(domain_lca, nonzero_shifts[0]),
-                                                              translate(domain_lca, nonzero_shifts[1]),
-                                                              translate(domain_lca, nonzero_shifts[2]),
-                                                              translate(domain_lca, nonzero_shifts[3]),
-                                                              translate(domain_lca, nonzero_shifts[4]),
-                                                              translate(domain_lca, nonzero_shifts[5])))
-                                                .to_lca());
-                    }
+                    // union_ needs its operands at compile time: dispatch on n, which
+                    // for_each_diagonal_direction guarantees to be in [2, dim]. Only these
+                    // counts are instantiated, so nonzero_shifts is never indexed past dim.
+                    static_for<2, dim + 1>::apply(
+                        [&](auto n_shifts)
+                        {
+                            if (n == n_shifts())
+                            {
+                                [&]<std::size_t... I>(std::index_sequence<I...>)
+                                {
+                                    m_corners.push_back(difference(domain_lca, union_(translate(domain_lca, nonzero_shifts[I])...)).to_lca());
+                                }(std::make_index_sequence<n_shifts()>{});
+                            }
+                        });
                 });
         }
     }
