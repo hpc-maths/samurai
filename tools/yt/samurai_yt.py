@@ -32,7 +32,9 @@ if _HERE not in sys.path:
 from samurai_load import discover_series, read_amr_grids  # noqa: E402
 
 
-def load_samurai(filename, group=None, length_unit=1.0, take_log=False, **kwargs):
+def load_samurai(
+    filename, group=None, length_unit=1.0, take_log=False, sim_time=None, **kwargs
+):
     """Load a single samurai ``.h5`` file as a yt ``StreamDataset``.
 
     Parameters
@@ -51,6 +53,9 @@ def load_samurai(filename, group=None, length_unit=1.0, take_log=False, **kwargs
         produces -- otherwise yt guesses a log scale from the value range and
         turns small over/undershoots (and any negative value) into visual noise.
         Pass ``None`` to keep yt's own guess.
+    sim_time : float, optional
+        Value given to the dataset's ``current_time``.  Defaults to the
+        ``"time"`` attribute stored in the file, or ``0.0`` if there is none.
     **kwargs
         Forwarded to :func:`yt.load_amr_grids` (e.g. ``periodicity``,
         ``unit_system``).
@@ -64,13 +69,15 @@ def load_samurai(filename, group=None, length_unit=1.0, take_log=False, **kwargs
     import yt
 
     grids, meta = read_amr_grids(filename, group=group)
+    if sim_time is None:
+        sim_time = meta["time"] or 0.0
     kwargs.setdefault("periodicity", (False, False, False))
     ds = yt.load_amr_grids(
         grids,
         meta["domain_dimensions"],
         length_unit=length_unit,
         bbox=meta["bbox"],
-        sim_time=meta["time"] or 0.0,
+        sim_time=sim_time,
         **kwargs,
     )
     if take_log is not None:
@@ -85,10 +92,10 @@ def load_samurai_series(filename, **kwargs):
     Given any one file of a series (e.g. ``sol_ite_0.h5``), the siblings sharing
     the same prefix are discovered on disk (see
     :func:`samurai_load.discover_series`) and loaded in natural order.  Each
-    dataset's ``current_time`` is the physical time stored in the file (or its
-    iteration index as a fallback).
+    dataset's ``current_time`` is the physical time stored in its file when
+    every file of the series stores one, and its iteration number otherwise.
 
     Extra keyword arguments are forwarded to :func:`load_samurai`.
     """
-    files, _ = discover_series(filename)
-    return [load_samurai(f, **kwargs) for f in files]
+    files, times = discover_series(filename)
+    return [load_samurai(f, sim_time=t, **kwargs) for f, t in zip(files, times)]
