@@ -1,19 +1,15 @@
 # Lattice Boltzmann test cases with multiresolution
 
 This page lists the test cases that validate the lattice Boltzmann method coupled with multiresolution (MR-LBM) in {{ project }}.
-For each case it gives the target equations, the initial and boundary conditions, the parameters, and the programs of `demos/LBM` that implement it.
+For each case it gives the target equations, the initial and boundary conditions, the parameters, and the program of `demos/LBM` that runs it.
 
 The one-dimensional cases come from {ref}`Bellotti et al. (2022a) <ref-lbm-mr-1d>`.
 The Lax-Liu problem and the von Kármán street come from {ref}`Bellotti et al. (2022b) <ref-lbm-mr-2d>`.
-The figures are reproduced from these papers.
+The figures of these cases are reproduced from the papers.
 
-Two families of programs live in `demos/LBM`:
-
-- the `new_*.cpp` programs use the `schemes/lbm` formalism (`#include <samurai/schemes/lbm.hpp>`).
-  They are built with the demos, as targets named `lbm-new-*`.
-  Their default parameters do not always match the paper: each section lists the differences.
-- the other programs (`test_*.cpp` and the `D*Q*_*.cpp` files) are the programs that produced the figures of the papers.
-  They use an older API, and `demos/LBM/CMakeLists.txt` does not build them.
+Each case has a `new_*.cpp` program in `demos/LBM`, written with the `schemes/lbm` formalism (`#include <samurai/schemes/lbm.hpp>`).
+The programs are built with the demos, as targets named `lbm-new-*`.
+Their default parameters do not always match the paper: each section lists the differences.
 
 To build and run one of the `new_*.cpp` programs, configure {{ project }} with the demos enabled, build the target, and run the executable from the build tree:
 
@@ -24,6 +20,12 @@ cmake --build build --target lbm-new-D1Q222-euler-sod
 ```
 
 Each program prints its options with `--help` and writes its solution with `samurai::save` in the directory given by `--path`.
+
+```{note}
+The programs that produced the figures of this page and the error tables of the papers are no longer in `demos/LBM`.
+They are in the repository history: release [v0.33.0](https://github.com/hpc-maths/samurai/tree/v0.33.0/demos/LBM) is the last one that contains them (`test_D1Q*.cpp` and `D*Q*_*.cpp`).
+They are written with an older API and do not build against the current version of {{ project }}.
+```
 
 The test cases use six velocity sets.
 The diagram below draws each set with the indices of its velocities $c_\alpha$ in the `new_*.cpp` programs, and the lattice velocity $\lambda$ of each case that uses it.
@@ -61,19 +63,15 @@ The paper runs five tests:
 | IV | Burgers | $\chi_{\lvert x \rvert \leq 1/2}(x)$ | 0.7 |
 | V | Burgers | $(1 + x)\,\chi_{[-1, 0)}(x) + (1 - x)\,\chi_{[0, 1)}(x)$ | 1.3 |
 
-The following programs implement this case:
-
-- `test_D1Q2.cpp` runs the five tests (option `--test`, from 1 to 5) and computes the errors of the paper.
-- `D1Q2_Advection_and_Burgers.cpp` runs test V and produced the figure below.
-- `new_D1Q2_advection.cpp` (target `lbm-new-D1Q2-advection`) runs the same scheme with the advection velocity $3/4$, or the Burgers flux with `--burgers`, which raises $\lambda$ to at least 2.
-  It does not implement the five initial data above: its domain is $[-1, 1]$ with periodic boundaries, and its initial datum is $\sin(\pi x)$.
+The program `new_D1Q2_advection.cpp` (target `lbm-new-D1Q2-advection`) runs the same scheme with the advection velocity $3/4$, or the Burgers flux with `--burgers`, which raises $\lambda$ to at least 2.
+It does not implement the five initial data above: its domain is $[-1, 1]$ with periodic boundaries, and its initial datum is $\sin(\pi x)$.
 
 ```{figure} ./figures/D1Q2.png
 :width: 100%
 :align: center
 :alt: Two plots against x on [-3, 3]. On the left, the level of each cell: level 2 near the ends of the domain, level 4 in the middle, up to level 7 around x = -1 and up to level 9 only near x = 1.1. On the right, the solution: zero up to x = -1, a straight ramp up to about 0.95 near x = 1.1, then a jump back to zero.
 
-Test V at $T = 1.3$: levels of the adaptive mesh (left) and solution on the cells (right).
+Test V at $T = 1.3$ (from the paper): levels of the adaptive mesh (left) and solution on the cells (right).
 ```
 
 ## D1Q3 and D1Q5 schemes for the shallow water system
@@ -96,8 +94,6 @@ The domain is $\Omega = [-1, 1]$ and the final time is $T = 0.2$.
 
 The following programs implement this case:
 
-- `test_D1Q3.cpp` and `test_D1Q5.cpp` compute the errors of the paper.
-- `D1Q3_Shallow_Waters_Dam.cpp` and `D1Q5_Shallow_Waters_Dam.cpp` plot the solution, with $T = 0.35$ in the D1Q3 program.
 - `new_D1Q3_shallow_waters_dam.cpp` (target `lbm-new-D1Q3-shallow-waters-dam`) uses the same initial datum and parameters, with $T = 1$ by default (option `--Tf`).
   Reflecting walls (bounce-back) close both ends of the domain; with `--bc antibounceback` the right end is an open reservoir at height $h = 1$.
 - `new_D1Q5_shallow_waters_dam.cpp` (target `lbm-new-D1Q5-shallow-waters-dam`) uses the same initial datum and parameters, with $T = 0.35$ by default and zero-gradient boundaries.
@@ -131,11 +127,7 @@ The initial total energy is therefore $E = 5/2$ for $x < 0$ and $E = 1/4$ for $x
 The scheme juxtaposes three D1Q2 schemes, one for each of $\rho$, $\rho u$ and $E$, coupled through their equilibria.
 The lattice velocity is $\lambda = 3$, the domain is $\Omega = [-1, 1]$ and the final time is $T = 0.4$.
 
-The following programs implement this case:
-
-- `test_D1Q222.cpp` computes the errors of the paper.
-- `D1Q222_Euler_Sod.cpp` plots the solution.
-- `new_D1Q222_euler_sod.cpp` (target `lbm-new-D1Q222-euler-sod`) uses the same initial datum and parameters, with zero-gradient boundaries.
+The program `new_D1Q222_euler_sod.cpp` (target `lbm-new-D1Q222-euler-sod`) uses the same initial datum and parameters, with zero-gradient boundaries.
 
 ```{figure} ./figures/D1Q222.png
 :width: 100%
@@ -195,11 +187,7 @@ The initial states of configurations 3 and 12 in $\Omega = [0, 1]^2$. Each quadr
 
 The scheme juxtaposes four D2Q4 schemes, one for each of $\rho$, $\rho u$, $\rho v$ and $E$, coupled through their equilibria, with $\lambda = 5$.
 
-The following programs implement this case:
-
-- `D2Q4444_Euler_Lax_Liu.cpp` (option `--config`) runs the adaptive scheme and produced the figure below.
-  `D2Q4444_Euler_Lax_Liu_uniform.cpp` runs the same scheme on a uniform mesh.
-- `new_D2Q4444_euler_lax_liu.cpp` (target `lbm-new-D2Q4444-euler-lax-liu`) runs configurations 3, 11, 12 and 17 (option `--riemann`, 12 by default), with the final times above and zero-gradient boundaries.
+The program `new_D2Q4444_euler_lax_liu.cpp` (target `lbm-new-D2Q4444-euler-lax-liu`) runs configurations 3, 11, 12 and 17 (option `--riemann`, 12 by default), with the final times above and zero-gradient boundaries.
 
 ```{figure} ./figures/D2Q4444.png
 :width: 100%
@@ -228,13 +216,11 @@ It conserves $\rho$, which stays close to $\rho_0$, and $\rho \mathbf{u}$.
 The domain is $\Omega = [0, 2] \times [0, 1]$ and the obstacle is a disk.
 The mesh ignores the obstacle: at the end of each time step, the distributions of a cell are blended with the equilibrium at rest, in proportion to the fraction of the cell inside the disk.
 A uniform stream of velocity $(u_0, 0)$ enters through the left, top and bottom boundaries, and the right boundary is an outflow.
-Both programs below add a transverse velocity $0.01\,u_0$ to the initial datum to start the vortex shedding earlier.
+A transverse velocity $0.01\,u_0$ is added to the initial datum to start the vortex shedding earlier.
+The paper, and the figure below, use a disk of radius $1/32$ centered at $(5/16, 1/2)$, a Reynolds number of 1200 based on the diameter, and $\lambda = 1$.
 
-The following programs implement this case:
-
-- `D2Q9_Navier_Stokes_von_Karman_street.cpp` produced the figure below: disk of radius $1/32$ centered at $(5/16, 1/2)$, Reynolds number 1200 based on the diameter, $\lambda = 1$.
-- `new_D2Q9_von_karman.cpp` (target `lbm-new-D2Q9-von-karman`) uses a disk of radius $1/16$ centered at $(1/2, 1/2)$, $u_0 = 0.1$ and a Reynolds number of 100 based on the diameter (options `--radius`, `--u0` and `--Re`).
-  It also prints the drag and lift coefficients.
+The program `new_D2Q9_von_karman.cpp` (target `lbm-new-D2Q9-von-karman`) uses a disk of radius $1/16$ centered at $(1/2, 1/2)$, $u_0 = 0.1$ and a Reynolds number of 100 based on the diameter (options `--radius`, `--u0` and `--Re`).
+It also prints the drag and lift coefficients.
 
 ```{figure} ./figures/D2Q9.png
 :width: 100%
@@ -279,11 +265,8 @@ On each wall, the momentum normal to the wall takes an anti-bounce-back conditio
 The implosion box $\Omega = [0, 1]^2$. The gas starts at rest, with the low state in the shaded corner triangle $x + y \leq 1/2$. The text beside each hatched wall lists the variables that take the anti-bounce-back and the bounce-back conditions on that wall.
 ```
 
-The following programs implement this case:
-
-- `D2Q4444_Euler_Implosion.cpp`, with $\lambda = 10$ (8 when the finest level is 8, 9.5 when it is 9) and $T = 2.5/0.3$.
-- `new_D2Q4444_euler_implosion.cpp` (target `lbm-new-D2Q4444-euler-implosion`), with $\lambda = 10$ and $T = 1.5$.
-  It prints the drift of the total mass, which the closed box conserves.
+The program `new_D2Q4444_euler_implosion.cpp` (target `lbm-new-D2Q4444-euler-implosion`) runs this case with $\lambda = 10$ and $T = 1.5$.
+It prints the drift of the total mass, which the closed box conserves.
 
 ## Vectorial D2Q5444 scheme for the Rayleigh-Taylor instability
 
@@ -313,13 +296,12 @@ The scheme juxtaposes a D2Q5 scheme for $\rho$ and three D2Q4 schemes for $\rho 
 The gravity is a source term added after the collision.
 
 All the boundaries are reflecting walls, with the conditions of the [implosion problem](#vectorial-d2q4444-scheme-for-the-implosion-problem).
-The program `D2Q5444_Euler_Rayleigh_Taylor.cpp` differs for the density: it copies the outgoing distributions of the D2Q5 scheme on every wall instead of applying bounce-back.
 
-The following programs implement this case:
+The program `new_D2Q5444_euler_rayleigh_taylor.cpp` (target `lbm-new-D2Q5444-euler-rayleigh-taylor`) runs this case with $T = 2$ and the source terms of the system above.
 
-- `D2Q5444_Euler_Rayleigh_Taylor.cpp`, with $T = 2.7$.
-  Its energy source term is $-v g$ instead of $-\rho v g$.
-- `new_D2Q5444_euler_rayleigh_taylor.cpp` (target `lbm-new-D2Q5444-euler-rayleigh-taylor`), with $T = 2$ and the source terms of the system above.
+The figure below is older than this program: it comes from the earlier program of this case (see the note near the top of the page).
+That program used $T = 2.7$ and an energy source term $-v g$ instead of $-\rho v g$.
+On every wall, it copied the outgoing distributions of the D2Q5 scheme for the density instead of applying bounce-back.
 
 ```{figure} ./figures/D2Q5444_Rayleigh_Taylor_cropped.png
 :width: 100%

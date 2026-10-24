@@ -310,9 +310,3 @@ Run commands, from `build/demos/p4est` and `build/demos/pablo`:
 ```
 
 {doc}`philosophy` discusses the p4est comparison.
-
-## Programs that are not built
-
-Some files in `demos/` are kept for reference and have no CMake target:
-
-- `demos/LBM/test_*.cpp` and `demos/LBM/D*Q*_*.cpp`: the lattice Boltzmann programs that produced the figures of the papers, written with an older API (see {doc}`LBM/test_cases`).
