@@ -189,6 +189,23 @@ namespace samurai
         EXPECT_TRUE(v1 != v3);
     }
 
+    // Fields on different meshes compare unequal, and the comparison does not write to stdout (#570).
+    TEST(field, equal_operator_different_meshes)
+    {
+        Box<double, 1> box({-1}, {1});
+        auto mesh1 = mra::make_mesh(box, mesh_config<1>().min_level(2).max_level(6));
+        auto mesh2 = mra::make_mesh(box, mesh_config<1>().min_level(2).max_level(5));
+        auto u     = make_scalar_field<double>("u", mesh1, 1.);
+        auto v     = make_scalar_field<double>("u", mesh2, 1.);
+
+        testing::internal::CaptureStdout();
+        const bool same       = (u == v);
+        const std::string out = testing::internal::GetCapturedStdout();
+
+        EXPECT_FALSE(same);
+        EXPECT_EQ(out, "");
+    }
+
     // The Gauss-Legendre overloads initialize each cell with the average of
     // the function over the cell. With 3 points the quadrature is exact for
     // x^2, whose average over [a, b) is (b^3 - a^3) / (3 (b - a)).
