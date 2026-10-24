@@ -16,7 +16,12 @@ on the fly. It replaces the old explicit-mesh export (points + connectivity +
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `samurai_load.py`              | Pure `numpy` + `h5py` reconstruction of a samurai file. No ParaView dependency; unit-testable. Exposes `load()`, `discover_series()`, `read_time()`. |
 | `SamuraiReader.py`             | ParaView reader (`@smproxy.reader`) wrapping `samurai_load`.                                                                                         |
+| `../common/samurai_h5.py`      | File checks, MPI slices and series discovery shared with the yt loader. Imported by `samurai_load.py`.                                               |
 | `tests/generate_reference.cpp` | Regenerates the small reference files used by the tests.                                                                                             |
+
+`samurai_load.py` finds `../common/samurai_h5.py` relative to its own location,
+so load the reader from a samurai checkout. If you copy it elsewhere, copy the
+`paraview/` and `common/` directories together and keep them side by side.
 
 ## Requirements
 
@@ -140,9 +145,9 @@ mpirun -n 2 ./generate_reference ../../../tests/reference/paraview --mpi  # ref_
   (or *Open With...*). The reader validates the file structure and raises a clear
   error on non-samurai `.h5` files (e.g. a `save()` file), rather than crashing.
 - **Changes to the plugin are not picked up.** ParaView caches imported Python
-  modules for the whole session. After editing `SamuraiReader.py` /
-  `samurai_load.py`, **fully quit and relaunch ParaView** — reloading the plugin
-  is not enough.
+  modules for the whole session. After editing `SamuraiReader.py`,
+  `samurai_load.py` or `../common/samurai_h5.py`, **fully quit and relaunch
+  ParaView** - reloading the plugin is not enough.
 - **`import h5py` fails in the Python shell.** Install it into ParaView's
   interpreter (see Requirements).
 
