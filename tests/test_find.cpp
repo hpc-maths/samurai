@@ -72,11 +72,13 @@ namespace samurai
 
             EXPECT_EQ(cell1, cell2);
 
-            const auto cell3 = samurai::find_cell(mesh, indices, mesh.max_level() + 1);
+            // Indices given at a level finer than the mesh: the cell containing them is found.
+            const indices_t fine_indices = 2 * indices + 1;
+            const auto cell3             = samurai::find_cell(mesh, fine_indices, mesh.max_level() + 1);
 
-            EXPECT_EQ(cell1, cell2);
+            EXPECT_EQ(cell1, cell3);
 
-            const auto cell4 = samurai::find_cell(mesh, indices, std::size_t(mesh.min_level() - 1));
+            const auto cell4 = samurai::find_cell(mesh, indices, mesh.min_level() - 1);
 
             EXPECT_EQ(cell4.length, 0);
         }
