@@ -106,10 +106,7 @@ void compute_metrics(const auto& mesh, benchmark::State& state)
     int64_t nb_intervals = 0;
     for (std::size_t level = ((min_level > 0) ? min_level - 1 : 0); level < max_level; ++level)
     {
-        auto ghosts_below_cells = samurai::intersection(mesh[mesh_id_t::all_cells][level],
-                                                        samurai::union_(mesh[mesh_id_t::cells][level + 1], mesh[mesh_id_t::cells][level + 2]))
-                                      .on(level);
-
+        auto ghosts_below_cells = samurai::ghosts_below_cells(mesh, level);
         ghosts_below_cells(
             [&](const auto& i, const auto&)
             {
@@ -122,10 +119,7 @@ void compute_metrics(const auto& mesh, benchmark::State& state)
     double sd   = 0; // standard deviation
     for (std::size_t level = ((min_level > 0) ? min_level - 1 : 0); level < max_level; ++level)
     {
-        auto ghosts_below_cells = samurai::intersection(mesh[mesh_id_t::all_cells][level],
-                                                        samurai::union_(mesh[mesh_id_t::cells][level + 1], mesh[mesh_id_t::cells][level + 2]))
-                                      .on(level);
-
+        auto ghosts_below_cells = samurai::ghosts_below_cells(mesh, level);
         ghosts_below_cells(
             [&](const auto& i, const auto&)
             {
@@ -153,9 +147,7 @@ auto build_mesh_detail(const auto& mesh)
     cl_type cl;
     for (std::size_t level = ((min_level > 0) ? min_level - 1 : 0); level < max_level; ++level)
     {
-        auto ghosts_below_cells = samurai::intersection(mesh[mesh_id_t::all_cells][level],
-                                                        samurai::union_(mesh[mesh_id_t::cells][level + 1], mesh[mesh_id_t::cells][level + 2]))
-                                      .on(level);
+        auto ghosts_below_cells = samurai::ghosts_below_cells(mesh, level);
         ghosts_below_cells(
             [&](const auto& i, const auto& index)
             {
