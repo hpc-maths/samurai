@@ -14,6 +14,8 @@
 #include <samurai/load_balancing/weight.hpp>
 #include <samurai/mr/mesh.hpp>
 
+#include "test_common.hpp"
+
 namespace lb = samurai::load_balancing;
 
 namespace
@@ -45,8 +47,10 @@ namespace
                                    {
                                        cl[cell.level][yz].add_point(cell.indices[0]);
                                    }
-                                   else
+                                   else if (xt::all(xt::equal(cell.indices % 2, 0)))
                                    {
+                                       // Only the first child adds its parent: the children of a
+                                       // coarse cell may be split over several processes.
                                        auto yz_coarse = xt::eval(yz / 2);
                                        cl[cell.level - 1][yz_coarse].add_point(cell.indices[0] >> 1);
                                    }
@@ -87,7 +91,7 @@ namespace
         // of its level; fine cells (level+1) weigh 2.
         const double n_fine   = (1 << (level + 1)) * (1 << (level + 1)) / 2.0;
         const double n_coarse = (1 << level) * (1 << level) / 2.0;
-        EXPECT_EQ(lb::local_load(mesh, w), 2.0 * n_fine + n_coarse);
+        EXPECT_EQ(samurai::test::global_sum(lb::local_load(mesh, w)), 2.0 * n_fine + n_coarse);
     }
 
     TEST(load_balancing_weight, from_field)
@@ -109,6 +113,6 @@ namespace
 
         // sum over a 16x16 grid of the i index: 16 * (0 + 1 + ... + 15)
         const double n = static_cast<double>(1 << level);
-        EXPECT_EQ(lb::local_load(mesh, w), n * (n - 1.) * n / 2.);
+        EXPECT_EQ(samurai::test::global_sum(lb::local_load(mesh, w)), n * (n - 1.) * n / 2.);
     }
 }

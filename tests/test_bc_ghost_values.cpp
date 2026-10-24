@@ -46,6 +46,8 @@
 #include <samurai/samurai.hpp>
 #include <samurai/subset/node.hpp>
 
+#include "test_common.hpp"
+
 namespace samurai
 {
     namespace
@@ -185,6 +187,9 @@ namespace samurai
                                   });
                 }
             }
+            // A process may hold no boundary in this direction: sweep over all of them.
+            out.nb      = test::global_sum(out.nb);
+            out.max_err = test::global_max(out.max_err);
             return out;
         }
 
@@ -516,6 +521,10 @@ namespace samurai
         template <std::size_t dim>
         void run_corners(int ghost_width)
         {
+            // The reference mesh also holds the corner ghosts of the neighbour subdomains,
+            // which this local extrapolation does not fill (the MPI exchange does).
+            SKIP_IF_DISTRIBUTED("the corner extrapolation alone only fills the local corners");
+
             using mesh_id_t         = typename MRMesh<mesh_config<dim>>::mesh_id_t;
             const std::size_t level = 3;
             auto cfg = mesh_config<dim>().min_level(level).max_level(level).max_stencil_size(2 * ghost_width).disable_minimal_ghost_width();
@@ -664,7 +673,7 @@ namespace samurai
                                   });
                 }
             }
-            return nb;
+            return test::global_sum(nb);
         }
 
         // Vector Dirichlet<1> / Neumann<1> (functional path). Component `comp`
@@ -1107,6 +1116,8 @@ namespace samurai
     // so the check would fail if the copy structure were wrong.
     TEST(bc_ghost_values, corners_offdiagonal_copy_property)
     {
+        SKIP_IF_DISTRIBUTED("the corner extrapolation alone only fills the local corners");
+
         static constexpr std::size_t dim = 2;
         using mesh_id_t                  = typename MRMesh<mesh_config<dim>>::mesh_id_t;
         const std::size_t level          = 3;
@@ -1220,7 +1231,7 @@ namespace samurai
                           ++nb;
                           EXPECT_NEAR(u[cell], corner_oracle<dim>(c, f), 1e-11);
                       });
-        EXPECT_GT(nb, 0u);
+        EXPECT_GT(test::global_sum(nb), 0u);
     }
 
     TEST(bc_ghost_values, corners_adapted_2d)
@@ -1425,7 +1436,7 @@ namespace samurai
                               EXPECT_EQ(u[cell], 0.) << "j=" << j;
                           }
                       });
-        EXPECT_EQ(nb_filled, 4u);
+        EXPECT_EQ(test::global_sum(nb_filled), 4u);
     }
 
     // The region direction has the correct axis and sign for each of the four sides.
@@ -1522,7 +1533,7 @@ namespace samurai
                               EXPECT_EQ(u[cell], 0.) << "j=" << j;
                           }
                       });
-        EXPECT_EQ(nb_filled, 4u);
+        EXPECT_EQ(test::global_sum(nb_filled), 4u);
     }
 
     // SetRegion works with a two-layer (order 2) condition: both ghost layers of
@@ -1571,7 +1582,7 @@ namespace samurai
                                   EXPECT_EQ(u[cell], 0.) << "layer=" << layer << " j=" << j; // untouched
                               }
                           });
-            EXPECT_EQ(nb_filled, 4u);
+            EXPECT_EQ(test::global_sum(nb_filled), 4u);
         }
     }
 
@@ -1650,7 +1661,7 @@ namespace samurai
                               EXPECT_EQ(u[cell](1), 0.) << "j=" << j;
                           }
                       });
-        EXPECT_EQ(nb_filled, 4u);
+        EXPECT_EQ(test::global_sum(nb_filled), 4u);
     }
 
     //-------------------------------------------------------------------------
@@ -1708,7 +1719,7 @@ namespace samurai
                                       EXPECT_NEAR(u[cell], 5. + dx * vN, 1e-12); // Neumann
                                   }
                               });
-                EXPECT_GT(nb, 0u);
+                EXPECT_GT(test::global_sum(nb), 0u);
             }
         }
     }

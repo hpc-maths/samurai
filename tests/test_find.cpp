@@ -5,10 +5,14 @@
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 
+#include "test_common.hpp"
+
 namespace samurai
 {
     TEST(find, coords)
     {
+        SKIP_IF_DISTRIBUTED("the cell looked up belongs to a single process");
+
         static constexpr std::size_t dim = 2;
         using Box                        = samurai::Box<double, dim>;
         Box box({-1., -1.}, {1., 1.});
@@ -40,6 +44,8 @@ namespace samurai
 
     TEST(find, indices)
     {
+        SKIP_IF_DISTRIBUTED("the cell looked up belongs to a single process");
+
         static constexpr std::size_t dim = 2;
         using Box                        = samurai::Box<double, dim>;
         Box box({-1., -1.}, {1., 1.});

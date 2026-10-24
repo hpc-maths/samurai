@@ -3,6 +3,8 @@
 #include <samurai/interface.hpp>
 #include <samurai/mr/mesh.hpp>
 
+#include "test_common.hpp"
+
 namespace samurai
 {
     auto create_meshes(std::size_t level)
@@ -90,6 +92,8 @@ namespace samurai
     // Regression test for #605: the overload taking a direction must be callable without explicit template arguments.
     TEST(for_each_interior_interface, direction_without_template_arguments)
     {
+        SKIP_IF_DISTRIBUTED("the interface count is the one of the whole mesh");
+
         constexpr std::size_t dim = 2;
         Box<double, dim> box({0., 0.}, {1., 1.});
         auto mesh = mra::make_mesh(box, mesh_config<dim>().min_level(3).max_level(3));

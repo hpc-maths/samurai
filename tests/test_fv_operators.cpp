@@ -33,6 +33,8 @@
 #include <samurai/petsc/utils.hpp>
 #endif
 
+#include "test_common.hpp"
+
 namespace samurai
 {
     namespace
@@ -950,7 +952,7 @@ namespace samurai
                               err             = std::max(err, std::abs(result[cell] - expected));
                           }
                       });
-        return err;
+        return test::global_max(err);
     }
 
     template <std::size_t dim>
@@ -1031,6 +1033,32 @@ namespace samurai
             return false;
         }
 
+        // Max truncation error of -Laplacian over the boundary-touching cells of a
+        // uniform mesh with `nx` cells per direction, for u = exact, a product of
+        // sines or cosines of wavenumber `k` (so -Laplacian u = dim k^2 u).
+        template <class Field, class Exact>
+        double max_boundary_truncation_error(Field& u, const Exact& exact, double k, std::size_t nx)
+        {
+            static constexpr std::size_t dim = Field::dim;
+
+            DiffCoeff<dim> K;
+            K.fill(1.);
+            auto diff   = make_diffusion_order2<Field>(K);
+            auto result = diff(u);
+
+            double err = 0.;
+            for_each_cell(u.mesh(),
+                          [&](const auto& cell)
+                          {
+                              if (touches_boundary(cell, nx))
+                              {
+                                  const double expected = dim * k * k * exact(cell.center());
+                                  err                   = std::max(err, std::abs(result[cell] - expected));
+                              }
+                          });
+            return test::global_max(err);
+        }
+
         // Max truncation error of -Laplacian over boundary-touching cells only, for a
         // manufactured solution that is even about every face. The ghost relation
         // u_ghost = 2g - u_0 reproduces the odd part of u - g about the face exactly
@@ -1069,22 +1097,7 @@ namespace samurai
                                       return exact(c);
                                   });
 
-            DiffCoeff<dim> K;
-            K.fill(1.);
-            auto diff   = make_diffusion_order2<decltype(u)>(K);
-            auto result = diff(u);
-
-            double err = 0.;
-            for_each_cell(mesh,
-                          [&](const auto& cell)
-                          {
-                              if (touches_boundary(cell, nx))
-                              {
-                                  const double expected = dim * k * k * exact(cell.center());
-                                  err                   = std::max(err, std::abs(result[cell] - expected));
-                              }
-                          });
-            return err;
+            return max_boundary_truncation_error(u, exact, k, nx);
         }
 
         template <std::size_t dim>
@@ -1150,22 +1163,7 @@ namespace samurai
                           });
             make_bc<Dirichlet<1>>(u, 0.);
 
-            DiffCoeff<dim> K;
-            K.fill(1.);
-            auto diff   = make_diffusion_order2<decltype(u)>(K);
-            auto result = diff(u);
-
-            double err = 0.;
-            for_each_cell(mesh,
-                          [&](const auto& cell)
-                          {
-                              if (touches_boundary(cell, nx))
-                              {
-                                  const double expected = dim * k * k * exact(cell.center());
-                                  err                   = std::max(err, std::abs(result[cell] - expected));
-                              }
-                          });
-            return err;
+            return max_boundary_truncation_error(u, exact, k, nx);
         }
     }
 
@@ -1218,7 +1216,7 @@ namespace samurai
                               err             = std::max(err, std::abs(result[cell] - expected));
                           }
                       });
-        return err;
+        return test::global_max(err);
     }
 
     TEST(fv_operators, weno5_convergence_1d)
@@ -1301,6 +1299,8 @@ namespace samurai
     // value matches the constant).
     TEST(fv_operators, level_jump_constant_conservation)
     {
+        SKIP_IF_DISTRIBUTED("the mesh is built from a cell list given whole to every process");
+
         constexpr double c = 2.5;
 
         auto mesh = two_level_mesh_2d();
@@ -1353,6 +1353,8 @@ namespace samurai
     // Boundary-touching cells are excluded (BC-dependent).
     TEST(fv_operators, level_jump_linear_exactness)
     {
+        SKIP_IF_DISTRIBUTED("the mesh is built from a cell list given whole to every process");
+
         // u(x,y) = a x + b y + c   (scalar) ; components share the same shape.
         constexpr double a = 3., b = -2., c = 1.;
 
