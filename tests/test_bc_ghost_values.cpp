@@ -37,6 +37,7 @@
 
 #include <gtest/gtest.h>
 
+#include <samurai/algorithm/update_ghost_mr.hpp>
 #include <samurai/bc.hpp>
 #include <samurai/boundary.hpp>
 #include <samurai/field.hpp>
@@ -130,19 +131,32 @@ namespace samurai
             return mesh;
         }
 
-        // Number of levels holding boundary cells in the given direction.
+        // Number of levels holding boundary cells in the given direction, on any
+        // process. Collective: every process loops over the same global levels.
         template <class Mesh>
         std::size_t count_boundary_levels(const Mesh& mesh, const DirectionVector<Mesh::dim>& direction)
         {
-            std::size_t n = 0;
-            for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
+            const std::size_t min_level = test::global_min(mesh.min_level());
+            const std::size_t max_level = test::global_max(mesh.max_level());
+            std::size_t n               = 0;
+            for (std::size_t level = min_level; level <= max_level; ++level)
             {
-                if (domain_boundary(mesh, level, direction).exist())
+                if (test::global_max(static_cast<int>(domain_boundary(mesh, level, direction).exist())) == 1)
                 {
                     ++n;
                 }
             }
             return n;
+        }
+
+        // A user updates the ghosts before applying the B.C.: under MPI this brings the
+        // cells of the neighbour subdomains, which the B.C. stencils may read. The B.C.
+        // under test is then applied again explicitly, so it is what the checks see.
+        template <class Field>
+        void update_ghosts_then_apply_bc(Field& u, const DirectionVector<Field::dim>& direction)
+        {
+            update_ghost_mr(u);
+            apply_field_bc(u, direction);
         }
 
         // Result of sweeping the filled ghosts: how many were seen, and the largest
@@ -273,7 +287,7 @@ namespace samurai
                         face[normal_axis] = (s > 0) ? 1. : 0.;
                         make_bc<Dirichlet<order>>(u, f(face));
                     }
-                    apply_field_bc(u, DirectionVector<dim>(direction));
+                    update_ghosts_then_apply_bc(u, DirectionVector<dim>(direction));
 
                     EXPECT_GT(check_ghosts(u, direction, h, f), 0u);
                 });
@@ -332,7 +346,7 @@ namespace samurai
                     {
                         make_bc<Neumann<1>>(u, normal_derivative);
                     }
-                    apply_field_bc(u, DirectionVector<dim>(direction));
+                    update_ghosts_then_apply_bc(u, DirectionVector<dim>(direction));
 
                     EXPECT_GT(check_ghosts(u, direction, h, f), 0u);
                 });
@@ -406,7 +420,7 @@ namespace samurai
                     face.fill(0.);
                     face[normal_axis] = (s > 0) ? 1. : 0.;
                     make_bc<Dirichlet<order>>(u, f(face));
-                    apply_field_bc(u, DirectionVector<dim>(direction));
+                    update_ghosts_then_apply_bc(u, DirectionVector<dim>(direction));
 
                     auto sw = sweep_ghosts(u, direction, static_cast<int>(order), sampling, f);
                     worst.nb += sw.nb;
@@ -447,7 +461,7 @@ namespace samurai
                     face[normal_axis] = (s > 0) ? 1. : 0.;
                     // outward normal derivative: d/dx along the outward normal
                     make_bc<Neumann<1>>(u, static_cast<double>(s) * normal_polynomial_derivative(face, normal_axis, deg));
-                    apply_field_bc(u, DirectionVector<dim>(direction));
+                    update_ghosts_then_apply_bc(u, DirectionVector<dim>(direction));
 
                     auto sw = sweep_ghosts(u, direction, 1, sampling, f);
                     worst.nb += sw.nb;
@@ -634,6 +648,8 @@ namespace samurai
                                               return f(c);
                                           });
             }
+            // As above: update the ghosts first, then apply the B.C. and the extrapolation under test.
+            update_ghost_mr(u);
             apply_field_bc(u);
             update_further_ghosts_by_polynomial_extrapolation(u);
 
@@ -735,7 +751,7 @@ namespace samurai
                                                   return val;
                                               });
                     }
-                    apply_field_bc(u, DirectionVector<dim>(direction));
+                    update_ghosts_then_apply_bc(u, DirectionVector<dim>(direction));
 
                     EXPECT_GT(check_vector_ghosts(u, DirectionVector<dim>(direction), 1, fc), 0u);
                 });
