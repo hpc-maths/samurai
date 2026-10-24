@@ -8,7 +8,6 @@
 #include <samurai/field.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
-#include <samurai/samurai.hpp>
 
 namespace samurai
 {
@@ -67,9 +66,7 @@ namespace samurai
     // Control: refinement kept in the interior works.
     TEST(ghost_update, interior_refinement_3d)
     {
-        ::samurai::initialize();
         EXPECT_NO_THROW(run_ghost_update_3d(/*boundary_touching=*/false));
-        ::samurai::finalize();
     }
 
     // Regression: when the refined region reaches the domain boundary/corner in 3D,
@@ -82,9 +79,7 @@ namespace samurai
     // only when it exists. The 2D analogue never triggered it.
     TEST(ghost_update, boundary_touching_refinement_3d)
     {
-        ::samurai::initialize();
         EXPECT_NO_THROW(run_ghost_update_3d(/*boundary_touching=*/true));
-        ::samurai::finalize();
     }
 
     // Regression: update_outer_ghosts(field) loops from max_level down to
@@ -93,8 +88,6 @@ namespace samurai
     // always true and level wraps around to SIZE_MAX (out-of-bounds access).
     TEST(ghost_update, outer_ghosts_all_levels_down_to_level_zero)
     {
-        ::samurai::initialize();
-
         constexpr std::size_t dim = 2;
 
         for (const std::size_t min_level : {0UL, 1UL, 2UL})
@@ -120,7 +113,5 @@ namespace samurai
 
             EXPECT_EQ(u.array(), expected.array()) << "min_level = " << min_level;
         }
-
-        ::samurai::finalize();
     }
 }

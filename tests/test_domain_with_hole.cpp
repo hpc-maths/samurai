@@ -46,6 +46,9 @@ namespace samurai
     // even though its side is not a multiple of the scaling factor.
     TEST(domain_builder, hole_with_given_scaling_factor)
     {
+#ifdef SAMURAI_WITH_MPI
+        GTEST_SKIP() << "DomainBuilder is not implemented with MPI";
+#endif
         static constexpr std::size_t dim = 2;
         DomainBuilder<dim> domain({0., 0.}, {1., 1.});
         domain.remove({0.25, 0.25}, {0.75, 0.75});

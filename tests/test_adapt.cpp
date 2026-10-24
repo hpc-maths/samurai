@@ -3,7 +3,6 @@
 #include <samurai/field.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
-#include <samurai/samurai.hpp>
 
 namespace samurai
 {
@@ -27,8 +26,6 @@ namespace samurai
 
     TYPED_TEST(adapt_test, mutliple_fields)
     {
-        ::samurai::initialize();
-
         static constexpr std::size_t dim = TypeParam::value;
 
         using box_t   = Box<double, dim>;
@@ -46,7 +43,5 @@ namespace samurai
         EXPECT_EQ(u_1.array().size(), u_1.mesh().nb_cells());
         EXPECT_EQ(u_2.array().size(), u_2.mesh().nb_cells() * u_2.n_comp);
         EXPECT_EQ(u_3.array().size(), u_3.mesh().nb_cells() * u_3.n_comp);
-
-        ::samurai::finalize();
     }
 }
