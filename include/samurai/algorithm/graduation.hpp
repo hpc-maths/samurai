@@ -750,10 +750,21 @@ namespace samurai
         return make_graduation(ca, domain, mpi_neighbourhood, is_periodic, grad_width);
     }
 
-    template <std::size_t dim, class TInterval, size_t max_size, class Tag>
-    CellArray<dim, TInterval, max_size> update_cell_array_from_tag(const CellArray<dim, TInterval, max_size>& old_ca, const Tag& tag)
+    /// The cells the tags add to and remove from a CellArray (update_cell_array_from_tag).
+    template <class CA>
+    struct TagChanges
     {
-        ScopedTimer timer("update_cell_array_from_tag");
+        CA add_m;    ///< the parents of the cells to coarsen, one level down
+        CA remove_m; ///< the cells to coarsen
+        CA add_p;    ///< the children of the cells to refine, one level up
+        CA remove_p; ///< the cells to refine
+    };
+
+    /// The cells to add and to remove to apply the tags of the cells of old_ca: a cell tagged refine below the
+    /// max level is replaced by its children, a cell tagged coarsen and not keep above the min level by its parent.
+    template <std::size_t dim, class TInterval, size_t max_size, class Tag>
+    TagChanges<CellArray<dim, TInterval, max_size>> cells_changed_by_tag(const CellArray<dim, TInterval, max_size>& old_ca, const Tag& tag)
+    {
         using size_type        = unsigned int;
         using value_t          = typename TInterval::value_t;
         using unsigned_value_t = typename std::make_unsigned_t<value_t>;
@@ -772,10 +783,11 @@ namespace samurai
         const size_t end_level   = old_ca.max_level() + 1;
 
         // create the ensemble of cells to coarsen
-        ca_type ca_add_m;
-        ca_type ca_remove_m;
-        ca_type ca_add_p;
-        ca_type ca_remove_p;
+        TagChanges<ca_type> changes;
+        auto& ca_add_m    = changes.add_m;
+        auto& ca_remove_m = changes.remove_m;
+        auto& ca_add_p    = changes.add_p;
+        auto& ca_remove_p = changes.remove_p;
 
         std::vector<TInterval> add_p_interval;
         std::vector<coord_type> add_p_inner_stencil;
@@ -838,6 +850,16 @@ namespace samurai
                 }
             } // end for each interval
         } // end for each level
+        return changes;
+    }
+
+    template <std::size_t dim, class TInterval, size_t max_size, class Tag>
+    CellArray<dim, TInterval, max_size> update_cell_array_from_tag(const CellArray<dim, TInterval, max_size>& old_ca, const Tag& tag)
+    {
+        ScopedTimer timer("update_cell_array_from_tag");
+        const auto& mesh                                          = tag.mesh();
+        const auto [ca_add_m, ca_remove_m, ca_add_p, ca_remove_p] = cells_changed_by_tag(old_ca, tag);
+
         CellArray<dim, TInterval, max_size> new_ca;
         for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
         {
