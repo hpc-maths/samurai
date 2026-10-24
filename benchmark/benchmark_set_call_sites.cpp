@@ -34,4 +34,7 @@ namespace
     const bool registered = register_backend<bench::SamuraiStatic>();
 } // namespace
 
-BENCHMARK_MAIN();
+int main(int argc, char** argv)
+{
+    return bench::run_benchmarks(argc, argv);
+}

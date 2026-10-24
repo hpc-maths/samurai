@@ -22,6 +22,10 @@
 // with the sets of the mesh of that rank, followed by
 //   ranks candidates <n> <rank>...
 //   ranks neighbours <n> <rank>...
+//
+// Next to the files of each mesh and partition, a file of the same name
+// ending in _checksums.txt holds what each call site computes on it with the
+// static algebra (format in site_checksum.hpp).
 
 #pragma once
 
@@ -419,7 +423,7 @@ namespace bench
     // Files
     //////////////////////////////////////////////////////////////////////
 
-    inline constexpr int inputs_format_version = 4;
+    inline constexpr int inputs_format_version = 5;
 
     // The CellArrays of the file, by record name. Inputs is SiteInputs<dim>,
     // const or not.
