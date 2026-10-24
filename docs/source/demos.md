@@ -315,6 +315,4 @@ Run commands, from `build/demos/p4est` and `build/demos/pablo`:
 
 Some files in `demos/` are kept for reference and have no CMake target:
 
-- `demos/Weno`: `demos/CMakeLists.txt` does not add this folder.
-- `demos/FiniteVolume/BZ`: the Belousov-Zhabotinsky programs; `demos/FiniteVolume/CMakeLists.txt` does not add this folder.
 - `demos/LBM/test_*.cpp` and `demos/LBM/D*Q*_*.cpp`: the lattice Boltzmann programs that produced the figures of the papers, written with an older API (see {doc}`LBM/test_cases`).
