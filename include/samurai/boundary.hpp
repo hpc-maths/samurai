@@ -10,8 +10,10 @@ namespace samurai
         using mesh_id_t = typename Mesh::mesh_id_t;
 
         const auto& cells = mesh[mesh_id_t::cells][level];
+        // Negate in the signed coordinate type: negating the unsigned width would wrap around.
+        const auto width = static_cast<typename Mesh::interval_t::value_t>(layer_width);
 
-        return difference(cells, translate(self(domain).on(level), -layer_width * direction));
+        return difference(cells, translate(self(domain).on(level), -width * direction));
     }
 
     template <class Mesh, class Vector>
