@@ -1,0 +1,15 @@
+version: 2
+updates:
+  # The workflows pin actions to commit SHAs; Dependabot bumps both the SHA and
+  # the version comment next to it.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: ci
+      include: scope
