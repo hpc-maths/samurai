@@ -1120,11 +1120,21 @@ namespace samurai
         m_origin_point = origin_point;
 
         // The computational domain is an approximation of the desired box.
-        // If `scaling_factor` is given (i.e. > 0), we take it;
-        // otherwise we choose the scaling factor dynamically in order to approximate the desired box
+        // If `scaling_factor` is given (i.e. > 0), we take it and approximate the box with the
+        // cells of m_level, whose length is scaling_factor / 2^m_level: a box made of whole cells
+        // of m_level is kept as it is, even when its length is not a multiple of scaling_factor.
+        // Otherwise we choose the scaling factor dynamically in order to approximate the desired box
         // up to the tolerance `approx_box_tol`.
-
-        auto approx_box = approximate_box(box, approx_box_tol, scaling_factor);
+        Box<double, dim> approx_box;
+        if (scaling_factor > 0)
+        {
+            double level_cell_length = samurai::cell_length(scaling_factor, m_level);
+            approx_box               = approximate_box(box, approx_box_tol, level_cell_length);
+        }
+        else
+        {
+            approx_box = approximate_box(box, approx_box_tol, scaling_factor);
+        }
 
         const double warning_tol = 0.5;
         if (scaling_factor > 0 && xt::any(xt::abs(approx_box.length() - box.length()) >= warning_tol * box.length()))

@@ -98,6 +98,113 @@ namespace samurai
         EXPECT_TRUE(mesh == mesh2);
     }
 
+    TEST(restart, restart_uniform_field)
+    {
+        using Config = UniformConfig<2>;
+        auto mesh    = UniformMesh<Config>(Box<double, 2>({0, 0}, {1, 1}), 3);
+        auto u       = make_scalar_field<double>("u", mesh);
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          u[cell] = static_cast<double>(cell.index);
+                      });
+        auto v = make_vector_field<int, 2>("v", mesh);
+        v.fill(2);
+        dump("mesh", mesh, u, v);
+
+        decltype(mesh) mesh2;
+        auto u2 = make_scalar_field<double>("u", mesh2);
+        auto v2 = make_vector_field<int, 2>("v", mesh2);
+        load("mesh", mesh2, u2, v2);
+        EXPECT_TRUE(mesh == mesh2);
+        EXPECT_TRUE(u == u2);
+        EXPECT_TRUE(v == v2);
+    }
+
+    // Makes the file look as if twice as many processes had written it: every
+    // partitioned dataset holds its partitions twice, one after the other.
+    static void double_the_writers(HighFive::Group group)
+    {
+        for (const auto& name : group.listObjectNames())
+        {
+            if (group.getObjectType(name) != HighFive::ObjectType::Group)
+            {
+                continue;
+            }
+            auto child = group.getGroup(name);
+            if (!child.exist("partition"))
+            {
+                double_the_writers(child);
+                continue;
+            }
+            auto bounds   = H5Easy::load<std::vector<std::size_t>>(child.getFile(), child.getPath() + "/partition");
+            auto total    = bounds.back();
+            auto n_bounds = bounds.size();
+            for (std::size_t p = 1; p < n_bounds; ++p)
+            {
+                bounds.push_back(total + bounds[p]);
+            }
+            child.unlink("partition");
+            child.createDataSet("partition", bounds);
+
+            auto dataset = child.getDataSet("data");
+            auto type    = dataset.getDataType();
+            std::vector<char> values(2 * total * type.getSize());
+            dataset.read_raw(values.data(), type);
+            std::copy(values.begin(),
+                      values.begin() + static_cast<std::ptrdiff_t>(values.size() / 2),
+                      values.begin() + static_cast<std::ptrdiff_t>(values.size() / 2));
+            child.unlink("data");
+            child.createDataSet("data", HighFive::DataSpace({2 * total}), type).write_raw(values.data(), type);
+        }
+    }
+
+    // Every process holds the whole uniform mesh, so a file written by any
+    // number of processes gives back the same mesh and fields.
+    TEST(restart, restart_uniform_other_number_of_processes)
+    {
+        using Config = UniformConfig<2>;
+        auto mesh    = UniformMesh<Config>(Box<double, 2>({0, 0}, {1, 1}), 3);
+        auto u       = make_scalar_field<double>("u", mesh);
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          u[cell] = cell.center(0) + 2 * cell.center(1);
+                      });
+        auto v = make_vector_field<int, 2>("v", mesh);
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          v[cell][0] = cell.indices[0];
+                          v[cell][1] = cell.indices[1];
+                      });
+        dump("mesh", mesh, u, v);
+
+        // The file is edited without MPI-IO, so a single process must do it.
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
+        world.barrier();
+        if (world.rank() == 0)
+#endif
+        {
+            HighFive::File file("mesh.h5", HighFive::File::ReadWrite);
+            const auto n_process = H5Easy::load<std::size_t>(file, "/n_process");
+            H5Easy::dump(file, "/n_process", 2 * n_process, H5Easy::DumpMode::Overwrite);
+            double_the_writers(file.getGroup("/"));
+        }
+#ifdef SAMURAI_WITH_MPI
+        world.barrier();
+#endif
+
+        decltype(mesh) mesh2;
+        auto u2 = make_scalar_field<double>("u", mesh2);
+        auto v2 = make_vector_field<int, 2>("v", mesh2);
+        load("mesh", mesh2, u2, v2);
+        EXPECT_TRUE(mesh == mesh2);
+        EXPECT_TRUE(u == u2);
+        EXPECT_TRUE(v == v2);
+    }
+
     TEST(restart, restart_mrmesh)
     {
         auto mesh = create_mesh<2>(1);

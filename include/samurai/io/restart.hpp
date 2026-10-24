@@ -508,11 +508,12 @@ namespace samurai
     }
 
     template <class Config>
-    void dump(HighFive::File& file, const UniformMesh<Config>& mesh)
+    void dump(HighFive::File& file, const UniformMesh<Config>& mesh, const auto&... fields)
     {
         using Mesh      = UniformMesh<Config>;
         using mesh_id_t = typename Mesh::mesh_id_t;
         dump(file, mesh[mesh_id_t::cells]);
+        detail::dump_fields(file, mesh[mesh_id_t::cells], fields...);
     }
 
     template <class D, class Config>
