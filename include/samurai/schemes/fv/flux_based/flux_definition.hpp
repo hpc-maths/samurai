@@ -152,15 +152,6 @@ namespace samurai
                 jacobians[1] = -jacobians[0];
             };
         }
-
-        ~NormalFluxDefinition()
-        {
-            cons_flux_function = nullptr;
-            flux_function      = nullptr;
-
-            cons_jacobian_function = nullptr;
-            jacobian_function      = nullptr;
-        }
     };
 
     //----------------------------------//
@@ -183,11 +174,6 @@ namespace samurai
         using cons_flux_func = std::function<void(FluxStencilCoeffs<cfg>&, const StencilData<cfg>&)>;
 
         cons_flux_func cons_flux_function = nullptr;
-
-        ~NormalFluxDefinition()
-        {
-            cons_flux_function = nullptr;
-        }
     };
 
     //----------------------------------//
@@ -223,11 +209,6 @@ namespace samurai
          *                coeffs[1] = diag( 1/h).
          */
         cons_flux_func cons_flux_function = nullptr;
-
-        ~NormalFluxDefinition()
-        {
-            cons_flux_function = nullptr;
-        }
     };
 
     //----------------------------------//
