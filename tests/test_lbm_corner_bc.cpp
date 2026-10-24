@@ -12,6 +12,8 @@
 #include <samurai/mr/mesh.hpp>
 #include <samurai/schemes/lbm.hpp>
 
+#include "test_common.hpp"
+
 namespace samurai
 {
     namespace
@@ -84,6 +86,8 @@ namespace samurai
     // diagonal inner cell, and the stream consumed it.
     TEST(lbm_corner_bc, d2q9_corner_ghost_holds_the_reflection)
     {
+        SKIP_IF_DISTRIBUTED("the corner ghosts checked belong to different processes");
+
         auto mesh           = make_test_mesh();
         auto velocities     = d2q9_velocities();
         const auto opposite = opposite_of(velocities);
@@ -124,6 +128,8 @@ namespace samurai
     // cell (0,0) must hold opposite[5] = 7, where the buggy fill would deliver 5.
     TEST(lbm_corner_bc, d2q9_corner_ghost_is_read_by_the_stream)
     {
+        SKIP_IF_DISTRIBUTED("the corner ghosts checked belong to different processes");
+
         auto mesh                       = make_test_mesh();
         auto velocities                 = d2q9_velocities();
         const auto opposite             = opposite_of(velocities);
@@ -175,6 +181,8 @@ namespace samurai
     // polynomial extrapolation, i.e. a copy of the diagonal inner cell (ghost(a) == a here).
     TEST(lbm_corner_bc, axial_scheme_leaves_the_corner_to_the_extrapolation)
     {
+        SKIP_IF_DISTRIBUTED("the corner ghosts checked belong to different processes");
+
         auto mesh       = make_test_mesh();
         auto velocities = d2q4_velocities();
 
@@ -193,6 +201,8 @@ namespace samurai
     // declares both of its Cartesian components, so the extrapolation keeps it.
     TEST(lbm_corner_bc, corner_between_two_different_bcs_is_left_to_the_extrapolation)
     {
+        SKIP_IF_DISTRIBUTED("the corner ghosts checked belong to different processes");
+
         auto mesh           = make_test_mesh();
         auto velocities     = d2q9_velocities();
         const auto opposite = opposite_of(velocities);

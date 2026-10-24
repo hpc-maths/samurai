@@ -3,6 +3,8 @@
 #include <samurai/mr/mesh.hpp>
 #include <samurai/schemes/fv.hpp>
 
+#include "test_common.hpp"
+
 namespace samurai
 {
     template <std::size_t dim>
@@ -49,7 +51,7 @@ namespace samurai
 
         using mesh_id_t = typename decltype(mesh)::mesh_id_t;
 
-        EXPECT_EQ(mesh[mesh_id_t::cells].nb_cells(), std::pow(2, level * dim));
+        EXPECT_EQ(test::global_sum(mesh[mesh_id_t::cells].nb_cells()), std::pow(2, level * dim));
 
         for_each_cell(mesh,
                       [&](auto cell)

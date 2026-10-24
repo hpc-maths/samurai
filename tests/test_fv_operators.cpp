@@ -33,6 +33,8 @@
 #include <samurai/petsc/utils.hpp>
 #endif
 
+#include "test_common.hpp"
+
 namespace samurai
 {
     namespace
@@ -950,7 +952,7 @@ namespace samurai
                               err             = std::max(err, std::abs(result[cell] - expected));
                           }
                       });
-        return err;
+        return test::global_max(err);
     }
 
     template <std::size_t dim>
@@ -1084,7 +1086,7 @@ namespace samurai
                                   err                   = std::max(err, std::abs(result[cell] - expected));
                               }
                           });
-            return err;
+            return test::global_max(err);
         }
 
         template <std::size_t dim>
@@ -1165,7 +1167,7 @@ namespace samurai
                                   err                   = std::max(err, std::abs(result[cell] - expected));
                               }
                           });
-            return err;
+            return test::global_max(err);
         }
     }
 
@@ -1218,7 +1220,7 @@ namespace samurai
                               err             = std::max(err, std::abs(result[cell] - expected));
                           }
                       });
-        return err;
+        return test::global_max(err);
     }
 
     TEST(fv_operators, weno5_convergence_1d)
@@ -1301,6 +1303,8 @@ namespace samurai
     // value matches the constant).
     TEST(fv_operators, level_jump_constant_conservation)
     {
+        SKIP_IF_DISTRIBUTED("the mesh is built from a cell list given whole to every process");
+
         constexpr double c = 2.5;
 
         auto mesh = two_level_mesh_2d();
@@ -1353,6 +1357,8 @@ namespace samurai
     // Boundary-touching cells are excluded (BC-dependent).
     TEST(fv_operators, level_jump_linear_exactness)
     {
+        SKIP_IF_DISTRIBUTED("the mesh is built from a cell list given whole to every process");
+
         // u(x,y) = a x + b y + c   (scalar) ; components share the same shape.
         constexpr double a = 3., b = -2., c = 1.;
 
