@@ -1,9 +1,10 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-// The benchmarks of the call sites (set_call_sites.hpp), for one backend of
-// the set algebra (set_algebra_backend.hpp). register_call_sites<B, dim>
-// registers them as <B::name>/BM_Site_X<dim>, so that
+// The benchmarks of the call sites (set_call_sites.hpp) and of the ways to
+// consume a set (set_modes.hpp), for one backend of the set algebra
+// (set_algebra_backend.hpp). register_call_sites<B, dim> registers them as
+// <B::name>/BM_Site_X<dim> and <B::name>/BM_Mode_X<dim>, so that
 // --benchmark_filter='^<name>/' selects the backend.
 //
 // Args: (max_level, number of balls, stencil radius), see bench::mesh_cases.
@@ -25,6 +26,7 @@
 #include "set_algebra_backend.hpp"
 #include "set_algebra_fixtures.hpp"
 #include "set_call_sites.hpp"
+#include "set_modes.hpp"
 #include "site_inputs.hpp"
 
 namespace bench
@@ -63,6 +65,14 @@ namespace bench
         void build(Site&& site)
         {
             m_state.counters["sets"] = static_cast<double>(run_build_site<B>(m_state, site));
+        }
+
+        // site(f) passes each set it evaluates to f(level, set), which only
+        // asks whether it is empty.
+        template <class Site>
+        void empty(Site&& site)
+        {
+            m_state.counters["sets"] = static_cast<double>(run_empty_site<B>(m_state, site));
         }
 
       private:
@@ -160,13 +170,13 @@ namespace bench
         }
     } // namespace call_sites
 
-    // Calls v(name, run) for each site, where run(ctx) runs it in the context
-    // ctx (Timing of B in dim).
+    // Calls v(name, run) for each site and each mode, where run(ctx) runs it
+    // in the context ctx (Timing of B in dim).
     template <class B, std::size_t dim, class V>
     void for_each_call_site(V&& v)
     {
-        // A site that only reads the inputs of the mesh: KIND is traverse or
-        // build (see Timing).
+        // A site or mode that only reads the inputs of the mesh: KIND is
+        // traverse, build or empty (see Timing).
 #define BENCH_SIMPLE(NAME, KIND, FUNCTION) \
     v(NAME,                                \
       [](auto& ctx)                        \
@@ -205,6 +215,23 @@ namespace bench
         BENCH_SIMPLE("BM_Site_BcFurtherGhosts", traverse, sites::bc_further_ghosts);
         BENCH_SIMPLE("BM_Site_PerCellChildren", traverse, sites::per_cell_children);
         BENCH_SITE("BM_Site_OwnershipPerCell", call_sites::OwnershipPerCell);
+
+        BENCH_SIMPLE("BM_Mode_Traverse", traverse, modes::traverse_proj_cells);
+        BENCH_SIMPLE("BM_Mode_Materialize", build, modes::materialize_proj_cells);
+        BENCH_SIMPLE("BM_Mode_Build", build, modes::build_proj_cells);
+        BENCH_SIMPLE("BM_Mode_EmptyHit", empty, modes::empty_hit);
+        BENCH_SIMPLE("BM_Mode_EmptyMiss", empty, modes::empty_miss);
+        BENCH_SIMPLE("BM_Mode_Contract", traverse, modes::contract);
+        BENCH_SIMPLE("BM_Mode_ContractMasked", traverse, modes::contract_masked);
+        BENCH_SIMPLE("BM_Mode_ExpandUniform", traverse, modes::expand_uniform);
+        BENCH_SIMPLE("BM_Mode_ExpandAxes", traverse, modes::expand_axes);
+        BENCH_SIMPLE("BM_Mode_ExpandMasked", traverse, modes::expand_masked);
+        BENCH_SIMPLE("BM_Mode_OnMixedLevels", traverse, modes::on_mixed_levels);
+        BENCH_SIMPLE("BM_Mode_OnSameLevel", traverse, modes::on_same_level);
+        BENCH_SIMPLE("BM_Mode_NestedOn", traverse, modes::nested_on);
+        BENCH_SIMPLE("BM_Mode_FlatOn", traverse, modes::flat_on);
+        BENCH_SIMPLE("BM_Mode_IntersectionSelfOn", traverse, modes::intersection_self_on);
+        BENCH_SIMPLE("BM_Mode_SelfOn", traverse, modes::self_on);
 #undef BENCH_SIMPLE
 #undef BENCH_SITE
     }
