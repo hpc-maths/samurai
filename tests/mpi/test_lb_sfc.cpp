@@ -471,7 +471,7 @@ namespace
     TEST(SFCCuts, search_equals_gather_weighted)
     {
         mpi::communicator world;
-        std::uint64_t s = 0x9e3779b97f4a7c15ull * static_cast<std::uint64_t>(world.rank() + 1);
+        std::uint64_t s = std::uint64_t{0x9e3779b97f4a7c15} * static_cast<std::uint64_t>(world.rank() + 1);
         auto next       = [&]
         {
             s ^= s << 13;
@@ -483,7 +483,7 @@ namespace
         std::vector<double> w;
         for (int i = 0; i < 777; ++i)
         {
-            keys.push_back(static_cast<samurai::load_balancing::sfc_key_t>(next() % (1u << 22)));
+            keys.push_back(next() % (1u << 22));
             w.push_back(1. + static_cast<double>(next() % 100)); // integral
         }
         check_cut_equivalence(keys, w);
