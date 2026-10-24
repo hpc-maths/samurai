@@ -56,6 +56,15 @@ namespace bench
             m_state.counters["sets"] = static_cast<double>(run_site<B>(m_state, site));
         }
 
+        // site(emit) builds level cell arrays and passes each one it keeps
+        // to emit(level, lca): the time is that of building them, `itv` and
+        // `cells` count what they keep.
+        template <class Site>
+        void build(Site&& site)
+        {
+            m_state.counters["sets"] = static_cast<double>(run_build_site<B>(m_state, site));
+        }
+
       private:
 
         benchmark::State& m_state;
@@ -123,6 +132,32 @@ namespace bench
                     sites::field_transfer<B>(in, new_in, f);
                 });
         }
+
+        // The regions are built once, when the boundary condition is.
+        template <class B, class Ctx>
+        void BcCells(Ctx& ctx)
+        {
+            const auto& in     = ctx.inputs();
+            const auto regions = sites::bc_regions<B>(in);
+            ctx.traverse(
+                [&](auto&& f)
+                {
+                    sites::bc_cells<B>(in, regions, f);
+                });
+        }
+
+        // The ghosts without an owner are found outside the timed loop.
+        template <class B, class Ctx>
+        void OwnershipPerCell(Ctx& ctx)
+        {
+            const auto& in    = ctx.inputs();
+            const auto ghosts = sites::ownership_ghosts<B>(in);
+            ctx.traverse(
+                [&](auto&& f)
+                {
+                    sites::ownership_per_cell<B>(in, ghosts, f);
+                });
+        }
     } // namespace call_sites
 
     // Calls v(name, run) for each site, where run(ctx) runs it in the context
@@ -130,17 +165,18 @@ namespace bench
     template <class B, std::size_t dim, class V>
     void for_each_call_site(V&& v)
     {
-        // A site that only reads the inputs of the mesh.
-#define BENCH_SIMPLE(NAME, FUNCTION)     \
-    v(NAME,                              \
-      [](auto& ctx)                      \
-      {                                  \
-          const auto& in = ctx.inputs(); \
-          ctx.traverse(                  \
-              [&](auto&& f)              \
-              {                          \
-                  FUNCTION<B>(in, f);    \
-              });                        \
+        // A site that only reads the inputs of the mesh: KIND is traverse or
+        // build (see Timing).
+#define BENCH_SIMPLE(NAME, KIND, FUNCTION) \
+    v(NAME,                                \
+      [](auto& ctx)                        \
+      {                                    \
+          const auto& in = ctx.inputs();   \
+          ctx.KIND(                        \
+              [&](auto&& f)                \
+              {                            \
+                  FUNCTION<B>(in, f);      \
+              });                          \
       })
 #define BENCH_SITE(NAME, FUNCTION) \
     v(NAME,                        \
@@ -150,15 +186,25 @@ namespace bench
       })
         BENCH_SITE("BM_Site_MeshPredictionGhosts", call_sites::MeshPredictionGhosts);
         BENCH_SITE("BM_SiteCached_MeshPredictionGhosts", call_sites::CachedMeshPredictionGhosts);
-        BENCH_SIMPLE("BM_Site_Corners", sites::corners);
-        BENCH_SIMPLE("BM_Site_GhostProjection", sites::ghost_projection);
-        BENCH_SIMPLE("BM_Site_GhostPrediction", sites::ghost_prediction);
+        BENCH_SIMPLE("BM_Site_Corners", traverse, sites::corners);
+        BENCH_SIMPLE("BM_Site_GhostProjection", traverse, sites::ghost_projection);
+        BENCH_SIMPLE("BM_Site_GhostPrediction", traverse, sites::ghost_prediction);
         BENCH_SITE("BM_Site_OuterGhosts", call_sites::OuterGhosts);
         BENCH_SITE("BM_SiteCached_OuterGhosts", call_sites::CachedOuterGhosts);
-        BENCH_SIMPLE("BM_Site_Detail", sites::detail);
-        BENCH_SIMPLE("BM_Site_Tag", sites::tag);
+        BENCH_SIMPLE("BM_Site_Detail", traverse, sites::detail);
+        BENCH_SIMPLE("BM_Site_Tag", traverse, sites::tag);
         BENCH_SITE("BM_Site_FieldTransfer", call_sites::FieldTransfer);
-        BENCH_SIMPLE("BM_Site_Interfaces", sites::interfaces);
+        BENCH_SIMPLE("BM_Site_Interfaces", traverse, sites::interfaces);
+        BENCH_SIMPLE("BM_Site_MeshSubMesh", build, sites::mesh_sub_mesh);
+        BENCH_SIMPLE("BM_Site_ConstructUnion", build, sites::construct_union);
+        BENCH_SIMPLE("BM_Site_BuildPyramid", build, sites::build_pyramid);
+        BENCH_SIMPLE("BM_Site_CellArrayFromTag", build, sites::cell_array_from_tag);
+        BENCH_SIMPLE("BM_Site_AmrSubMesh", build, sites::amr_sub_mesh);
+        BENCH_SITE("BM_Site_BcCells", call_sites::BcCells);
+        BENCH_SIMPLE("BM_Site_BcCorners", traverse, sites::bc_corners);
+        BENCH_SIMPLE("BM_Site_BcFurtherGhosts", traverse, sites::bc_further_ghosts);
+        BENCH_SIMPLE("BM_Site_PerCellChildren", traverse, sites::per_cell_children);
+        BENCH_SITE("BM_Site_OwnershipPerCell", call_sites::OwnershipPerCell);
 #undef BENCH_SIMPLE
 #undef BENCH_SITE
     }

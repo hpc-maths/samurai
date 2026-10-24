@@ -163,9 +163,10 @@ namespace bench
     // What Adapt::harten (mr/adapt.hpp) passes to make_graduation at the first
     // iteration of the adaptation of `adapted` to the fronts shifted by
     // `shift`: update_cell_array_from_tag(cells, tag), before graduation, in
-    // in.ungraded_cells. A copy of harten up to that call, for the
-    // configuration of AdaptedCase: sequential, no relative detail, boundary
-    // not kept refined.
+    // in.ungraded_cells, and the cells it adds and removes
+    // (cells_changed_by_tag, algorithm/graduation.hpp). A
+    // copy of harten up to that call, for the configuration of AdaptedCase:
+    // sequential, no relative detail, boundary not kept refined.
     template <std::size_t dim>
     void add_next_step(SiteInputs<dim>& in, const mr_mesh_t<dim>& adapted, std::size_t nballs, double shift)
     {
@@ -210,5 +211,10 @@ namespace bench
         }
 
         in.ungraded_cells = samurai::update_cell_array_from_tag(mesh[mesh_id_t::cells], tag);
+        auto changes      = samurai::cells_changed_by_tag(mesh[mesh_id_t::cells], tag);
+        in.tag_add_m      = std::move(changes.add_m);
+        in.tag_remove_m   = std::move(changes.remove_m);
+        in.tag_add_p      = std::move(changes.add_p);
+        in.tag_remove_p   = std::move(changes.remove_p);
     }
 } // namespace bench
