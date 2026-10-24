@@ -415,8 +415,8 @@ namespace samurai
         {
             if (partitions.size() == 1)
             {
-                // cppcheck-suppress returnStdMoveLocal  // front() is not a local: without the move it would be copied
-                return std::move(partitions.front());
+                auto single = std::move(partitions.front());
+                return single;
             }
             LevelCellList<dim, interval_t> lcl{level};
             for (const auto& partition : partitions)
@@ -435,8 +435,8 @@ namespace samurai
         {
             if (partitions.size() == 1)
             {
-                // cppcheck-suppress returnStdMoveLocal  // front() is not a local: without the move it would be copied
-                return std::move(partitions.front());
+                auto single = std::move(partitions.front());
+                return single;
             }
             CellList<dim, interval_t, max_size> cl;
             for (const auto& partition : partitions)
