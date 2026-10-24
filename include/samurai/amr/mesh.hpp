@@ -68,8 +68,8 @@ namespace samurai
             [[deprecated("Use prediction_stencil_radius instead")]] static constexpr int prediction_order    = prediction_order_;
             [[deprecated("Use graduation_width() method instead")]] static constexpr int graduation_width    = graduation_width_;
             [[deprecated("Use ghost_width() method instead")]] static constexpr int ghost_width              = std::max(
-                static_cast<int>(max_stencil_width),
-                static_cast<int>(prediction_order));
+                static_cast<int>(max_stencil_width_),
+                static_cast<int>(prediction_order_));
 
             using interval_t = TInterval;
             using mesh_id_t  = AMR_Id;

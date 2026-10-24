@@ -225,14 +225,14 @@ namespace samurai
                     }
                     ++io;
 
-                    std::size_t ind = 0;
+                    std::size_t pos = 0;
                     std::apply(
                         [&](const auto&... s)
                         {
                             for (std::size_t n = 0; n < SRC::n_comp; ++n)
                             {
                                 (void)std::initializer_list<int>{
-                                    ((dest_values[ind++] += field_ijk[n]
+                                    ((dest_values[pos++] += field_ijk[n]
                                                           * std::apply(
                                                                 [&](const auto&... ki)
                                                                 {
