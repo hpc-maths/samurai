@@ -33,8 +33,8 @@ Every benchmark reports:
 
 `bench_set_call_sites`, `bench_dynamic_set` and `bench_set_graduation` read
 their sets from files that `generate_set_algebra_inputs` writes to
-`build/benchmark/set_algebra_inputs/` (16 MB, 3 seconds; with the sweep,
-103 MB, 20 seconds). The generator adapts the meshes and writes their sets.
+`build/benchmark/set_algebra_inputs/` (24 MB, 4 seconds; with the sweep,
+112 MB, 21 seconds). The generator adapts the meshes and writes their sets.
 
 The build runs the generator before the first build of these binaries, and
 again when one of the sources that decide the content of the files changes:
@@ -57,7 +57,7 @@ so the inputs stay fixed while the set algebra changes.
 | `bench_set_projection` | algebra | Cost of `.on()`: coarsening against the level difference, compared with the same coarse set already built and with building it once; refinement as a control; coarsening of an N-ary intersection, of a chained projection and inside an expansion. |
 | `bench_set_mesh_shape` | algebra | Effect of the shape of a level: the same cells cut into K stripes along each axis, and the same front cut into P subdomains along each axis. |
 | `bench_set_call_sites` | algebra, input files | The expressions of the library functions that run at every time step or mesh construction, copied from their source (`BM_Site_*`); two variants that read coarse sets the mesh already stores (`BM_SiteCached_*`); and the ways to consume a set (`BM_Mode_*`), for each registered backend. |
-| `bench_dynamic_set` | algebra, input files | The same sites with the `static` and `dynamic` backends, on the main 2D and 3D meshes and, with the sweep, the sweep meshes: the price of the runtime algebra. |
+| `bench_dynamic_set` | algebra, input files | The same sites with the `static` and `dynamic` backends, on the main 2D and 3D meshes of each geometry and, with the sweep, the sweep meshes: the price of the runtime algebra. |
 | `bench_set_graduation` | algebra, `make_graduation`, input files | Cost of `make_graduation` on the cells the adaptation passes to it, before graduation. It reports the cells before (`cells_in`) and after (`cells_out`). |
 | `bench_set_library_ops` | mesh, MR adaptation, fields, schemes | The sets of `BM_Site_*` with the library's field operator (`BM_SiteOp_*`), and the library operations themselves (`BM_Op_*`), on the meshes and arguments of `bench_set_call_sites`. `BM_Op_AdaptStep` and `BM_Op_MeshConstruction` also report the time of their phases, read from samurai's timers, in ms per iteration. |
 
@@ -100,24 +100,32 @@ understate the share of the algebra there.
 
 ## Meshes
 
-A benchmark on an adapted mesh takes three arguments: `max_level`, the number
-of balls the mesh is refined around, and the max stencil radius.
-`static/BM_Site_Tag<3>/7/8/1` runs the static backend on the 3D mesh of max
-level 7 refined around 8 balls in the unit box, with a max stencil radius of 1.
-`bench::mesh_cases` (`site_inputs.hpp`) lists the meshes:
+A benchmark on an adapted mesh takes four arguments: `max_level`, the number of
+balls the mesh is refined around, the max stencil radius, and the geometry
+(`bench::Geometry`: 0 for the unit box, 1 for the unit box with a hole, 2 for
+the unit box periodic along every axis). `static/BM_Site_Tag<3>/7/8/1/0` runs
+the static backend on the 3D mesh of max level 7 refined around 8 balls in the
+unit box, with a max stencil radius of 1. `bench::mesh_cases`
+(`site_inputs.hpp`) lists the meshes:
 
-| Dimension | Max level | Balls | Max stencil radius | Leaves |
-| --- | ---: | ---: | ---: | ---: |
-| 1D | 16 | 16 | 1 | 958 |
-| 1D | 16 | 256 | 1 | 6,614 |
-| 1D | 16 | 256 | 3 | 6,618 |
-| 2D | 10 | 1 | 1 | 25,594 |
-| 2D | 10 | 16 | 1 | 54,733 |
-| 2D | 12 | 16 | 1 | 235,309 |
-| 2D | 10 | 16 | 3 | 54,865 |
-| 3D | 7 | 1 | 1 | 135,640 |
-| 3D | 7 | 8 | 1 | 197,884 |
-| 3D | 7 | 8 | 3 | 206,900 |
+| Dimension | Max level | Balls | Max stencil radius | Geometry | Leaves |
+| --- | ---: | ---: | ---: | --- | ---: |
+| 1D | 16 | 16 | 1 | box | 958 |
+| 1D | 16 | 256 | 1 | box | 6,614 |
+| 1D | 16 | 256 | 3 | box | 6,618 |
+| 1D | 14 | 256 | 1 | hole | 3,138 |
+| 1D | 16 | 256 | 1 | periodic | 6,614 |
+| 2D | 10 | 1 | 1 | box | 25,594 |
+| 2D | 10 | 16 | 1 | box | 54,733 |
+| 2D | 12 | 16 | 1 | box | 235,309 |
+| 2D | 10 | 16 | 3 | box | 54,865 |
+| 2D | 8 | 16 | 1 | hole | 47,898 |
+| 2D | 10 | 16 | 1 | periodic | 54,733 |
+| 3D | 7 | 1 | 1 | box | 135,640 |
+| 3D | 7 | 8 | 1 | box | 197,884 |
+| 3D | 7 | 8 | 3 | box | 206,900 |
+| 3D | 5 | 8 | 1 | hole | 192,619 |
+| 3D | 7 | 8 | 1 | periodic | 197,884 |
 
 `mr_config` (`mr_fixtures.hpp`) builds every mesh with min level 2, the default
 graduation width (1) and prediction stencil radius (1), and two settings that
@@ -137,6 +145,26 @@ boundary of the domain. The fronts move by 4 cells of the finest level between
 two time steps, and the mesh is adapted with `epsilon = 1e-3` and a Dirichlet
 boundary condition.
 
+**Domain with a hole.** It is built as in
+`demos/FiniteVolume/linear_convection_obstacle.cpp`: the unit box, from which
+`DomainBuilder::remove` takes the box [0.5, 0.75)^dim. Its boundary has the
+faces of the hole, so the outer ghost and boundary condition sites handle more
+ghosts (2D: 530 boundary cells in `BM_Site_BcCells` against 90 on the box, 487
+projection ghosts against 74), and the library takes the branches of
+`project_bc` and `predict_bc` for a domain that is not a box: each call builds
+one more `LevelCellArray`, the outer layer in every direction. The hole has no
+convex corner, so the corners are those of the box. `DomainBuilder` gives this
+domain a scaling factor of 1/4, the largest length that divides its boxes: at
+max level L the mesh has the resolution of the unit box at L + 2, hence a max
+level 2 below the main mesh of its dimension.
+
+**Periodic meshes.** They have the cells of the main mesh of their dimension,
+since the fronts do not reach the boundary. What changes is the ghosts: the
+mesh construction adds the periodic copies of the cells and their prediction
+ghosts in 3^dim - 1 directions, `update_ghost_mr` copies the periodic ghosts
+(`BM_Site_PeriodicGhosts`), the interfaces include those across the boundary,
+and `make_graduation` takes its periodic path.
+
 ## Sites the dynamic backend leaves out
 
 `bench_dynamic_set` leaves out the sites for which the dynamic algebra computes
@@ -146,7 +174,10 @@ other sets than the static one:
 | --- | --- | --- |
 | `BM_Site_MeshPredictionGhosts`, `BM_SiteCached_MeshPredictionGhosts`, `BM_Site_MeshSubMesh` | all | `dyn::expand` of a set projection returns other cells than the static expansion, and takes 290 s per iteration in 3D against 1 to 2 ms |
 | `BM_Mode_Contract` | 3D | `dyn::contract` returns other cells than the static one |
+| `BM_Mode_NestedOn`, `BM_Mode_FlatOn` | domain with a hole | `difference(domain2, translate(domain2, -direction))` reads the same node twice and misses cells at the min level |
 
+The last row comes from an expression that reads a node both as it is and
+translated. With one node per use, it gives the sets of the static algebra.
 The `keep` function of `benchmark_dynamic_set.cpp` holds this list.
 
 ## Sweep over the level
@@ -177,34 +208,41 @@ arguments selects one curve. Each point reports the intervals of its input
 cmake -S . -B build -DSAMURAI_BENCHMARK_SET_ALGEBRA_SWEEP=ON
 ninja -C build bench_set_operators bench_dynamic_set
 ./build/benchmark/bench_set_operators --benchmark_filter='BM_Self<2, Shape::shell>/'
-./build/benchmark/bench_dynamic_set --benchmark_filter='BM_Site_Tag<3>/[0-9]+/8/1$'
+./build/benchmark/bench_dynamic_set --benchmark_filter='BM_Site_Tag<3>/[0-9]+/8/1/0$'
 ```
 
 ## Coverage
 
 The library usages of the set algebra and the benchmark that measures each.
 Each site was checked once against the library on the meshes of `mesh_cases`,
-in 1D, 2D and 3D:
+in 1D, 2D and 3D, on the three geometries:
 
 - the level cell arrays a site builds equal those of the mesh;
 - the outer ghost and boundary condition sites hold exactly the ghosts the
   library writes (`project_corner_below` writes a subset of its sets: it skips
   a coarse ghost whose corner-most child is not in the mesh);
+- the periodic ghosts are those `iterate_over_periodic_ghosts` visits at each
+  level;
 - the interfaces have one cell per call of the callback of
   `for_each_interior_interface`.
 
+On a periodic axis, the outer ghost and boundary condition sites skip the
+directions the library skips; the periodic meshes are periodic along every
+axis, so these sites have nothing to do there.
+
 | Library usage | Source | Benchmark |
 | --- | --- | --- |
-| Prediction ghosts of the mesh construction | `mr/mesh.hpp:334-382` | `BM_Site_MeshPredictionGhosts` |
-| `MRMesh::update_sub_mesh_impl`, whole: scheme ghosts added to a cell list in no order, prediction ghosts, reference refined under the union, projection cells | `mr/mesh.hpp:229-460` | `BM_Site_MeshSubMesh` |
+| Prediction ghosts of the mesh construction, and of the periodic copies of the cells | `mr/mesh.hpp:334-382` | `BM_Site_MeshPredictionGhosts` |
+| `MRMesh::update_sub_mesh_impl`, whole: scheme ghosts added to a cell list in no order, periodic copies of the cells, prediction ghosts, reference refined under the union, projection cells | `mr/mesh.hpp:229-460` | `BM_Site_MeshSubMesh` |
 | `construct_union` | `mesh.hpp:1274` | `BM_Site_ConstructUnion` |
 | `build_pyramid` of the domain | `mesh.hpp:1250` | `BM_Site_BuildPyramid` |
 | `construct_corners` | `mesh.hpp:937` | `BM_Site_Corners` |
 | `amr::Mesh::update_sub_mesh_impl` | `amr/mesh.hpp:197` | `BM_Site_AmrSubMesh` |
 | `update_cell_array_from_tag`, its set expression | `algorithm/graduation.hpp:866-872` | `BM_Site_CellArrayFromTag` |
-| `make_graduation` | `algorithm/graduation.hpp` | `BM_Graduation` |
+| `make_graduation`, periodic or not | `algorithm/graduation.hpp` | `BM_Graduation` |
 | `update_ghost_mr`: projection and prediction of the ghosts | `algorithm/update_ghost_mr.hpp` | `BM_Site_GhostProjection`, `BM_Site_GhostPrediction` |
-| `update_outer_ghosts`: `project_bc`, `predict_bc`, `project_corner_below` | `algorithm/update_outer_ghost.hpp:23-61`, `197-230`, `270-338` | `BM_Site_OuterGhosts` |
+| `update_ghost_periodic` in `update_ghost_mr` (`iterate_over_periodic_ghosts`: four boxes per periodic axis and the two sets of the copied ghosts), and `update_tag_periodic`, which evaluates the same sets | `algorithm/update_periodic.hpp:34-180`, `210-416` | `BM_Site_PeriodicGhosts` |
+| `update_outer_ghosts`: `project_bc`, `predict_bc`, `project_corner_below`, with their branches for a domain that is not a box | `algorithm/update_outer_ghost.hpp:23-61`, `197-230`, `270-338` | `BM_Site_OuterGhosts` |
 | `project_bc`: the children of each projection ghost, one expression per ghost | `algorithm/update_outer_ghost.hpp:75-153` | `BM_Site_PerCellChildren` |
 | `apply_bc_impl` (region at the finest level) | `bc/apply_field_bc.hpp:121-124` | `BM_Site_BcCells` |
 | `update_outer_corners_by_polynomial_extrapolation` | `bc/apply_field_bc.hpp:517` | `BM_Site_BcCorners` |
@@ -212,7 +250,7 @@ in 1D, 2D and 3D:
 | `compute_cell_ownership` on one rank: one expression per ghost without an owner | `petsc/compute_cell_ownership.hpp:166-247` | `BM_Site_OwnershipPerCell` |
 | `Adapt::harten`: details and tags | `mr/adapt.hpp` | `BM_Site_Detail`, `BM_Site_Tag` |
 | `update_fields` | `algorithm/update_fields.hpp` | `BM_Site_FieldTransfer` |
-| `for_each_interior_interface` | `interface.hpp:34-361` | `BM_Site_Interfaces` |
+| `for_each_interior_interface`, with the faces across a periodic boundary | `interface.hpp:34-361` | `BM_Site_Interfaces` |
 | `domain_boundary(mesh, level)`: `contract` | `boundary.hpp:48` | `BM_Mode_Contract` |
 
 Where a site departs from the library:
@@ -224,8 +262,7 @@ Where a site departs from the library:
   `LevelCellArray` with the builder of the backend, where the library appends
   the cell to a `LevelCellArray` it clears after use.
 
-Not covered: the branches the library takes for a domain that is not a box
-and for a periodic mesh, and the MPI usages of the set algebra.
+Not covered: the MPI usages of the set algebra.
 `MROMesh::update_sub_mesh_impl` (`mr/mesh_with_overleaves.hpp`) is not
 measured: its constructors call `Mesh_base` constructors that do not exist,
 so it does not compile, and only the legacy LBM demos, which are not built,
@@ -389,19 +426,29 @@ than the static one and takes 290 s per iteration on the 3D prediction ghosts
 of the mesh construction, so `bench_dynamic_set` leaves those sites out
 ([Sites the dynamic backend leaves out](#sites-the-dynamic-backend-leaves-out)).
 
-### Sweep
+### Sweep and geometries
 
 Measured on 2026-10-18 on the same machine, single runs of 0.1 s with the
 machine lightly loaded: indicative, not medians.
 
-On the meshes of the sweep, the time of a site is linear in the number of
-intervals, and the dynamic algebra keeps the same ratio to the static one at
-every level: 7 to 8 times for the ghost projection and the tags in 2D (max
-level 8 to 13, 304 to 15,031 intervals for the projection), 8 to 9 times in 3D
-(max level 5 to 9), 11 to 19 times for the 3D interfaces (3D, max level 9:
-8.4 ms static, 109 ms dynamic, 1.0 million intervals). The synthetic sets show
-the same: `BM_Self<3, shell>` costs 1.0 to 1.5 ns per interval and
-`BM_Expand<3>/L/1` 29 to 31 ns from level 5 to 9.
+**Sweep.** On the meshes of the sweep, the time of a site is linear in the
+number of intervals, and the dynamic algebra keeps the same ratio to the
+static one at every level: 7 to 8 times for the ghost projection and the
+tags in 2D (max level 8 to 13, 304 to 15,031 intervals for the projection),
+8 to 9 times in 3D (max level 5 to 9), 11 to 19 times for the 3D interfaces
+(3D, max level 9: 8.4 ms static, 109 ms dynamic, 1.0 million intervals). The
+synthetic sets show the same: `BM_Self<3, shell>` costs 1.0 to 1.5 ns per
+interval and `BM_Expand<3>/L/1` 29 to 31 ns from level 5 to 9.
+
+**Domain with a hole.** On the 2D mesh of 47,898 leaves with a hole,
+`BM_Site_OuterGhosts` takes 1.53 ms against 0.21 ms on the box mesh of
+54,733 leaves: 520 outer ghosts against 92, and the outer layer of every
+direction built at each `project_bc` and `predict_bc`.
+
+**Periodicity.** The periodic copies multiply the mesh construction
+(`BM_Site_MeshSubMesh<3>`: 12.5 ms against 5.3 ms) and the graduation
+(`BM_Graduation<3>`: 7.3 ms against 0.47 ms). The periodic ghosts of one
+ghost update cost 0.15 ms in 2D and 1.4 ms in 3D.
 
 ### Where the set algebra is not the bottleneck
 
@@ -418,8 +465,9 @@ against 43 µs).
 
 - Sequential runs only: `BM_Partitioned` only reproduces the cost of the
   partition shape, and the MPI usages of the set algebra are not measured.
-- `BM_Site_OuterGhosts` does not hold the boundary condition, measured apart
-  by the `BM_Site_Bc*` sites.
+- `BM_Site_OuterGhosts` holds neither the boundary condition, measured apart
+  by the `BM_Site_Bc*` sites, nor the periodic ghosts, measured apart by
+  `BM_Site_PeriodicGhosts`.
 - `BM_Graduation` cannot be split into sites: the MR graduation is a pipeline
   of materialized sets, so its whole time is set algebra and the building of
   `LevelCellArray`s. Its input is the first iteration of an adaptation step,

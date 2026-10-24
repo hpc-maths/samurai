@@ -3,11 +3,11 @@
 
 // Price of the dynamic set algebra (include/samurai/subset/dynamic/) against
 // the static one: the call sites of bench_set_call_sites with both backends,
-// on the main 2D and 3D meshes of bench::mesh_cases and, with the sweep, on
-// those of bench::sweep_cases. Each site builds its expressions inside the
-// timed loop, as the library does, so the dynamic figure includes the
-// construction of their heap-allocated nodes. The ratio dynamic/BM_Site_X /
-// static/BM_Site_X is the price of the runtime tree.
+// on the main 2D and 3D meshes of bench::mesh_cases, on each geometry. Each
+// site builds its expressions inside the timed loop, as the library does, so
+// the dynamic figure includes the construction of their heap-allocated
+// nodes. The ratio dynamic/BM_Site_X / static/BM_Site_X is the price of the
+// runtime tree.
 
 #include <algorithm>
 #include <array>
@@ -24,15 +24,17 @@
 
 namespace
 {
-    // The most fronts at the default max level, stencil radius 1; with the
-    // sweep, the meshes of bench::sweep_cases.
+    // The most fronts at the default max level, stencil radius 1, on the
+    // three geometries; with the sweep, the meshes of bench::sweep_cases.
     template <std::size_t dim>
     std::vector<bench::MeshCase> mesh_cases()
     {
         constexpr std::size_t nballs    = (dim == 2) ? 16 : 8;
         constexpr std::size_t max_level = bench::default_max_level<dim>();
         std::vector<bench::MeshCase> cases{
-            {max_level, nballs, 1}
+            {max_level, nballs, 1},
+            {max_level - 2, nballs, 1, bench::Geometry::hole},
+            {max_level, nballs, 1, bench::Geometry::periodic}
         };
         if constexpr (bench::sweep_enabled)
         {
@@ -58,8 +60,13 @@ namespace
     //   assertions;
     // - the contraction along every axis in 3D (Mode_Contract):
     //   samurai::dyn::contract returns other cells than the static one,
-    //   which matches domain_boundary(mesh, level).
-    bool keep(std::string_view site, std::size_t dim, const bench::MeshCase&)
+    //   which matches domain_boundary(mesh, level);
+    // - a translation of a node that the same expression also reads
+    //   untranslated: the boundary ghosts of Mode_NestedOn and Mode_FlatOn
+    //   on the domain with a hole,
+    //   difference(domain2, translate(domain2, -direction)), which miss
+    //   cells at the min level. With a node per use they are right.
+    bool keep(std::string_view site, std::size_t dim, const bench::MeshCase& c)
     {
         constexpr std::array<std::string_view, 3> excluded{"BM_Site_MeshPredictionGhosts",
                                                            "BM_SiteCached_MeshPredictionGhosts",
@@ -68,7 +75,11 @@ namespace
         {
             return false;
         }
-        return !(dim == 3 && site == "BM_Mode_Contract");
+        if (dim == 3 && site == "BM_Mode_Contract")
+        {
+            return false;
+        }
+        return !(c.geometry == bench::Geometry::hole && (site == "BM_Mode_NestedOn" || site == "BM_Mode_FlatOn"));
     }
 
     template <class B>

@@ -11,6 +11,7 @@
 //   samurai-set-algebra-inputs <format version> <dim>
 //   levels <min_level> <max_level>
 //   config <graduation_width> <max_stencil_radius>
+//   geometry <domain is a box: 0 or 1> <periodic along x: 0 or 1> [y [z]]
 //   ca <name> <number of intervals>, then per interval: level start end [y [z]]
 //   lca corner <level> <number of intervals>, then per interval: start end [y [z]]
 // Each interval is the row [start, end) of cells at (y, z) of its level.
@@ -59,6 +60,14 @@ namespace bench
         return (dim == 1) ? 16 : ((dim == 2) ? 10 : 7);
     }
 
+    // The domain of a mesh (mr_fixtures.hpp builds it).
+    enum class Geometry : int
+    {
+        box      = 0, // the unit box
+        hole     = 1, // the unit box without the box [0.5, 0.75)^dim, built by DomainBuilder::remove
+        periodic = 2, // the unit box, periodic along every axis
+    };
+
     // One adapted mesh, refined to max_level along the surfaces of nballs
     // balls: more balls means more, smaller fronts. stencil_radius is the max
     // stencil radius of the mesh configuration, which sets the ghost width.
@@ -68,10 +77,11 @@ namespace bench
         std::size_t max_level;
         std::size_t nballs;
         int stencil_radius;
+        Geometry geometry = Geometry::box;
 
         auto key() const
         {
-            return std::tuple{max_level, nballs, stencil_radius};
+            return std::tuple{max_level, nballs, stencil_radius, geometry};
         }
     };
 
@@ -79,7 +89,10 @@ namespace bench
 
     inline MeshCase mesh_case(const benchmark::State& state)
     {
-        return {static_cast<std::size_t>(state.range(0)), static_cast<std::size_t>(state.range(1)), static_cast<int>(state.range(2))};
+        return {static_cast<std::size_t>(state.range(0)),
+                static_cast<std::size_t>(state.range(1)),
+                static_cast<int>(state.range(2)),
+                static_cast<Geometry>(state.range(3))};
     }
 
     // The sweep over the max level, at the number of balls of the main mesh
@@ -118,8 +131,10 @@ namespace bench
     }
 
     // Stencil radius 1 is the upwind scheme. The case of radius 3, the
-    // stencil of a WENO5 scheme, triples the ghost width. With the sweep, the
-    // meshes of sweep_cases follow.
+    // stencil of a WENO5 scheme, triples the ghost width. The domain with a
+    // hole has the scaling factor DomainBuilder computes for it, 1/4: at max
+    // level L it has the resolution of the unit box at L + 2, hence its lower
+    // max level. With the sweep, the meshes of sweep_cases follow.
     template <std::size_t dim>
     std::vector<MeshCase> mesh_cases()
     {
@@ -129,18 +144,22 @@ namespace bench
         {
             // a 1D front is a point: many of them to get a non-trivial mesh
             cases = {
-                {max_level, 16,  1},
+                {max_level, 16, 1},
                 {max_level, 256, 1},
-                {max_level, 256, 3}
+                {max_level, 256, 3},
+                {max_level - 2, 256, 1, Geometry::hole},
+                {max_level, 256, 1, Geometry::periodic}
             };
         }
         else if constexpr (dim == 2)
         {
             cases = {
-                {max_level,     1,  1},
-                {max_level,     16, 1},
+                {max_level, 1, 1},
+                {max_level, 16, 1},
                 {max_level + 2, 16, 1},
-                {max_level,     16, 3}
+                {max_level, 16, 3},
+                {max_level - 2, 16, 1, Geometry::hole},
+                {max_level, 16, 1, Geometry::periodic}
             };
         }
         else
@@ -148,7 +167,9 @@ namespace bench
             cases = {
                 {max_level, 1, 1},
                 {max_level, 8, 1},
-                {max_level, 8, 3}
+                {max_level, 8, 3},
+                {max_level - 2, 8, 1, Geometry::hole},
+                {max_level, 8, 1, Geometry::periodic}
             };
         }
         if constexpr (sweep_enabled)
@@ -185,7 +206,7 @@ namespace bench
     {
         for (const auto& c : cases)
         {
-            b->Args({static_cast<int64_t>(c.max_level), static_cast<int64_t>(c.nballs), c.stencil_radius});
+            b->Args({static_cast<int64_t>(c.max_level), static_cast<int64_t>(c.nballs), c.stencil_radius, static_cast<int64_t>(c.geometry)});
         }
         b->Unit(benchmark::kMicrosecond);
     }
@@ -236,6 +257,17 @@ namespace bench
         // make_graduation reads.
         std::size_t graduation_width = 1;
         int max_stencil_radius       = 1;
+        // mesh.domain().is_box(): the library takes other paths for a domain
+        // that is not a box (update_outer_ghost.hpp). It cannot be read from
+        // the domain, which is a box only when built from one.
+        bool domain_is_box = true;
+        // mesh.periodicity()
+        std::array<bool, dim> periodic{};
+        // mesh.domain().min_indices() and max_indices(): the bounds of the
+        // domain at max_level, which give the periodic shifts. Not in the
+        // file: set from the domain when it is read (set_domain_bounds).
+        std::array<int, dim> domain_min{};
+        std::array<int, dim> domain_max{};
 
         ca_t cells;
         ca_t cells_and_ghosts;
@@ -310,11 +342,24 @@ namespace bench
         }
     };
 
+    // Sets SiteInputs::domain_min and domain_max from the domain.
+    template <std::size_t dim>
+    void set_domain_bounds(SiteInputs<dim>& in)
+    {
+        const auto min_indices = in.domain().min_indices();
+        const auto max_indices = in.domain().max_indices();
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            in.domain_min[d] = min_indices[d];
+            in.domain_max[d] = max_indices[d];
+        }
+    }
+
     //////////////////////////////////////////////////////////////////////
     // Files
     //////////////////////////////////////////////////////////////////////
 
-    inline constexpr int inputs_format_version = 3;
+    inline constexpr int inputs_format_version = 4;
 
     // The CellArrays of the file, by record name. Inputs is SiteInputs<dim>,
     // const or not.
@@ -345,12 +390,26 @@ namespace bench
         return (dir != nullptr) ? dir : SAMURAI_SET_ALGEBRA_INPUTS_DIR;
     }
 
+    inline std::string geometry_suffix(Geometry geometry)
+    {
+        switch (geometry)
+        {
+            case Geometry::box:
+                return "";
+            case Geometry::hole:
+                return "_hole";
+            case Geometry::periodic:
+                return "_periodic";
+        }
+        return "";
+    }
+
     // The name of the files of the mesh c, without the suffix of the file.
     template <std::size_t dim>
     std::string mesh_stem(const MeshCase& c)
     {
         return std::to_string(dim) + "d_level" + std::to_string(c.max_level) + "_balls" + std::to_string(c.nballs) + "_radius"
-             + std::to_string(c.stencil_radius);
+             + std::to_string(c.stencil_radius) + geometry_suffix(c.geometry);
     }
 
     template <std::size_t dim>
@@ -388,6 +447,12 @@ namespace bench
         out << inputs_magic << ' ' << inputs_format_version << ' ' << dim << '\n';
         out << "levels " << in.min_level << ' ' << in.max_level << '\n';
         out << "config " << in.graduation_width << ' ' << in.max_stencil_radius << '\n';
+        out << "geometry " << int(in.domain_is_box);
+        for (const bool p : in.periodic)
+        {
+            out << ' ' << int(p);
+        }
+        out << '\n';
         for (const auto& [name, ca] : named_cell_arrays(in))
         {
             std::size_t n = 0;
@@ -425,7 +490,7 @@ namespace bench
         lcl[index].add_interval({start, end});
     }
 
-    // Reads the first three lines of a file.
+    // Reads the first four lines of a file.
     template <std::size_t dim, class Fail>
     void read_header(std::istream& file, SiteInputs<dim>& in, const Fail& fail)
     {
@@ -434,9 +499,17 @@ namespace bench
         std::size_t d = 0;
         std::string levels_key;
         std::string config_key;
+        std::string geometry_key;
         file >> magic >> version >> d >> levels_key >> in.min_level >> in.max_level >> config_key >> in.graduation_width
-            >> in.max_stencil_radius;
-        if (magic != inputs_magic || version != inputs_format_version || d != dim || levels_key != "levels" || config_key != "config")
+            >> in.max_stencil_radius >> geometry_key >> in.domain_is_box;
+        for (auto&& p : in.periodic)
+        {
+            bool periodic = false;
+            file >> periodic;
+            p = periodic;
+        }
+        if (magic != inputs_magic || version != inputs_format_version || d != dim || levels_key != "levels" || config_key != "config"
+            || geometry_key != "geometry")
         {
             throw fail("not a set algebra inputs file of version " + std::to_string(inputs_format_version) + " in " + std::to_string(dim)
                        + "D");
@@ -544,6 +617,7 @@ namespace bench
             file >> name;
             read_record(file, key, name, in, fail);
         }
+        set_domain_bounds(in);
         return in;
     }
 
@@ -655,6 +729,10 @@ namespace bench
         out.max_level          = in.max_level;
         out.graduation_width   = in.graduation_width;
         out.max_stencil_radius = in.max_stencil_radius;
+        out.domain_is_box      = in.domain_is_box;
+        out.periodic           = in.periodic;
+        out.domain_min         = in.domain_min;
+        out.domain_max         = in.domain_max;
         const auto cell_arrays = named_cell_arrays(in);
         const auto out_arrays  = named_cell_arrays(out);
         for (std::size_t k = 0; k < cell_arrays.size(); ++k)
