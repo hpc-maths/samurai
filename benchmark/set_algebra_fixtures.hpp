@@ -113,6 +113,32 @@ namespace bench
         report(state, tally);
     }
 
+    // `site` passes each set it evaluates to f(level, set), a set of the
+    // backend B, which returns the number of intervals of the set: a site
+    // that branches on whether a set is empty reads it there. Returns the
+    // number of sets of one iteration.
+    template <class B, class Site>
+    std::size_t run_site(benchmark::State& state, Site&& site)
+    {
+        Tally tally;
+        std::size_t nsets = 0;
+        for (auto _ : state)
+        {
+            tally = {};
+            nsets = 0;
+            site(
+                [&](std::size_t, const auto& set)
+                {
+                    const Tally t = traverse<B>(set);
+                    tally += t;
+                    ++nsets;
+                    return t.intervals;
+                });
+        }
+        report(state, tally);
+        return nsets;
+    }
+
     //////////////////////////////////////////////////////////////////////
     // Synthetic LevelCellArrays
     //////////////////////////////////////////////////////////////////////
