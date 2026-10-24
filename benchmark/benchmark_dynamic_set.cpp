@@ -34,16 +34,27 @@ namespace
     }
 
     // Without the sites the dynamic algebra gets wrong: they compute other
-    // sets than the static algebra. On 2026-10-19: the prediction ghosts of
-    // the mesh construction (MeshPredictionGhosts, and its Cached variant):
-    // samurai::dyn::expand of a set projection returns other cells than the
-    // static expansion, takes 290 s per iteration in 3D against 1 to 2 ms,
-    // and fails the assertion n_traversers == 1 of
-    // Projection<DynamicSetAdaptor> in a build with assertions.
-    bool keep(std::string_view site, std::size_t, const bench::MeshCase&)
+    // sets than the static algebra. On 2026-10-19:
+    // - the prediction ghosts of the mesh construction, alone
+    //   (MeshPredictionGhosts, and its Cached variant) or within
+    //   MRMesh::update_sub_mesh_impl (MeshSubMesh): samurai::dyn::expand of a
+    //   set projection returns other cells than the static expansion, takes
+    //   290 s per iteration in 3D against 1 to 2 ms, and fails the assertion
+    //   n_traversers == 1 of Projection<DynamicSetAdaptor> in a build with
+    //   assertions;
+    // - the contraction along every axis in 3D (Mode_Contract):
+    //   samurai::dyn::contract returns other cells than the static one,
+    //   which matches domain_boundary(mesh, level).
+    bool keep(std::string_view site, std::size_t dim, const bench::MeshCase&)
     {
-        constexpr std::array<std::string_view, 2> excluded{"BM_Site_MeshPredictionGhosts", "BM_SiteCached_MeshPredictionGhosts"};
-        return std::find(excluded.begin(), excluded.end(), site) == excluded.end();
+        constexpr std::array<std::string_view, 3> excluded{"BM_Site_MeshPredictionGhosts",
+                                                           "BM_SiteCached_MeshPredictionGhosts",
+                                                           "BM_Site_MeshSubMesh"};
+        if (std::find(excluded.begin(), excluded.end(), site) != excluded.end())
+        {
+            return false;
+        }
+        return !(dim == 3 && site == "BM_Mode_Contract");
     }
 
     template <class B>
