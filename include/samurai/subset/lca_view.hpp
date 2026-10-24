@@ -22,20 +22,13 @@ namespace samurai
 
         struct Workspace
         {
-            Workspace()
-            {
-                start_offset.fill(0); // for codacy
-                end_offset.fill(0);   // for codacy
-                start_offset_guess.fill(0);
-            }
-
             // we do not need the offsets for the last dim
-            // the offset at dimension d will be initialized when calling
-            // get_traverser_impl<d+1>
-            std::array<std::ptrdiff_t, LCA::dim - 1> start_offset;
-            std::array<std::ptrdiff_t, LCA::dim - 1> end_offset;
+            // the offsets at dimension d are written by get_traverser_impl<d>
+            // and read by get_traverser_impl<d-1>
+            std::array<std::ptrdiff_t, LCA::dim - 1> start_offset{};
+            std::array<std::ptrdiff_t, LCA::dim - 1> end_offset{};
 
-            std::array<std::ptrdiff_t, LCA::dim - 1> start_offset_guess;
+            std::array<std::ptrdiff_t, LCA::dim - 1> start_offset_guess{};
         };
 
         static constexpr std::size_t dim()
