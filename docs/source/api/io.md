@@ -57,7 +57,7 @@ The `metadata` member is a callback that `save` calls with a `samurai::MetadataW
 `dump` writes the mesh and the fields to `<filename>.h5`, overwriting any existing file; it does not create the directory.
 `load` reads such a file into a mesh and fields: it rebuilds the mesh from the cells in the file and finds the fields by their names.
 For a multiresolution or AMR mesh, the new mesh takes its minimum and maximum levels from the file and the rest of its configuration from the mesh passed to `load`.
-It throws `std::runtime_error` when the number of MPI processes differs from the one that wrote the file.
+The file can be read by any number of MPI processes; for a multiresolution or AMR mesh, `load` balances the cells over the processes when their number differs from the one that wrote the file.
 The overloads with a `metadata` callback call it with a `samurai::MetadataWriter` after `dump` writes the file, and with a `samurai::MetadataReader` after `load` reads it.
 
 ```{doxygenfunction} samurai::dump(const fs::path &path, const std::string &filename, const Mesh &mesh, const Fields&... fields)
