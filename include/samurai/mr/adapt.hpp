@@ -398,18 +398,10 @@ namespace samurai
         update_ghost_mr(other_fields...);
 
         times::timers.start("fields update");
-        update_fields(std::forward<PredictionFn>(m_prediction_fn), new_mesh, m_fields, other_fields...);
+        update_fields(m_prediction_fn, new_mesh, m_fields, other_fields...);
         m_fields.mesh().swap(new_mesh);
         times::timers.stop("fields update");
         return false;
-    }
-
-    template <class... TFields>
-        requires(field_like<TFields> && ...)
-    auto make_MRAdapt(TFields&... fields)
-    {
-        using prediction_fn_t = decltype(default_config::default_prediction_fn);
-        return Adapt<false, prediction_fn_t, TFields...>(std::forward<prediction_fn_t>(default_config::default_prediction_fn), fields...);
     }
 
     template <class Prediction_fn, class... TFields>
@@ -419,12 +411,11 @@ namespace samurai
         return Adapt<false, Prediction_fn, TFields...>(std::forward<Prediction_fn>(prediction_fn), fields...);
     }
 
-    template <bool enlarge_, class... TFields>
+    template <class... TFields>
         requires(field_like<TFields> && ...)
     auto make_MRAdapt(TFields&... fields)
     {
-        using prediction_fn_t = decltype(default_config::default_prediction_fn);
-        return Adapt<enlarge_, prediction_fn_t, TFields...>(std::forward<prediction_fn_t>(default_config::default_prediction_fn), fields...);
+        return make_MRAdapt(default_config::default_prediction_fn, fields...);
     }
 
     template <bool enlarge_, class Prediction_fn, class... TFields>
@@ -432,5 +423,12 @@ namespace samurai
     auto make_MRAdapt(Prediction_fn&& prediction_fn, TFields&... fields)
     {
         return Adapt<enlarge_, Prediction_fn, TFields...>(std::forward<Prediction_fn>(prediction_fn), fields...);
+    }
+
+    template <bool enlarge_, class... TFields>
+        requires(field_like<TFields> && ...)
+    auto make_MRAdapt(TFields&... fields)
+    {
+        return make_MRAdapt<enlarge_>(default_config::default_prediction_fn, fields...);
     }
 } // namespace samurai

@@ -100,8 +100,7 @@ namespace samurai
         requires(mesh_like<Mesh> && (field_like<Fields> && ...))
     void update_fields(Mesh& new_mesh, Fields&... fields)
     {
-        using prediction_fn_t = decltype(default_config::default_prediction_fn);
-        update_fields(std::forward<prediction_fn_t>(default_config::default_prediction_fn), new_mesh, fields...);
+        update_fields(default_config::default_prediction_fn, new_mesh, fields...);
     }
 
     template <class PredictionFn, class Mesh, class Field, class... Fields>

@@ -30,6 +30,26 @@ namespace samurai
                       });
     }
 
+    TEST(field, copy_expr_from_non_const_lvalue)
+    {
+        Box<double, 1> box{{0}, {1}};
+        using Config = UniformConfig<1>;
+        auto mesh    = UniformMesh<Config>(box, 3);
+
+        auto u = make_scalar_field<double>("u", mesh);
+        u.fill(1.);
+        auto expr     = 5 + u;
+        auto copy     = expr;
+        using field_t = decltype(u);
+        field_t ue    = copy;
+
+        for_each_cell(mesh,
+                      [&](auto cell)
+                      {
+                          EXPECT_EQ(ue[cell], 6);
+                      });
+    }
+
     TEST(field, copy_from_const)
     {
         Box<double, 1> box{{0}, {1}};
