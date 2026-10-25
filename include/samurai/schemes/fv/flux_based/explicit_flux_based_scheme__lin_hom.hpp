@@ -68,7 +68,9 @@ namespace samurai
                 coarse_add(0, contribution(0));
             }
             // clang-format off
+            #ifdef SAMURAI_WITH_OPENMP
             #pragma omp simd
+            #endif
             for (offset_t p = 0; p < n_pairs; ++p)
             {
                 coarse_add(first + p, contribution(first + 2*p) + contribution(first + 2*p + 1));
@@ -111,12 +113,16 @@ namespace samurai
                         // clang-format off
                         if (left_cell.level == right_cell.level || i.size() == 1) // same level, or a single fine cell (always the case for a jump in the x-direction)
                         {
+                            #ifdef SAMURAI_WITH_OPENMP
                             #pragma omp simd
+                            #endif
                             for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
                             {
                                 field_value(output_field, left_cell_index_init + ii, field_i) += left_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
                             }
+                            #ifdef SAMURAI_WITH_OPENMP
                             #pragma omp simd
+                            #endif
                             for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
                             {
                                 field_value(output_field, right_cell_index_init + ii, field_i) += right_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
@@ -128,7 +134,9 @@ namespace samurai
                             add_fine_to_coarse(i,
                                                [&](auto k, auto contrib) { field_value(output_field, left_cell_index_init + k, field_i) += contrib; },
                                                [&](auto ii) { return left_cell_coeff * field_value(input_field, comput_index_init + ii, field_j); });
+                            #ifdef SAMURAI_WITH_OPENMP
                             #pragma omp simd
+                            #endif
                             for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii) // iteration on the fine cells
                             {
                                 field_value(output_field, right_cell_index_init + ii, field_i) += right_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
@@ -137,7 +145,9 @@ namespace samurai
                         else // if (left_cell.level > right_cell.level)
                         {
                             // Same as above, the other way around.
+                            #ifdef SAMURAI_WITH_OPENMP
                             #pragma omp simd
+                            #endif
                             for (index_t ii = 0; ii < static_cast<index_t>(i.size()); ++ii)
                             {
                                 field_value(output_field, left_cell_index_init + ii, field_i) += left_cell_coeff * field_value(input_field, comput_index_init + ii, field_j);
@@ -152,6 +162,7 @@ namespace samurai
             }
         }
 
+#ifdef SAMURAI_WITH_OPENMP
         template <class InterfaceType, class StencilType, class Coeffs>
         void _apply_contribution_in_parallel_context(output_field_t& output_field,
                                                      input_field_t& input_field,
@@ -251,6 +262,7 @@ namespace samurai
                 // clang-format on
             }
         }
+#endif
 
       public:
 
@@ -329,7 +341,9 @@ namespace samurai
 
                                 // clang-format off
 
+                                #ifdef SAMURAI_WITH_OPENMP
                                 #pragma omp simd
+                                #endif
                                 for (index_t ii = 0; ii < static_cast<index_t>(stencil.interval().size()); ++ii)
                                 {
                                     field_value(output_field, cell_index_init + ii, field_i) += coeff * field_value(input_field, comput_index_init + ii, field_j);
