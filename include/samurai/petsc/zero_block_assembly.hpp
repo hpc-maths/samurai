@@ -83,6 +83,9 @@ namespace samurai
                 m_local_cols = cols;
             }
 
+            // Keeps the stand-alone setup() visible next to the block-level overload.
+            using MatrixAssembly::setup;
+
             template <class Anything>
             void setup(const Anything&)
             {
