@@ -59,7 +59,7 @@ The `reference` id, on which the fields are sized, holds all the cells of the me
 The constructors that take `min_level` and `max_level` instead of a `samurai::mesh_config` are deprecated.
 
 ```{doxygenclass} samurai::MRMesh
-:members: MRMesh, exists
+:members: MRMesh
 :undoc-members:
 ```
 
