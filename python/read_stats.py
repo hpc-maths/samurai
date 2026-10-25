@@ -12,10 +12,16 @@ sizes per level. It handles 1D, 2D and 3D meshes and levels that only appear
 at some iterations.
 
     python read_stats.py stats.json --test-case my_case --output my_case.png
+
+Run it from the directory that holds stats.json: the statistics file and the
+output image must both lie inside the current directory, and the default
+output name is the test case with every character outside [A-Za-z0-9._-]
+replaced by an underscore.
 """
 
 import argparse
 import json
+import os
 import re
 import sys
 
@@ -38,7 +44,7 @@ def parse_args():
         "stats",
         nargs="?",
         default="stats.json",
-        help="statistics file (default: %(default)s)",
+        help="statistics file, inside the current directory (default: %(default)s)",
     )
     parser.add_argument(
         "-t",
@@ -49,7 +55,7 @@ def parse_args():
     parser.add_argument(
         "-o",
         "--output",
-        help="output image (default: <test case>.png)",
+        help="output image, inside the current directory (default: <test case>.png)",
     )
     parser.add_argument(
         "--dpi", type=int, default=300, help="output resolution (default: %(default)s)"
@@ -58,6 +64,37 @@ def parse_args():
         "--show", action="store_true", help="also open the figure in a window"
     )
     return parser.parse_args()
+
+
+def inside_cwd(path, what):
+    """Return the resolved path, or exit if it lies outside the current directory.
+
+    Symbolic links are resolved first, so a link cannot point the script at a
+    file elsewhere.
+    """
+    base = os.path.realpath(os.getcwd())
+    resolved = os.path.realpath(path)
+    if os.path.commonpath([base, resolved]) != base:
+        sys.exit(
+            f"{what} {path} is outside the current directory {base}, "
+            "run the script from a directory that contains it"
+        )
+    return resolved
+
+
+def default_output(test_case):
+    """Build a file name in the current directory from the test case name.
+
+    The name comes from stats.json, so it is not trusted: path separators and
+    any other character outside [A-Za-z0-9._-] become underscores.
+    """
+    name = re.sub(r"[^A-Za-z0-9._-]", "_", test_case)
+    if name in ("", ".", ".."):
+        sys.exit(
+            f"cannot build a file name from the test case '{test_case}', "
+            "choose one with --output"
+        )
+    return f"{name}.png"
 
 
 def select_test_case(stats, test_case, filename):
@@ -81,10 +118,11 @@ def select_test_case(stats, test_case, filename):
 def main():
     args = parse_args()
 
-    with open(args.stats) as f:
+    stats_file = inside_cwd(args.stats, "statistics file")
+    with open(stats_file) as f:
         stats = json.load(f)
     test_case = select_test_case(stats, args.test_case, args.stats)
-    output = args.output or f"{test_case}.png"
+    output = inside_cwd(args.output or default_output(test_case), "output image")
 
     data = pd.json_normalize(stats[test_case])
 
@@ -172,7 +210,7 @@ def main():
 
     plt.savefig(output, dpi=args.dpi)
     print(f"{test_case}: {len(data)} iterations, levels {levels[0]} to {levels[-1]}")
-    print(f"figure saved to {output}")
+    print(f"figure saved to {os.path.relpath(output)}")
     if args.show:
         plt.show()
 
