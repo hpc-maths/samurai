@@ -29,8 +29,9 @@ namespace samurai
         using vector_field_t      = VectorField<Mesh, double, dim>;
 
         // Linear homogeneous flux-based schemes
-        using diffusion_t = decltype(make_diffusion_order2<vector_field_t>());
-        using gradient_t  = decltype(make_gradient_order2<scalar_field_t>());
+        using diffusion_t  = decltype(make_diffusion_order2<vector_field_t>());
+        using gradient_t   = decltype(make_gradient_order2<scalar_field_t>());
+        using divergence_t = decltype(make_divergence_order2<vector_field_t>());
         // Linear heterogeneous flux-based scheme
         using convection_lin_t = decltype(make_convection_upwind<scalar_field_t>(std::declval<VelocityVector<dim>>()));
         // Non-linear flux-based scheme
@@ -43,7 +44,7 @@ namespace samurai
         // Block operator (Stokes)
         using stokes_t = decltype(make_block_operator<2, 2>(std::declval<const diffusion_t&>(),
                                                             std::declval<const gradient_t&>(),
-                                                            std::declval<const decltype(make_divergence_order2<vector_field_t>())&>(),
+                                                            std::declval<const divergence_t&>(),
                                                             std::declval<const decltype(make_zero_operator<scalar_field_t>())&>()));
 
         static_assert(is_nothrow_movable_v<diffusion_t>);
@@ -70,6 +71,9 @@ namespace samurai
         using block_assembly_t = decltype(petsc::make_assembly<type>(std::declval<const stokes_t&>()));
 
         static_assert(is_nothrow_movable_v<assembly_t<diffusion_t>>);
+        // Non-square: they also own a column numbering.
+        static_assert(is_nothrow_movable_v<assembly_t<gradient_t>>);
+        static_assert(is_nothrow_movable_v<assembly_t<divergence_t>>);
         static_assert(is_nothrow_movable_v<assembly_t<convection_lin_t>>);
         static_assert(is_nothrow_movable_v<assembly_t<convection_nonlin_t>>);
         static_assert(is_nothrow_movable_v<assembly_t<identity_t>>);
@@ -81,6 +85,8 @@ namespace samurai
         // The numbering is owned by the assembly and referenced by its blocks or summands: a copy would share it.
         static_assert(!std::is_copy_constructible_v<assembly_t<diffusion_t>>);
         static_assert(!std::is_copy_assignable_v<assembly_t<diffusion_t>>);
+        static_assert(!std::is_copy_constructible_v<assembly_t<divergence_t>>);
+        static_assert(!std::is_copy_assignable_v<assembly_t<divergence_t>>);
         static_assert(!std::is_copy_constructible_v<block_assembly_t<petsc::BlockAssemblyType::Monolithic>>);
         static_assert(!std::is_copy_assignable_v<block_assembly_t<petsc::BlockAssemblyType::Monolithic>>);
 #endif

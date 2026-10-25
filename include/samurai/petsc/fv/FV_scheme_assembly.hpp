@@ -83,6 +83,9 @@ namespace samurai
             // Stand-alone assembly: the numbering is allocated by compute_numbering(). It lives on the heap so that the
             // pointers below, and those of the other assemblies of an operator sum, stay valid when this object is moved.
             std::unique_ptr<Numbering> m_owned_numbering;
+            // Stand-alone non-square assembly (e.g. a divergence): the columns follow the numbering of the input field, not the
+            // row numbering of the output field. Allocated by compute_col_numbering(), on the heap for the same reason.
+            std::unique_ptr<Numbering> m_owned_col_numbering;
             Numbering* m_row_numbering = nullptr;
             Numbering* m_col_numbering = nullptr;
 
@@ -171,7 +174,6 @@ namespace samurai
                     m_ghosts_row_shift = owned_matrix_rows();
                     m_ghosts_col_shift = owned_matrix_cols();
                     compute_local_to_global_rows(m_row_numbering->local_to_global_mapping);
-                    m_col_numbering = m_row_numbering;
                 }
 #endif
                 m_is_row_empty.resize(static_cast<std::size_t>(owned_matrix_rows()));
@@ -272,8 +274,6 @@ namespace samurai
                     m_row_numbering   = m_owned_numbering.get();
                 }
 #ifdef SAMURAI_WITH_MPI
-                assert(input_n_comp == output_n_comp && "we compute the numbering only for square matrices or blocks");
-
                 PetscInt rank_row_shift = compute_rank_shift(owned_matrix_rows());
 
                 m_row_numbering->resize(local_matrix_rows());
@@ -283,7 +283,42 @@ namespace samurai
                                                         0 /*block_row_shift*/,
                                                         owned_matrix_rows() /*block_ghosts_shift*/);
 #endif
-                m_col_numbering = m_row_numbering;
+                if constexpr (input_n_comp == output_n_comp)
+                {
+                    m_col_numbering = m_row_numbering;
+                }
+                else
+                {
+                    compute_col_numbering();
+                }
+            }
+
+            /**
+             * Numbers the unknowns of the input field, which index the columns when the matrix or block is not square.
+             */
+            void compute_col_numbering()
+            {
+                if (!m_owned_col_numbering)
+                {
+                    m_owned_col_numbering = std::make_unique<Numbering>();
+                }
+                m_col_numbering = m_owned_col_numbering.get();
+#ifdef SAMURAI_WITH_MPI
+                PetscInt rank_col_shift = compute_rank_shift(owned_matrix_cols());
+
+                m_col_numbering->resize(local_matrix_cols());
+                compute_global_numbering<input_n_comp>(mesh(),
+                                                       *m_col_numbering,
+                                                       rank_col_shift,
+                                                       0 /*block_col_shift*/,
+                                                       owned_matrix_cols() /*block_ghosts_shift*/);
+
+                auto& numbering = *m_col_numbering;
+                for (std::size_t i = 0; i < numbering.local_indices.size(); ++i)
+                {
+                    numbering.local_to_global_mapping[static_cast<std::size_t>(numbering.local_indices[i])] = numbering.global_indices[i];
+                }
+#endif
             }
 
             /**
