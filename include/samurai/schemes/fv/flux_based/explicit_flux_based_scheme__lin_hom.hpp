@@ -264,6 +264,57 @@ namespace samurai
         }
 #endif
 
+        /**
+         * Adds the flux contribution of a boundary interface to the inner cells next to it.
+         *
+         * This loop must not move into the generic lambda that visits the boundary interfaces.
+         * GCC 11 to 15 crash with an internal compiler error in tsubst_omp_for_iterator on an
+         * OpenMP loop inside a generic lambda inside a template, when the type of the loop
+         * variable depends on the lambda's parameters.
+         */
+        template <class CellType, class StencilType, class Coeffs>
+        void _apply_boundary_contribution(output_field_t& output_field,
+                                          input_field_t& input_field,
+                                          CellType& cell,
+                                          StencilType& stencil,
+                                          Coeffs& coeffs) const
+        {
+            auto cell_index_init = cell.cells()[0].index;
+
+            using index_t = decltype(cell_index_init);
+
+            for (size_type field_i = 0; field_i < output_n_comp; ++field_i)
+            {
+                for (size_type field_j = 0; field_j < n_comp; ++field_j)
+                {
+                    for (std::size_t c = 0; c < stencil_size; ++c)
+                    {
+#ifdef SAMURAI_CHECK_NAN
+                        if (std::isnan(field_value(input_field, stencil.cells()[c], field_j)))
+                        {
+                            std::cerr << "NaN detected when computing the flux on the boundary interfaces: " << stencil.cells()[c]
+                                      << std::endl;
+                            assert(false);
+                        }
+#endif
+                        auto coeff = this->scheme().cell_coeff(coeffs, c, field_i, field_j);
+
+                        index_t comput_index_init = stencil.cells()[c].index;
+
+                        // clang-format off
+                        #ifdef SAMURAI_WITH_OPENMP
+                        #pragma omp simd
+                        #endif
+                        for (index_t ii = 0; ii < static_cast<index_t>(stencil.interval().size()); ++ii)
+                        {
+                            field_value(output_field, cell_index_init + ii, field_i) += coeff * field_value(input_field, comput_index_init + ii, field_j);
+                        }
+                        // clang-format on
+                    }
+                }
+            }
+        }
+
       public:
 
         void apply(std::size_t d, output_field_t& output_field, input_field_t& input_field) override
@@ -316,42 +367,7 @@ namespace samurai
                     input_field,
                     [&](auto& cell, auto& stencil, auto& coeffs)
                     {
-                        for (size_type field_i = 0; field_i < output_n_comp; ++field_i)
-                        {
-                            for (size_type field_j = 0; field_j < n_comp; ++field_j)
-                            {
-                                for (std::size_t c = 0; c < stencil_size; ++c)
-                                {
-#ifdef SAMURAI_CHECK_NAN
-                                    if (std::isnan(field_value(input_field, stencil.cells()[c], field_j)))
-                                    {
-                                        std::cerr
-                                            << "NaN detected when computing the flux on the boundary interfaces: " << stencil.cells()[c]
-                                            << std::endl;
-                                        assert(false);
-                                    }
-#endif
-                                    auto coeff = this->scheme().cell_coeff(coeffs, c, field_i, field_j);
-                                    // field_value(output_field, cell, field_i) += coeff * field_value(input_field, stencil[c], field_j);
-
-                                    auto cell_index_init   = cell.cells()[0].index;
-                                    auto comput_index_init = stencil.cells()[c].index;
-
-                                    using index_t = decltype(cell_index_init);
-
-                                // clang-format off
-
-                                #ifdef SAMURAI_WITH_OPENMP
-                                #pragma omp simd
-                                #endif
-                                for (index_t ii = 0; ii < static_cast<index_t>(stencil.interval().size()); ++ii)
-                                {
-                                    field_value(output_field, cell_index_init + ii, field_i) += coeff * field_value(input_field, comput_index_init + ii, field_j);
-                                }
-                                    // clang-format on
-                                }
-                            }
-                        }
+                        _apply_boundary_contribution(output_field, input_field, cell, stencil, coeffs);
                     });
             }
         }
