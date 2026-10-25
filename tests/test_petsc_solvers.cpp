@@ -74,17 +74,26 @@ namespace samurai
             return react;
         }
 
+        // Whether the moved solver has already solved a system (and so holds set-up
+        // PETSc objects) when it is move-assigned.
+        enum class Source
+        {
+            fresh,
+            set_up
+        };
+
         // Builds a solver for `op_moved` and one for `op_overwritten`, sets up the
         // second one by solving once (so it holds PETSc objects of its own), then
-        // move-assigns the first into the second. The result must be what a fresh
-        // solver for `op_moved` computes.
-        template <class OpMoved, class OpOverwritten, class Field, class Configure>
+        // move-assigns the first into the second and destroys the moved-from
+        // solver. The target must then compute what a fresh solver for `op_moved`
+        // computes.
+        template <Source source, class OpMoved, class OpOverwritten, class Field, class Configure>
         void check_move_assignment(const OpMoved& op_moved, const OpOverwritten& op_overwritten, Field& rhs, Configure configure)
         {
             using solver_t = decltype(petsc::make_solver(op_moved));
             static_assert(!std::is_copy_constructible_v<solver_t>);
             static_assert(!std::is_copy_assignable_v<solver_t>);
-            static_assert(std::is_move_assignable_v<solver_t>);
+            static_assert(std::is_nothrow_move_assignable_v<solver_t>);
 
             auto& mesh     = rhs.mesh();
             auto reference = make_scalar_field<double>("reference", mesh, 0.5);
@@ -102,18 +111,27 @@ namespace samurai
 
             bool configure_called = false;
 
-            auto moved      = petsc::make_solver(op_moved);
-            moved.configure = [&](auto&... args)
-            {
-                configure_called = true;
-                configure(args...);
-            };
-
             auto overwritten      = petsc::make_solver(op_overwritten);
             overwritten.configure = configure;
             overwritten.solve(scratch, rhs);
 
-            overwritten = std::move(moved);
+            {
+                auto moved      = petsc::make_solver(op_moved);
+                moved.configure = [&](auto&... args)
+                {
+                    configure_called = true;
+                    configure(args...);
+                };
+                if constexpr (source == Source::set_up)
+                {
+                    auto source_result = make_scalar_field<double>("source_result", mesh, 0.5);
+                    make_bc<Dirichlet<1>>(source_result, 0.);
+                    moved.solve(source_result, rhs);
+                }
+
+                overwritten = std::move(moved);
+            } // the moved-from solver is destroyed before the target is used
+
             overwritten.solve(result, rhs);
 
             EXPECT_TRUE(configure_called) << "the user callback was not moved";
@@ -130,7 +148,8 @@ namespace samurai
         auto diff = make_diffusion_order2<decltype(u)>();
         auto id   = make_identity<decltype(u)>();
 
-        check_move_assignment(id + 0.1 * diff, id + 0.5 * diff, rhs, direct_lu);
+        check_move_assignment<Source::fresh>(id + 0.1 * diff, id + 0.5 * diff, rhs, direct_lu);
+        check_move_assignment<Source::set_up>(id + 0.1 * diff, id + 0.5 * diff, rhs, direct_lu);
     }
 
     TEST(petsc_solvers, nonlinear_solver_move_assignment)
@@ -143,7 +162,8 @@ namespace samurai
         auto id    = make_identity<decltype(u)>();
         auto react = make_square_reaction<decltype(u)>();
 
-        check_move_assignment(id + 0.1 * diff + 0.1 * react, id + 0.5 * diff + 0.5 * react, rhs, newton_direct_lu);
+        check_move_assignment<Source::fresh>(id + 0.1 * diff + 0.1 * react, id + 0.5 * diff + 0.5 * react, rhs, newton_direct_lu);
+        check_move_assignment<Source::set_up>(id + 0.1 * diff + 0.1 * react, id + 0.5 * diff + 0.5 * react, rhs, newton_direct_lu);
     }
 
     TEST(petsc_solvers, nonlinear_local_solvers_move_assignment)
@@ -155,6 +175,7 @@ namespace samurai
         auto id    = make_identity<decltype(u)>();
         auto react = make_square_reaction<decltype(u)>();
 
-        check_move_assignment(id + 0.1 * react, id + 0.5 * react, rhs, newton_direct_lu);
+        check_move_assignment<Source::fresh>(id + 0.1 * react, id + 0.5 * react, rhs, newton_direct_lu);
+        check_move_assignment<Source::set_up>(id + 0.1 * react, id + 0.5 * react, rhs, newton_direct_lu);
     }
 }
