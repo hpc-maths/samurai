@@ -51,6 +51,20 @@ namespace
         {
             return samurai::mra::make_mesh(unit_box(), samurai::mesh_config<dim>().min_level(level).max_level(level));
         }
+
+        // Each interior cell has 2*dim neighbours; boundary cells have fewer.
+        // The directed edge count is the sum of the degrees: on the non-periodic
+        // uniform grid of N^dim cells, 2 * dim * (N - 1) * N^(dim - 1).
+        static std::size_t expected_directed_edges()
+        {
+            const std::size_t n_per_dir = std::size_t{1} << level;
+            std::size_t edges           = 2 * dim * (n_per_dir - 1);
+            for (std::size_t d = 1; d < dim; ++d)
+            {
+                edges *= n_per_dir;
+            }
+            return edges;
+        }
     };
 
     using Dims = ::testing::Types<Dim<2>, Dim<3>>;
@@ -69,8 +83,7 @@ namespace
         auto mesh  = TestFixture::make_uniform_mesh();
         auto graph = lb::build_cell_graph<int>(mesh, lb::weight::uniform());
 
-        const auto n              = mesh.nb_cells(TestFixture::mesh_id_t::cells);
-        constexpr std::size_t dim = TestFixture::dim;
+        const auto n = mesh.nb_cells(TestFixture::mesh_id_t::cells);
 
         // vtxdist: [0, n]
         EXPECT_EQ(graph.vtxdist.size(), 2u);
@@ -80,16 +93,13 @@ namespace
         // Number of vertices matches cells
         EXPECT_EQ(static_cast<std::size_t>(graph.nvtx_local()), n);
 
-        // Each interior cell has 2*dim neighbours; boundary cells have fewer.
-        // The total edge count (directed) must equal sum of degrees.
-        const int total_edges = graph.adjncy.size();
-        EXPECT_GT(total_edges, 0) << "Graph has no edges for a non-trivial mesh";
+        EXPECT_EQ(graph.adjncy.size(), TestFixture::expected_directed_edges());
 
         // Check that all edge endpoints are valid global vertex IDs
-        for (std::size_t i = 0; i < static_cast<std::size_t>(total_edges); ++i)
+        for (const int v : graph.adjncy)
         {
-            EXPECT_GE(graph.adjncy[i], 0);
-            EXPECT_LT(static_cast<std::size_t>(graph.adjncy[i]), n);
+            EXPECT_GE(v, 0);
+            EXPECT_LT(static_cast<std::size_t>(v), n);
         }
 
         // Symmetry: for every edge (u, v), there must be an edge (v, u).
@@ -109,8 +119,9 @@ namespace
         }
     }
 
-    // On multiple processes: vtxdist must be consistent and the total vertex
-    // count must equal the global cell count.
+    // On multiple processes: vtxdist must be consistent, the total vertex
+    // count must equal the global cell count and the total edge count must
+    // match the grid topology.
     TYPED_TEST(LoadBalancingGraph, global_consistency)
     {
         mpi::communicator world;
@@ -126,11 +137,16 @@ namespace
         // Local vertex count matches
         EXPECT_EQ(static_cast<std::size_t>(graph.nvtx_local()), n_local);
 
+        // Every rank stores the edges of its own vertices, cut edges included:
+        // the sum over the ranks is the edge count of the whole grid.
+        const auto edges_global = mpi::all_reduce(world, graph.adjncy.size(), std::plus<std::size_t>());
+        EXPECT_EQ(edges_global, TestFixture::expected_directed_edges());
+
         // All edge endpoints are valid global IDs
-        for (int j = 0; j < graph.adjncy.size(); ++j)
+        for (const int v : graph.adjncy)
         {
-            EXPECT_GE(graph.adjncy[static_cast<std::size_t>(j)], 0);
-            EXPECT_LT(static_cast<std::size_t>(graph.adjncy[static_cast<std::size_t>(j)]), n_global);
+            EXPECT_GE(v, 0);
+            EXPECT_LT(static_cast<std::size_t>(v), n_global);
         }
     }
 

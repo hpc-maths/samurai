@@ -465,9 +465,9 @@ namespace samurai
     INSTANTIATE_TEST_SUITE_P(ProjectionPredictionRoundtrip,
                              RoundtripTest,
                              ::testing::ValuesIn(make_params()),
-                             [](const ::testing::TestParamInfo<RoundtripParams>& info)
+                             [](const ::testing::TestParamInfo<RoundtripParams>& param_info)
                              {
-                                 return info.param.name();
+                                 return param_info.param.name();
                              });
 
 } // namespace samurai

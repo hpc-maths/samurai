@@ -418,9 +418,9 @@ namespace samurai::ghost_cases
     }
 
     template <std::size_t Dim, class Field>
-    void apply_decomposition(Decomp d, Field& u)
+    void apply_decomposition(Decomp decomp, Field& u)
     {
-        switch (d)
+        switch (decomp)
         {
             case Decomp::None:
                 break;

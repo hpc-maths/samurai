@@ -172,13 +172,13 @@ int main(int argc, char* argv[])
     // WENO schemes are not differentiable).
     // It is crucial for the Newton solver to have a differentiable operator.
 
-    auto navier_stokes_euler = [&](double dt)
+    auto navier_stokes_euler = [&](double time_step)
     {
         // clang-format off
         return samurai::make_block_operator<3, 3>(
-                               id_V + dt * (diff_V + conv_V),   dt * grad_P,           dt * buoy_T         ,
-                                                      -div_V,        zero_P,                0              ,
-                                              dt * conv_dual,         0    ,   id_T + dt * (diff_T + conv_T)
+                     id_V + time_step * (diff_V + conv_V),   time_step * grad_P,   time_step * buoy_T                 ,
+                                                   -div_V,               zero_P,                    0                 ,
+                                    time_step * conv_dual,                0    ,   id_T + time_step * (diff_T + conv_T)
                 );
         // clang-format on
     };
