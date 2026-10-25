@@ -20,6 +20,8 @@
 #include <samurai/mr/mesh.hpp>
 #include <samurai/schemes/lbm.hpp>
 
+#include "test_common.hpp"
+
 namespace samurai
 {
     namespace
@@ -30,6 +32,44 @@ namespace samurai
         double wrap(double z, double left, double L)
         {
             return left + std::fmod(std::fmod(z - left, L) + L, L);
+        }
+
+        // Integral of `density` over the whole domain, all processes included.
+        // Collective under MPI.
+        template <class Mesh, class Density>
+        double integral(const Mesh& mesh, const Density& density)
+        {
+            double s = 0.;
+            for_each_cell(mesh,
+                          [&](const auto& cell)
+                          {
+                              double volume = 1.;
+                              for (std::size_t d = 0; d < Mesh::dim; ++d)
+                              {
+                                  volume *= cell.length;
+                              }
+                              s += density(cell) * volume;
+                          });
+            return test::global_sum(s);
+        }
+
+        // Returns a callable that adapts the mesh of `f` by multiresolution with
+        // threshold `eps` and resizes `m` to it, or does nothing when `adapt` is
+        // false. The mesh is adapted once right away, so that the initial state is
+        // measured on the adapted mesh.
+        template <class Field, class Moments>
+        auto make_mesh_adaptation(Field& f, Moments& m, bool adapt, double eps)
+        {
+            auto adapt_mesh = [&m, adapt, mr_adapt = make_MRAdapt(f), config = samurai::mra_config().epsilon(eps)]() mutable
+            {
+                if (adapt)
+                {
+                    mr_adapt(config);
+                    m.resize();
+                }
+            };
+            adapt_mesh();
+            return adapt_mesh;
         }
 
         // ------------------------------------------------------------------ D1Q2 advection
@@ -99,13 +139,11 @@ namespace samurai
 
             auto mass = [&]()
             {
-                double s = 0.;
-                for_each_cell(mesh,
-                              [&](const auto& cell)
-                              {
-                                  s += (f[cell](0) + f[cell](1)) * cell.length;
-                              });
-                return s;
+                return integral(mesh,
+                                [&](const auto& cell)
+                                {
+                                    return f[cell](0) + f[cell](1);
+                                });
             };
             const double mass0 = mass();
 
@@ -127,7 +165,9 @@ namespace samurai
                               r.umin = std::min(r.umin, m[cell](0));
                               r.umax = std::max(r.umax, m[cell](0));
                           });
-            r.rel_l2_error = burgers ? 0. : std::sqrt(err / nrm);
+            r.umin         = test::global_min(r.umin);
+            r.umax         = test::global_max(r.umax);
+            r.rel_l2_error = burgers ? 0. : std::sqrt(test::global_sum(err) / test::global_sum(nrm));
             return r;
         }
 
@@ -199,34 +239,21 @@ namespace samurai
             const auto nt   = static_cast<std::size_t>(std::round(Tf / dt));
             const double Te = static_cast<double>(nt) * dt;
 
-            auto MRadaptation = make_MRAdapt(f);
-            auto mra_config   = samurai::mra_config().epsilon(1e-4);
-            if (adapt)
-            {
-                MRadaptation(mra_config);
-                m.resize();
-            }
+            auto adapt_mesh = make_mesh_adaptation(f, m, adapt, 1e-4);
 
             auto mass = [&]()
             {
-                double s = 0.;
-                for_each_cell(mesh,
-                              [&](const auto& cell)
-                              {
-                                  const double area = cell.length * cell.length;
-                                  s += (f[cell](0) + f[cell](1) + f[cell](2) + f[cell](3)) * area;
-                              });
-                return s;
+                return integral(mesh,
+                                [&](const auto& cell)
+                                {
+                                    return f[cell](0) + f[cell](1) + f[cell](2) + f[cell](3);
+                                });
             };
             const double mass0 = mass();
 
             for (std::size_t n = 0; n < nt; ++n)
             {
-                if (adapt)
-                {
-                    MRadaptation(mra_config);
-                    m.resize();
-                }
+                adapt_mesh();
                 scheme(f, m);
             }
 
@@ -243,7 +270,9 @@ namespace samurai
                               r.umin = std::min(r.umin, m[cell](0));
                               r.umax = std::max(r.umax, m[cell](0));
                           });
-            r.rel_l2_error = std::sqrt(err / nrm);
+            r.umin         = test::global_min(r.umin);
+            r.umax         = test::global_max(r.umax);
+            r.rel_l2_error = std::sqrt(test::global_sum(err) / test::global_sum(nrm));
             return r;
         }
     }
@@ -381,33 +410,21 @@ namespace samurai
             const double dt = dx / lambda;
             const auto nt   = static_cast<std::size_t>(std::round(Tf / dt));
 
-            auto MRadaptation = make_MRAdapt(f);
-            auto mra_config   = samurai::mra_config().epsilon(eps);
-            if (adapt)
-            {
-                MRadaptation(mra_config);
-                m.resize();
-            }
+            auto adapt_mesh = make_mesh_adaptation(f, m, adapt, eps);
 
             auto mass = [&]()
             {
-                double s_ = 0.;
-                for_each_cell(mesh,
-                              [&](const auto& cell)
-                              {
-                                  s_ += m[cell](0) * cell.length;
-                              });
-                return s_;
+                return integral(mesh,
+                                [&](const auto& cell)
+                                {
+                                    return m[cell](0);
+                                });
             };
             const double mass0 = mass();
 
             for (std::size_t n = 0; n < nt; ++n)
             {
-                if (adapt)
-                {
-                    MRadaptation(mra_config);
-                    m.resize();
-                }
+                adapt_mesh();
                 scheme(f, m);
             }
 
@@ -418,6 +435,8 @@ namespace samurai
                               r.vmin = std::min(r.vmin, m[cell](0));
                               r.vmax = std::max(r.vmax, m[cell](0));
                           });
+            r.vmin       = test::global_min(r.vmin);
+            r.vmax       = test::global_max(r.vmax);
             r.mass_drift = std::abs(mass() - mass0);
             return r;
         }
@@ -514,33 +533,21 @@ namespace samurai
             const double dt = dx / lambda;
             const auto nt   = static_cast<std::size_t>(std::round(Tf / dt));
 
-            auto MRadaptation = make_MRAdapt(f);
-            auto mra_config   = samurai::mra_config().epsilon(eps);
-            if (adapt)
-            {
-                MRadaptation(mra_config);
-                m.resize();
-            }
+            auto adapt_mesh = make_mesh_adaptation(f, m, adapt, eps);
 
             auto mass = [&]()
             {
-                double s_ = 0.;
-                for_each_cell(mesh,
-                              [&](const auto& cell)
-                              {
-                                  s_ += m[cell](0) * cell.length;
-                              });
-                return s_;
+                return integral(mesh,
+                                [&](const auto& cell)
+                                {
+                                    return m[cell](0);
+                                });
             };
             const double mass0 = mass();
 
             for (std::size_t n = 0; n < nt; ++n)
             {
-                if (adapt)
-                {
-                    MRadaptation(mra_config);
-                    m.resize();
-                }
+                adapt_mesh();
                 scheme(f, m);
             }
 
@@ -554,6 +561,9 @@ namespace samurai
                               r.vmax         = std::max(r.vmax, rho);
                               r.pmin         = std::min(r.pmin, p);
                           });
+            r.vmin       = test::global_min(r.vmin);
+            r.vmax       = test::global_max(r.vmax);
+            r.pmin       = test::global_min(r.pmin);
             r.mass_drift = std::abs(mass() - mass0);
             return r;
         }
@@ -677,21 +687,11 @@ namespace samurai
             const double dt = dx / lambda;
             const auto nt   = static_cast<std::size_t>(std::round(Tf / dt));
 
-            auto MRadaptation = make_MRAdapt(f);
-            auto mra_config   = samurai::mra_config().epsilon(eps);
-            if (adapt)
-            {
-                MRadaptation(mra_config);
-                m.resize();
-            }
+            auto adapt_mesh = make_mesh_adaptation(f, m, adapt, eps);
 
             for (std::size_t n = 0; n < nt; ++n)
             {
-                if (adapt)
-                {
-                    MRadaptation(mra_config);
-                    m.resize();
-                }
+                adapt_mesh();
                 scheme(f, m);
             }
 
@@ -705,6 +705,9 @@ namespace samurai
                               r.vmax         = std::max(r.vmax, rho);
                               r.pmin         = std::min(r.pmin, p);
                           });
+            r.vmin = test::global_min(r.vmin);
+            r.vmax = test::global_max(r.vmax);
+            r.pmin = test::global_min(r.pmin);
             return r;
         }
     }
@@ -839,14 +842,11 @@ namespace samurai
 
             auto mass = [&]()
             {
-                double s = 0.;
-                for_each_cell(mesh,
-                              [&](const auto& cell)
-                              {
-                                  const double area = cell.length * cell.length;
-                                  s += (f[cell](0) + f[cell](1) + f[cell](2) + f[cell](3)) * area;
-                              });
-                return s;
+                return integral(mesh,
+                                [&](const auto& cell)
+                                {
+                                    return f[cell](0) + f[cell](1) + f[cell](2) + f[cell](3);
+                                });
             };
             const double mass0 = mass();
 
@@ -868,8 +868,10 @@ namespace samurai
                               sum_qx += qx * area;
                               sum_qy += qy * area;
                           });
+            r.rhomin             = test::global_min(r.rhomin);
+            r.pmin               = test::global_min(r.pmin);
             r.mass_drift         = std::abs(mass() - mass0);
-            r.momentum_asymmetry = std::abs(sum_qx - sum_qy);
+            r.momentum_asymmetry = std::abs(test::global_sum(sum_qx) - test::global_sum(sum_qy));
             return r;
         }
     }
@@ -1037,14 +1039,11 @@ namespace samurai
 
             auto mass = [&]()
             {
-                double s = 0.;
-                for_each_cell(mesh,
-                              [&](const auto& cell)
-                              {
-                                  const double area = cell.length * cell.length;
-                                  s += (f[cell](0) + f[cell](1) + f[cell](2) + f[cell](3) + f[cell](4)) * area;
-                              });
-                return s;
+                return integral(mesh,
+                                [&](const auto& cell)
+                                {
+                                    return f[cell](0) + f[cell](1) + f[cell](2) + f[cell](3) + f[cell](4);
+                                });
             };
             const double mass0 = mass();
 
@@ -1063,6 +1062,9 @@ namespace samurai
                               r.pmin         = std::min(r.pmin, p);
                               r.umax         = std::max(r.umax, std::sqrt(qx * qx + qy * qy) / rho);
                           });
+            r.rhomin     = test::global_min(r.rhomin);
+            r.pmin       = test::global_min(r.pmin);
+            r.umax       = test::global_max(r.umax);
             r.mass_drift = std::abs(mass() - mass0);
             return r;
         }
@@ -1177,13 +1179,11 @@ namespace samurai
 
             auto mass = [&]()
             {
-                double s = 0.;
-                for_each_cell(mesh,
-                              [&](const auto& cell)
-                              {
-                                  s += (f[cell](0) + f[cell](1) + f[cell](2)) * cell.length;
-                              });
-                return s;
+                return integral(mesh,
+                                [&](const auto& cell)
+                                {
+                                    return f[cell](0) + f[cell](1) + f[cell](2);
+                                });
             };
             const double mass0  = mass();
             const double h_rest = hL; // used only when hL == hR
@@ -1202,6 +1202,9 @@ namespace samurai
                               r.hmax              = std::max(r.hmax, h);
                               r.max_dev_from_rest = std::max(r.max_dev_from_rest, std::abs(h - h_rest));
                           });
+            r.hmin              = test::global_min(r.hmin);
+            r.hmax              = test::global_max(r.hmax);
+            r.max_dev_from_rest = test::global_max(r.max_dev_from_rest);
             return r;
         }
     }
@@ -1339,13 +1342,11 @@ namespace samurai
 
         auto mass = [&]()
         {
-            double acc = 0.;
-            for_each_cell(mesh,
-                          [&](const auto& cell)
-                          {
-                              acc += m[cell](0) * cell.length * cell.length;
-                          });
-            return acc;
+            return integral(mesh,
+                            [&](const auto& cell)
+                            {
+                                return m[cell](0);
+                            });
         };
         const double mass0 = mass();
 
@@ -1366,7 +1367,8 @@ namespace samurai
                           nrm += (ue * ue + ve * ve) * cell.length * cell.length;
                           umax = std::max(umax, std::sqrt(u * u + v * v));
                       });
-        const double rel_l2 = std::sqrt(err / nrm);
+        umax                = test::global_max(umax);
+        const double rel_l2 = std::sqrt(test::global_sum(err) / test::global_sum(nrm));
 
         // Mass conserved to round-off.
         EXPECT_LT(std::abs(mass() - mass0), 1e-10);
@@ -1505,23 +1507,13 @@ namespace samurai
             make_bc<Neumann<1>>(f)->on(right);
             scheme.init_equilibrium(f, m);
 
-            const auto nt     = static_cast<std::size_t>(std::round(Tf / dt));
-            auto MRadaptation = make_MRAdapt(f);
-            auto mra_config   = samurai::mra_config().epsilon(1e-3);
-            if (adapt)
-            {
-                MRadaptation(mra_config);
-                m.resize();
-            }
+            const auto nt   = static_cast<std::size_t>(std::round(Tf / dt));
+            auto adapt_mesh = make_mesh_adaptation(f, m, adapt, 1e-3);
 
             double cd = 0.;
             for (std::size_t n = 0; n < nt; ++n)
             {
-                if (adapt)
-                {
-                    MRadaptation(mra_config);
-                    m.resize();
-                }
+                adapt_mesh();
                 scheme(f, m);
                 double Fx = 0.;
                 for_each_cell(mesh,
@@ -1544,7 +1536,7 @@ namespace samurai
                                       fc(a) = (1. - frac) * fc(a) + frac * feq_rest[a];
                                   }
                               });
-                cd = Fx / (0.5 * rho0 * u0 * u0 * diam);
+                cd = test::global_sum(Fx) / (0.5 * rho0 * u0 * u0 * diam);
             }
 
             vk_result r{std::numeric_limits<double>::max(), std::numeric_limits<double>::lowest(), 0., 0., cd};
@@ -1568,6 +1560,10 @@ namespace samurai
                                   r.u_solid_max = std::max(r.u_solid_max, speed);
                               }
                           });
+            r.rhomin      = test::global_min(r.rhomin);
+            r.rhomax      = test::global_max(r.rhomax);
+            r.umax        = test::global_max(r.umax);
+            r.u_solid_max = test::global_max(r.u_solid_max);
             return r;
         }
     }

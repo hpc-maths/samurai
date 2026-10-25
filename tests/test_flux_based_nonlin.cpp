@@ -21,6 +21,8 @@
 #include <samurai/mr/mesh.hpp>
 #include <samurai/schemes/fv.hpp>
 
+#include "test_common.hpp"
+
 namespace samurai
 {
     namespace
@@ -114,7 +116,7 @@ namespace samurai
                           {
                               sum += v[cell] * std::pow(cell.length, static_cast<double>(Field::dim));
                           });
-            return sum;
+            return test::global_sum(sum);
         }
 
         // Restores args::finer_level_flux when a test ends.

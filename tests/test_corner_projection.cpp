@@ -4,10 +4,14 @@
 #include <samurai/samurai.hpp>
 #include <samurai/subset/node.hpp>
 
+#include "test_common.hpp"
+
 namespace samurai
 {
     TEST(subset, corner_projection)
     {
+        SKIP_IF_DISTRIBUTED("the corner cell belongs to a single process");
+
         static constexpr std::size_t dim = 2;
         using Box                        = Box<double, dim>;
         using direction_t                = DirectionVector<dim>;

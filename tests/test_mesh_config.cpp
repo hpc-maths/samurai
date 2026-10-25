@@ -8,6 +8,8 @@
 #include <samurai/box.hpp>
 #include <samurai/mesh_config.hpp>
 
+#include "test_common.hpp"
+
 namespace samurai
 {
     template <class Mesh>
@@ -41,7 +43,7 @@ namespace samurai
         auto config = mesh_config<1>().min_level(8).max_level(8);
         auto mesh   = amr::make_mesh(box, config);
         EXPECT_EQ(cell_levels(mesh), std::set<std::size_t>{8});
-        EXPECT_EQ(mesh.nb_cells(amr::AMR_Id::cells), 256);
+        EXPECT_EQ(test::global_sum(mesh.nb_cells(amr::AMR_Id::cells)), 256);
 
         // The constructor does not go through parse_args
         amr::Mesh<mesh_config<1>> direct_mesh(box, mesh_config<1>().min_level(2).max_level(4));

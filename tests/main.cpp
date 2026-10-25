@@ -9,6 +9,8 @@
 int main(int argc, char* argv[])
 {
 #ifdef SAMURAI_WITH_MPI
+    // MPI lives for the whole binary: it cannot be initialized again once finalized,
+    // so tests must not call samurai::initialize() or samurai::finalize().
     boost::mpi::environment env(argc, argv);
 #endif
 #ifdef SAMURAI_WITH_PETSC
