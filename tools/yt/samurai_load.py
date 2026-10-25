@@ -37,92 +37,25 @@ alignment check (bug #1295) bit for bit.
 """
 
 import os
-import re
+import sys
 
 import numpy as np
 import h5py
 
+# The file-level helpers are shared with the other reader in tools/; make them
+# importable whatever the caller's working directory or sys.path.
+_COMMON = os.path.normpath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "common")
+)
+if _COMMON not in sys.path:
+    sys.path.insert(0, _COMMON)
 
-def read_time(filename):
-    """Return the simulation time stored in a samurai file, or ``None`` if absent.
-
-    ``samurai::dump`` combined with the ``MetadataWriter`` (see
-    ``include/samurai/io/metadata.hpp``) stores the time as the HDF5 root
-    attribute ``"time"``.
-    """
-    if not filename.endswith(".h5"):
-        filename = filename + ".h5"
-    try:
-        with h5py.File(filename, "r") as f:
-            if "time" in f.attrs:
-                return float(f.attrs["time"])
-    except OSError:
-        pass
-    return None
-
-
-def discover_series(filename):
-    """Return ``(files, times)`` for the numbered series containing ``filename``.
-
-    A file written per output step is named with a trailing integer before
-    ``.h5`` (e.g. ``sol_ite_0.h5``, ``sol_ite_1.h5``, ...).  Given any one of
-    them, this globs the siblings that share the same prefix so that opening a
-    single file exposes the whole animation.  If ``filename`` has no trailing
-    number, the series is just that one file.
-
-    Files are ordered by their trailing integer (natural order).  ``times`` are
-    the simulation times read from the ``"time"`` HDF5 attribute when **every**
-    file exposes it; otherwise they fall back to the trailing integers.
-    """
-    filename = os.path.abspath(filename)
-    if not filename.endswith(".h5"):
-        filename = filename + ".h5"
-    directory = os.path.dirname(filename)
-    base = os.path.basename(filename)[:-3]  # strip ".h5"
-
-    match = re.match(r"^(.*?)(\d+)$", base)
-    if match is None:
-        files = [filename]
-        iterations = [0]
-    else:
-        prefix = match.group(1)
-        pattern = re.compile(r"^" + re.escape(prefix) + r"(\d+)\.h5$")
-        try:
-            entries = os.listdir(directory or ".")
-        except OSError:
-            entries = []
-        found = []
-        for name in entries:
-            m = pattern.match(name)
-            if m is not None:
-                found.append((int(m.group(1)), os.path.join(directory, name)))
-        if not found:
-            files = [filename]
-            iterations = [0]
-        else:
-            found.sort()
-            files = [p for _, p in found]
-            iterations = [n for n, _ in found]
-
-    # Prefer the stored simulation time when available for every file.
-    times = [read_time(f) for f in files]
-    if any(t is None for t in times):
-        times = [float(n) for n in iterations]
-    return files, times
-
-
-def _slice_partitioned(group, rank):
-    """Return the ``rank``-th slice of a samurai partitioned dataset.
-
-    A partitioned dataset is a group holding ``data`` (the concatenated buffer of
-    every MPI rank) and ``partition`` (cumulative per-rank sizes, length
-    ``n_process + 1``); see ``detail::dump_partitions`` in
-    ``restart.hpp``.
-    """
-    partition = group["partition"][()]
-    begin = int(partition[rank])
-    end = int(partition[rank + 1])
-    return group["data"][begin:end]
+from samurai_h5 import (  # noqa: E402
+    discover_series,
+    read_time,
+    slice_partitioned,
+    validate_samurai_group,
+)
 
 
 def _enumerate_intervals(cells, offsets, dim):
@@ -201,9 +134,9 @@ def _read_leaves(root, fields, dim, min_level, max_level, n_process):
                 if iv_group is None:
                     empty = True
                     break
-                cells[d] = _slice_partitioned(iv_group, rank)
+                cells[d] = slice_partitioned(iv_group, rank)
                 if d >= 1:
-                    offsets[d] = _slice_partitioned(level_group.get(f"dim/{d}/offsets"), rank)
+                    offsets[d] = slice_partitioned(level_group.get(f"dim/{d}/offsets"), rank)
             if empty or cells[0] is None or len(cells[0]) == 0:
                 continue
             for x0, x1, y, z in _enumerate_intervals(cells, offsets, dim):
@@ -219,7 +152,7 @@ def _read_leaves(root, fields, dim, min_level, max_level, n_process):
         key_parts.append(rank_keys)
         level_parts.append(np.concatenate(rank_levels))
         for name, n_comp in fields.items():
-            buf = np.asarray(_slice_partitioned(root[f"fields/{name}/data"], rank))
+            buf = np.asarray(slice_partitioned(root[f"fields/{name}/data"], rank))
             value_parts[name].append(buf.reshape(rank_keys.shape[0], n_comp))
 
     if not key_parts:
@@ -234,35 +167,13 @@ def _read_leaves(root, fields, dim, min_level, max_level, n_process):
     return keys, levels, values
 
 
-def _validate_samurai_group(root, filename):
-    """Raise a clear error if ``root`` is not a samurai mesh group."""
-    if "mesh/dim" in root:
-        return
-    # Detect a save() file (explicit points/connectivity) for an actionable message.
-    looks_like_save = "mesh" in root and (
-        any(k in root["mesh"] for k in ("points", "connectivity"))
-        or any(
-            isinstance(root["mesh"][k], h5py.Group)
-            and ("points" in root["mesh"][k] or "connectivity" in root["mesh"][k])
-            for k in root["mesh"].keys()
-        )
-    )
-    if looks_like_save:
-        raise ValueError(
-            f"'{filename}' looks like a samurai save() file (explicit "
-            "points/connectivity mesh), which this loader does not handle. "
-            "Open the compressed dump/restart file instead."
-        )
-    raise ValueError(f"'{filename}' is not a samurai dump file: '/mesh/dim' is missing.")
-
-
 def _read_file(filename, group):
     """Open a samurai file and return its metadata plus the leaf cells."""
     if not filename.endswith(".h5"):
         filename = filename + ".h5"
     with h5py.File(filename, "r") as f:
         root = f[group] if group else f
-        _validate_samurai_group(root, filename)
+        validate_samurai_group(root, filename)
 
         dim = int(root["mesh/dim"][()])
         origin_point = np.asarray(root["mesh/origin_point"][()], dtype=np.float64)
