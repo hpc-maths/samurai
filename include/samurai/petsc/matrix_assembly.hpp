@@ -14,7 +14,6 @@ namespace samurai
           private:
 
             bool m_is_set_up   = false; // if false, then setup() must be called before assembling the matrix
-            bool m_is_deleted  = false;
             std::string m_name = "(unnamed)";
 
             bool m_include_bc                              = true;
@@ -393,11 +392,16 @@ namespace samurai
                 }
             }
 
-            virtual ~MatrixAssembly()
-            {
-                // std::cout << "Destruction of '" << name() << "'" << std::endl;
-                m_is_deleted = true;
-            }
+            virtual ~MatrixAssembly() = default;
+
+          protected:
+
+            // Protected to prevent slicing: only the derived assemblies copy or move this base.
+            MatrixAssembly()                                     = default;
+            MatrixAssembly(const MatrixAssembly&)                = default;
+            MatrixAssembly& operator=(const MatrixAssembly&)     = default;
+            MatrixAssembly(MatrixAssembly&&) noexcept            = default;
+            MatrixAssembly& operator=(MatrixAssembly&&) noexcept = default;
 
           public:
 

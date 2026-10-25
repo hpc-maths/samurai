@@ -109,12 +109,6 @@ namespace samurai
         // Specific to implicit local schemes (unused otherwise)
         local_scheme_func local_scheme_function     = nullptr;
         local_jacobian_func local_jacobian_function = nullptr;
-
-        ~CellBasedSchemeDefinition()
-        {
-            scheme_function   = nullptr;
-            jacobian_function = nullptr;
-        }
     };
 
     /**
@@ -128,11 +122,6 @@ namespace samurai
         using get_coefficients_func = std::function<void(StencilCoeffs<cfg>&, const StencilCells<cfg>&)>;
 
         get_coefficients_func get_coefficients_function = nullptr;
-
-        ~CellBasedSchemeDefinition()
-        {
-            get_coefficients_function = nullptr;
-        }
     };
 
     /**
@@ -146,11 +135,6 @@ namespace samurai
         using get_coefficients_func = std::function<void(StencilCoeffs<cfg>&, double)>;
 
         get_coefficients_func get_coefficients_function = nullptr;
-
-        ~CellBasedSchemeDefinition()
-        {
-            get_coefficients_function = nullptr;
-        }
     };
 
 } // end namespace samurai

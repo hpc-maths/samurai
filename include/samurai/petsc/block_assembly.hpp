@@ -6,6 +6,7 @@
 #include "zero_block_assembly.hpp"
 
 #include <fmt/format.h>
+#include <memory>
 #include <stdexcept>
 
 namespace samurai
@@ -655,7 +656,9 @@ namespace samurai
 
           private:
 
-            Numbering m_numbering;
+            // Shared by the blocks, which point to it: it lives on the heap so that these pointers stay valid when the
+            // assembly is moved.
+            std::unique_ptr<Numbering> m_numbering = std::make_unique<Numbering>();
 
           public:
 
@@ -683,7 +686,7 @@ namespace samurai
 
             Numbering& numbering()
             {
-                return m_numbering;
+                return *m_numbering;
             }
 
             void setup() override
@@ -749,7 +752,7 @@ namespace samurai
                     });
 
 #ifdef SAMURAI_WITH_MPI
-                m_numbering.resize(this->local_matrix_rows());
+                m_numbering->resize(this->local_matrix_rows());
                 for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
                     {
@@ -769,7 +772,7 @@ namespace samurai
                     {
                         if constexpr (col == row)
                         {
-                            op.compute_local_to_global_rows(m_numbering.local_to_global_mapping);
+                            op.compute_local_to_global_rows(m_numbering->local_to_global_mapping);
                         }
                     });
 #endif
@@ -777,13 +780,13 @@ namespace samurai
 
             const std::vector<PetscInt>& local_to_global_rows() const override
             {
-                return m_numbering.local_to_global_mapping;
+                return m_numbering->local_to_global_mapping;
             }
 
             const std::vector<PetscInt>& local_to_global_cols() const override
             {
                 assert(false && "Not implemented yet");
-                return m_numbering.local_to_global_mapping; // just to return something
+                return m_numbering->local_to_global_mapping; // just to return something
             }
 
           public:

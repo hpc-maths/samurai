@@ -9,6 +9,7 @@
 #include "../global_numbering.hpp"
 #include "../matrix_assembly.hpp"
 #include <fmt/format.h>
+#include <memory>
 #include <stdexcept>
 
 namespace samurai
@@ -79,9 +80,11 @@ namespace samurai
             Scheme m_scheme;
             field_t* m_unknown = nullptr;
 
+            // Stand-alone assembly: the numbering is allocated by compute_numbering(). It lives on the heap so that the
+            // pointers below, and those of the other assemblies of an operator sum, stay valid when this object is moved.
+            std::unique_ptr<Numbering> m_owned_numbering;
             Numbering* m_row_numbering = nullptr;
             Numbering* m_col_numbering = nullptr;
-            bool m_owns_numbering      = false;
 
             std::vector<bool> m_is_row_empty;
 
@@ -97,17 +100,6 @@ namespace samurai
                 : m_scheme(scheme)
             {
                 this->set_name(scheme.name());
-            }
-
-            ~FVSchemeAssembly() override
-            {
-                if (m_owns_numbering)
-                {
-                    assert(m_row_numbering == m_col_numbering);
-                    delete m_row_numbering;
-                    m_row_numbering = nullptr;
-                    m_col_numbering = nullptr;
-                }
             }
 
             auto& scheme()
@@ -276,8 +268,8 @@ namespace samurai
                 if (m_row_numbering == nullptr)
                 {
                     assert(m_col_numbering == nullptr);
-                    m_row_numbering  = new Numbering();
-                    m_owns_numbering = true;
+                    m_owned_numbering = std::make_unique<Numbering>();
+                    m_row_numbering   = m_owned_numbering.get();
                 }
 #ifdef SAMURAI_WITH_MPI
                 assert(input_n_comp == output_n_comp && "we compute the numbering only for square matrices or blocks");

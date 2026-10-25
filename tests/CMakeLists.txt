@@ -66,6 +66,7 @@ set(SAMURAI_TESTS
     test_restart.cpp
     test_restart_include.cpp
     test_scaling.cpp
+    test_scheme_move_semantics.cpp
     test_sfc_curves.cpp
     test_static_dispatch.cpp
     test_stencil.cpp
@@ -130,6 +131,8 @@ if(WITH_PETSC)
     endif()
     target_link_libraries(test_fv_operators_petsc samurai gtest_main gtest)
     samurai_test_petsc(test_fv_operators_petsc)
+    # Also checks the move semantics of the PETSc assemblies (SAMURAI_WITH_PETSC part of the file).
+    target_sources(test_fv_operators_petsc PRIVATE test_scheme_move_semantics.cpp)
 endif()
 
 # Standalone tools (no gtest): regenerate the small samurai files consumed by
