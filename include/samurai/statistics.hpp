@@ -1,114 +1,162 @@
-#include <algorithm>
-#include <fmt/format.h>
+// Copyright 2018-2025 the samurai's authors
+// SPDX-License-Identifier:  BSD-3-Clause
+
+#pragma once
+
 #include <string>
 
-#include <fstream>
-
 #if defined(WITH_STATS)
+#include <algorithm>
+#include <cstddef>
+#include <fstream>
+#include <utility>
+#include <vector>
+
+#include <fmt/format.h>
+
 #include <nlohmann/json.hpp>
-using json = nlohmann::json;
 #endif
 
 namespace samurai
 {
 #if defined(WITH_STATS)
-    struct Statistics
+    /**
+     * Records, for each call, the number of cells and intervals of every level
+     * of a mesh, and writes them as JSON (read by python/read_stats.py).
+     *
+     * Each call to operator()(test_case, mesh) appends one entry to the array
+     * `test_case` of the file. The file is written every `save_every` calls
+     * (never if `save_every` is 0) and when the recorder is destroyed, as long
+     * as something was recorded.
+     *
+     * With MPI, each rank records its own subdomain and writes the same file.
+     */
+    class Statistics
     {
-        Statistics(const std::string& filename, int save_all = 10)
-            : filename(filename)
-            , save_all(save_all)
-            , icurrent(0)
+        using json = nlohmann::json;
+
+      public:
+
+        explicit Statistics(std::string filename, std::size_t save_every = 10)
+            : m_filename(std::move(filename))
+            , m_save_every(save_every)
         {
         }
 
-        template <class Mesh>
-        void operator()(std::string test_case, const Mesh& mesh)
-        {
-            icurrent++;
-            using mesh_id_t = typename Mesh::mesh_id_t;
-            auto ca         = mesh[mesh_id_t::cells];
-            std::size_t dim = Mesh::dim;
-
-            std::size_t min_level = ca.min_level();
-            std::size_t max_level = ca.max_level();
-
-            auto comp = [](const auto& a, const auto& b)
-            {
-                return a.size() < b.size();
-            };
-
-            json by_level;
-            for (std::size_t l = min_level; l <= max_level; ++l)
-            {
-                json result;
-                result["cells"] = ca[l].nb_cells();
-
-                for (std::size_t d = 0; d < dim; ++d)
-                {
-                    auto dim_str                           = fmt::format("axis-{}", d);
-                    result[dim_str]["number of intervals"] = ca[l][d].size();
-
-                    auto minmax                                  = std::minmax_element(ca[l][d].cbegin(), ca[l][d].cend(), comp);
-                    result[dim_str]["cells per interval"]["min"] = (minmax.first)->size();
-                    result[dim_str]["cells per interval"]["max"] = (minmax.second)->size();
-                }
-
-                for (std::size_t d = 1; d < dim; ++d)
-                {
-                    auto dim_str = fmt::format("axis-{}", d);
-                    auto offsets = ca[l].offsets(1);
-                    std::adjacent_difference(offsets.begin(), offsets.end(), offsets.begin());
-                    auto minmax = std::minmax_element(offsets.cbegin() + 1, offsets.cend());
-
-                    result[dim_str]["number of intervals per component"]["min"] = *minmax.first;
-                    result[dim_str]["number of intervals per component"]["max"] = *minmax.second;
-                }
-
-                by_level[fmt::format("{:02}", l)] = result;
-            }
-
-            if (stats.contains(test_case))
-            {
-                stats[test_case].push_back({
-                    {"min_level", min_level},
-                    {"max_level", max_level},
-                    {"by_level",  by_level }
-                });
-            }
-            else
-            {
-                json out = json::array();
-                out.push_back({
-                    {"min_level", min_level},
-                    {"max_level", max_level},
-                    {"by_level",  by_level }
-                });
-                stats[test_case] = out;
-            }
-
-            if (icurrent == save_all)
-            {
-                std::ofstream ofile(filename);
-                ofile << std::setw(4) << stats << std::endl;
-                icurrent = 0;
-            }
-        }
+        Statistics(const Statistics&)            = delete;
+        Statistics& operator=(const Statistics&) = delete;
+        Statistics(Statistics&&)                 = delete;
+        Statistics& operator=(Statistics&&)      = delete;
 
         ~Statistics()
         {
-            std::ofstream file(filename);
-            file << std::setw(4) << stats;
+            save();
         }
 
-        std::string filename;
-        json stats;
-        std::size_t icurrent;
-        int save_all;
+        template <class Mesh>
+        void operator()(const std::string& test_case, const Mesh& mesh)
+        {
+            using mesh_id_t = typename Mesh::mesh_id_t;
+            const auto& ca  = mesh[mesh_id_t::cells];
+
+            const std::size_t min_level = ca.min_level();
+            const std::size_t max_level = ca.max_level();
+
+            json by_level = json::object();
+            for (std::size_t l = min_level; l <= max_level; ++l)
+            {
+                const auto& lca = ca[l];
+                json result;
+                result["cells"] = lca.nb_cells();
+
+                for (std::size_t d = 0; d < Mesh::dim; ++d)
+                {
+                    std::vector<std::size_t> cells_per_interval;
+                    cells_per_interval.reserve(lca[d].size());
+                    for (const auto& interval : lca[d])
+                    {
+                        cells_per_interval.push_back(interval.size());
+                    }
+
+                    auto& axis                  = result[fmt::format("axis-{}", d)];
+                    axis["number of intervals"] = lca[d].size();
+                    axis["cells per interval"]  = min_max(cells_per_interval);
+                }
+
+                for (std::size_t d = 1; d < Mesh::dim; ++d)
+                {
+                    // offsets(d) gives, for each coordinate covered by an
+                    // interval of axis d, where its intervals of axis d - 1
+                    // start: consecutive differences count them.
+                    const auto& offsets = lca.offsets(d);
+                    std::vector<std::size_t> intervals_per_component;
+                    for (std::size_t i = 1; i < offsets.size(); ++i)
+                    {
+                        intervals_per_component.push_back(offsets[i] - offsets[i - 1]);
+                    }
+
+                    result[fmt::format("axis-{}", d)]["number of intervals per component"] = min_max(intervals_per_component);
+                }
+
+                by_level[fmt::format("{:02}", l)] = std::move(result);
+            }
+
+            m_stats[test_case].push_back({
+                {"min_level", min_level},
+                {"max_level", max_level},
+                {"by_level",  by_level }
+            });
+
+            ++m_ncalls;
+            if (m_save_every != 0 && m_ncalls % m_save_every == 0)
+            {
+                save();
+            }
+        }
+
+      private:
+
+        /// Minimum and maximum of `values`, both null when there is none (e.g. on an empty level).
+        static json min_max(const std::vector<std::size_t>& values)
+        {
+            if (values.empty())
+            {
+                return {
+                    {"min", nullptr},
+                    {"max", nullptr}
+                };
+            }
+            const auto [min_it, max_it] = std::minmax_element(values.cbegin(), values.cend());
+            return {
+                {"min", *min_it},
+                {"max", *max_it}
+            };
+        }
+
+        void save() const
+        {
+            if (m_stats.empty())
+            {
+                return;
+            }
+            std::ofstream file(m_filename);
+            // A test case name that is not valid UTF-8 must not throw from the destructor.
+            file << m_stats.dump(4, ' ', false, json::error_handler_t::replace) << '\n';
+        }
+
+        std::string m_filename;
+        std::size_t m_save_every;
+        std::size_t m_ncalls = 0;
+        json m_stats         = json::object();
     };
 
-    auto statistics = Statistics("stats.json");
+    /// The recorder samurai::statistics(test_case, mesh) writes to stats.json in the working directory.
+    inline Statistics statistics("stats.json");
 #else
+    /// Does nothing: configure samurai with -DWITH_STATS=ON to record mesh statistics.
     template <class Mesh>
-    void statistics(const std::string& test_case, const Mesh& mesh) {};
+    void statistics(const std::string& /* test_case */, const Mesh& /* mesh */)
+    {
+    }
 #endif
-}
+} // namespace samurai
