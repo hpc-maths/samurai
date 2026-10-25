@@ -230,7 +230,7 @@ At each time step, `convection(phi)` returns a field that holds, on each leaf, t
 ```{literalinclude} ../../../demos/FiniteVolume/level_set_AMR.cpp
 :language: c++
 :start-at: // Numerical scheme
-:end-at: std::swap(phi.array(), phinp1.array());
+:end-at: samurai::swap(phi, phinp1);
 :dedent:
 ```
 
