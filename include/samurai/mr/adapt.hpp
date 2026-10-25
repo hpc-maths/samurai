@@ -273,6 +273,16 @@ namespace samurai
         }
     }
 
+    /// The positions of all_cells[level] that lie below a leaf cell at level + 1 or level + 2: where the
+    /// adaptation computes the detail at that level.
+    template <class Mesh>
+    auto ghosts_below_cells(const Mesh& mesh, std::size_t level)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+        return intersection(mesh[mesh_id_t::all_cells][level], union_(mesh[mesh_id_t::cells][level + 1], mesh[mesh_id_t::cells][level + 2]))
+            .on(level);
+    }
+
     template <bool enlarge_, class PredictionFn, class TField, class... TFields>
     template <class... Fields>
     bool Adapt<enlarge_, PredictionFn, TField, TFields...>::harten(std::size_t ite, const mra_config& cfg, Fields&... other_fields)
@@ -302,11 +312,7 @@ namespace samurai
         times::timers.start("detail computation");
         for (std::size_t level = ((min_level > 0) ? min_level - 1 : 0); level < max_level - ite; ++level)
         {
-            auto ghosts_below_cells = samurai::intersection(
-                                          mesh[mesh_id_t::all_cells][level],
-                                          samurai::union_(mesh[mesh_id_t::cells][level + 1], mesh[mesh_id_t::cells][level + 2]))
-                                          .on(level);
-            ghosts_below_cells.apply_op(compute_detail(m_detail, m_fields));
+            ghosts_below_cells(mesh, level).apply_op(compute_detail(m_detail, m_fields));
         }
 
         if (cfg.relative_detail())
