@@ -17,6 +17,8 @@ fields) works on samurai data.
   `discover_series()`, `read_time()`.
 - `samurai_yt.py` — thin yt wrapper. Exposes `load_samurai()` and
   `load_samurai_series()`.
+- `../common/samurai_h5.py` - file checks, MPI slices and series discovery
+  shared with the ParaView reader. Imported by `samurai_load.py`.
 - `tests/generate_reference.cpp` — regenerates the small reference files used
   by the tests.
 
@@ -57,6 +59,10 @@ If `samurai_yt` is not on the Python path, add the plugin directory first:
 ```python
 import sys; sys.path.insert(0, "/path/to/samurai/tools/yt")
 ```
+
+`samurai_load.py` finds `../common/samurai_h5.py` relative to its own location.
+If you copy the loader out of the samurai tree, copy the `yt/` and `common/`
+directories together and keep them side by side.
 
 ### Showing the mesh
 

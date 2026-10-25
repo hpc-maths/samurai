@@ -41,6 +41,7 @@ To see the level of each cell, run your program with `--save-debug-fields`: the 
 
 `samurai::dump` stores only the compressed interval representation of the mesh, without points or connectivity.
 Two readers in the repository rebuild the cells from it.
+Both import shared code from `tools/common`, so use them from a samurai checkout instead of copying a single file elsewhere.
 
 ### ParaView reader
 
