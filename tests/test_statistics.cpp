@@ -5,7 +5,10 @@
 
 #include <filesystem>
 #include <fstream>
+#include <random>
+#include <stdexcept>
 #include <string>
+#include <system_error>
 
 #include <gtest/gtest.h>
 
@@ -18,7 +21,14 @@ namespace
 {
     namespace fs = std::filesystem;
 
-    /// A stats.json path of its own for the running test, removed on exit.
+    /// A stats.json path of its own for the running test, in a fresh directory
+    /// removed with everything in it on exit.
+    ///
+    /// The directory is created under the current working directory rather than
+    /// in a shared temporary directory such as /tmp, so no other user can create
+    /// or replace it beforehand. Its random suffix keeps concurrent runs of the
+    /// test binaries apart, and `create_directory` refuses a name that already
+    /// exists, so the test never reuses a directory it did not create.
     class StatsFile
     {
       public:
@@ -26,13 +36,30 @@ namespace
         StatsFile()
         {
             const auto* info = ::testing::UnitTest::GetInstance()->current_test_info();
-            m_path = fs::temp_directory_path() / (std::string("samurai_") + info->test_suite_name() + "_" + info->name() + ".json");
-            fs::remove(m_path);
+            const auto stem  = std::string("samurai_stats_") + info->test_suite_name() + "_" + info->name() + "_";
+
+            std::random_device random;
+            constexpr int max_attempts = 16;
+            for (int attempt = 0; attempt < max_attempts && m_dir.empty(); ++attempt)
+            {
+                auto candidate = fs::current_path() / (stem + std::to_string(random()));
+                if (fs::create_directory(candidate))
+                {
+                    m_dir = std::move(candidate);
+                }
+            }
+            if (m_dir.empty())
+            {
+                throw std::runtime_error("cannot create a directory for the statistics file under " + fs::current_path().string());
+            }
+            fs::permissions(m_dir, fs::perms::owner_all, fs::perm_options::replace);
+            m_path = m_dir / "stats.json";
         }
 
         ~StatsFile()
         {
-            fs::remove(m_path);
+            std::error_code ignored;
+            fs::remove_all(m_dir, ignored);
         }
 
         StatsFile(const StatsFile&)            = delete;
@@ -53,6 +80,7 @@ namespace
 
       private:
 
+        fs::path m_dir;
         fs::path m_path;
     };
 
