@@ -382,7 +382,10 @@ namespace samurai::load_balancing
             std::size_t n_dest = 0;
             for (std::size_t r = 0; r < size; ++r)
             {
-                n_dest += (send_count[r] > 0) ? 1 : 0;
+                if (send_count[r] > 0)
+                {
+                    ++n_dest;
+                }
             }
 
             std::vector<payload_t> outbox;

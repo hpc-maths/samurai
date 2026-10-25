@@ -214,7 +214,10 @@ namespace samurai
             // xt::xtensor_fixed cannot be serialized
             // so we copy it to a std::array before serialization
             std::array<double, dim> origin;
-            std::copy(m_origin_point.begin(), m_origin_point.end(), origin.begin());
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                origin[d] = m_origin_point[d];
+            }
             for (std::size_t d = 0; d < dim; ++d)
             {
                 ar& m_cells[d];
@@ -227,7 +230,10 @@ namespace samurai
             ar & m_is_box;
             ar & origin;
             ar & m_scaling_factor;
-            std::copy(origin.begin(), origin.end(), m_origin_point.begin());
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                m_origin_point[d] = origin[d];
+            }
         }
 #endif
         template <bool isIntervalListEmpty, bool isParentPointNew, size_t d>
@@ -255,7 +261,7 @@ namespace samurai
                                                                  ///< 1
         std::size_t m_level = 0;
         bool m_is_box       = false;
-        coords_t m_origin_point;
+        coords_t m_origin_point{}; // value-initialized: zero unless a constructor sets it
         double m_scaling_factor = 1;
     };
 
@@ -334,7 +340,6 @@ namespace samurai
     template <std::size_t Dim, class TInterval>
     SAMURAI_INLINE LevelCellArray<Dim, TInterval>::LevelCellArray()
     {
-        m_origin_point.fill(0);
     }
 
     template <std::size_t Dim, class TInterval>
@@ -429,7 +434,6 @@ namespace samurai
     SAMURAI_INLINE LevelCellArray<Dim, TInterval>::LevelCellArray(std::size_t level)
         : m_level{level}
     {
-        m_origin_point.fill(0);
     }
 
     template <std::size_t Dim, class TInterval>
