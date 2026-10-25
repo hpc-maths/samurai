@@ -304,8 +304,13 @@ namespace samurai
                 // Sets the local to global mapping for the rows and columns, which allows to use the local numbering when inserting
                 // values into the matrix.
                 MatSetLocalToGlobalMapping(A, is_local_to_global_mapping_rows, is_local_to_global_mapping_cols);
-                // Note that in this last instruction, PETSc takes the ownership of mapping objects, so we must not
-                // destroy them ourselves.
+                // The matrix holds its own reference on the mappings: dropping ours leaves it as their only owner, so that
+                // destroying the matrix frees them.
+                if (is_local_to_global_mapping_cols != is_local_to_global_mapping_rows)
+                {
+                    ISLocalToGlobalMappingDestroy(&is_local_to_global_mapping_cols);
+                }
+                ISLocalToGlobalMappingDestroy(&is_local_to_global_mapping_rows);
 #endif
                 //---------------------------------------//
                 // Preallocation of the non-zero entries //
@@ -492,22 +497,6 @@ namespace samurai
 
             virtual void setup()
             {
-            }
-
-            void destroy_local_to_global_mappings(Mat& A) noexcept
-            {
-                ISLocalToGlobalMapping rmap = NULL, cmap = NULL;
-                MatGetLocalToGlobalMapping(A, &rmap, &cmap);
-
-                if (rmap == cmap)
-                {
-                    ISLocalToGlobalMappingDestroy(&rmap);
-                }
-                else
-                {
-                    ISLocalToGlobalMappingDestroy(&rmap);
-                    ISLocalToGlobalMappingDestroy(&cmap);
-                }
             }
         };
 

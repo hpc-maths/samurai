@@ -368,8 +368,27 @@ namespace samurai
 
           private:
 
-            std::array<Mat, rows * cols> m_blocks;
             bool m_is_set_up = false;
+
+            // MatCreateNest() and VecCreateNest() take their own reference on each block. Dropping ours leaves the nest as
+            // the only owner, so that destroying the nest frees its blocks.
+            template <std::size_t n_blocks>
+            static void release_blocks(std::array<Mat, n_blocks>& blocks)
+            {
+                for (auto& block : blocks)
+                {
+                    MatDestroy(&block);
+                }
+            }
+
+            template <std::size_t n_blocks>
+            static void release_blocks(std::array<Vec, n_blocks>& blocks)
+            {
+                for (auto& block : blocks)
+                {
+                    VecDestroy(&block);
+                }
+            }
 
           public:
 
@@ -377,9 +396,8 @@ namespace samurai
                 : base_class(block_op)
             {
                 for_each_assembly_op(
-                    [&](auto& op, auto row, auto col)
+                    [&](auto& op, auto, auto)
                     {
-                        block(row, col) = nullptr;
                         op.is_block_in_nested_matrix(true);
                     });
             }
@@ -392,13 +410,14 @@ namespace samurai
                     m_is_set_up = true;
                 }
 
+                std::array<Mat, rows * cols> blocks;
                 for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
                     {
-                        // std::cout << "create_matrix (" << row << ", " << col << ")" << std::endl;
-                        op.create_matrix(block(row, col));
+                        op.create_matrix(blocks[row * cols + col]);
                     });
-                MatCreateNest(PETSC_COMM_WORLD, rows, PETSC_IGNORE, cols, PETSC_IGNORE, m_blocks.data(), &A);
+                MatCreateNest(PETSC_COMM_WORLD, rows, PETSC_IGNORE, cols, PETSC_IGNORE, blocks.data(), &A);
+                release_blocks(blocks);
             }
 
             void assemble_matrix(Mat& A, bool final_assembly = true)
@@ -406,8 +425,9 @@ namespace samurai
                 for_each_assembly_op(
                     [&](auto& op, auto row, auto col)
                     {
-                        // std::cout << "assemble_matrix (" << row << ", " << col << ") '" << op.name() << "'" << std::endl;
-                        op.assemble_matrix(block(row, col));
+                        Mat block;
+                        MatNestGetSubMat(A, static_cast<PetscInt>(row), static_cast<PetscInt>(col), &block);
+                        op.assemble_matrix(block);
                     });
                 if (final_assembly)
                 {
@@ -462,26 +482,6 @@ namespace samurai
 
                 // Check compatibility of dimensions and set dimensions for blocks that must fit into the matrix
                 this->check_and_set_sizes();
-            }
-
-            Mat& block(std::size_t row, std::size_t col)
-            {
-                auto i = row * cols + col;
-                return m_blocks[i];
-            }
-
-            void destroy_local_to_global_mappings(Mat& A) noexcept
-            {
-                for_each_assembly_op(
-                    [&](auto& op, auto row, auto col)
-                    {
-                        if constexpr (row == col)
-                        {
-                            Mat block_mat;
-                            MatNestGetSubMat(A, static_cast<PetscInt>(row), static_cast<PetscInt>(col), &block_mat);
-                            op.destroy_local_to_global_mappings(block_mat);
-                        }
-                    });
             }
 
             void enforce_bc(Vec& b) const
@@ -569,6 +569,7 @@ namespace samurai
                     });
                 Vec x;
                 VecCreateNest(PETSC_COMM_WORLD, cols, NULL, x_blocks.data(), &x);
+                release_blocks(x_blocks);
                 PetscObjectSetName(reinterpret_cast<PetscObject>(x), "solution");
                 return x;
             }
@@ -587,6 +588,7 @@ namespace samurai
                     });
                 Vec x;
                 VecCreateNest(PETSC_COMM_WORLD, cols, NULL, x_blocks.data(), &x);
+                release_blocks(x_blocks);
                 return x;
             }
 
@@ -604,6 +606,7 @@ namespace samurai
                     });
                 Vec b;
                 VecCreateNest(PETSC_COMM_WORLD, rows, NULL, b_blocks.data(), &b);
+                release_blocks(b_blocks);
                 PetscObjectSetName(reinterpret_cast<PetscObject>(b), "right-hand side");
                 return b;
             }

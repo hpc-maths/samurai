@@ -129,6 +129,7 @@ if(WITH_PETSC)
     if(MSVC)
         target_compile_options(test_fv_operators_petsc PUBLIC /bigobj)
     endif()
+    target_sources(test_fv_operators_petsc PRIVATE test_petsc_block_ownership.cpp)
     target_link_libraries(test_fv_operators_petsc samurai gtest_main gtest)
     samurai_test_petsc(test_fv_operators_petsc)
     # Also checks the move semantics of the PETSc assemblies (SAMURAI_WITH_PETSC part of the file).

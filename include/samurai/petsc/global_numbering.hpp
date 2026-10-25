@@ -46,7 +46,7 @@ namespace samurai
 
 #ifdef SAMURAI_WITH_MPI
 
-        PetscInt compute_rank_shift(PetscInt n_values)
+        inline PetscInt compute_rank_shift(PetscInt n_values)
         {
             PetscInt rank_shift = 0;
             MPI_Exscan(&n_values, &rank_shift, 1, MPIU_INT, MPI_SUM, PETSC_COMM_WORLD);
