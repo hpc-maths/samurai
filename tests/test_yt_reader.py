@@ -182,6 +182,40 @@ def test_yt_time():
     assert float(ds.current_time) == pytest.approx(expected)
 
 
+def _write_series(directory, iterations, times=None):
+    # Copies of a real dump renamed as a numbered series, with the "time"
+    # attribute removed (times=None) or set to the given values.
+    first = None
+    for i, n in enumerate(iterations):
+        path = directory / f"sol_ite_{n}.h5"
+        with h5py.File(os.path.join(_REF_DIR, "ref_2d.h5"), "r") as src, h5py.File(
+            path, "w"
+        ) as dst:
+            for key in src:
+                src.copy(key, dst)
+            if times is not None:
+                dst.attrs["time"] = times[i]
+        first = first or str(path)
+    return first
+
+
+def test_yt_series_time_falls_back_to_iteration(tmp_path):
+    pytest.importorskip("yt")
+    from samurai_yt import load_samurai_series
+
+    series = load_samurai_series(_write_series(tmp_path, [0, 1, 2, 10]))
+    assert [float(ds.current_time) for ds in series] == [0.0, 1.0, 2.0, 10.0]
+
+
+def test_yt_series_time_uses_time_attribute(tmp_path):
+    pytest.importorskip("yt")
+    from samurai_yt import load_samurai_series
+
+    physical_times = [0.0, 0.05, 0.1]
+    series = load_samurai_series(_write_series(tmp_path, [0, 1, 2], physical_times))
+    assert [float(ds.current_time) for ds in series] == pytest.approx(physical_times)
+
+
 def test_yt_fields_are_linear_by_default():
     # PDE fields must default to a linear scale: yt otherwise guesses a log
     # scale and turns tiny over/undershoots into visual noise (issue seen on
