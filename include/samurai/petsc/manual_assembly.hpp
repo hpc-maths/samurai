@@ -63,6 +63,9 @@ namespace samurai
                 return m_col_numbering->local_to_global_mapping;
             }
 
+            // Keeps the stand-alone setup() visible next to the block-level overloads.
+            using MatrixAssembly::setup;
+
             /**
              * This function is called in case of monolithic block_assembly
              */
