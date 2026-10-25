@@ -73,9 +73,9 @@ def inside_cwd(path, what):
     file elsewhere.
     """
     base = os.path.realpath(os.getcwd())
-    resolved = os.path.realpath(path)
-    if os.path.commonpath([base, resolved]) != base:
-        sys.exit(
+    resolved = os.path.realpath(os.path.join(base, path))
+    if not resolved.startswith(os.path.join(base, "")):
+        raise SystemExit(
             f"{what} {path} is outside the current directory {base}, "
             "run the script from a directory that contains it"
         )
