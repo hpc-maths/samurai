@@ -36,8 +36,28 @@ from .interval import ARRAYS_2D, MESH_1D, MESH_2D
 
 OUTPUTS = Path(__file__).resolve().parents[3] / "tutorial" / "snippet" / "interval"
 
-# A printed interval of a level cell array: position->[start,end)@index:step.
-INTERVAL = re.compile(r"(?<!\d)(\d+)->\[(-?\d+),(-?\d+)\)@(-?\d+):(\d+)")
+# A printed interval of a level cell array: position->[start,end)@index:step. The
+# position is a whole run of digits, read by DIGITS; INTERVAL_TAIL reads the rest.
+DIGITS = re.compile(r"\d+")
+INTERVAL_TAIL = re.compile(r"->\[(-?\d+),(-?\d+)\)@(-?\d+):(\d+)")
+
+
+def find_intervals(text):
+    """The intervals printed in ``text``, as ``(position, start, end, index, step)``.
+
+    The values are strings, in the order of the text. Each run of digits is tried
+    once as the position of an interval, and the search goes on after the interval
+    it starts.
+    """
+    intervals, end = [], 0
+    for run in DIGITS.finditer(text):
+        if run.start() < end:
+            continue
+        tail = INTERVAL_TAIL.match(text, run.end())
+        if tail:
+            intervals.append((run.group(), *tail.groups()))
+            end = tail.end()
+    return intervals
 
 
 def read_cell_array(name):
@@ -55,7 +75,7 @@ def read_cell_array(name):
         levels[int(level)] = {}
         for d, body in zip(dims[1::2], dims[2::2]):
             intervals = []
-            for n, (pos, a, b, i, step) in enumerate(INTERVAL.findall(body)):
+            for n, (pos, a, b, i, step) in enumerate(find_intervals(body)):
                 if (int(pos), int(step)) != (n, 1):
                     raise ValueError(f"{name}: unexpected interval {pos}->[{a},{b})@{i}:{step}")
                 intervals.append((int(a), int(b), int(i)))
