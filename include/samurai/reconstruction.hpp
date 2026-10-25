@@ -389,14 +389,19 @@ namespace samurai
      * The map is the parent's stencil plus the tensor-product interpolation correction
      * of the non-central neighbours, each itself a @c level-1 stencil, so composing the
      * one-level wavelet prediction @c level times. Every intermediate map is memoised in
-     * a static cache keyed by @c (order, level, indices).
+     * a cache keyed by @c (order, level, indices).
+     *
+     * The cache is per thread, so OpenMP threads can call this concurrently: a shared one
+     * would need a lock on every lookup, and a thread could otherwise find a map that
+     * another one is still building. The returned reference points into the calling
+     * thread's cache.
      */
     template <std::size_t order = 1, class... index_t>
     auto& prediction(std::size_t level, index_t... indices)
     {
         static constexpr std::size_t dim = sizeof...(index_t);
 
-        static std::unordered_map<std::tuple<std::size_t, std::size_t, index_t...>, prediction_map<dim, default_config::value_t>> values;
+        thread_local std::unordered_map<std::tuple<std::size_t, std::size_t, index_t...>, prediction_map<dim, default_config::value_t>> values;
 
         auto key  = std::make_tuple(order, level, indices...);
         auto iter = values.find(key);
@@ -683,7 +688,8 @@ namespace samurai
          *  - @b slice (@c ii all @c interval_t, this overload): each direction is a range
          *    of children, so @a ii describes a whole box of them. Reconstruction is linear,
          *    so the box's stencil is the sum of its children's stencils; that sum is built
-         *    once (via @ref accumulate_slice) and cached, keyed by @c (radius, level, ii).
+         *    once (via @ref accumulate_slice) and cached per thread, like @ref prediction,
+         *    keyed by @c (radius, level, ii).
          *    A later @ref portion then reconstructs and sums the whole box in one pass over
          *    a small, gap-independent stencil, instead of one call per child. This is what
          *    makes the LBM stream cheap (see @c LBMScheme::portion_column); a nonlinear user
@@ -698,7 +704,7 @@ namespace samurai
         {
             static constexpr std::size_t dim = Field::dim;
             using value_t                    = typename Field::interval_t::value_t;
-            static std::unordered_map<std::tuple<std::size_t, std::size_t, index_t...>, prediction_map<dim, value_t>> values;
+            thread_local std::unordered_map<std::tuple<std::size_t, std::size_t, index_t...>, prediction_map<dim, value_t>> values;
 
             auto& map = std::apply(
                 [&](auto&... index) -> auto&

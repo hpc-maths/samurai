@@ -4,11 +4,12 @@
 #pragma once
 
 #include <array>
+#include <atomic>
 #include <cassert>
 #include <cstdint>
 #include <cstdlib>
+#include <mutex>
 #include <numeric>
-#include <unordered_map>
 
 #include "../utils.hpp"
 
@@ -228,7 +229,9 @@ namespace samurai
      *               is the centred stencil. @c |shift| <= radius.
      *
      * Memoised: the solve happens once per @c (radius, parity, shift), and there are at
-     * most @c 2*(2*radius+1) of those.
+     * most @c 2*(2*radius+1) of those. Safe to call from several threads at once: an entry
+     * is solved under a lock the first time it is asked for, and every later call reads it
+     * after a single atomic load.
      */
     template <std::size_t radius>
     const PredictionCoefficients<radius>& prediction_coefficients(std::size_t parity, int shift)
@@ -236,19 +239,30 @@ namespace samurai
         assert(parity < 2 && "prediction_coefficients: parity is 0 or 1");
         assert(std::abs(shift) <= static_cast<int>(radius) && "prediction_coefficients: |shift| must not exceed the stencil radius");
 
-        static std::unordered_map<int, PredictionCoefficients<radius>> cache;
-
-        const int key = 2 * shift + static_cast<int>(parity);
-        auto it       = cache.find(key);
-        if (it != cache.end())
+        struct Entry
         {
-            return it->second;
-        }
+            std::atomic<bool> solved{false};
+            PredictionCoefficients<radius> coefficients;
+        };
 
-        PredictionCoefficients<radius> out;
-        out.start = -static_cast<int>(radius) + shift;
-        out.c     = detail::solve_moment_system<radius>(parity, shift);
-        return cache.emplace(key, out).first->second;
+        // Entries are solved on demand rather than all at first use: the shifted families of
+        // a large radius can overflow the exact rationals, so they must not be solved unless
+        // someone asks for them.
+        static std::array<Entry, 2 * PredictionCoefficients<radius>::size> cache;
+        static std::mutex solving;
+
+        auto& entry = cache[2 * static_cast<std::size_t>(shift + static_cast<int>(radius)) + parity];
+        if (!entry.solved.load())
+        {
+            std::lock_guard<std::mutex> lock(solving);
+            if (!entry.solved.load())
+            {
+                entry.coefficients.start = -static_cast<int>(radius) + shift;
+                entry.coefficients.c     = detail::solve_moment_system<radius>(parity, shift);
+                entry.solved.store(true);
+            }
+        }
+        return entry.coefficients;
     }
 
     /// What @ref prediction_shift concluded about a position.
