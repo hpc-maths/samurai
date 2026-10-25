@@ -8,6 +8,8 @@ __pycache__
 .pixi
 .cache
 *.old
+# Coverage reports and compilation database for SonarQube Cloud
+sonar-inputs/
 
 # Created by https://www.toptal.com/developers/gitignore/api/cmake,linux,macos,visualstudiocode,python
 # Edit at https://www.toptal.com/developers/gitignore?templates=cmake,linux,macos,visualstudiocode,python

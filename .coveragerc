@@ -1,0 +1,14 @@
+# Coverage of the Python tools, measured by the coverage job
+# (.github/workflows/coverage.yml) with pytest-cov from the repository root.
+# Relative paths let SonarQube Cloud match the report to the sources whatever
+# the directory the report was produced in.
+[run]
+relative_files = True
+# coverage only looks for unexecuted files in the subdirectories that are
+# packages: each directory of tools/ is listed.
+source =
+    tools/common
+    tools/paraview
+    tools/yt
+    python
+    cmake

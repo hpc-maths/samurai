@@ -976,6 +976,17 @@ jobs:
                       "$exe" --benchmark_min_time=0.01s
                   done
     #
+    # Coverage of the C++ tests and of the Python tools, in a Debug build
+    # with ENABLE_COVERAGE. The reports are uploaded as an artifact, which
+    # sonar.yml sends to SonarQube Cloud once this workflow completes: this
+    # job needs no secret and passes or fails with the tests only.
+    #
+    #########################################################
+    coverage:
+        needs: [changes, pre-commit, cppcheck]
+        if: needs.changes.outputs.code == 'true'
+        uses: ./.github/workflows/coverage.yml
+    #
     # Build the documentation with warnings as errors. It runs on every pull
     # request: a change in a header can break the API pages as much as a
     # change in docs/. The links are checked once a week (docs-links.yml).
@@ -1029,6 +1040,7 @@ jobs:
                 linux-mamba-check-nan-mpi,
                 compile_snippets,
                 benchmarks,
+                coverage,
                 docs,
             ]
         runs-on: ubuntu-latest

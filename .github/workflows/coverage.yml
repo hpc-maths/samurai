@@ -1,0 +1,171 @@
+name: coverage
+
+# Builds the tests with coverage, runs them and uploads what the SonarQube Cloud
+# scan needs as the `sonar-inputs` artifact. Called by ci.yml on pull requests
+# and by sonar.yml on pushes to main. It needs no secret: the scan runs in
+# sonar.yml (see the comment there).
+on:
+    workflow_call:
+
+permissions:
+    contents: read
+
+# Same reason as in ci.yml: PETSc calls MPI_Init even for single-rank runs.
+env:
+    UCX_TLS: self,sm,tcp
+
+jobs:
+    coverage:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+            - name: Cache
+              uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: |
+                      ~/.cache/ccache
+                  key: ccache-coverage-${{ github.run_id }}
+                  restore-keys: |
+                      ccache-coverage-
+
+            - name: Mamba and samurai env installation
+              uses: mamba-org/setup-micromamba@f457c30a868e4760d3a6fcea5f25dc655b8edf39 # v3.2.1
+              with:
+                  environment-file: conda/environment.yml
+                  environment-name: samurai-env
+                  cache-environment: true
+                  cache-environment-key: ${{ runner.os }}-${{ hashFiles('conda/environment.yml') }}
+
+            - name: Compiler, PETSc and coverage tools installation
+              shell: bash -l {0}
+              run: |
+                  micromamba install -y cxx-compiler ccache petsc pkg-config gcovr pytest-cov yt
+                  ccache --max-size=2G
+                  ccache --zero-stats
+
+            # build/ is the coverage build. The snippets are configured so that
+            # their files enter the compilation database; only the tests are
+            # built. build-bench/ is only configured, for the compilation
+            # database of the benchmarks: BUILD_BENCHMARKS forces a Release
+            # build type, which the coverage build cannot use.
+            - name: Configure
+              shell: bash -l {0}
+              run: |
+                  cmake \
+                      . \
+                      -Bbuild \
+                      -GNinja \
+                      -DCMAKE_BUILD_TYPE=Debug \
+                      -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+                      -DENABLE_COVERAGE=ON \
+                      -DWITH_PETSC=ON \
+                      -DBUILD_TESTS=ON \
+                      -DBUILD_SNIPPETS=ON
+                  cmake \
+                      . \
+                      -Bbuild-bench \
+                      -GNinja \
+                      -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+                      -DBUILD_BENCHMARKS=ON
+
+            - name: Build
+              shell: bash -l {0}
+              run: |
+                  cmake --build build --parallel 4 --target \
+                      test_samurai_lib \
+                      test_fv_operators_petsc \
+                      generate_paraview_reference \
+                      generate_yt_reference
+
+            - name: ccache statistics
+              shell: bash -l {0}
+              if: always()
+              run: ccache --show-stats --verbose
+
+            # The 6D projection/prediction round trips are left out: at -O0
+            # with coverage, scalar_s1_6D alone takes more than 8 minutes, and
+            # the lower dimensions run the same code.
+            - name: Test with googletest
+              shell: bash -l {0}
+              run: |
+                  cd build
+                  ./tests/test_samurai_lib --gtest_filter='-ProjectionPredictionRoundtrip/RoundtripTest.ProjectionPrediction/*_6D'
+                  ./tests/test_fv_operators_petsc
+
+            - name: Generate the reader reference files
+              shell: bash -l {0}
+              run: |
+                  mkdir -p tests/reference/paraview tests/reference/yt
+                  ./build/tests/generate_paraview_reference tests/reference/paraview
+                  ./build/tests/generate_yt_reference tests/reference/yt
+
+            # The measured files are listed in .coveragerc. yt is installed for
+            # the tests of the yt frontend, skipped without it.
+            # The demo tests (tests/test_demo_*.py) are left out: they would
+            # build and run every demo at -O0, and linux-mamba already runs
+            # them in Release.
+            - name: Test the Python tools with pytest
+              shell: bash -l {0}
+              run: |
+                  mkdir -p sonar-inputs
+                  python -m pytest -v \
+                      tests/test_paraview_reader.py \
+                      tests/test_yt_reader.py \
+                      --cov \
+                      --cov-report=term \
+                      --cov-report=xml:sonar-inputs/python-coverage.xml
+
+            # A line of range_traverser.hpp runs often enough to pass the hit
+            # count gcovr flags as a possible counter overflow: report it as a
+            # warning instead of failing.
+            - name: C++ coverage report
+              shell: bash -l {0}
+              run: |
+                  gcovr \
+                      --root . \
+                      --filter include/samurai/ \
+                      --gcov-executable "${CXX%c++}gcov" \
+                      --gcov-ignore-parse-errors=suspicious_hits.warn_once_per_file \
+                      --sonarqube sonar-inputs/cpp-coverage.xml \
+                      --print-summary \
+                      -j 4 \
+                      build
+
+            - name: Compilation database for the scan
+              id: compile-db
+              run: |
+                  python3 -I .github/scripts/sonar_compile_db.py merge \
+                      --workspace "$GITHUB_WORKSPACE" \
+                      --build-dir build \
+                      --build-dir build-bench \
+                      --output sonar-inputs/compile_commands.json \
+                      --include-dirs sonar-inputs/include-dirs.txt \
+                      build/compile_commands.json \
+                      build-bench/compile_commands.json
+                  {
+                      echo "include-dirs<<EOF"
+                      cat sonar-inputs/include-dirs.txt
+                      echo "EOF"
+                  } >> "$GITHUB_OUTPUT"
+
+            # The scan of a pull request runs in another workflow: it needs the
+            # number of the pull request and the merge commit tested here.
+            - name: Pull request metadata
+              if: github.event_name == 'pull_request'
+              env:
+                  NUMBER: ${{ github.event.pull_request.number }}
+              run: |
+                  jq -n --argjson number "$NUMBER" --arg merge_sha "$GITHUB_SHA" \
+                      '{number: $number, merge_sha: $merge_sha}' > sonar-inputs/pull-request.json
+                  cat sonar-inputs/pull-request.json
+
+            - name: Upload the scan inputs
+              uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              with:
+                  name: sonar-inputs
+                  path: |
+                      sonar-inputs/
+                      ${{ steps.compile-db.outputs.include-dirs }}
+                  if-no-files-found: error
+                  retention-days: 7
