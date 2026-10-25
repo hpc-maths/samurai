@@ -350,7 +350,19 @@ namespace samurai
         {
             coord[d + 1] = index[d];
         }
-        auto cell_index = mesh.get_index(level, coord);
+        auto cell_index = [&]()
+        {
+            // A LevelCellArray holds a single level: its get_index takes no level argument, and
+            // get_index(level, coord) would silently read the level as the x coordinate.
+            if constexpr (std::is_same_v<Mesh, LevelCellArray<dim, typename Mesh::interval_t>>)
+            {
+                return mesh.get_index(coord);
+            }
+            else
+            {
+                return mesh.get_index(level, coord);
+            }
+        }();
         cell_t cell{mesh.origin_point(), mesh.scaling_factor(), level, coord, cell_index};
         for (index_value_t ii = 0; ii < static_cast<index_value_t>(i.size()); ++ii)
         {
