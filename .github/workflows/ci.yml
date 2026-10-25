@@ -217,6 +217,12 @@ jobs:
               run: |
                   conda install -y petsc pkg-config
 
+            # nlohmann_json is only needed by WITH_STATS (samurai/statistics.hpp).
+            - name: nlohmann_json installation
+              shell: bash -l {0}
+              run: |
+                  conda install -y nlohmann_json
+
             - name: Conda informations
               shell: bash -l {0}
               run: |
@@ -234,7 +240,8 @@ jobs:
                       -DCMAKE_BUILD_TYPE=Release \
                       -DWITH_PETSC=ON \
                       -DBUILD_DEMOS=ON \
-                      -DBUILD_TESTS=ON
+                      -DBUILD_TESTS=ON \
+                      -DWITH_STATS=ON
 
             - name: Build
               shell: bash -l {0}
