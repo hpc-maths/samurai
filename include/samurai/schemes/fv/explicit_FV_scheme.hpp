@@ -25,6 +25,8 @@ namespace samurai
 
       private:
 
+        // Non-owning: the scheme outlives its explicit application. This pointer is the only data
+        // member, so the defaulted copy and move operations below cannot throw.
         scheme_t* m_scheme = nullptr;
 
       public:
@@ -36,10 +38,10 @@ namespace samurai
 
         virtual ~ExplicitFVScheme() = default;
 
-        ExplicitFVScheme(const ExplicitFVScheme&)            = default;
-        ExplicitFVScheme& operator=(const ExplicitFVScheme&) = default;
-        ExplicitFVScheme(ExplicitFVScheme&&)                 = default;
-        ExplicitFVScheme& operator=(ExplicitFVScheme&&)      = default;
+        ExplicitFVScheme(const ExplicitFVScheme&)                = default;
+        ExplicitFVScheme& operator=(const ExplicitFVScheme&)     = default;
+        ExplicitFVScheme(ExplicitFVScheme&&) noexcept            = default;
+        ExplicitFVScheme& operator=(ExplicitFVScheme&&) noexcept = default;
 
         auto& scheme()
         {

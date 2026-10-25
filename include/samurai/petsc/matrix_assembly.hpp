@@ -397,11 +397,11 @@ namespace samurai
           protected:
 
             // Protected to prevent slicing: only the derived assemblies copy or move this base.
-            MatrixAssembly()                                 = default;
-            MatrixAssembly(const MatrixAssembly&)            = default;
-            MatrixAssembly& operator=(const MatrixAssembly&) = default;
-            MatrixAssembly(MatrixAssembly&&)                 = default;
-            MatrixAssembly& operator=(MatrixAssembly&&)      = default;
+            MatrixAssembly()                                     = default;
+            MatrixAssembly(const MatrixAssembly&)                = default;
+            MatrixAssembly& operator=(const MatrixAssembly&)     = default;
+            MatrixAssembly(MatrixAssembly&&) noexcept            = default;
+            MatrixAssembly& operator=(MatrixAssembly&&) noexcept = default;
 
           public:
 

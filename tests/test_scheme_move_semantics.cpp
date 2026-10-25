@@ -28,8 +28,9 @@ namespace samurai
         using scalar_field_t      = ScalarField<Mesh, double>;
         using vector_field_t      = VectorField<Mesh, double, dim>;
 
-        // Linear homogeneous flux-based scheme
+        // Linear homogeneous flux-based schemes
         using diffusion_t = decltype(make_diffusion_order2<vector_field_t>());
+        using gradient_t  = decltype(make_gradient_order2<scalar_field_t>());
         // Linear heterogeneous flux-based scheme
         using convection_lin_t = decltype(make_convection_upwind<scalar_field_t>(std::declval<VelocityVector<dim>>()));
         // Non-linear flux-based scheme
@@ -41,11 +42,12 @@ namespace samurai
         using heat_t = decltype(std::declval<const identity_t&>() + std::declval<const decltype(make_diffusion_order2<scalar_field_t>())&>());
         // Block operator (Stokes)
         using stokes_t = decltype(make_block_operator<2, 2>(std::declval<const diffusion_t&>(),
-                                                            std::declval<const decltype(make_gradient_order2<scalar_field_t>())&>(),
+                                                            std::declval<const gradient_t&>(),
                                                             std::declval<const decltype(make_divergence_order2<vector_field_t>())&>(),
                                                             std::declval<const decltype(make_zero_operator<scalar_field_t>())&>()));
 
         static_assert(is_nothrow_movable_v<diffusion_t>);
+        static_assert(is_nothrow_movable_v<gradient_t>);
         static_assert(is_nothrow_movable_v<convection_lin_t>);
         static_assert(is_nothrow_movable_v<convection_nonlin_t>);
         static_assert(is_nothrow_movable_v<identity_t>);
@@ -53,9 +55,11 @@ namespace samurai
         static_assert(is_nothrow_movable_v<heat_t>);
         static_assert(is_nothrow_movable_v<stokes_t>);
 
+        static_assert(is_nothrow_movable_v<Explicit<gradient_t>>);
         static_assert(is_nothrow_movable_v<Explicit<convection_lin_t>>);
         static_assert(is_nothrow_movable_v<Explicit<convection_nonlin_t>>);
         static_assert(is_nothrow_movable_v<Explicit<identity_t>>);
+        static_assert(is_nothrow_movable_v<Explicit<cell_based_nonlin_t>>);
         static_assert(is_nothrow_movable_v<Explicit<heat_t>>);
 
 #ifdef SAMURAI_WITH_PETSC
