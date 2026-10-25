@@ -221,7 +221,7 @@ int main(int argc, char* argv[])
         unp1 = u - dt * conv(u);
 
         // u <-- unp1
-        std::swap(u.array(), unp1.array());
+        samurai::swap(u, unp1);
 
         try
         {

@@ -625,7 +625,7 @@ int main(int argc, char* argv[])
         phinp1.resize();
         phinp1 = phi - dt * convection.apply_to(phi);
 
-        std::swap(phi.array(), phinp1.array());
+        samurai::swap(phi, phinp1);
 
         // Reinitialization of the level set
         const std::size_t fict_iteration = 5;                             // Number of fictitious iterations
@@ -640,7 +640,7 @@ int main(int argc, char* argv[])
             phihat = phi - dt_fict * reinitialization.apply_to(phi);
             update_ghosts(phihat, u);
             phinp1 = .5 * phi + .5 * (phihat - dt_fict * reinitialization.apply_to(phihat));
-            std::swap(phi.array(), phinp1.array());
+            samurai::swap(phi, phinp1);
         }
 
         if (t >= static_cast<double>(nsave) * dt_save || t == Tf)

@@ -147,7 +147,7 @@ int main(int argc, char* argv[])
         unp1.fill(0);
         unp1 = u - dt * samurai::upwind(a, u);
 
-        std::swap(u.array(), unp1.array());
+        samurai::swap(u, unp1);
 
         if (t >= static_cast<double>(nsave) * dt_save || t == Tf)
         {

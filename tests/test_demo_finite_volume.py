@@ -332,3 +332,17 @@ def test_finite_volume_burgers_os(max_level, enable_flux_reconstruction, eps, co
     if enable_flux_reconstruction:
         cmd.append("--enable-max-level-flux")
     output = subprocess.run(cmd, check=True, capture_output=True)
+
+
+def test_finite_volume_burgers_os_default_options(tmp_path):
+    # The default mesh is uniform (min level == max level), so the adaptation does
+    # nothing and leaves the ghost update to the scheme.
+    cmd = [
+        get_executable(
+            Path("../build/demos/FiniteVolume/"), "finite-volume-burgers-os"
+        ),
+        "--path",
+        str(tmp_path),
+        "--nfiles=1",
+    ]
+    output = subprocess.run(cmd, check=True, capture_output=True)
