@@ -490,7 +490,7 @@ namespace samurai
             {
             }
 
-            void destroy_local_to_global_mappings(Mat& A)
+            void destroy_local_to_global_mappings(Mat& A) noexcept
             {
                 ISLocalToGlobalMapping rmap = NULL, cmap = NULL;
                 MatGetLocalToGlobalMapping(A, &rmap, &cmap);

@@ -469,7 +469,7 @@ namespace samurai
                 return m_blocks[i];
             }
 
-            void destroy_local_to_global_mappings(Mat& A)
+            void destroy_local_to_global_mappings(Mat& A) noexcept
             {
                 for_each_assembly_op(
                     [&](auto& op, auto row, auto col)

@@ -6,7 +6,11 @@
 #include <petsc.h>
 
 #include <fmt/format.h>
+#include <functional>
+#include <memory>
 #include <stdexcept>
+#include <type_traits>
+#include <utility>
 
 namespace samurai
 {
@@ -46,7 +50,9 @@ namespace samurai
           protected:
 
             field_t* m_unknown = nullptr;
-            scheme_t m_scheme;
+            // Held through a pointer: the schemes have no move operations (a move falls back to a copy, which can throw), so the
+            // move assignment hands the pointer over instead.
+            std::unique_ptr<scheme_t> m_scheme;
             bool m_is_set_up = false;
 
             std::vector<SNES> m_snes;
@@ -65,14 +71,14 @@ namespace samurai
             std::function<void(SNES&, KSP&, PC&)> configure = nullptr;
 
             explicit NonLinearLocalSolvers(const scheme_t& scheme)
-                : m_scheme(scheme)
+                : m_scheme(std::make_unique<scheme_t>(scheme))
             {
-                if (!m_scheme.scheme_definition().local_scheme_function)
+                if (!m_scheme->scheme_definition().local_scheme_function)
                 {
                     throw std::runtime_error(
                         fmt::format("The scheme function 'local_scheme_function' of operator '{}' has not been implemented.", scheme.name()));
                 }
-                if (!m_scheme.scheme_definition().local_jacobian_function)
+                if (!m_scheme->scheme_definition().local_jacobian_function)
                 {
                     throw std::runtime_error(
                         fmt::format("The function 'local_jacobian_function' of operator '{}' has not been implemented.", scheme.name()));
@@ -111,7 +117,7 @@ namespace samurai
                 }
             }
 
-            void destroy_petsc_objects()
+            void destroy_petsc_objects() noexcept
             {
                 for (std::size_t thread_num = 0; thread_num < m_n_threads; ++thread_num)
                 {
@@ -125,28 +131,40 @@ namespace samurai
 
           public:
 
-            NonLinearLocalSolvers& operator=(const NonLinearLocalSolvers& other)
-            {
-                if (this != &other)
-                {
-                    this->m_unknown = other.m_unknown;
-                }
-                return *this;
-            }
+            // The solvers own their PETSc objects: a copy would share them and destroy them twice.
+            NonLinearLocalSolvers(const NonLinearLocalSolvers&)            = delete;
+            NonLinearLocalSolvers& operator=(const NonLinearLocalSolvers&) = delete;
 
-            NonLinearLocalSolvers& operator=(NonLinearLocalSolvers&& other)
+            // The scheme changes hands as a pointer, the vectors use the standard allocator (their move assignment is noexcept) and
+            // the PETSc destroy functions report errors through their return code: nothing here can throw.
+            NonLinearLocalSolvers& operator=(NonLinearLocalSolvers&& other) noexcept
             {
+                static_assert(std::is_nothrow_move_assignable_v<decltype(configure)>,
+                              "the move assignment of the user callback must not throw");
                 if (this != &other)
                 {
-                    this->m_unknown = other.m_unknown;
-                    other.m_unknown = nullptr;
+                    destroy_petsc_objects();
+                    m_unknown = std::exchange(other.m_unknown, nullptr);
+                    // 'other' gets the scheme of this solver, so that it never holds a null scheme.
+                    m_scheme.swap(other.m_scheme);
+                    m_is_set_up      = std::exchange(other.m_is_set_up, false);
+                    m_snes           = std::move(other.m_snes);
+                    m_J_coeffs       = std::move(other.m_J_coeffs);
+                    m_J              = std::move(other.m_J);
+                    m_f_scheme_value = std::move(other.m_f_scheme_value);
+                    m_r              = std::move(other.m_r);
+                    m_x              = std::move(other.m_x);
+                    m_b              = std::move(other.m_b);
+                    // 'other' must not destroy the PETSc objects it no longer owns.
+                    m_n_threads = std::exchange(other.m_n_threads, 0);
+                    configure   = std::move(other.configure);
                 }
                 return *this;
             }
 
             auto& scheme()
             {
-                return m_scheme;
+                return *m_scheme;
             }
 
             void set_unknown(field_t& u)
@@ -206,7 +224,7 @@ namespace samurai
 
             void set_scheme(const scheme_t& s)
             {
-                m_scheme = s;
+                *m_scheme = s;
             }
 
           private:
@@ -254,7 +272,7 @@ namespace samurai
                                             copy(unknown(), cell, x); // local initial guess
                                             copy(rhs, cell, b);       // local right-hand side
 
-                                            CellContextForPETSc ctx{&m_scheme, &cell, &J_coeffs, &f_scheme_value};
+                                            CellContextForPETSc ctx{m_scheme.get(), &cell, &J_coeffs, &f_scheme_value};
                                             SNESSetFunction(snes, r, PETSC_nonlinear_function, &ctx);
                                             SNESSetJacobian(snes, J, J, PETSC_jacobian_function, &ctx);
 

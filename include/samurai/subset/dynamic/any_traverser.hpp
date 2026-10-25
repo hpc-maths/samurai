@@ -45,11 +45,11 @@ namespace samurai
 
       protected:
 
-        ISetTraverser()                                = default;
-        ISetTraverser(const ISetTraverser&)            = default;
-        ISetTraverser(ISetTraverser&&)                 = default;
-        ISetTraverser& operator=(const ISetTraverser&) = default;
-        ISetTraverser& operator=(ISetTraverser&&)      = default;
+        ISetTraverser()                                    = default;
+        ISetTraverser(const ISetTraverser&)                = default;
+        ISetTraverser(ISetTraverser&&) noexcept            = default;
+        ISetTraverser& operator=(const ISetTraverser&)     = default;
+        ISetTraverser& operator=(ISetTraverser&&) noexcept = default;
     };
 
     ////////////////////////////////////////////////////////////////////////

@@ -5,7 +5,11 @@
 #include "utils.hpp"
 #include <petsc.h>
 
+#include <functional>
+#include <memory>
 #include <stdexcept>
+#include <type_traits>
+#include <utility>
 
 namespace samurai
 {
@@ -38,7 +42,9 @@ namespace samurai
 
           protected:
 
-            Assembly m_assembly;
+            // Held through a pointer: the assemblies have no move operations (a move falls back to a copy, which can throw and
+            // shares the numbering they own), so the move assignment hands the pointer over instead.
+            std::unique_ptr<Assembly> m_assembly;
             SNES m_snes                       = nullptr;
             Mat m_J                           = nullptr;
             bool m_is_set_up                  = false;
@@ -46,6 +52,10 @@ namespace samurai
             bool m_stop_program_on_divergence = true;
 
             worker_output_field_t m_worker_output_field;
+
+            // Context given to the PETSc callbacks: it points to this solver and follows the SNES when the solver is moved, so the
+            // callbacks of a set-up SNES always reach the solver that owns it.
+            std::unique_ptr<NonLinearSolverBase*> m_petsc_context = std::make_unique<NonLinearSolverBase*>(this);
 
           public:
 
@@ -55,7 +65,7 @@ namespace samurai
             std::function<void(PetscInt, PetscReal, const worker_output_field_t&)> monitor = nullptr;
 
             explicit NonLinearSolverBase(const scheme_t& scheme)
-                : m_assembly(scheme)
+                : m_assembly(std::make_unique<Assembly>(scheme))
             {
                 SNESCreate(PETSC_COMM_WORLD, &m_snes);
             }
@@ -67,11 +77,11 @@ namespace samurai
 
           private:
 
-            void _destroy_petsc_objects()
+            void _destroy_petsc_objects() noexcept
             {
                 if (m_J)
                 {
-                    m_assembly.destroy_local_to_global_mappings(m_J);
+                    m_assembly->destroy_local_to_global_mappings(m_J);
                     MatDestroy(&m_J);
                     m_J                      = nullptr;
                     m_reuse_allocated_matrix = false;
@@ -90,31 +100,38 @@ namespace samurai
                 _destroy_petsc_objects();
             }
 
-            NonLinearSolverBase& operator=(const NonLinearSolverBase& other)
-            {
-                if (this != &other)
-                {
-                    this->destroy_petsc_objects();
-                    this->m_assembly  = other.m_assembly;
-                    this->m_snes      = other.m_snes;
-                    this->m_J         = other.m_J;
-                    this->m_is_set_up = other.m_is_set_up;
-                }
-                return *this;
-            }
+            // The solver owns its PETSc objects: a copy would share them and destroy them twice.
+            NonLinearSolverBase(const NonLinearSolverBase&)            = delete;
+            NonLinearSolverBase& operator=(const NonLinearSolverBase&) = delete;
 
-            NonLinearSolverBase& operator=(NonLinearSolverBase&& other)
+            // The PETSc objects, the assembly and the PETSc context change hands as pointers, and the PETSc destroy functions
+            // report errors through their return code: nothing here can throw.
+            NonLinearSolverBase& operator=(NonLinearSolverBase&& other) noexcept
             {
+                static_assert(std::is_nothrow_move_assignable_v<worker_output_field_t>,
+                              "the move assignment of the worker field must not throw");
+                static_assert(std::is_nothrow_move_assignable_v<decltype(configure)>
+                                  && std::is_nothrow_move_assignable_v<decltype(after_matrix_assembly)>
+                                  && std::is_nothrow_move_assignable_v<decltype(monitor)>,
+                              "the move assignment of the user callbacks must not throw");
                 if (this != &other)
                 {
-                    this->destroy_petsc_objects();
-                    this->m_assembly  = other.m_assembly;
-                    this->m_snes      = other.m_snes;
-                    this->m_J         = other.m_J;
-                    this->m_is_set_up = other.m_is_set_up;
-                    other.m_snes      = nullptr; // Prevent SNES destruction when 'other' object is destroyed
-                    other.m_J         = nullptr;
-                    other.m_is_set_up = false;
+                    // Non-virtual on purpose: the derived classes move-assign their own PETSc objects.
+                    _destroy_petsc_objects();
+                    // 'other' gets the assembly and the PETSc context of this solver, so that it stays usable after a reset().
+                    m_assembly.swap(other.m_assembly);
+                    m_petsc_context.swap(other.m_petsc_context);
+                    *m_petsc_context             = this;
+                    *other.m_petsc_context       = &other;
+                    m_snes                       = std::exchange(other.m_snes, nullptr);
+                    m_J                          = std::exchange(other.m_J, nullptr);
+                    m_is_set_up                  = std::exchange(other.m_is_set_up, false);
+                    m_reuse_allocated_matrix     = std::exchange(other.m_reuse_allocated_matrix, false);
+                    m_stop_program_on_divergence = other.m_stop_program_on_divergence;
+                    m_worker_output_field        = std::move(other.m_worker_output_field);
+                    configure                    = std::move(other.configure);
+                    after_matrix_assembly        = std::move(other.after_matrix_assembly);
+                    monitor                      = std::move(other.monitor);
                 }
                 return *this;
             }
@@ -131,7 +148,7 @@ namespace samurai
 
             auto& assembly()
             {
-                return m_assembly;
+                return *m_assembly;
             }
 
             auto& scheme()
@@ -166,7 +183,7 @@ namespace samurai
                 }
 
                 // Non-linear function
-                SNESSetFunction(m_snes, nullptr, PETSC_nonlinear_function, this);
+                SNESSetFunction(m_snes, nullptr, PETSC_nonlinear_function, m_petsc_context.get());
 
                 // Jacobian matrix
                 if (!m_reuse_allocated_matrix)
@@ -175,12 +192,12 @@ namespace samurai
                 }
 
                 // Jacobian function
-                SNESSetJacobian(m_snes, m_J, m_J, PETSC_jacobian_function, this);
+                SNESSetJacobian(m_snes, m_J, m_J, PETSC_jacobian_function, m_petsc_context.get());
 
                 // Sends the successive residuals to the user if he monitors the convergence
                 if (monitor)
                 {
-                    SNESMonitorSet(m_snes, PETSC_monitor, this, nullptr);
+                    SNESMonitorSet(m_snes, PETSC_monitor, m_petsc_context.get(), nullptr);
                 }
 
                 KSP ksp;
@@ -202,7 +219,7 @@ namespace samurai
             {
                 times::timers.stop("nonlinear system solve");
 
-                auto self      = reinterpret_cast<NonLinearSolverBase*>(ctx); // this
+                auto self      = *static_cast<NonLinearSolverBase**>(ctx); // the solver that owns the SNES
                 auto& assembly = self->assembly();
 
                 if constexpr (!is_block_solver)
@@ -258,7 +275,7 @@ namespace samurai
 
                 // Here, jac = B = this.m_J
 
-                auto self      = reinterpret_cast<NonLinearSolverBase*>(ctx); // this
+                auto self      = *static_cast<NonLinearSolverBase**>(ctx); // the solver that owns the SNES
                 auto& assembly = self->assembly();
 
                 // Ideally, we would like to wrap a field structure around the data of the Petsc vector x,
@@ -305,7 +322,7 @@ namespace samurai
                 Vec r;
                 SNESGetFunction(snes, &r, NULL, NULL);
 
-                auto self      = reinterpret_cast<NonLinearSolverBase*>(ctx); // this
+                auto self      = *static_cast<NonLinearSolverBase**>(ctx); // the solver that owns the SNES
                 auto& assembly = self->assembly();
 
                 auto& r_field = self->m_worker_output_field;
@@ -371,14 +388,14 @@ namespace samurai
             {
                 destroy_petsc_objects();
                 SNESCreate(PETSC_COMM_WORLD, &m_snes);
-                m_assembly.is_set_up(false);
+                m_assembly->is_set_up(false);
                 m_is_set_up = false;
                 default_solver_configuration();
             }
 
             void set_scheme(const scheme_t& s)
             {
-                m_assembly.set_scheme(s);
+                m_assembly->set_scheme(s);
                 if (m_snes)
                 {
                     SNESDestroy(&m_snes);

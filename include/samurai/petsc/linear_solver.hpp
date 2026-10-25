@@ -9,7 +9,11 @@
 #else
 #include "utils.hpp"
 #endif
+#include <functional>
+#include <memory>
 #include <stdexcept>
+#include <type_traits>
+#include <utility>
 
 namespace samurai
 {
@@ -22,7 +26,9 @@ namespace samurai
 
           protected:
 
-            Assembly m_assembly;
+            // Held through a pointer: the assemblies have no move operations (a move falls back to a copy, which can throw and
+            // shares the numbering they own), so the move assignment hands the pointer over instead.
+            std::unique_ptr<Assembly> m_assembly;
             KSP m_ksp                     = nullptr;
             Mat m_A                       = nullptr;
             bool m_is_set_up              = false;
@@ -36,7 +42,7 @@ namespace samurai
             std::function<void(KSP&, PC&, Mat&)> after_setup           = nullptr;
 
             explicit LinearSolverBase(const scheme_t& scheme)
-                : m_assembly(scheme)
+                : m_assembly(std::make_unique<Assembly>(scheme))
             {
                 KSPCreate(PETSC_COMM_WORLD, &m_ksp);
             }
@@ -48,11 +54,11 @@ namespace samurai
 
           private:
 
-            void _destroy_petsc_objects()
+            void _destroy_petsc_objects() noexcept
             {
                 if (m_A)
                 {
-                    m_assembly.destroy_local_to_global_mappings(m_A);
+                    m_assembly->destroy_local_to_global_mappings(m_A);
                     MatDestroy(&m_A);
                     m_A                      = nullptr;
                     m_reuse_allocated_matrix = false;
@@ -71,31 +77,31 @@ namespace samurai
                 _destroy_petsc_objects();
             }
 
-            LinearSolverBase& operator=(const LinearSolverBase& other)
-            {
-                if (this != &other)
-                {
-                    this->destroy_petsc_objects();
-                    this->m_assembly  = other.m_assembly;
-                    this->m_ksp       = other.m_ksp;
-                    this->m_A         = other.m_A;
-                    this->m_is_set_up = other.m_is_set_up;
-                }
-                return *this;
-            }
+            // The solver owns its PETSc objects: a copy would share them and destroy them twice.
+            LinearSolverBase(const LinearSolverBase&)            = delete;
+            LinearSolverBase& operator=(const LinearSolverBase&) = delete;
 
-            LinearSolverBase& operator=(LinearSolverBase&& other)
+            // The PETSc objects and the assembly change hands as pointers, and the PETSc destroy functions report errors through
+            // their return code: nothing here can throw.
+            LinearSolverBase& operator=(LinearSolverBase&& other) noexcept
             {
+                static_assert(std::is_nothrow_move_assignable_v<decltype(configure)>
+                                  && std::is_nothrow_move_assignable_v<decltype(after_matrix_assembly)>
+                                  && std::is_nothrow_move_assignable_v<decltype(after_setup)>,
+                              "the move assignment of the user callbacks must not throw");
                 if (this != &other)
                 {
-                    this->destroy_petsc_objects();
-                    this->m_assembly  = other.m_assembly;
-                    this->m_ksp       = other.m_ksp;
-                    this->m_A         = other.m_A;
-                    this->m_is_set_up = other.m_is_set_up;
-                    other.m_ksp       = nullptr; // Prevent KSP destruction when 'other' object is destroyed
-                    other.m_A         = nullptr;
-                    other.m_is_set_up = false;
+                    // Non-virtual on purpose: the derived classes move-assign their own PETSc objects.
+                    _destroy_petsc_objects();
+                    // 'other' gets the assembly of this solver, so that it stays usable after a reset().
+                    m_assembly.swap(other.m_assembly);
+                    m_ksp                    = std::exchange(other.m_ksp, nullptr);
+                    m_A                      = std::exchange(other.m_A, nullptr);
+                    m_is_set_up              = std::exchange(other.m_is_set_up, false);
+                    m_reuse_allocated_matrix = std::exchange(other.m_reuse_allocated_matrix, false);
+                    configure                = std::move(other.configure);
+                    after_matrix_assembly    = std::move(other.after_matrix_assembly);
+                    after_setup              = std::move(other.after_setup);
                 }
                 return *this;
             }
@@ -112,7 +118,7 @@ namespace samurai
 
             auto& assembly()
             {
-                return m_assembly;
+                return *m_assembly;
             }
 
           protected:
@@ -252,14 +258,14 @@ namespace samurai
             {
                 destroy_petsc_objects();
                 KSPCreate(PETSC_COMM_WORLD, &m_ksp);
-                m_assembly.is_set_up(false);
+                m_assembly->is_set_up(false);
                 m_is_set_up = false;
                 default_solver_configuration();
             }
 
             void set_scheme(const scheme_t& s)
             {
-                m_assembly.set_scheme(s);
+                m_assembly->set_scheme(s);
                 if (m_ksp)
                 {
                     KSPDestroy(&m_ksp);
