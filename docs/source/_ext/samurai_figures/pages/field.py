@@ -37,7 +37,7 @@ from .interval import ARRAYS_2D, MESH_1D, MESH_2D
 OUTPUTS = Path(__file__).resolve().parents[3] / "tutorial" / "snippet" / "interval"
 
 # A printed interval of a level cell array: position->[start,end)@index:step.
-INTERVAL = re.compile(r"(\d+)->\[(-?\d+),(-?\d+)\)@(-?\d+):(\d+)")
+INTERVAL = re.compile(r"(?<!\d)(\d+)->\[(-?\d+),(-?\d+)\)@(-?\d+):(\d+)")
 
 
 def read_cell_array(name):
