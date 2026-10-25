@@ -233,7 +233,7 @@ int main(int argc, char* argv[])
         phinp1.resize();
         phinp1 = phi - dt * samurai::upwind_Burgers(phi, dx / dt);
 
-        std::swap(phi.array(), phinp1.array());
+        samurai::swap(phi, phinp1);
 
         if (t >= static_cast<double>(nsave) * dt_save || t == Tf)
         {

@@ -266,7 +266,7 @@ int main(int argc, char* argv[])
         unp1 = u2 - 0.5 * dt * conv(0, u2);
 
         // u <-- unp1
-        std::swap(u.array(), unp1.array());
+        samurai::swap(u, unp1);
 
         // Save the result
         if (!no_output && (nfiles == 0 || t >= static_cast<double>(nsave) * dt_save || t == Tf))
