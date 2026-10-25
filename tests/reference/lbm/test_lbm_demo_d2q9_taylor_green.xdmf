@@ -6,7 +6,7 @@
                 <DataItem Dimensions="4096" Format="HDF">test_lbm_demo_d2q9_taylor_green.h5:/mesh/connectivity</DataItem>
             </Topology>
             <Geometry GeometryType="XYZ">
-                <DataItem Dimensions="4332" Format="HDF">test_lbm_demo_d2q9_taylor_green.h5:/mesh/points</DataItem>
+                <DataItem Dimensions="3267" Format="HDF">test_lbm_demo_d2q9_taylor_green.h5:/mesh/points</DataItem>
             </Geometry>
             <Attribute Name="m_0" Center="Cell">
                 <DataItem Dimensions="1024" Format="HDF" Precision="8">test_lbm_demo_d2q9_taylor_green.h5:/mesh/fields/m_0</DataItem>

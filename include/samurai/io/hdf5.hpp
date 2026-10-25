@@ -6,8 +6,11 @@
 #include <algorithm>
 #include <array>
 #include <functional>
+#include <map>
 #include <string>
 #include <type_traits>
+#include <utility>
+#include <vector>
 
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -57,26 +60,27 @@ namespace samurai
         return "Unknown Element Type";
     }
 
+    // Vertex offsets of a cell in index units, in the order XDMF expects for the element type.
     template <std::size_t dim>
     auto get_element(std::integral_constant<std::size_t, dim>);
 
     SAMURAI_INLINE auto get_element(std::integral_constant<std::size_t, 1>)
     {
-        return std::array<double, 2>{
-            {0, 1}
+        return std::array<std::array<int, 1>, 2>{
+            {{0}, {1}}
         };
     }
 
     SAMURAI_INLINE auto get_element(std::integral_constant<std::size_t, 2>)
     {
-        return std::array<xt::xtensor_fixed<std::size_t, xt::xshape<2>>, 4>{
+        return std::array<std::array<int, 2>, 4>{
             {{0, 0}, {1, 0}, {1, 1}, {0, 1}}
         };
     }
 
     SAMURAI_INLINE auto get_element(std::integral_constant<std::size_t, 3>)
     {
-        return std::array<xt::xtensor_fixed<std::size_t, xt::xshape<3>>, 8>{
+        return std::array<std::array<int, 3>, 8>{
             {{0, 0, 0}, {1, 0, 0}, {1, 1, 0}, {0, 1, 0}, {0, 0, 1}, {1, 0, 1}, {1, 1, 1}, {0, 1, 1}}
         };
     }
@@ -85,6 +89,7 @@ namespace samurai
     auto extract_coords_and_connectivity(const Mesh& mesh)
     {
         static constexpr std::size_t dim = Mesh::dim;
+        using value_t                    = typename Mesh::interval_t::value_t;
         std::size_t nb_cells             = mesh.nb_cells();
 
         if (nb_cells == 0)
@@ -96,50 +101,68 @@ namespace samurai
 
         std::size_t nb_points_per_cell = 1 << dim;
 
-        std::map<std::array<double, dim>, std::size_t> points_id;
+        // Vertices shared by several cells are identified by their integer coordinates, brought
+        // to the coarsest level where they are a grid node. Comparing the physical coordinates
+        // instead fails whenever the cell length is not a dyadic number: the same vertex then
+        // gets slightly different doubles from different cells, and how many of them collapse
+        // depends on the platform (FMA contraction on aarch64, for instance).
+        using vertex_key_t = std::pair<std::size_t, std::array<value_t, dim>>;
+        std::map<vertex_key_t, std::size_t> points_id;
+        std::vector<std::array<double, dim>> points;
         auto element = get_element(std::integral_constant<std::size_t, dim>{});
 
         xt::xtensor<std::size_t, 2> connectivity;
         connectivity.resize({nb_cells, nb_points_per_cell});
 
-        std::size_t id    = 0;
         std::size_t index = 0;
         for_each_cell(mesh,
-                      [&](auto cell)
+                      [&](const auto& cell)
                       {
-                          std::array<double, dim> a;
-                          auto start_corner = cell.corner();
-                          auto c            = xt::xtensor<std::size_t, 1>::from_shape({element.size()});
-                          ;
-
                           for (std::size_t i = 0; i < element.size(); ++i)
                           {
-                              auto corner = start_corner + cell.length * element[i];
+                              vertex_key_t key{cell.level, {}};
+                              std::array<double, dim> coords;
+                              for (std::size_t d = 0; d < dim; ++d)
+                              {
+                                  key.second[d] = cell.indices[d] + element[i][d];
+                                  coords[d]     = cell.origin_point[d] + cell.length * static_cast<double>(key.second[d]);
+                              }
+                              while (key.first > 0
+                                     && std::all_of(key.second.cbegin(),
+                                                    key.second.cend(),
+                                                    [](auto k)
+                                                    {
+                                                        return k % 2 == 0;
+                                                    }))
+                              {
+                                  std::transform(key.second.cbegin(),
+                                                 key.second.cend(),
+                                                 key.second.begin(),
+                                                 [](auto k)
+                                                 {
+                                                     return k / 2;
+                                                 });
+                                  --key.first;
+                              }
 
-                              std::copy(corner.cbegin(), corner.cend(), a.begin());
-                              auto search = points_id.find(a);
-                              if (search == points_id.end())
+                              auto [it, inserted] = points_id.try_emplace(key, points.size());
+                              if (inserted)
                               {
-                                  points_id.emplace(std::make_pair(a, id));
-                                  c[i] = id++;
+                                  points.push_back(coords);
                               }
-                              else
-                              {
-                                  c[i] = search->second;
-                              }
+                              connectivity(index, i) = it->second;
                           }
-                          auto connectivity_view = xt::view(connectivity, index, xt::all());
-                          connectivity_view      = c;
                           index++;
                       });
 
-        auto coords = xt::xtensor<double, 2>::from_shape({points_id.size(), 3});
+        auto coords = xt::xtensor<double, 2>::from_shape({points.size(), 3});
         coords.fill(0.);
-        for (auto& e : points_id)
+        for (std::size_t p = 0; p < points.size(); ++p)
         {
-            std::size_t idx  = e.second;
-            auto coords_view = xt::view(coords, idx, xt::range(0, dim));
-            coords_view      = xt::adapt(e.first);
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                coords(p, d) = points[p][d];
+            }
         }
         return std::make_pair(coords, connectivity);
     }
