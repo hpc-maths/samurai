@@ -5,6 +5,8 @@
 
 #include <algorithm>
 #include <concepts>
+#include <type_traits>
+#include <utility>
 
 #include <CLI/CLI.hpp>
 
@@ -98,7 +100,18 @@ namespace samurai
     {
       public:
 
-        Adapt(PredictionFn&& prediction_fn, TField& field, TFields&... fields);
+        // PredictionFn is the type make_MRAdapt deduced, so it is either L& (the
+        // adaptation holds a reference) or L (it holds a moved-in copy). The
+        // constraint accepts exactly what a PredictionFn&& parameter binds to.
+        template <class Fn>
+            requires std::is_convertible_v<Fn&&, PredictionFn&&>
+        Adapt(Fn&& prediction_fn, TField& field, TFields&... fields)
+            : m_prediction_fn(std::forward<Fn>(prediction_fn))
+            , m_fields(field, fields...)
+            , m_detail("detail", field.mesh())
+            , m_tag("tag", field.mesh())
+        {
+        }
 
         template <class... Fields>
         void operator()(mra_config& config, Fields&... other_fields);
@@ -134,15 +147,6 @@ namespace samurai
         std::size_t m_adapt_ite{0};
 #endif
     };
-
-    template <bool enlarge_, class PredictionFn, class TField, class... TFields>
-    SAMURAI_INLINE Adapt<enlarge_, PredictionFn, TField, TFields...>::Adapt(PredictionFn&& prediction_fn, TField& field, TFields&... fields)
-        : m_prediction_fn(std::forward<PredictionFn>(prediction_fn))
-        , m_fields(field, fields...)
-        , m_detail("detail", field.mesh())
-        , m_tag("tag", field.mesh())
-    {
-    }
 
     template <bool enlarge_, class PredictionFn, class TField, class... TFields>
     template <class... Fields>
