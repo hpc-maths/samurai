@@ -239,9 +239,6 @@ namespace samurai
         using input_field_t                       = Field;
         using output_field_t                      = Field;
 
-        static constexpr std::size_t left  = 0;
-        static constexpr std::size_t right = 1;
-
         static_assert(dim == n_comp || n_comp == 1,
                       "make_convection_smooth_rusanov_incompressible() is not implemented for this field size in this space dimension.");
 
@@ -262,7 +259,9 @@ namespace samurai
         static_for<0, dim>::apply( // for each positive Cartesian direction 'd'
             [&](auto _d)
             {
-                static constexpr std::size_t d = _d();
+                static constexpr std::size_t d     = _d();
+                static constexpr std::size_t left  = 0;
+                static constexpr std::size_t right = 1;
 
                 auto f = [](auto u) -> FluxValue<cfg>
                 {
