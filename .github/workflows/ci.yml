@@ -29,7 +29,7 @@ jobs:
             code: ${{ steps.filter.outputs.code }}
             snippets: ${{ steps.filter.outputs.snippets }}
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
               with:
                   fetch-depth: 0
 
@@ -74,9 +74,9 @@ jobs:
     pre-commit:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-python@v5
-            - uses: pre-commit/action@v3.0.0
+            - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+            - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+            - uses: pre-commit/action@646c83fcd040023954eafda54b4db0192ce70507 # v3.0.0
     #
     # Check samurai with cppcheck
     #
@@ -86,10 +86,10 @@ jobs:
         if: needs.changes.outputs.code == 'true'
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
             - name: Mamba and samurai env installation
-              uses: mamba-org/setup-micromamba@v1
+              uses: mamba-org/setup-micromamba@4b9113af4fba0e9e1124b252dd6497a419e7396d # v1.11.0
               with:
                   environment-file: conda/environment.yml
                   environment-name: samurai-env
@@ -171,10 +171,10 @@ jobs:
                       cc: "clang-19"
                       cxx: "clang++-19"
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
             - name: Cache
-              uses: actions/cache@v4
+              uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
               with:
                   path: |
                       ~/.cache/ccache
@@ -200,7 +200,7 @@ jobs:
             #     ccache -s -v
 
             - name: Mamba and samurai env installation
-              uses: mamba-org/setup-micromamba@v1
+              uses: mamba-org/setup-micromamba@4b9113af4fba0e9e1124b252dd6497a419e7396d # v1.11.0
               with:
                   environment-file: conda/environment.yml
                   environment-name: samurai-env
@@ -301,10 +301,10 @@ jobs:
         if: needs.changes.outputs.code == 'true'
         runs-on: self-hosted
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
             - name: Mamba and samurai env installation
-              uses: mamba-org/setup-micromamba@v2
+              uses: mamba-org/setup-micromamba@add3a49764cedee8ee24e82dfde87f5bc2914462 # v2.0.7
               with:
                   environment-file: conda/mpi-environment.yml
                   download-micromamba: false
@@ -587,10 +587,10 @@ jobs:
         if: needs.changes.outputs.code == 'true'
         runs-on: macos-26
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
             - name: Cache
-              uses: actions/cache@v4
+              uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
               with:
                   path: |
                       ~/Library/Caches/ccache
@@ -599,7 +599,7 @@ jobs:
                       ccache-macos-
 
             - name: Mamba and samurai env installation
-              uses: mamba-org/setup-micromamba@v1
+              uses: mamba-org/setup-micromamba@4b9113af4fba0e9e1124b252dd6497a419e7396d # v1.11.0
               with:
                   environment-file: conda/environment.yml
                   environment-name: samurai-env
@@ -672,10 +672,10 @@ jobs:
         if: needs.changes.outputs.code == 'true'
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
             - name: Cache
-              uses: actions/cache@v4
+              uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
               with:
                   path: |
                       ~/.cache/ccache
@@ -684,7 +684,7 @@ jobs:
                       ccache-linux-mamba-check-nan-
 
             - name: Mamba and samurai env installation
-              uses: mamba-org/setup-micromamba@v2
+              uses: mamba-org/setup-micromamba@add3a49764cedee8ee24e82dfde87f5bc2914462 # v2.0.7
               with:
                   environment-file: conda/environment.yml
                   environment-name: samurai-env
@@ -750,10 +750,10 @@ jobs:
         if: needs.changes.outputs.code == 'true'
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
             - name: Cache
-              uses: actions/cache@v4
+              uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
               with:
                   path: |
                       ~/.cache/ccache
@@ -762,7 +762,7 @@ jobs:
                       ccache-linux-mamba-check-nan-mpi-
 
             - name: Mamba and samurai env installation
-              uses: mamba-org/setup-micromamba@v2
+              uses: mamba-org/setup-micromamba@add3a49764cedee8ee24e82dfde87f5bc2914462 # v2.0.7
               with:
                   environment-file: conda/mpi-environment.yml
                   environment-name: samurai-env
@@ -852,10 +852,10 @@ jobs:
                       environment-file: conda/mpi-environment.yml
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
             - name: Cache
-              uses: actions/cache@v4
+              uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
               with:
                   path: |
                       ~/.cache/ccache
@@ -864,7 +864,7 @@ jobs:
                       ccache-compile-snippets-mpi-${{ matrix.mpi }}-
 
             - name: Mamba and samurai env installation
-              uses: mamba-org/setup-micromamba@v2
+              uses: mamba-org/setup-micromamba@add3a49764cedee8ee24e82dfde87f5bc2914462 # v2.0.7
               with:
                   environment-file: ${{ matrix.environment-file }}
                   environment-name: samurai-env
@@ -921,10 +921,10 @@ jobs:
         if: needs.changes.outputs.code == 'true'
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
             - name: Cache
-              uses: actions/cache@v4
+              uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
               with:
                   path: |
                       ~/.cache/ccache
@@ -933,7 +933,7 @@ jobs:
                       ccache-benchmarks-
 
             - name: Mamba and samurai env installation
-              uses: mamba-org/setup-micromamba@v2
+              uses: mamba-org/setup-micromamba@add3a49764cedee8ee24e82dfde87f5bc2914462 # v2.0.7
               with:
                   environment-file: conda/environment.yml
                   environment-name: samurai-env
@@ -988,10 +988,10 @@ jobs:
                 shell: bash -l {0}
                 working-directory: docs
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
             - name: Mamba and samurai-doc env installation
-              uses: mamba-org/setup-micromamba@v2
+              uses: mamba-org/setup-micromamba@add3a49764cedee8ee24e82dfde87f5bc2914462 # v2.0.7
               with:
                   environment-file: docs/environment.yml
                   environment-name: samurai-doc

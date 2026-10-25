@@ -11,7 +11,7 @@ jobs:
     outputs:
       nb_commits: ${{ steps.new_commits.outputs.nb_commits }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - id: new_commits
         run: echo "nb_commits=$(git log --oneline --since '24 hours ago' | wc -l)" >> $GITHUB_OUTPUT
@@ -23,7 +23,7 @@ jobs:
     outputs:
       previous_failed: ${{ steps.check_status.outputs.failed }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Check previous clang-tidy status
         id: check_status
@@ -58,10 +58,10 @@ jobs:
     if: needs.check_new_commit.outputs.nb_commits > 0
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
             ~/.cache/ccache
@@ -69,7 +69,7 @@ jobs:
           key: clang-tidy
 
       - name: Mamba and samurai env installation
-        uses: mamba-org/setup-micromamba@v1
+        uses: mamba-org/setup-micromamba@4b9113af4fba0e9e1124b252dd6497a419e7396d # v1.11.0
         with:
           environment-file: conda/environment.yml
           environment-name: samurai-env
@@ -122,10 +122,10 @@ jobs:
   #       #     compiler: llvm
 
   #   steps:
-  #     - uses: actions/checkout@v4
+  #     - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
   #     - name: Cache
-  #       uses: actions/cache@v4
+  #       uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
   #       with:
   #         path: |
   #           ~/.conan/
@@ -140,14 +140,14 @@ jobs:
 
   #     - name: configure Pagefile
   #       if: runner.os == 'Windows'
-  #       uses: al-cheb/configure-pagefile-action@v1.2
+  #       uses: al-cheb/configure-pagefile-action@7e234852c937eea04d6ee627c599fb24a5bfffee # v1.2
   #       with:
   #         minimum-size: 16GB
   #         maximum-size: 16GB
   #         disk-root: "C:"
 
   #     - name: Setup Cpp
-  #       uses: aminya/setup-cpp@v0.26.2
+  #       uses: aminya/setup-cpp@d1061ec733be4e8cb4c5786620e36741d2a5fb21 # v0.26.2
   #       with:
   #         compiler: ${{ matrix.compiler }}
   #         vcvarsall: ${{ contains(matrix.os, 'windows' )}}
@@ -227,10 +227,10 @@ jobs:
   #       #     compiler: llvm
 
   #   steps:
-  #     - uses: actions/checkout@v4
+  #     - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
   #     - name: Cache
-  #       uses: actions/cache@v4
+  #       uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
   #       with:
   #         path: |
   #           ~/vcpkg
@@ -250,7 +250,7 @@ jobs:
   #           vcpkg-${{ runner.os }}-${{ matrix.compiler }}-${{ hashFiles('./vcpkg.json') }}
   #           vcpkg-${{ runner.os }}-${{ matrix.compiler }}-
   #     - name: Setup Cpp
-  #       uses: aminya/setup-cpp@v0.26.2
+  #       uses: aminya/setup-cpp@d1061ec733be4e8cb4c5786620e36741d2a5fb21 # v0.26.2
   #       with:
   #         compiler: ${{ matrix.compiler }}
   #         vcvarsall: ${{ contains(matrix.os, 'windows' )}}
@@ -308,9 +308,9 @@ jobs:
   #   if: needs.check_new_commit.outputs.nb_commits > 0
   #   runs-on: windows-2022
   #   steps:
-  #     - uses: actions/checkout@v4
+  #     - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
   #     - name: Mamba and samurai env installation
-  #       uses: mamba-org/setup-micromamba@v1
+  #       uses: mamba-org/setup-micromamba@4b9113af4fba0e9e1124b252dd6497a419e7396d # v1.11.0
   #       with:
   #         environment-file: conda/environment.yml
   #         environment-name: samurai-env
