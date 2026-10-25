@@ -346,33 +346,42 @@ def detail_threshold(p):
             a, b = (2 * k + c) * h, (2 * k + c + 1) * h
             real = children[2 * k + c]
             details.append(real - predicted)
-            band_top, band_bottom = fr.Y(predicted + eps), fr.Y(predicted - eps)
+            band_top, band_bottom = fr.to_y(predicted + eps), fr.to_y(predicted - eps)
             g += rect(
-                fr.X(a) + 4,
+                fr.to_x(a) + 4,
                 band_top,
-                fr.X(b) - fr.X(a) - 8,
+                fr.to_x(b) - fr.to_x(a) - 8,
                 band_bottom - band_top,
                 fill=WASH,
                 stroke="none",
             )
-            if fr.Y(predicted) - fr.Y(real) > 14 or fr.Y(real) - fr.Y(predicted) > 14:
+            if fr.to_y(predicted) - fr.to_y(real) > 14 or fr.to_y(real) - fr.to_y(predicted) > 14:
                 label = f'd<tspan baseline-shift="sub" font-size="10">{c + 1}</tspan>'
                 g += detail(fr, a, b, predicted, real, label, p)
             else:
                 g += line(
-                    fr.X(a) + 4,
-                    fr.Y(predicted),
-                    fr.X(b) - 4,
-                    fr.Y(predicted),
+                    fr.to_x(a) + 4,
+                    fr.to_y(predicted),
+                    fr.to_x(b) - 4,
+                    fr.to_y(predicted),
                     stroke=INK2,
                     dash="4 3",
                 )
-                g += line(fr.X(a) + 4, fr.Y(real), fr.X(b) - 4, fr.Y(real), stroke=RED, sw=HEAVY)
+                g += line(
+                    fr.to_x(a) + 4,
+                    fr.to_y(real),
+                    fr.to_x(b) - 4,
+                    fr.to_y(real),
+                    stroke=RED,
+                    sw=HEAVY,
+                )
         if abs(details[0] + details[1]) > 1e-12:
             raise ValueError("the two details of a cell must be opposite")
         outcome[k] = abs(details[0]) > eps
         # the boundary between the two children, on the axis
-        g += line(fr.X((2 * k + 1) * h), fr.bottom, fr.X((2 * k + 1) * h), fr.bottom + 4, sw=EMPTY)
+        g += line(
+            fr.to_x((2 * k + 1) * h), fr.bottom, fr.to_x((2 * k + 1) * h), fr.bottom + 4, sw=EMPTY
+        )
     if outcome != {1: False, 3: True}:
         raise ValueError("the details should stay under the threshold at 1 and exceed it at 3")
     g += axes(
@@ -381,13 +390,25 @@ def detail_threshold(p):
         [(0, "0"), (1, "1")],
         yname="u",
     )
-    g += text(fr.X(3 / 16), fr.bottom + 38, "below the threshold:", anchor="middle", size=11.5)
-    g += text(fr.X(3 / 16), fr.bottom + 53, "the children are merged", anchor="middle", size=11.5)
+    g += text(fr.to_x(3 / 16), fr.bottom + 38, "below the threshold:", anchor="middle", size=11.5)
     g += text(
-        fr.X(7 / 16), fr.bottom + 38, "above the threshold:", anchor="middle", size=11.5, fill=RED
+        fr.to_x(3 / 16), fr.bottom + 53, "the children are merged", anchor="middle", size=11.5
     )
     g += text(
-        fr.X(7 / 16), fr.bottom + 53, "the children are kept", anchor="middle", size=11.5, fill=RED
+        fr.to_x(7 / 16),
+        fr.bottom + 38,
+        "above the threshold:",
+        anchor="middle",
+        size=11.5,
+        fill=RED,
+    )
+    g += text(
+        fr.to_x(7 / 16),
+        fr.bottom + 53,
+        "the children are kept",
+        anchor="middle",
+        size=11.5,
+        fill=RED,
     )
     kx, ky = fr.x + 18, fr.y + 8
     g += line_key(

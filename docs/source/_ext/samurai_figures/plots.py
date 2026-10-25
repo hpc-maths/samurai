@@ -60,12 +60,12 @@ class Frame:
     def right(self):
         return self.x + self.w
 
-    def X(self, u):
+    def to_x(self, u):
         """The drawing abscissa of the data abscissa ``u``."""
         a, b = self.xlim
         return self.x + (u - a) / (b - a) * self.w
 
-    def Y(self, v):
+    def to_y(self, v):
         """The drawing ordinate of the data value ``v``."""
         a, b = self.ylim
         if self.ylog:
@@ -161,15 +161,15 @@ def axes(fr, xticks=(), yticks=(), xname="", yname="", size=11):
     """
     g = line(fr.x, fr.bottom, fr.right, fr.bottom)
     for u, label in xticks:
-        g += line(fr.X(u), fr.bottom, fr.X(u), fr.bottom + 5)
-        g += text(fr.X(u), fr.bottom + 18, label, anchor="middle", size=size)
+        g += line(fr.to_x(u), fr.bottom, fr.to_x(u), fr.bottom + 5)
+        g += text(fr.to_x(u), fr.bottom + 18, label, anchor="middle", size=size)
     if xname:
         g += text(fr.right + 10, fr.bottom + 5, xname, size=14, fill=INK, cls="sm-fig-math")
     if yticks or yname:
         g += line(fr.x, fr.bottom, fr.x, fr.y - 6)
     for v, label in yticks:
-        g += line(fr.x - 5, fr.Y(v), fr.x, fr.Y(v))
-        g += text(fr.x - 8, fr.Y(v) + 4, label, anchor="end", size=size)
+        g += line(fr.x - 5, fr.to_y(v), fr.x, fr.to_y(v))
+        g += text(fr.x - 8, fr.to_y(v) + 4, label, anchor="end", size=size)
     if yname:
         g += text(fr.x, fr.y - 14, yname, anchor="middle", size=14, fill=INK, cls="sm-fig-math")
     return g
@@ -196,20 +196,20 @@ def steps(fr, cells, stroke=INK, sw=RULE, fills=None, joined=True):
     if fills:
         for (a, b, v), fill in zip(cells, fills):
             if fill:
-                top = fr.Y(v)
+                left, top = fr.to_x(a), fr.to_y(v)
                 g += (
-                    f'<rect x="{num(fr.X(a))}" y="{num(top)}" width="{num(fr.X(b) - fr.X(a))}"'
+                    f'<rect x="{num(left)}" y="{num(top)}" width="{num(fr.to_x(b) - left)}"'
                     f' height="{num(fr.bottom - top)}" fill="{fill}"/>'
                 )
     if joined:
         d = "".join(
-            f"{'L' if q else 'M'}{num(fr.X(a))} {num(fr.Y(v))}H{num(fr.X(b))}"
+            f"{'L' if q else 'M'}{num(fr.to_x(a))} {num(fr.to_y(v))}H{num(fr.to_x(b))}"
             for q, (a, b, v) in enumerate(cells)
         )
         g += f'<path d="{d}" fill="none" stroke="{stroke}" stroke-width="{sw}"/>'
     else:
         for a, b, v in cells:
-            g += line(fr.X(a), fr.Y(v), fr.X(b), fr.Y(v), stroke=stroke, sw=sw)
+            g += line(fr.to_x(a), fr.to_y(v), fr.to_x(b), fr.to_y(v), stroke=stroke, sw=sw)
     return g
 
 
@@ -230,7 +230,7 @@ def curve(fr, f, lo=None, hi=None, stroke=INK, sw=HEAVY, dash="", samples=400):
         v = f(u)
         inside = bottom <= v <= top
         if inside:
-            d += f"{'L' if pen else 'M'}{num(fr.X(u))} {num(fr.Y(v))}"
+            d += f"{'L' if pen else 'M'}{num(fr.to_x(u))} {num(fr.to_y(v))}"
         pen = inside
     dashes = f' stroke-dasharray="{dash}"' if dash else ""
     return (
@@ -241,7 +241,7 @@ def curve(fr, f, lo=None, hi=None, stroke=INK, sw=HEAVY, dash="", samples=400):
 
 def dots(fr, points, color=INK, r=2.6):
     """Filled dots at ``points``, a list of (x, y): the data a polynomial goes through."""
-    return "".join(circle(fr.X(u), fr.Y(v), r, fill=color) for u, v in points)
+    return "".join(circle(fr.to_x(u), fr.to_y(v), r, fill=color) for u, v in points)
 
 
 def detail(fr, a, b, predicted, real, label, p, inset=4):
@@ -254,8 +254,8 @@ def detail(fr, a, b, predicted, real, label, p, inset=4):
     heads are the ``{p}-ar`` marker of ``draw.patterns``; the gap must be at least
     14 units for both heads to show.
     """
-    xa, xb = fr.X(a) + inset, fr.X(b) - inset
-    xm, yp, yr = (xa + xb) / 2, fr.Y(predicted), fr.Y(real)
+    xa, xb = fr.to_x(a) + inset, fr.to_x(b) - inset
+    xm, yp, yr = (xa + xb) / 2, fr.to_y(predicted), fr.to_y(real)
     heads = f'marker-start="url(#{p}-ar)" marker-end="url(#{p}-ar)"'
     return (
         line(xa, yp, xb, yp, stroke=INK2, dash="4 3")
@@ -317,7 +317,7 @@ def level_bars(fr, values, p, width=34, size=11.5):
     pitch = fr.w / len(levels)
     g = ""
     for q, level in enumerate(levels):
-        cx, top, red = fr.x + (q + 0.5) * pitch, fr.Y(values[level]), level == levels[-1]
+        cx, top, red = fr.x + (q + 0.5) * pitch, fr.to_y(values[level]), level == levels[-1]
         fill, stroke, sw = (f"url(#{p}-r)", RED, HAIR) if red else (WASH, INK, RULE)
         g += rect(cx - width / 2, top, width, fr.bottom - top, fill=fill, stroke=stroke, sw=sw)
         tone = RED if red else INK

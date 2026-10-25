@@ -296,19 +296,21 @@ def burgers_result(p):
     g = axes(fr, xticks=xticks, yticks=[(0, "0"), (0.5, "0.5"), (1, "1")], xname="x", yname="u")
     g += curve(fr, exact, hi=shock)
     g += curve(fr, exact, lo=shock + 1e-9)
-    g += line(fr.X(shock), fr.Y(exact(shock)), fr.X(shock), fr.Y(0), stroke=INK, sw=HEAVY)
+    g += line(
+        fr.to_x(shock), fr.to_y(exact(shock)), fr.to_x(shock), fr.to_y(0), stroke=INK, sw=HEAVY
+    )
     cells = [(run.left(c), run.right(c), v) for c, v in zip(run.cells, run.u)]
     g += steps(fr, cells, stroke=RED, sw=RULE)
     g += line_key(
-        fr.X(-2.85),
-        fr.Y(0.93),
+        fr.to_x(-2.85),
+        fr.to_y(0.93),
         [
             ("exact solution", INK, HEAVY, ""),
             (f"u, {len(run.cells)} cells", RED, RULE, ""),
         ],
     )
-    g += callout(fr.X(1.23), fr.Y(0.57), fr.X(1.85), fr.Y(0.72), "a", red=True)
-    g += callout(fr.X(-1.0), fr.Y(0.0), fr.X(-1.55), fr.Y(0.32), "b")
+    g += callout(fr.to_x(1.23), fr.to_y(0.57), fr.to_x(1.85), fr.to_y(0.72), "a", red=True)
+    g += callout(fr.to_x(-1.0), fr.to_y(0.0), fr.to_x(-1.55), fr.to_y(0.32), "b")
     g += fig_label(fr.x + w / 2, fr.bottom + 50, 1, "t = 1.5")
 
     top = fr.bottom + 96
@@ -317,9 +319,9 @@ def burgers_result(p):
     nrows = max(COUNTS) - min(COUNTS) + 1
     bottom = top + (nrows - 1) * 30 + 16
     band = [c for c in run.cells if c[0] == max(COUNTS)]
-    xa, xb = fr.X(run.left(band[0])), fr.X(run.right(band[-1]))
+    xa, xb = fr.to_x(run.left(band[0])), fr.to_x(run.right(band[-1]))
     g += bracket(xa, xb, bottom + 12, f"[{MINUS}1.03125, 1.3125)", color=RED, size=11)
-    g += callout(fr.X(2.6), top + 8, fr.X(2.6), top - 22, "c")
+    g += callout(fr.to_x(2.6), top + 8, fr.to_x(2.6), top - 22, "c")
     axis = Frame(x0, bottom + 32, w, 0, xlim=(A, B))
     g += axes(axis, xticks=xticks, xname="x")
     g += fig_label(fr.x + w / 2, axis.bottom + 50, 2)

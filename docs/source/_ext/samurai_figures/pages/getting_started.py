@@ -82,13 +82,13 @@ def child_details(p):
     real = (0.31, 0.79)  # their mean is the parent value, coarse[1]
     g = line(fr.x - 20, fr.bottom, fr.right + 20, fr.bottom)
     g += axes(fr, xticks=[(k, "") for k in range(4)])
-    g += line(fr.X(1.5), fr.bottom, fr.X(1.5), fr.bottom + 4, sw=EMPTY)
+    g += line(fr.to_x(1.5), fr.bottom, fr.to_x(1.5), fr.bottom + 4, sw=EMPTY)
     g += steps(fr, [(k, k + 1, v) for k, v in enumerate(coarse)], sw=HEAVY, joined=False)
     for k in range(2):
         name = f'd<tspan baseline-shift="sub" font-size="9">{k + 1}</tspan>'
         g += detail(fr, 1 + k / 2, 1.5 + k / 2, predicted[k], real[k], name, p)
     for k, (name, tone) in enumerate((("neighbor", INK2), ("parent", INK), ("neighbor", INK2))):
-        g += text(fr.X(k + 0.5), fr.bottom + 22, f"{name}, level ℓ − 1", "middle", 12, tone)
+        g += text(fr.to_x(k + 0.5), fr.bottom + 22, f"{name}, level ℓ − 1", "middle", 12, tone)
     g += line_key(
         fr.right + 44,
         40,
