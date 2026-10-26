@@ -464,13 +464,16 @@ Do not edit it by hand.
 
 ### Description
 
-The pull request template asks for three sections:
+The pull request template starts with a short guide in a comment and has five sections.
+Delete the ones that have nothing to say:
 
-- **Description**: what was wrong or missing and what the pull request changes, with exact names of functions, files, demos and options;
+- **Description**: what was wrong or missing and what the pull request changes, with exact names of functions, files, demos and options, and the evidence for this change (a reproduction, outputs identical to `main`, a timing);
+- **Breaking changes**: what user code stops compiling or behaves differently, and how to migrate;
 - **Related issue**: `Closes #123`, or where the problem was found;
-- **How has this been tested?**: the new or changed tests, the demos and commands you ran with their options, and what you did not test.
+- **How has this been tested?**: the tests the pull request adds or changes, what they check and whether they fail without it;
+- **Reviewer notes**: a debatable choice, a risky area or where to start reading.
 
-Give results as numbers or before/after comparisons, and leave out the list of changed files: the diff already shows it.
+Give results as numbers or before/after comparisons, and leave out what the diff or the CI already shows: the list of changed files, implementation details, the results of the existing test suite.
 
 ### Continuous integration
 
