@@ -219,7 +219,7 @@ def dirichlet_order_2(p):
     x0 = (DIAGRAM_WIDTH - (last - first) * cw) / 2
     fr = Frame(x0, 34, (last - first) * cw, 120, xlim=(first - 0.5, last - 0.5), ylim=(1.0, 1.8))
     row = fr.bottom + 26
-    face = fr.X(0.5)
+    face = fr.to_x(0.5)
 
     roles = {
         (k - first, 0): "inner" if k < -1 else ("read" if k <= 0 else "write")
@@ -228,21 +228,21 @@ def dirichlet_order_2(p):
     g = _grid(x0, row, cw, ch, roles, p)
     # the centers: guides from the row up to the values
     for k, value in ((-1, u_m1), (0, u_0), (1, g1), (2, g2)):
-        xc = fr.X(k)
-        g += line(xc, row, xc, fr.Y(value) + 4, stroke=INK3, sw=HAIR, dash="2 3")
+        xc = fr.to_x(k)
+        g += line(xc, row, xc, fr.to_y(value) + 4, stroke=INK3, sw=HAIR, dash="2 3")
         g += circle(xc, row + ch / 2, 1.8, fill=RED if k > 0 else INK)
     g += line(face, fr.y - 14, face, row + ch + 6, stroke=RED, sw=HEAVY)
     g += text(face, fr.y - 23, "boundary face", anchor="middle", size=11.5, fill=RED)
     g += curve(fr, poly, lo=-1, hi=2)
-    g += circle(fr.X(-1), fr.Y(u_m1), 3, fill=INK)
-    g += circle(fr.X(0), fr.Y(u_0), 3, fill=INK)
-    g += circle(face, fr.Y(v), 3.4, fill=RED)
+    g += circle(fr.to_x(-1), fr.to_y(u_m1), 3, fill=INK)
+    g += circle(fr.to_x(0), fr.to_y(u_0), 3, fill=INK)
+    g += circle(face, fr.to_y(v), 3.4, fill=RED)
     for k, value in ((1, g1), (2, g2)):
-        g += circle(fr.X(k), fr.Y(value), 3, fill=PAPER, stroke=RED, sw=RULE)
-    g += _math(fr.X(-1) - 12, fr.Y(u_m1) + 4, "u", "−1", anchor="end")
-    g += _math(fr.X(0) - 13, fr.Y(u_0) - 8, "u", "0", anchor="end")
-    g += _math(face - 8, fr.Y(v) - 10, "v", fill=RED, anchor="end")
-    g += _math(fr.X(2) + 12, fr.Y(g2) + 5, "p", anchor="start")
+        g += circle(fr.to_x(k), fr.to_y(value), 3, fill=PAPER, stroke=RED, sw=RULE)
+    g += _math(fr.to_x(-1) - 12, fr.to_y(u_m1) + 4, "u", "−1", anchor="end")
+    g += _math(fr.to_x(0) - 13, fr.to_y(u_0) - 8, "u", "0", anchor="end")
+    g += _math(face - 8, fr.to_y(v) - 10, "v", fill=RED, anchor="end")
+    g += _math(fr.to_x(2) + 12, fr.to_y(g2) + 5, "p", anchor="start")
 
     # the stencil of the condition and the offsets
     a, b = -1, 3
@@ -254,8 +254,8 @@ def dirichlet_order_2(p):
         size=11,
         label_dy=17,
     )
-    g += text(fr.X(-0.5), row + ch + 27, "inner cells", anchor="middle", size=11.5, fill=INK)
-    g += text(fr.X(1.5), row + ch + 27, "ghosts", anchor="middle", size=11.5, fill=RED)
+    g += text(fr.to_x(-0.5), row + ch + 27, "inner cells", anchor="middle", size=11.5, fill=INK)
+    g += text(fr.to_x(1.5), row + ch + 27, "ghosts", anchor="middle", size=11.5, fill=RED)
     axis = row + ch + 46
     g += _offset_axis(x0, cw, first, last, axis)
     return Drawing(

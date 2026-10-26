@@ -104,17 +104,17 @@ def _detail_art(p, cx, top):
     g = ""
     # the values of level l - 1
     for k, v in enumerate((left, parent, right)):
-        g += line(fr.X(k) + 3, fr.Y(v), fr.X(k + 1) - 3, fr.Y(v), stroke=INK, sw=HEAVY)
+        g += line(fr.to_x(k) + 3, fr.to_y(v), fr.to_x(k + 1) - 3, fr.to_y(v), stroke=INK, sw=HEAVY)
     # the predicted and the real values of the children, and their details
     for k in range(2):
-        xa, xb = fr.X(1 + k / 2) + 2, fr.X(1.5 + k / 2) - 2
+        xa, xb = fr.to_x(1 + k / 2) + 2, fr.to_x(1.5 + k / 2) - 2
         xm = (xa + xb) / 2
-        g += line(xa, fr.Y(predicted[k]), xb, fr.Y(predicted[k]), stroke=INK2, dash="3 2")
-        g += line(xa, fr.Y(real[k]), xb, fr.Y(real[k]), stroke=RED, sw=HEAVY)
-        g += line(xm, fr.Y(predicted[k]), xm, fr.Y(real[k]), stroke=RED, extra=heads)
+        g += line(xa, fr.to_y(predicted[k]), xb, fr.to_y(predicted[k]), stroke=INK2, dash="3 2")
+        g += line(xa, fr.to_y(real[k]), xb, fr.to_y(real[k]), stroke=RED, sw=HEAVY)
+        g += line(xm, fr.to_y(predicted[k]), xm, fr.to_y(real[k]), stroke=RED, extra=heads)
     for k, (label, anchor) in enumerate(((f"{chr(0x2212)}d", "end"), ("d", "start"))):
-        y = (fr.Y(predicted[k]) + fr.Y(real[k])) / 2 + 4
-        x = fr.X(1) - 4 if k == 0 else fr.X(2) + 4
+        y = (fr.to_y(predicted[k]) + fr.to_y(real[k])) / 2 + 4
+        x = fr.to_x(1) - 4 if k == 0 else fr.to_x(2) + 4
         g += text(x, y, label, anchor=anchor, size=13, fill=RED, cls="sm-fig-math")
     # the cells: level l - 1, then the two children of the parent, as wide as it
     y = top + 62
@@ -334,8 +334,8 @@ def adapt_1d(p):
         xname="x",
         yname="u",
     )
-    g += callout(fr.X(0.5), fr.Y(1), fr.X(0.66), fr.Y(0.98), "a", red=True)
-    g += callout(fr.X(1 / 16), fr.Y(0), fr.X(0.12), fr.Y(0.32), "b")
+    g += callout(fr.to_x(0.5), fr.to_y(1), fr.to_x(0.66), fr.to_y(0.98), "a", red=True)
+    g += callout(fr.to_x(1 / 16), fr.to_y(0), fr.to_x(0.12), fr.to_y(0.32), "b")
     g += fig_label(x0 + w / 2, fr.bottom + 46, 1)
 
     # Fig. 2, the cells of each level. level_rows starts at the coarsest level that
@@ -361,7 +361,7 @@ def adapt_1d(p):
     )
     pitch = w / len(thresholds)
     for q, level in enumerate(sorted(thresholds)):
-        cx, top = bars.x + (q + 0.5) * pitch, bars.Y(thresholds[level])
+        cx, top = bars.x + (q + 0.5) * pitch, bars.to_y(thresholds[level])
         red = level == max_level
         if red:
             g += rect(cx - 17, top, 34, bars.bottom - top, fill=f"url(#{p}-r)", stroke=RED, sw=HAIR)

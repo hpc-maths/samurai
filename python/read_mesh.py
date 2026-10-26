@@ -9,9 +9,25 @@ from matplotlib import collections as mc
 from matplotlib import animation
 from matplotlib import rc
 import argparse
+import os
+
+def inside_cwd(path, what):
+    """Return the resolved path, or exit if it lies outside the current directory.
+
+    Symbolic links are resolved first, so a link cannot point the script at a
+    file elsewhere.
+    """
+    base = os.path.realpath(os.getcwd())
+    resolved = os.path.realpath(os.path.join(base, path))
+    if not resolved.startswith(os.path.join(base, "")):
+        raise SystemExit(
+            f"{what} {path} is outside the current directory {base}, "
+            "run the script from a directory that contains it"
+        )
+    return resolved
 
 def read_mesh(filename, ite=None):
-    return h5py.File(filename + '.h5', 'r')['mesh']
+    return h5py.File(inside_cwd(filename + '.h5', 'input file'), 'r')['mesh']
 
 def scatter_plot(ax, points):
     return ax.scatter(points[:, 0], points[:, 1], marker='+')
@@ -123,14 +139,19 @@ class Plot:
         return self.artists
 
 parser = argparse.ArgumentParser(description='Plot 1d mesh and field from samurai simulations.')
-parser.add_argument('filename', type=str, help='hdf5 file to plot without .h5 extension')
+parser.add_argument('filename', type=str,
+                    help='hdf5 file to plot without .h5 extension, inside the current directory')
 parser.add_argument('--field', nargs="+", type=str, required=False, help='list of fields to plot')
 parser.add_argument('--start', type=int, required=False, default=0, help='iteration start')
 parser.add_argument('--end', type=int, required=False, default=None, help='iteration end')
-parser.add_argument('--save', type=str, required=False, help='output file')
+parser.add_argument('--save', type=str, required=False,
+                    help='output file without extension, inside the current directory')
 parser.add_argument('--mpi-size', type=int, default=1, required=False, help='number of mpi rank')
 parser.add_argument('--wait', type=int, default=200, required=False, help='time between two plot in ms')
 args = parser.parse_args()
+
+if args.save:
+    output = inside_cwd(args.save + ('.png' if args.end is None else '.mp4'), 'output file')
 
 if args.end is None:
     Plot(args.filename)
@@ -144,9 +165,9 @@ else:
 
 if args.save:
     if args.end is None:
-        plt.savefig(args.save + '.png', dpi=300)
+        plt.savefig(output, dpi=300)
     else:
         writermp4 = animation.FFMpegWriter(fps=1)
-        ani.save(args.save + '.mp4', dpi=300)
+        ani.save(output, dpi=300)
 else:
     plt.show()

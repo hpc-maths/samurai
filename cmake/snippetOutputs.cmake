@@ -15,7 +15,8 @@
 #       [STDERR]                    capture the standard error too
 #                                   (default: standard output only)
 #       [INPUTS <file>...]          files copied into the working directory,
-#                                   relative to the snippet source
+#                                   relative to the snippet source and
+#                                   inside its directory
 #       [REPLACE <regex> <text>...] pairs applied to the output, for the
 #                                   values that change from run to run
 #                                   (Python regular expressions)
@@ -88,7 +89,9 @@ function(samurai_snippet_output target)
     endif()
     set_property(GLOBAL APPEND PROPERTY SAMURAI_SNIPPET_OUTPUTS "${output}")
 
-    set(options --output "${output}")
+    # The script runs in the directory of the snippet source and only accepts
+    # files inside it: the output and the inputs are given relative to it
+    set(options --output "${arg_OUTPUT}")
     if(DEFINED arg_EXIT_CODE)
         list(APPEND options --exit-code ${arg_EXIT_CODE})
     endif()
@@ -96,7 +99,7 @@ function(samurai_snippet_output target)
         list(APPEND options --stderr)
     endif()
     foreach(input IN LISTS arg_INPUTS)
-        list(APPEND options --input "${source_dir}/${input}")
+        list(APPEND options --input "${input}")
     endforeach()
     list(LENGTH arg_REPLACE n_replace)
     math(EXPR odd "${n_replace} % 2")
@@ -124,6 +127,7 @@ function(samurai_snippet_output target)
     list(JOIN arg_ARGS " " args_text)
     add_custom_target(snippet_output_${name}
         COMMAND ${Python3_EXECUTABLE} ${SAMURAI_SNIPPET_OUTPUT_SCRIPT} ${options} -- $<TARGET_FILE:${target}> ${arg_ARGS}
+        WORKING_DIRECTORY "${source_dir}"
         COMMENT "Running ${target} ${args_text} for ${arg_OUTPUT}"
         VERBATIM)
     add_dependencies(snippet_output_${name} ${target})

@@ -151,18 +151,17 @@ class SamuraiReader(VTKPythonAlgorithmBase):
             self.Modified()
 
     # -- Pipeline ---------------------------------------------------------------
+    # VTK expects 1 from a pipeline request that succeeded.
     def RequestInformation(self, request, inInfoVec, outInfoVec):
         _, times = self._series()
-        if not times:
-            return 1
-
-        info = outInfoVec.GetInformationObject(0)
-        info.Remove(vtkStreamingDemandDrivenPipeline.TIME_STEPS())
-        info.Remove(vtkStreamingDemandDrivenPipeline.TIME_RANGE())
-        for t in times:
-            info.Append(vtkStreamingDemandDrivenPipeline.TIME_STEPS(), t)
-        info.Append(vtkStreamingDemandDrivenPipeline.TIME_RANGE(), times[0])
-        info.Append(vtkStreamingDemandDrivenPipeline.TIME_RANGE(), times[-1])
+        if times:
+            info = outInfoVec.GetInformationObject(0)
+            info.Remove(vtkStreamingDemandDrivenPipeline.TIME_STEPS())
+            info.Remove(vtkStreamingDemandDrivenPipeline.TIME_RANGE())
+            for t in times:
+                info.Append(vtkStreamingDemandDrivenPipeline.TIME_STEPS(), t)
+            info.Append(vtkStreamingDemandDrivenPipeline.TIME_RANGE(), times[0])
+            info.Append(vtkStreamingDemandDrivenPipeline.TIME_RANGE(), times[-1])
         return 1
 
     def _requested_index(self, info, times):

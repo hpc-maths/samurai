@@ -189,35 +189,37 @@ def _inset(state, fr, letter):
     ylim = (exact(hi, t) - 0.02, exact(lo, t) + 0.02)
     if not all(ylim[0] < v < ylim[1] for _, _, v in cells):
         raise ValueError(f"u leaves the inset at t = {t}")
-    box = Frame(fr.X(9.85) - w, fr.Y(1.0), w, fr.Y(0.2) - fr.Y(1.0), xlim=(lo, hi), ylim=ylim)
+    box = Frame(
+        fr.to_x(9.85) - w, fr.to_y(1.0), w, fr.to_y(0.2) - fr.to_y(1.0), xlim=(lo, hi), ylim=ylim
+    )
     # the window on the main curve, and a hairline from its top right corner to the
     # top left corner of the inset, above the curve, which is under 0.25 there
     g = rect(
-        fr.X(lo),
-        fr.Y(ylim[1]),
-        fr.X(hi) - fr.X(lo),
-        fr.Y(ylim[0]) - fr.Y(ylim[1]),
+        fr.to_x(lo),
+        fr.to_y(ylim[1]),
+        fr.to_x(hi) - fr.to_x(lo),
+        fr.to_y(ylim[0]) - fr.to_y(ylim[1]),
         stroke=INK2,
         sw=HAIR,
     )
-    g += line(fr.X(hi), fr.Y(ylim[1]), box.x, box.y, stroke=INK2, sw=HAIR)
+    g += line(fr.to_x(hi), fr.to_y(ylim[1]), box.x, box.y, stroke=INK2, sw=HAIR)
     g += rect(box.x, box.y, box.w, box.h, fill=PAPER, stroke=INK2, sw=HAIR)
     g += curve(box, lambda x: exact(x, t))
     g += steps(box, cells, stroke=RED, sw=RULE)
     for q in range(floor(lo * 2), ceil(hi * 2) + 1):
         v = q / 2
         if lo < v < hi:
-            g += line(box.X(v), box.bottom, box.X(v), box.bottom + 4, stroke=INK2, sw=HAIR)
+            g += line(box.to_x(v), box.bottom, box.to_x(v), box.bottom + 4, stroke=INK2, sw=HAIR)
             label = f"{v:g}".replace("-", MINUS)
-            g += text(box.X(v), box.bottom + 15, label, anchor="middle", size=10.5)
+            g += text(box.to_x(v), box.bottom + 15, label, anchor="middle", size=10.5)
     # the u axis of the inset, on its right side
     for v in INSET_U:
         if not ylim[0] < v < ylim[1]:
             raise ValueError(f"the tick u = {v} leaves the inset at t = {t}")
-        g += line(box.right, box.Y(v), box.right + 4, box.Y(v), stroke=INK2, sw=HAIR)
-        g += text(box.right + 7, box.Y(v) + 4, f"{v:g}", size=10.5)
+        g += line(box.right, box.to_y(v), box.right + 4, box.to_y(v), stroke=INK2, sw=HAIR)
+        g += text(box.right + 7, box.to_y(v) + 4, f"{v:g}", size=10.5)
     xf = front(t)
-    g += callout(box.X(xf), box.Y(0.5), box.X(xf + 0.3), box.Y(0.66), letter, red=True)
+    g += callout(box.to_x(xf), box.to_y(0.5), box.to_x(xf + 0.3), box.to_y(0.66), letter, red=True)
     return g
 
 
@@ -237,8 +239,8 @@ def _panel(p, n, y, x0, w):
     g += curve(fr, lambda x: exact(x, t))
     g += steps(fr, cells, stroke=RED, sw=RULE)
     g += line_key(
-        fr.X(-9.3),
-        fr.Y(0.55),
+        fr.to_x(-9.3),
+        fr.to_y(0.55),
         [("exact solution", INK, HEAVY, ""), (f"u, {len(state.cells)} cells", RED, RULE, "")],
     )
     g += _inset(state, fr, "ab"[n])
@@ -249,7 +251,7 @@ def _panel(p, n, y, x0, w):
     under = rows + (nrows - 1) * 30 + 16 + 12
     a, b = STATES[n][3]
     label = f"[{a:g}, {b:g})".replace("-", MINUS)
-    g += bracket(fr.X(a), fr.X(b), under, label, color=RED, size=11)
+    g += bracket(fr.to_x(a), fr.to_x(b), under, label, color=RED, size=11)
     end = under + 44
     g += fig_label(x0 + w / 2, end, n + 1, f"t = {t:g}")
     return g, end + 14

@@ -83,6 +83,7 @@ See the [yt loader README](https://github.com/hpc-maths/samurai/tree/main/tools/
 
 `<samurai-dir>/python/read_mesh.py` reads a 1D file written by `samurai::save` and plots it with Matplotlib.
 It draws each field as a curve of its values at the cell centers.
+Run it from the directory that holds the files: it reads and writes only files inside the current directory, and stops on any other path.
 
 ### Install the dependencies
 

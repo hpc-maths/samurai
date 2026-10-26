@@ -5,11 +5,15 @@
 # CMake calls this script for each `samurai_snippet_output` declaration (see
 # cmake/snippetOutputs.cmake); do not edit the generated files by hand.
 #
+# CMake runs the script in the directory of the snippet source. The output
+# file and the input files must lie inside the current directory: the script
+# refuses any other path.
+#
 # The program runs in a temporary directory, so that the files it writes
-# (HDF5, xdmf, ...) do not land in the source tree. It is started as
-# `./<name>`, the way the pages show it, so that a program printing its own
-# name prints the same text on every machine. Only the standard output is
-# captured, unless --stderr is given.
+# (HDF5, xdmf, ...) do not land in the source tree. Its path is replaced by
+# `./<name>` in the output, the way the pages show it, so that a program
+# printing its own name prints the same text on every machine. Only the
+# standard output is captured, unless --stderr is given.
 
 import argparse
 import os
@@ -25,7 +29,9 @@ import tempfile
 def parse_args():
     """Read the command line, check the options that go together."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", required=True, help="file to write")
+    parser.add_argument(
+        "--output", required=True, help="file to write, inside the current directory"
+    )
     parser.add_argument(
         "--exit-code", type=int, default=0, help="expected exit code of the program"
     )
@@ -35,7 +41,10 @@ def parse_args():
         help="capture the standard error with the standard output",
     )
     parser.add_argument(
-        "--input", action="append", default=[], help="file copied into the working directory"
+        "--input",
+        action="append",
+        default=[],
+        help="file copied into the working directory of the program, inside the current directory",
     )
     parser.add_argument(
         "--replace",
@@ -82,6 +91,19 @@ def parse_args():
     return args
 
 
+def inside_cwd(path, what):
+    """Return the resolved path, or exit if it lies outside the current directory.
+
+    Symbolic links are resolved first, so a link cannot point the script at a
+    file elsewhere.
+    """
+    base = os.path.realpath(os.getcwd())
+    resolved = os.path.realpath(os.path.join(base, path))
+    if not resolved.startswith(os.path.join(base, "")):
+        raise SystemExit(f"{what} {path} is outside the current directory {base}")
+    return resolved
+
+
 def elide(text, head, tail):
     """Keep the first `head` and the last `tail` lines, with '...' in place of the others."""
     lines = text.splitlines()
@@ -97,14 +119,14 @@ def run(args):
     """Run the program in a temporary directory, return its standard output."""
     program = os.path.abspath(args.command[0])
     name = os.path.basename(program)
+    inputs = [inside_cwd(path, "input file") for path in args.input]
     with tempfile.TemporaryDirectory(prefix="samurai-snippet-") as workdir:
-        for path in args.input:
+        for path in inputs:
             shutil.copy(path, workdir)
-        os.symlink(program, os.path.join(workdir, name))
         launcher = []
         if args.mpiexec:
             launcher = [args.mpiexec, args.numproc_flag, str(args.np)] + args.mpiexec_preflag
-        command = launcher + [f"./{name}"] + args.command[1:]
+        command = launcher + [program] + args.command[1:]
         # One thread for the BLAS and OpenMP reductions: their result must not
         # depend on the number of cores of the machine
         env = dict(os.environ, OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1", MKL_NUM_THREADS="1")
@@ -121,6 +143,9 @@ def run(args):
         except subprocess.TimeoutExpired as error:
             sys.exit(f"{' '.join(command)}: no result after {error.timeout} s")
         output = result.stdout.decode("utf-8", errors="replace")
+        # The pages run the program as ./<name>, whatever the build directory
+        for path in sorted({program, os.path.realpath(program)}, key=len, reverse=True):
+            output = output.replace(path, f"./{name}")
         # Paths that contain the temporary directory change at each run
         output = output.replace(os.path.realpath(workdir), ".").replace(workdir, ".")
 
@@ -136,6 +161,7 @@ def run(args):
 def main():
     """Run the program, normalize its output and write the file if it changed."""
     args = parse_args()
+    output_file = inside_cwd(args.output, "output file")
     output = run(args)
     for pattern, replacement in zip(args.replace, args.by):
         output = re.sub(pattern, replacement, output, flags=re.MULTILINE)
@@ -143,15 +169,15 @@ def main():
         output = elide(output, args.head, args.tail)
 
     try:
-        with open(args.output, encoding="utf-8", newline="") as file:
+        with open(output_file, encoding="utf-8", newline="") as file:
             previous = file.read()
     except FileNotFoundError:
         previous = None
     # Rewrite the file only when it changes, to keep its timestamp otherwise
     if output != previous:
-        with open(args.output, "w", encoding="utf-8", newline="") as file:
+        with open(output_file, "w", encoding="utf-8", newline="") as file:
             file.write(output)
-        print(f"updated {args.output}")
+        print(f"updated {output_file}")
 
 
 if __name__ == "__main__":

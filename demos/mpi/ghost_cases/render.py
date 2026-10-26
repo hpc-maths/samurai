@@ -15,9 +15,11 @@ drawn here). With --per-case it additionally emits, for every 2D case, a
 two-panel PNG: left = cells coloured by the owning MPI rank (the decomposition),
 right = cells coloured by refinement level (the geometry / level jumps).
 
-Usage:
+Usage, from the directory where mpi-ghost-cases wrote ghost_cases_output:
     python render.py --input ghost_cases_output              # overviews only
     python render.py --input ghost_cases_output --per-case   # + one PNG per case
+
+The input and output directories must lie inside the current directory.
 """
 
 import argparse
@@ -173,10 +175,34 @@ def overview_figure(files, suite, nranks):
     return fig
 
 
+def inside_cwd(path, what):
+    """Return the resolved path, or exit if it lies outside the current directory.
+
+    Symbolic links are resolved first, so a link cannot point the script at a
+    directory elsewhere.
+    """
+    base = os.path.realpath(os.getcwd())
+    resolved = os.path.realpath(os.path.join(base, path))
+    if not resolved.startswith(os.path.join(base, "")):
+        raise SystemExit(
+            f"{what} {path} is outside the current directory {base}, "
+            "run the script from a directory that contains it"
+        )
+    return resolved
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--input", default="ghost_cases_output", help="directory holding the .h5 files")
-    ap.add_argument("--output", default=None, help="output directory for the PNGs (default: <input>/png)")
+    ap.add_argument(
+        "--input",
+        default="ghost_cases_output",
+        help="directory holding the .h5 files, inside the current directory",
+    )
+    ap.add_argument(
+        "--output",
+        default=None,
+        help="output directory for the PNGs, inside the current directory (default: <input>/png)",
+    )
     ap.add_argument(
         "--per-case",
         action="store_true",
@@ -192,12 +218,13 @@ def main():
     )
     args = ap.parse_args()
 
-    out_dir = args.output or os.path.join(args.input, "png")
+    in_dir = inside_cwd(args.input, "input directory")
+    out_dir = inside_cwd(args.output or os.path.join(args.input, "png"), "output directory")
     os.makedirs(out_dir, exist_ok=True)
 
     files = sorted(
         f
-        for f in glob.glob(os.path.join(args.input, "*_2d_*.h5"))
+        for f in glob.glob(os.path.join(in_dir, "*_2d_*.h5"))
         if os.path.basename(f).startswith(("A_2d_", "B_2d_"))
     )
     if not files:
