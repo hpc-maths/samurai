@@ -299,6 +299,7 @@ namespace samurai
         const mesh_t& mesh() const;
         const options_t& options() const;
         void write_metadata();
+        void save_submeshes();
 
       private:
 
@@ -400,6 +401,36 @@ namespace samurai
         }
     }
 
+    /**
+     * Writes the whole mesh, or each submesh of the derived writer when options().by_mesh_id is set, without splitting it by level.
+     */
+    template <class D, class Mesh, class... T>
+    SAMURAI_INLINE void SaveBase<D, Mesh, T...>::save_submeshes()
+    {
+        if (m_options.by_mesh_id)
+        {
+            for (std::size_t im = 0; im < this->derived_cast().nb_submesh(); ++im)
+            {
+                const auto& submesh   = this->derived_cast().get_submesh(im);
+                std::string mesh_name = this->derived_cast().get_submesh_name(im);
+                std::string prefix    = fmt::format("/mesh/{}", mesh_name);
+
+                auto grid_mesh_id                         = this->domain().append_child("Grid");
+                grid_mesh_id.append_attribute("Name")     = mesh_name.data();
+                grid_mesh_id.append_attribute("GridType") = "Collection";
+
+                this->save_on_mesh(grid_mesh_id, prefix, submesh, mesh_name);
+            }
+        }
+        else
+        {
+            const auto& saved_mesh = this->derived_cast().get_mesh();
+
+            std::string prefix = fmt::format("/mesh");
+            this->save_on_mesh(this->domain(), prefix, saved_mesh, "mesh");
+        }
+    }
+
     template <class D, class Mesh, class... T>
     class SaveCellArray : public SaveBase<D, Mesh, T...>
     {
@@ -411,41 +442,10 @@ namespace samurai
         using mesh_t                     = typename base_class::mesh_t;
         static constexpr std::size_t dim = base_class::dim;
 
-#ifdef SAMURAI_WITH_MPI
-        SaveCellArray(const fs::path& path,
-                      const std::string& filename,
-                      MPI_Comm comm,
-                      const options_t& options,
-                      const mesh_t& mesh,
-                      const T&... fields);
-#else
-        SaveCellArray(const fs::path& path, const std::string& filename, const options_t& options, const mesh_t& mesh, const T&... fields);
-#endif
+        using base_class::base_class;
+
         void save();
     };
-
-#ifdef SAMURAI_WITH_MPI
-    template <class D, class Mesh, class... T>
-    SAMURAI_INLINE SaveCellArray<D, Mesh, T...>::SaveCellArray(const fs::path& path,
-                                                               const std::string& filename,
-                                                               MPI_Comm comm,
-                                                               const options_t& options,
-                                                               const mesh_t& mesh,
-                                                               const T&... fields)
-        : base_class(path, filename, comm, options, mesh, fields...)
-    {
-    }
-#else
-    template <class D, class Mesh, class... T>
-    SAMURAI_INLINE SaveCellArray<D, Mesh, T...>::SaveCellArray(const fs::path& path,
-                                                               const std::string& filename,
-                                                               const options_t& options,
-                                                               const mesh_t& mesh,
-                                                               const T&... fields)
-        : base_class(path, filename, options, mesh, fields...)
-    {
-    }
-#endif
 
     template <class D, class Mesh, class... T>
     SAMURAI_INLINE void SaveCellArray<D, Mesh, T...>::save()
@@ -512,28 +512,7 @@ namespace samurai
         }
         else
         {
-            if (this->options().by_mesh_id)
-            {
-                for (std::size_t im = 0; im < this->derived_cast().nb_submesh(); ++im)
-                {
-                    const auto& submesh   = this->derived_cast().get_submesh(im);
-                    std::string mesh_name = this->derived_cast().get_submesh_name(im);
-                    std::string prefix    = fmt::format("/mesh/{}", mesh_name);
-
-                    auto grid_mesh_id                         = this->domain().append_child("Grid");
-                    grid_mesh_id.append_attribute("Name")     = mesh_name.data();
-                    grid_mesh_id.append_attribute("GridType") = "Collection";
-
-                    this->save_on_mesh(grid_mesh_id, prefix, submesh, mesh_name);
-                }
-            }
-            else
-            {
-                const auto& mesh = this->derived_cast().get_mesh();
-
-                std::string prefix = fmt::format("/mesh");
-                this->save_on_mesh(this->domain(), prefix, mesh, "mesh");
-            }
+            this->save_submeshes();
         }
         this->write_metadata();
     }
@@ -549,68 +528,15 @@ namespace samurai
         using mesh_t                     = typename base_class::mesh_t;
         static constexpr std::size_t dim = base_class::dim;
 
-#ifdef SAMURAI_WITH_MPI
-        SaveLevelCellArray(const fs::path& path,
-                           const std::string& filename,
-                           MPI_Comm comm,
-                           const options_t& options,
-                           const mesh_t& mesh,
-                           const T&... fields);
-#else
-        SaveLevelCellArray(const fs::path& path, const std::string& filename, const options_t& options, const mesh_t& mesh, const T&... fields);
-#endif
+        using base_class::base_class;
 
         void save();
     };
 
-#ifdef SAMURAI_WITH_MPI
-    template <class D, class Mesh, class... T>
-    SAMURAI_INLINE SaveLevelCellArray<D, Mesh, T...>::SaveLevelCellArray(const fs::path& path,
-                                                                         const std::string& filename,
-                                                                         MPI_Comm comm,
-                                                                         const options_t& options,
-                                                                         const mesh_t& mesh,
-                                                                         const T&... fields)
-        : base_class(path, filename, comm, options, mesh, fields...)
-    {
-    }
-#else
-    template <class D, class Mesh, class... T>
-    SAMURAI_INLINE SaveLevelCellArray<D, Mesh, T...>::SaveLevelCellArray(const fs::path& path,
-                                                                         const std::string& filename,
-                                                                         const options_t& options,
-                                                                         const mesh_t& mesh,
-                                                                         const T&... fields)
-        : base_class(path, filename, options, mesh, fields...)
-    {
-    }
-#endif
-
     template <class D, class Mesh, class... T>
     SAMURAI_INLINE void SaveLevelCellArray<D, Mesh, T...>::save()
     {
-        if (this->options().by_mesh_id)
-        {
-            for (std::size_t im = 0; im < this->derived_cast().nb_submesh(); ++im)
-            {
-                const auto& submesh   = this->derived_cast().get_submesh(im);
-                std::string mesh_name = this->derived_cast().get_submesh_name(im);
-                std::string prefix    = fmt::format("/mesh/{}", mesh_name);
-
-                auto grid_mesh_id                         = this->domain().append_child("Grid");
-                grid_mesh_id.append_attribute("Name")     = mesh_name.data();
-                grid_mesh_id.append_attribute("GridType") = "Collection";
-
-                this->save_on_mesh(grid_mesh_id, prefix, submesh, mesh_name);
-            }
-        }
-        else
-        {
-            const auto& mesh = this->derived_cast().get_mesh();
-
-            std::string prefix = fmt::format("/mesh");
-            this->save_on_mesh(this->domain(), prefix, mesh, "mesh");
-        }
+        this->save_submeshes();
         this->write_metadata();
     }
 
@@ -1002,22 +928,7 @@ namespace samurai
         using mesh_t                     = Mesh;
         static constexpr std::size_t dim = mesh_t::dim;
 
-#ifdef SAMURAI_WITH_MPI
-        Hdf5_CellArray(const fs::path& path,
-                       const std::string& filename,
-                       MPI_Comm comm,
-                       const options_t& options,
-                       const Mesh& mesh,
-                       const T&... fields)
-            : base_type(path, filename, comm, options, mesh, fields...)
-        {
-        }
-#else
-        Hdf5_CellArray(const fs::path& path, const std::string& filename, const options_t& options, const Mesh& mesh, const T&... fields)
-            : base_type(path, filename, options, mesh, fields...)
-        {
-        }
-#endif
+        using base_type::base_type;
 
         const mesh_t& get_mesh() const
         {
@@ -1041,56 +952,6 @@ namespace samurai
     };
 
     template <class Mesh, class... T>
-    class Hdf5_mesh_base_level : public SaveLevelCellArray<Hdf5_mesh_base_level<Mesh, T...>, Mesh, T...>
-    {
-      public:
-
-        using base_type                  = SaveLevelCellArray<Hdf5_mesh_base_level<Mesh, T...>, Mesh, T...>;
-        using options_t                  = typename base_type::options_t;
-        using mesh_t                     = Mesh;
-        using mesh_id_t                  = typename mesh_t::mesh_id_t;
-        using ca_type                    = typename mesh_t::ca_type;
-        static constexpr std::size_t dim = mesh_t::dim;
-
-#ifdef SAMURAI_WITH_MPI
-        Hdf5_mesh_base_level(const fs::path& path,
-                             const std::string& filename,
-                             MPI_Comm comm,
-                             const options_t& options,
-                             const Mesh& mesh,
-                             const T&... fields)
-            : base_type(path, filename, comm, options, mesh, fields...)
-        {
-        }
-#else
-        Hdf5_mesh_base_level(const fs::path& path, const std::string& filename, const options_t& options, const Mesh& mesh, const T&... fields)
-            : base_type(path, filename, options, mesh, fields...)
-        {
-        }
-#endif
-
-        const ca_type& get_mesh() const
-        {
-            return this->mesh()[mesh_id_t::cells];
-        }
-
-        const ca_type& get_submesh(std::size_t i) const
-        {
-            return this->mesh()[static_cast<mesh_id_t>(i)];
-        }
-
-        std::string get_submesh_name(std::size_t i) const
-        {
-            return fmt::format("{}", static_cast<mesh_id_t>(i));
-        }
-
-        std::size_t nb_submesh() const
-        {
-            return static_cast<std::size_t>(mesh_id_t::count);
-        }
-    };
-
-    template <class Mesh, class... T>
     class Hdf5_LevelCellArray : public SaveLevelCellArray<Hdf5_LevelCellArray<Mesh, T...>, Mesh, T...>
     {
       public:
@@ -1100,22 +961,7 @@ namespace samurai
         using ca_type                    = Mesh;
         static constexpr std::size_t dim = ca_type::dim;
 
-#ifdef SAMURAI_WITH_MPI
-        Hdf5_LevelCellArray(const fs::path& path,
-                            const std::string& filename,
-                            MPI_Comm comm,
-                            const options_t& options,
-                            const Mesh& mesh,
-                            const T&... fields)
-            : base_type(path, filename, comm, options, mesh, fields...)
-        {
-        }
-#else
-        Hdf5_LevelCellArray(const fs::path& path, const std::string& filename, const options_t& options, const Mesh& mesh, const T&... fields)
-            : base_type(path, filename, options, mesh, fields...)
-        {
-        }
-#endif
+        using base_type::base_type;
 
         const ca_type& get_mesh() const
         {
@@ -1138,34 +984,24 @@ namespace samurai
         }
     };
 
-    template <class Mesh, class... T>
-    class Hdf5_mesh_base : public SaveCellArray<Hdf5_mesh_base<Mesh, T...>, Mesh, T...>
+    /**
+     * Writer of a mesh made of several mesh ids: one submesh per mesh id.
+     * Save is SaveCellArray for a multi-level mesh, SaveLevelCellArray for a uniform one.
+     */
+    template <template <class, class, class...> class Save, class Mesh, class... T>
+    class Hdf5_mesh_by_id : public Save<Hdf5_mesh_by_id<Save, Mesh, T...>, Mesh, T...>
     {
       public:
 
-        using base_type                  = SaveCellArray<Hdf5_mesh_base<Mesh, T...>, Mesh, T...>;
+        using base_type                  = Save<Hdf5_mesh_by_id<Save, Mesh, T...>, Mesh, T...>;
         using options_t                  = typename base_type::options_t;
         using mesh_t                     = Mesh;
-        using mesh_id_t                  = typename Mesh::mesh_id_t;
+        using mesh_id_t                  = typename mesh_t::mesh_id_t;
         using ca_type                    = typename mesh_t::ca_type;
         static constexpr std::size_t dim = mesh_t::dim;
 
-#ifdef SAMURAI_WITH_MPI
-        Hdf5_mesh_base(const fs::path& path,
-                       const std::string& filename,
-                       MPI_Comm comm,
-                       const options_t& options,
-                       const Mesh& mesh,
-                       const T&... fields)
-            : base_type(path, filename, comm, options, mesh, fields...)
-        {
-        }
-#else
-        Hdf5_mesh_base(const fs::path& path, const std::string& filename, const options_t& options, const Mesh& mesh, const T&... fields)
-            : base_type(path, filename, options, mesh, fields...)
-        {
-        }
-#endif
+        using base_type::base_type;
+
         const ca_type& get_mesh() const
         {
             return this->mesh()[mesh_id_t::cells];
@@ -1186,6 +1022,12 @@ namespace samurai
             return static_cast<std::size_t>(mesh_id_t::count);
         }
     };
+
+    template <class Mesh, class... T>
+    using Hdf5_mesh_base = Hdf5_mesh_by_id<SaveCellArray, Mesh, T...>;
+
+    template <class Mesh, class... T>
+    using Hdf5_mesh_base_level = Hdf5_mesh_by_id<SaveLevelCellArray, Mesh, T...>;
 
     namespace detail
     {
@@ -1229,6 +1071,45 @@ namespace samurai
 
         template <class D, class... T>
         using hdf5_mesh_t = typename hdf5_mesh<D, T...>::type;
+
+        /**
+         * Creates the output directory and calls write(fields...), adding in front the indices, the coordinates and the level of
+         * every cell when --save-debug-fields is set.
+         */
+        template <class mesh_t, class Write, class... T>
+        void save_with_debug_fields(const fs::path& path, const mesh_t& mesh, Write&& write, const T&... fields)
+        {
+            static constexpr std::size_t dim = mesh_t::dim;
+            ScopedTimer timer_save("data saving");
+
+            if (!fs::exists(path))
+            {
+                fs::create_directory(path);
+            }
+
+            if (args::save_debug_fields)
+            {
+                const auto& mesh_ref = get_all_cells(mesh);
+
+                auto index_field = make_vector_field<int, dim>("indices", mesh);
+                auto coord_field = make_vector_field<double, dim>("coordinates", mesh);
+                auto level_field = make_scalar_field<std::size_t>("levels", mesh);
+
+                for_each_cell(mesh_ref,
+                              [&](auto& cell)
+                              {
+                                  index_field[cell] = cell.indices;
+                                  coord_field[cell] = cell.center();
+                                  level_field[cell] = cell.level;
+                              });
+
+                write(index_field, coord_field, level_field, fields...);
+            }
+            else
+            {
+                write(fields...);
+            }
+        }
     }
 
 #ifdef SAMURAI_WITH_MPI
@@ -1241,41 +1122,16 @@ namespace samurai
               const mesh_t& mesh,
               const T&... fields)
     {
-        static constexpr std::size_t dim = mesh_t::dim;
-        ScopedTimer timer_save("data saving");
-
-        if (!fs::exists(path))
-        {
-            fs::create_directory(path);
-        }
-
-        if (args::save_debug_fields)
-        {
-            const auto& mesh_ref = detail::get_all_cells(mesh);
-
-            auto index_field = make_vector_field<int, dim>("indices", mesh);
-            auto coord_field = make_vector_field<double, dim>("coordinates", mesh);
-            auto level_field = make_scalar_field<std::size_t>("levels", mesh);
-
-            using hdf5_t = detail::hdf5_mesh_t<mesh_t, decltype(index_field), decltype(coord_field), decltype(level_field), T...>;
-
-            for_each_cell(mesh_ref,
-                          [&](auto& cell)
-                          {
-                              index_field[cell] = cell.indices;
-                              coord_field[cell] = cell.center();
-                              level_field[cell] = cell.level;
-                          });
-
-            auto h5 = hdf5_t(path, filename, comm, options, mesh, index_field, coord_field, level_field, fields...);
-            h5.save();
-        }
-        else
-        {
-            using hdf5_t = detail::hdf5_mesh_t<mesh_t, T...>;
-            auto h5      = hdf5_t(path, filename, comm, options, mesh, fields...);
-            h5.save();
-        }
+        detail::save_with_debug_fields(
+            path,
+            mesh,
+            [&](const auto&... all_fields)
+            {
+                using hdf5_t = detail::hdf5_mesh_t<mesh_t, std::decay_t<decltype(all_fields)>...>;
+                auto h5      = hdf5_t(path, filename, comm, options, mesh, all_fields...);
+                h5.save();
+            },
+            fields...);
     }
 
     template <class mesh_t, class... T>
@@ -1304,49 +1160,20 @@ namespace samurai
         requires(mesh_like<mesh_t>)
     void save(const fs::path& path, const std::string& filename, const Hdf5Options<mesh_t>& options, const mesh_t& mesh, const T&... fields)
     {
-        static constexpr std::size_t dim = mesh_t::dim;
-        ScopedTimer timer_save("data saving");
-
-        if (!fs::exists(path))
-        {
-            fs::create_directory(path);
-        }
-
-        if (args::save_debug_fields)
-        {
-            const auto& mesh_ref = detail::get_all_cells(mesh);
-
-            auto index_field = make_vector_field<int, dim>("indices", mesh);
-            auto coord_field = make_vector_field<double, dim>("coordinates", mesh);
-            auto level_field = make_scalar_field<std::size_t>("levels", mesh);
-
-            using hdf5_t = detail::hdf5_mesh_t<mesh_t, decltype(index_field), decltype(coord_field), decltype(level_field), T...>;
-
-            for_each_cell(mesh_ref,
-                          [&](auto& cell)
-                          {
-                              index_field[cell] = cell.indices;
-                              coord_field[cell] = cell.center();
-                              level_field[cell] = cell.level;
-                          });
-
 #ifdef SAMURAI_WITH_MPI
-            auto h5 = hdf5_t(path, filename, MPI_COMM_WORLD, options, mesh, index_field, coord_field, level_field, fields...);
+        save(path, filename, MPI_COMM_WORLD, options, mesh, fields...);
 #else
-            auto h5 = hdf5_t(path, filename, options, mesh, index_field, coord_field, level_field, fields...);
+        detail::save_with_debug_fields(
+            path,
+            mesh,
+            [&](const auto&... all_fields)
+            {
+                using hdf5_t = detail::hdf5_mesh_t<mesh_t, std::decay_t<decltype(all_fields)>...>;
+                auto h5      = hdf5_t(path, filename, options, mesh, all_fields...);
+                h5.save();
+            },
+            fields...);
 #endif
-            h5.save();
-        }
-        else
-        {
-            using hdf5_t = detail::hdf5_mesh_t<mesh_t, T...>;
-#ifdef SAMURAI_WITH_MPI
-            auto h5 = hdf5_t(path, filename, MPI_COMM_WORLD, options, mesh, fields...);
-#else
-            auto h5 = hdf5_t(path, filename, options, mesh, fields...);
-#endif
-            h5.save();
-        }
     }
 
     template <class mesh_t, class... T>
