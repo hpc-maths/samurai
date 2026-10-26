@@ -1,6 +1,7 @@
 #pragma once
 #include "../flux_based/flux_based_scheme__lin_het.hpp"
 #include "../flux_based/flux_based_scheme__lin_hom.hpp"
+#include "diffusion_bc.hpp"
 #include "divergence.hpp"
 
 namespace samurai
@@ -12,8 +13,6 @@ namespace samurai
     class DiffusionFV : public FluxBasedScheme<cfg, bdry_cfg>
     {
         using base_class = FluxBasedScheme<cfg, bdry_cfg>;
-        using base_class::bdry_stencil_size;
-        using base_class::dim;
 
       public:
 
@@ -36,73 +35,12 @@ namespace samurai
 
         void set_dirichlet_config()
         {
-            for (std::size_t d = 0; d < 2 * dim; ++d)
-            {
-                auto& config = this->dirichlet_config()[d];
-
-                using coeffs_t = typename directional_bdry_config_t::bdry_equation_config_t::equation_coeffs_t::coeffs_t;
-
-                static constexpr std::size_t cell          = 0;
-                static constexpr std::size_t interior_cell = 1;
-                static constexpr std::size_t ghost         = 2;
-
-                // We have (u_ghost + u_cell)/2 = dirichlet_value, so the coefficient equation is
-                //                        [  1/2    1/2 ] = dirichlet_value
-                // which is equivalent to
-                //                        [ -1/h2  -1/h2] = -2/h2 * dirichlet_value
-                config.equations[0].ghost_index        = ghost;
-                config.equations[0].get_stencil_coeffs = [](double h)
-                {
-                    std::array<coeffs_t, bdry_stencil_size> coeffs;
-                    auto Identity         = eye<coeffs_t>();
-                    coeffs[cell]          = -1 / (h * h) * Identity;
-                    coeffs[ghost]         = -1 / (h * h) * Identity;
-                    coeffs[interior_cell] = zeros<coeffs_t>();
-                    return coeffs;
-                };
-                config.equations[0].get_rhs_coeffs = [](double h)
-                {
-                    coeffs_t coeffs;
-                    auto Identity = eye<coeffs_t>();
-                    coeffs        = -2 / (h * h) * Identity;
-                    return coeffs;
-                };
-            }
+            detail::set_diffusion_dirichlet_config(this->dirichlet_config());
         }
 
         void set_neumann_config()
         {
-            for (std::size_t d = 0; d < 2 * dim; ++d)
-            {
-                auto& config = this->neumann_config()[d];
-
-                using coeffs_t = typename directional_bdry_config_t::bdry_equation_config_t::equation_coeffs_t::coeffs_t;
-
-                static constexpr std::size_t cell          = 0;
-                static constexpr std::size_t interior_cell = 1;
-                static constexpr std::size_t ghost         = 2;
-
-                // The outward flux is (u_ghost - u_cell)/h = neumann_value, so the coefficient equation is
-                //                    [ 1/h  -1/h ] = neumann_value
-                // However, to have symmetry, we want to have 1/h2 as the off-diagonal coefficient, so
-                //                    [1/h2  -1/h2] = (1/h) * neumann_value
-                config.equations[0].ghost_index        = ghost;
-                config.equations[0].get_stencil_coeffs = [&](double h)
-                {
-                    std::array<coeffs_t, bdry_stencil_size> coeffs;
-                    auto Identity         = eye<coeffs_t>();
-                    coeffs[cell]          = -1 / (h * h) * Identity;
-                    coeffs[ghost]         = 1 / (h * h) * Identity;
-                    coeffs[interior_cell] = zeros<coeffs_t>();
-                    return coeffs;
-                };
-                config.equations[0].get_rhs_coeffs = [&](double h)
-                {
-                    auto Identity   = eye<coeffs_t>();
-                    coeffs_t coeffs = (1 / h) * Identity;
-                    return coeffs;
-                };
-            }
+            detail::set_diffusion_neumann_config(this->neumann_config());
         }
     };
 
@@ -119,58 +57,76 @@ namespace samurai
         return DiffusionFV<cfg>(flux_definition);
     }
 
+    namespace detail
+    {
+        /**
+         * Linear homogeneous diffusion with the two-point flux K (u_right - u_left)/h on each component.
+         * scale(coeffs, d) multiplies the coefficients of (u_right - u_left)/h in the direction d by -K
+         * (minus sign because we want -Laplacian).
+         */
+        template <class Field, class Scale>
+        auto make_two_point_diffusion(Scale scale)
+        {
+            static constexpr std::size_t dim = Field::dim;
+
+            static constexpr std::size_t stencil_size = 2;
+            using input_field_t                       = Field;
+            using output_field_t                      = Field;
+
+            using cfg = FluxConfig<SchemeType::LinearHomogeneous, stencil_size, output_field_t, input_field_t>;
+
+            FluxDefinition<cfg> K_grad;
+
+            static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
+                [&](auto _d)
+                {
+                    static constexpr std::size_t d = _d();
+
+                    K_grad[d].cons_flux_function = [scale](FluxStencilCoeffs<cfg>& coeffs, double h)
+                    {
+                        static constexpr std::size_t left  = 0;
+                        static constexpr std::size_t right = 1;
+
+                        // `coeffs` must be filled.
+                        // It contains 2 matrices (left, right) of size output_n_comp x input_n_comp.
+                        // In this case, of size n_comp x n_comp.
+
+                        if constexpr (Field::is_scalar)
+                        {
+                            coeffs[left]  = -1 / h;
+                            coeffs[right] = 1 / h;
+                        }
+                        else
+                        {
+                            coeffs[left].fill(0);
+                            coeffs[right].fill(0);
+                            for (std::size_t i = 0; i < Field::n_comp; ++i)
+                            {
+                                coeffs[left](i, i)  = -1 / h;
+                                coeffs[right](i, i) = 1 / h;
+                            }
+                        }
+                        scale(coeffs, d);
+                    };
+                });
+            auto scheme = make_diffusion__<cfg>(K_grad);
+            scheme.set_name("diffusion");
+            return scheme;
+        }
+    }
+
     template <class Field>
     auto make_diffusion_order2(const DiffCoeff<Field::dim>& K)
     {
-        using size_type                   = typename Field::size_type;
-        static constexpr std::size_t dim  = Field::dim;
-        static constexpr size_type n_comp = Field::n_comp;
-
-        static constexpr std::size_t stencil_size = 2;
-        using input_field_t                       = Field;
-        using output_field_t                      = Field;
-
-        using cfg = FluxConfig<SchemeType::LinearHomogeneous, stencil_size, output_field_t, input_field_t>;
-
-        FluxDefinition<cfg> K_grad;
-
-        static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
-            [&](auto _d)
+        return detail::make_two_point_diffusion<Field>(
+            [K](auto& coeffs, std::size_t d)
             {
-                static constexpr std::size_t d = _d();
+                static constexpr std::size_t left  = 0;
+                static constexpr std::size_t right = 1;
 
-                K_grad[d].cons_flux_function = [K](FluxStencilCoeffs<cfg>& coeffs, double h)
-                {
-                    static constexpr std::size_t left  = 0;
-                    static constexpr std::size_t right = 1;
-
-                    // `coeffs` must be filled.
-                    // It contains 2 matrices (left, right) of size output_n_comp x input_n_comp.
-                    // In this case, of size n_comp x n_comp.
-
-                    if constexpr (Field::is_scalar)
-                    {
-                        coeffs[left]  = -1 / h;
-                        coeffs[right] = 1 / h;
-                    }
-                    else
-                    {
-                        coeffs[left].fill(0);
-                        coeffs[right].fill(0);
-                        for (size_type i = 0; i < n_comp; ++i)
-                        {
-                            coeffs[left](i, i)  = -1 / h;
-                            coeffs[right](i, i) = 1 / h;
-                        }
-                    }
-                    // Minus sign because we want -Laplacian
-                    coeffs[left] *= -K(d);
-                    coeffs[right] *= -K(d);
-                };
+                coeffs[left] *= -K(d);
+                coeffs[right] *= -K(d);
             });
-        auto scheme = make_diffusion__<cfg>(K_grad);
-        scheme.set_name("diffusion");
-        return scheme;
     }
 
     /**
@@ -179,65 +135,26 @@ namespace samurai
     template <class Field>
     auto make_multi_diffusion_order2(const DiffCoeff<Field::n_comp>& K)
     {
-        static constexpr std::size_t dim    = Field::dim;
-        static constexpr std::size_t n_comp = Field::n_comp;
-
-        static constexpr std::size_t stencil_size = 2;
-        using input_field_t                       = Field;
-        using output_field_t                      = Field;
-
-        using cfg = FluxConfig<SchemeType::LinearHomogeneous, stencil_size, output_field_t, input_field_t>;
-
-        FluxDefinition<cfg> K_grad;
-
-        static_for<0, dim>::apply( // for (int d=0; d<dim; d++)
-            [&](auto _d)
+        return detail::make_two_point_diffusion<Field>(
+            [K](auto& coeffs, std::size_t)
             {
-                static constexpr std::size_t d = _d();
+                static constexpr std::size_t left  = 0;
+                static constexpr std::size_t right = 1;
 
-                K_grad[d].cons_flux_function = [K](FluxStencilCoeffs<cfg>& coeffs, double h)
+                if constexpr (Field::is_scalar)
                 {
-                    static constexpr std::size_t left  = 0;
-                    static constexpr std::size_t right = 1;
-
-                    // `coeffs` must be filled.
-                    // It contains 2 matrices (left, right) of size output_n_comp x n_comp.
-                    // In this case, of size n_comp x n_comp.
-
-                    if constexpr (Field::is_scalar)
+                    coeffs[left] *= -K(0);
+                    coeffs[right] *= -K(0);
+                }
+                else
+                {
+                    for (std::size_t i = 0; i < Field::n_comp; ++i)
                     {
-                        coeffs[left]  = -1 / h;
-                        coeffs[right] = 1 / h;
+                        coeffs[left](i, i) *= -K(i);
+                        coeffs[right](i, i) *= -K(i);
                     }
-                    else
-                    {
-                        coeffs[left].fill(0);
-                        coeffs[right].fill(0);
-                        for (std::size_t i = 0; i < n_comp; ++i)
-                        {
-                            coeffs[left](i, i)  = -1 / h;
-                            coeffs[right](i, i) = 1 / h;
-                        }
-                    }
-                    // Minus sign because we want -Laplacian
-                    if constexpr (Field::is_scalar)
-                    {
-                        coeffs[left] *= -K(0);
-                        coeffs[right] *= -K(0);
-                    }
-                    else
-                    {
-                        for (std::size_t i = 0; i < n_comp; ++i)
-                        {
-                            coeffs[left](i, i) *= -K(i);
-                            coeffs[right](i, i) *= -K(i);
-                        }
-                    }
-                };
+                }
             });
-        auto scheme = make_diffusion__<cfg>(K_grad);
-        scheme.set_name("diffusion");
-        return scheme;
     }
 
     template <class Field>
