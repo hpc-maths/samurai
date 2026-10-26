@@ -358,18 +358,45 @@ namespace bench
     // The level of the synthetic sets
     //////////////////////////////////////////////////////////////////////
 
-    // The level of the synthetic sets.
+    // Whether the build has the sweep over the level
+    // (-DSAMURAI_BENCHMARK_SET_ALGEBRA_SWEEP=ON): more levels for the
+    // synthetic sets and more meshes for the call sites.
+#ifdef SAMURAI_SET_ALGEBRA_SWEEP
+    inline constexpr bool sweep_enabled = true;
+#else
+    inline constexpr bool sweep_enabled = false;
+#endif
+
+    // The level of the synthetic sets of a default run.
     template <std::size_t dim>
     constexpr std::size_t synthetic_level()
     {
         return (dim == 1) ? 20 : ((dim == 2) ? 11 : 8);
     }
 
-    // The levels the synthetic benchmarks run at, their first argument.
+    // The levels the synthetic benchmarks run at, their first argument:
+    // synthetic_level, and with the sweep a range of levels around it, for
+    // curves of the time against the number of intervals. In 1D the front
+    // needs level 16 for its 4096 segments to be at least two cells wide.
     template <std::size_t dim>
     std::vector<std::size_t> synthetic_levels()
     {
-        return {synthetic_level<dim>()};
+        if constexpr (!sweep_enabled)
+        {
+            return {synthetic_level<dim>()};
+        }
+        else if constexpr (dim == 1)
+        {
+            return {16, 18, 20, 22, 24};
+        }
+        else if constexpr (dim == 2)
+        {
+            return {8, 9, 10, 11, 12, 13};
+        }
+        else
+        {
+            return {5, 6, 7, 8, 9};
+        }
     }
 
     // The entry of `key` in `cache`, make() the first time.
