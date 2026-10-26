@@ -28,7 +28,7 @@ namespace samurai
          *     - the unused ghosts
          */
         template <class Scheme>
-        class FVSchemeAssembly : public MatrixAssembly
+        class FVSchemeAssembly : public NumberedMatrixAssembly
         {
             template <class Scheme2>
             friend class FVSchemeAssembly;
@@ -80,14 +80,13 @@ namespace samurai
             Scheme m_scheme;
             field_t* m_unknown = nullptr;
 
-            // Stand-alone assembly: the numbering is allocated by compute_numbering(). It lives on the heap so that the
-            // pointers below, and those of the other assemblies of an operator sum, stay valid when this object is moved.
+            // Stand-alone assembly: the numbering is allocated by compute_numbering(). It lives on the heap so that
+            // m_row_numbering and m_col_numbering, and those of the other assemblies of an operator sum, stay valid when this
+            // object is moved.
             std::unique_ptr<Numbering> m_owned_numbering;
             // Stand-alone non-square assembly (e.g. a divergence): the columns follow the numbering of the input field, not the
             // row numbering of the output field. Allocated by compute_col_numbering(), on the heap for the same reason.
             std::unique_ptr<Numbering> m_owned_col_numbering;
-            Numbering* m_row_numbering = nullptr;
-            Numbering* m_col_numbering = nullptr;
 
             std::vector<bool> m_is_row_empty;
 
@@ -118,40 +117,6 @@ namespace samurai
             void set_scheme(const Scheme& s)
             {
                 m_scheme = s;
-            }
-
-            const auto& row_numbering() const
-            {
-                assert(m_row_numbering != nullptr);
-                return *m_row_numbering;
-            }
-
-            auto& row_numbering()
-            {
-                assert(m_row_numbering != nullptr);
-                return *m_row_numbering;
-            }
-
-            const auto& col_numbering() const
-            {
-                assert(m_col_numbering != nullptr);
-                return *m_col_numbering;
-            }
-
-            auto& col_numbering()
-            {
-                assert(m_col_numbering != nullptr);
-                return *m_col_numbering;
-            }
-
-            void set_row_numbering(Numbering& numbering)
-            {
-                m_row_numbering = &numbering;
-            }
-
-            void set_col_numbering(Numbering& numbering)
-            {
-                m_col_numbering = &numbering;
             }
 
             /**
