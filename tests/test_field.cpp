@@ -6,6 +6,7 @@
 #include <samurai/field.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/numeric/gauss_legendre.hpp>
+#include <samurai/numeric/projection.hpp>
 #include <samurai/uniform_mesh.hpp>
 
 namespace samurai
@@ -48,6 +49,26 @@ namespace samurai
                       {
                           EXPECT_EQ(ue[cell], 6);
                       });
+    }
+
+    // An operator built from fields keeps the caller's value category: an lvalue
+    // field is held by reference, an rvalue field is moved into the operator.
+    TEST(field, operator_holds_lvalue_by_reference_and_moves_rvalue)
+    {
+        Box<double, 1> box{{0}, {1}};
+        auto mesh = mra::make_mesh(box, mesh_config<1>().min_level(2).max_level(4));
+
+        auto dest = make_scalar_field<double>("dest", mesh, 0.);
+        auto src  = make_scalar_field<double>("src", mesh, 1.);
+
+        const auto by_reference = projection(dest, src);
+        EXPECT_EQ(&std::get<0>(by_reference.arguments()), &dest);
+        EXPECT_EQ(&std::get<1>(by_reference.arguments()), &src);
+
+        const auto* src_storage = src.data();
+        const auto by_value     = projection(dest, std::move(src));
+        EXPECT_EQ(&std::get<0>(by_value.arguments()), &dest);
+        EXPECT_EQ(std::get<1>(by_value.arguments()).data(), src_storage);
     }
 
     TEST(field, copy_from_const)

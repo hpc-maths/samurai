@@ -251,6 +251,32 @@ namespace samurai
         EXPECT_TRUE(output_contains(out, "Mcells/s"));
     }
 
+    TEST(timers, scoped_timer_created_while_disabled_ignores_enable_in_scope)
+    {
+        Timers t; // disabled: the scoped timer below starts nothing
+
+        {
+            ScopedTimer st("late", t);
+            t.enable();
+        } // must not try to stop a timer that was never started
+
+        EXPECT_EQ(t.getElapsedTime("late"), duration_value_t{});
+    }
+
+    TEST(timers, scoped_timer_ignores_disable_then_enable_in_scope)
+    {
+        Timers t;
+        t.enable();
+
+        {
+            ScopedTimer st("cleared", t);
+            t.disable(); // drops the running timer
+            t.enable();
+        }
+
+        EXPECT_EQ(t.getElapsedTime("cleared"), duration_value_t{});
+    }
+
     TEST(timers, scoped_timer_builds_hierarchy)
     {
         Timers t;

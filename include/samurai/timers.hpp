@@ -13,6 +13,7 @@
 #include <map>
 #include <numeric>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <fmt/color.h>
@@ -106,6 +107,8 @@ namespace samurai
      */
     class Timers
     {
+        friend class ScopedTimer;
+
       public:
 
         // -----------------------------------------------------------------
@@ -191,33 +194,8 @@ namespace samurai
             {
                 return;
             }
-            // Find the last stack entry whose display name matches tname
-            auto& stack = _active_stack();
-            std::string ctx_key;
-            auto it = std::find_if(stack.rbegin(),
-                                   stack.rend(),
-                                   [&](const std::string& key)
-                                   {
-                                       return _display_name(key) == tname;
-                                   });
-            if (it != stack.rend())
-            {
-                ctx_key = *it;
-                stack.erase(std::next(it).base());
-            }
-
-            SAMURAI_ASSERT(!ctx_key.empty(), "[Timers::stop] No active timer named '" + tname + "' on the stack!");
-
-            auto& entry = _times.at(ctx_key);
-
-#ifdef SAMURAI_WITH_MPI
-            entry.elapsed += (_getTime() - entry.start);
-#else
-            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(_getTime() - entry.start);
-            entry.elapsed += duration;
-#endif
-            entry.ntimes++;
-            entry.total_cells += nb_cells;
+            const bool stopped = _stop_active(tname, nb_cells);
+            SAMURAI_ASSERT(stopped, "[Timers::stop] No active timer named '" + tname + "' on the stack!");
         }
 
         // -----------------------------------------------------------------
@@ -786,8 +764,57 @@ namespace samurai
          */
         [[nodiscard]] static std::string _display_name(const std::string& ctx_key)
         {
+            return std::string(_display_name_view(ctx_key));
+        }
+
+        /// Non-allocating version of `_display_name`.
+        [[nodiscard]] static std::string_view _display_name_view(std::string_view ctx_key) noexcept
+        {
             const auto pos = ctx_key.rfind("::");
-            return (pos == std::string::npos) ? ctx_key : ctx_key.substr(pos + 2);
+            if (pos != std::string_view::npos)
+            {
+                ctx_key.remove_prefix(pos + 2);
+            }
+            return ctx_key;
+        }
+
+        /**
+         * @brief Stop the innermost active timer named `tname`.
+         *
+         * Return false when no timer of that name is active. It neither
+         * allocates nor throws, so the destructor of `ScopedTimer` can call it.
+         */
+        bool _stop_active(std::string_view tname, uint64_t nb_cells) noexcept
+        {
+            // Find the last stack entry whose display name matches tname
+            auto& stack   = _active_stack();
+            const auto it = std::find_if(stack.rbegin(),
+                                         stack.rend(),
+                                         [&](const std::string& key)
+                                         {
+                                             return _display_name_view(key) == tname;
+                                         });
+            if (it == stack.rend())
+            {
+                return false;
+            }
+            const auto entry_it = _times.find(*it);
+            stack.erase(std::next(it).base());
+            if (entry_it == _times.end())
+            {
+                return false;
+            }
+
+            auto& entry = entry_it->second;
+#ifdef SAMURAI_WITH_MPI
+            entry.elapsed += (_getTime() - entry.start);
+#else
+            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(_getTime() - entry.start);
+            entry.elapsed += duration;
+#endif
+            entry.ntimes++;
+            entry.total_cells += nb_cells;
+            return true;
         }
 
         /**
@@ -837,7 +864,7 @@ namespace samurai
         // -----------------------------------------------------------------
 
 #ifdef SAMURAI_WITH_MPI
-        static double _getTime()
+        static double _getTime() noexcept
         {
             return MPI_Wtime();
         }
@@ -847,7 +874,7 @@ namespace samurai
             return 0.0;
         }
 #else
-        static std::chrono::time_point<std::chrono::high_resolution_clock> _getTime()
+        static std::chrono::time_point<std::chrono::high_resolution_clock> _getTime() noexcept
         {
             return std::chrono::high_resolution_clock::now();
         }
@@ -1026,7 +1053,13 @@ namespace samurai
 
     inline ScopedTimer::~ScopedTimer()
     {
-        m_timers.stop(m_name, m_cells);
+        // stop() terminates when the timer is not running. That happens when the
+        // timers are enabled, or disabled and enabled again, while this guard is
+        // alive, and then there is nothing to record.
+        if (m_timers.is_enabled())
+        {
+            m_timers._stop_active(m_name, m_cells);
+        }
     }
 
 } // namespace samurai

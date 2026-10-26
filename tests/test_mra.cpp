@@ -1,3 +1,5 @@
+#include <memory>
+
 #include <gtest/gtest.h>
 
 #include <samurai/bc.hpp>
@@ -120,5 +122,65 @@ namespace samurai
         const std::string out = testing::internal::GetCapturedStdout();
 
         EXPECT_EQ(out, "");
+    }
+
+    namespace
+    {
+        // Prediction function that counts how many times the adaptation calls it.
+        struct counting_prediction
+        {
+            int calls = 0;
+
+            auto operator()(auto& new_field, const auto& old_field)
+            {
+                ++calls;
+                return samurai::prediction<1, true>(new_field, old_field);
+            }
+        };
+
+        // Same, but move-only: it cannot be copied into the adaptation.
+        struct move_only_prediction
+        {
+            std::unique_ptr<int> calls;
+
+            auto operator()(auto& new_field, const auto& old_field)
+            {
+                ++*calls;
+                return samurai::prediction<1, true>(new_field, old_field);
+            }
+        };
+    }
+
+    // A prediction function passed as an lvalue is held by reference: the
+    // caller's object is the one that gets called.
+    TEST(MRA, lvalue_prediction_fn_is_held_by_reference)
+    {
+        auto mesh  = init_mesh();
+        auto field = samurai::make_scalar_field<double>("field", mesh);
+        init_field(field);
+
+        counting_prediction prediction_fn;
+        auto adapt      = samurai::make_MRAdapt(prediction_fn, field);
+        auto mra_config = samurai::mra_config();
+        adapt(mra_config);
+
+        EXPECT_GT(prediction_fn.calls, 0);
+    }
+
+    // A prediction function passed as an rvalue is moved into the adaptation,
+    // so a move-only one is accepted.
+    TEST(MRA, rvalue_prediction_fn_is_moved_in)
+    {
+        auto mesh  = init_mesh();
+        auto field = samurai::make_scalar_field<double>("field", mesh);
+        init_field(field);
+
+        auto calls             = std::make_unique<int>(0);
+        const int* calls_value = calls.get();
+        auto adapt             = samurai::make_MRAdapt(move_only_prediction{std::move(calls)}, field);
+        auto mra_config        = samurai::mra_config();
+        adapt(mra_config);
+
+        EXPECT_GT(*calls_value, 0);
     }
 }

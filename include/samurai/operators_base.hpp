@@ -3,6 +3,10 @@
 
 #pragma once
 
+#include <tuple>
+#include <type_traits>
+#include <utility>
+
 #include <xtensor/containers/xfixed.hpp>
 
 #include "field_expression.hpp"
@@ -17,8 +21,13 @@ namespace samurai
 
         static constexpr std::size_t dim = detail::compute_dim<CT...>();
 
-        SAMURAI_INLINE field_operator_function(CT&&... e)
-            : m_e{std::forward<CT>(e)...}
+        // CT... are the types make_field_operator_function deduced: T& for an
+        // lvalue argument (held by reference), T for an rvalue (moved in). The
+        // constraint accepts exactly what CT&&... parameters bind to.
+        template <class... E>
+            requires(sizeof...(E) == sizeof...(CT) && (std::is_convertible_v<E &&, CT &&> && ...))
+        SAMURAI_INLINE field_operator_function(E&&... e)
+            : m_e{std::forward<E>(e)...}
         {
             m_scaling_factor = detail::extract_mesh(arguments()).scaling_factor();
         }
