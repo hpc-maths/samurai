@@ -188,9 +188,11 @@ namespace samurai
          * conditions are the ones attached to @a f (see @ref BounceBack / @ref AntiBounceBack and
          * @c make_bc); they are applied by @c update_ghost_mr before the stream reads the ghosts.
          * @a dt is only used by a registered source term (see @ref set_source).
+         *
+         * Not const: the scheme keeps the buffer of the streamed distributions between steps.
          */
         template <class MField>
-        void operator()(field_t& f, MField& m, double dt = 0.) const
+        void operator()(field_t& f, MField& m, double dt = 0.)
         {
             ScopedTimer timer_op(m_name + " operator");
 
@@ -479,8 +481,8 @@ namespace samurai
         std::string m_name;
         double m_lambda;
         std::tuple<Blocks...> m_blocks;
-        source_t m_source;                         // optional body-force source term (see set_source)
-        mutable std::optional<field_t> m_f_stream; // worker for the streamed distributions (reused across steps)
+        source_t m_source;                 // optional body-force source term (see set_source)
+        std::optional<field_t> m_f_stream; // worker for the streamed distributions (reused across steps)
     };
 
     /**
