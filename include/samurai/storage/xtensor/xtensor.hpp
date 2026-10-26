@@ -66,14 +66,34 @@ namespace samurai
         container_t m_data;
     };
 
-    ////////////////////////////////
-    // VIEW: CONST IMPLEMENTATION //
-    ////////////////////////////////
-
-    template <class value_t, std::size_t size, bool can_collapse>
-    auto view(const xtensor_container<value_t, size, can_collapse>& container, const range_t<long long>& range)
+    namespace detail
     {
-        if constexpr (size == 1 && !can_collapse)
+        template <class T>
+        struct xtensor_container_traits;
+
+        template <class value_t, std::size_t size_, bool can_collapse_>
+        struct xtensor_container_traits<xtensor_container<value_t, size_, can_collapse_>>
+        {
+            static constexpr std::size_t size  = size_;
+            static constexpr bool can_collapse = can_collapse_;
+        };
+    }
+
+    /**
+     * An xtensor_container, const or not: the views below keep its constness.
+     */
+    template <class T>
+    concept xtensor_container_like = requires { detail::xtensor_container_traits<std::remove_const_t<T>>::size; };
+
+    //////////
+    // VIEW //
+    //////////
+
+    template <xtensor_container_like Container>
+    auto view(Container& container, const range_t<long long>& range)
+    {
+        using traits = detail::xtensor_container_traits<std::remove_const_t<Container>>;
+        if constexpr (traits::size == 1 && !traits::can_collapse)
         {
             return xt::view(container.data(), xt::all(), xt::range(range.start, range.end, range.step));
         }
@@ -83,13 +103,12 @@ namespace samurai
         }
     }
 
-    template <class value_t, std::size_t size, bool can_collapse>
-    auto view(const xtensor_container<value_t, size, can_collapse>& container,
-              const range_t<std::size_t>& range_item,
-              const range_t<long long>& range)
+    template <xtensor_container_like Container>
+    auto view(Container& container, const range_t<std::size_t>& range_item, const range_t<long long>& range)
     {
-        static_assert(size > 1, "size must be greater than 1");
-        if constexpr (size == 1 && !can_collapse)
+        using traits = detail::xtensor_container_traits<std::remove_const_t<Container>>;
+        static_assert(traits::size > 1, "size must be greater than 1");
+        if constexpr (traits::size == 1 && !traits::can_collapse)
         {
             return xt::view(container.data(),
                             xt::range(range_item.start, range_item.end, range_item.step),
@@ -103,11 +122,12 @@ namespace samurai
         }
     }
 
-    template <class value_t, std::size_t size, bool can_collapse>
-    auto view(const xtensor_container<value_t, size, can_collapse>& container, std::size_t item, const range_t<long long>& range)
+    template <xtensor_container_like Container>
+    auto view(Container& container, std::size_t item, const range_t<long long>& range)
     {
-        static_assert(size > 1, "size must be greater than 1");
-        if constexpr (size == 1 && !can_collapse)
+        using traits = detail::xtensor_container_traits<std::remove_const_t<Container>>;
+        static_assert(traits::size > 1, "size must be greater than 1");
+        if constexpr (traits::size == 1 && !traits::can_collapse)
         {
             return xt::view(container.data(), item, xt::range(range.start, range.end, range.step));
         }
@@ -117,73 +137,11 @@ namespace samurai
         }
     }
 
-    template <class value_t, std::size_t size, bool can_collapse>
-    auto view(const xtensor_container<value_t, size, can_collapse>& container, std::size_t index)
+    template <xtensor_container_like Container>
+    auto view(Container& container, std::size_t index)
     {
-        if constexpr (size == 1 && !can_collapse)
-        {
-            return xt::view(container.data(), xt::all(), index);
-        }
-        else
-        {
-            return xt::view(container.data(), index);
-        }
-    }
-
-    ////////////////////////////////////
-    // VIEW: NON CONST IMPLEMENTATION //
-    ////////////////////////////////////
-
-    template <class value_t, std::size_t size, bool can_collapse>
-    auto view(xtensor_container<value_t, size, can_collapse>& container, const range_t<long long>& range)
-    {
-        if constexpr (size == 1 && !can_collapse)
-        {
-            return xt::view(container.data(), xt::all(), xt::range(range.start, range.end, range.step));
-        }
-        else
-        {
-            return xt::view(container.data(), xt::range(range.start, range.end, range.step));
-        }
-    }
-
-    template <class value_t, std::size_t size, bool can_collapse>
-    auto
-    view(xtensor_container<value_t, size, can_collapse>& container, const range_t<std::size_t>& range_item, const range_t<long long>& range)
-    {
-        static_assert(size > 1, "size must be greater than 1");
-        if constexpr (size == 1 && !can_collapse)
-        {
-            return xt::view(container.data(),
-                            xt::range(range_item.start, range_item.end, range_item.step),
-                            xt::range(range.start, range.end, range.step));
-        }
-        else
-        {
-            return xt::view(container.data(),
-                            xt::range(range.start, range.end, range.step),
-                            xt::range(range_item.start, range_item.end, range_item.step));
-        }
-    }
-
-    template <class value_t, std::size_t size, bool can_collapse>
-    auto view(xtensor_container<value_t, size, can_collapse>& container, std::size_t item, const range_t<long long>& range)
-    {
-        static_assert(size > 1, "size must be greater than 1");
-        if constexpr (size == 1 && !can_collapse)
-        {
-            return xt::view(container.data(), item, xt::range(range.start, range.end, range.step));
-        }
-        else
-        {
-            return xt::view(container.data(), xt::range(range.start, range.end, range.step), item);
-        }
-    }
-
-    template <class value_t, std::size_t size, bool can_collapse>
-    auto view(xtensor_container<value_t, size, can_collapse>& container, std::size_t index)
-    {
-        if constexpr (size == 1 && !can_collapse)
+        using traits = detail::xtensor_container_traits<std::remove_const_t<Container>>;
+        if constexpr (traits::size == 1 && !traits::can_collapse)
         {
             return xt::view(container.data(), xt::all(), index);
         }
