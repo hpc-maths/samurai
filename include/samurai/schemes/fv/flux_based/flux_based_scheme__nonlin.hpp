@@ -29,11 +29,11 @@ namespace samurai
      */
     template <class cfg, class bdry_cfg>
     class FluxBasedScheme<cfg, bdry_cfg, std::enable_if_t<cfg::scheme_type == SchemeType::NonLinear>>
-        : public FVScheme<FluxBasedScheme<cfg, bdry_cfg>, cfg, bdry_cfg>
+        : public FluxBasedSchemeBase<cfg, bdry_cfg>
     {
       public:
 
-        using base_class = FVScheme<FluxBasedScheme<cfg, bdry_cfg>, cfg, bdry_cfg>;
+        using base_class = FluxBasedSchemeBase<cfg, bdry_cfg>;
 
         using base_class::dim;
         using base_class::n_comp;
@@ -50,43 +50,17 @@ namespace samurai
         using interval_value_t = typename interval_t::value_t;
         using cell_indices_t   = typename mesh_t::cell_t::indices_t;
 
-        using cfg_t      = cfg;
-        using bdry_cfg_t = bdry_cfg;
-
         static constexpr std::size_t stencil_size = cfg::stencil_size;
+
+        using base_class::base_class;
+        using base_class::flux_definition;
+        using base_class::include_boundary_fluxes;
 
       private:
 
-        FluxDefinition<cfg> m_flux_definition;
-        bool m_include_boundary_fluxes = true;
-        int m_finer_level_flux         = args::finer_level_flux;
+        int m_finer_level_flux = args::finer_level_flux;
 
       public:
-
-        explicit FluxBasedScheme(const FluxDefinition<cfg>& flux_definition)
-            : m_flux_definition(flux_definition)
-        {
-        }
-
-        const auto& flux_definition() const
-        {
-            return m_flux_definition;
-        }
-
-        auto& flux_definition()
-        {
-            return m_flux_definition;
-        }
-
-        void include_boundary_fluxes(bool include)
-        {
-            m_include_boundary_fluxes = include;
-        }
-
-        bool include_boundary_fluxes() const
-        {
-            return m_include_boundary_fluxes;
-        }
 
         int finer_level_flux() const
         {
@@ -120,12 +94,7 @@ namespace samurai
 
       private:
 
-        SAMURAI_INLINE auto h_factor(double h_face, double h_cell) const
-        {
-            double face_measure = std::pow(h_face, dim - 1);
-            double cell_measure = std::pow(h_cell, dim);
-            return face_measure / cell_measure;
-        }
+        using base_class::h_factor;
 
       public:
 
@@ -623,64 +592,14 @@ namespace samurai
                 StencilValues<cfg> stencil_values;
                 StencilJacobianPair<cfg> jacobians;
 
-                // Same level
-                for (std::size_t level = min_level; level <= max_level; ++level)
-                {
-                    auto h      = mesh.cell_length(level);
-                    auto factor = h_factor(h, h);
-
-                    for_each_interior_interface__same_level<run_type, Get::Intervals, include_periodic>(
-                        mesh,
-                        level,
-                        flux_def.direction,
-                        flux_def.stencil,
-                        [&](auto& interface_it, auto& comput_stencil_it)
-                        {
-                            StencilData<cfg> data(comput_stencil_it.cells());
-                            data.cell_length = h;
-
-                            for (std::size_t ii = 0; ii < comput_stencil_it.interval().size(); ++ii)
-                            {
-                                copy_stencil_values(field, comput_stencil_it.cells(), stencil_values);
-
-                                jacobian_function(jacobians, data, stencil_values);
-                                jacobians[0] *= factor;
-                                jacobians[1] *= factor;
-                                apply_contrib(interface_it.cells(), comput_stencil_it.cells(), jacobians[0], jacobians[1]);
-
-                                interface_it.move_next();
-                                comput_stencil_it.move_next();
-                            }
-                        });
-                }
-
-                // Level jumps (level -- level+1)
-                // Using MPI the max_level of the subdomain can be lower than the global max_level.
-                // If a jump occurs with a neighbor subdomain, we have to check if max_level + 1 is reached.
-#ifdef SAMURAI_WITH_MPI
-                for (std::size_t level = min_level; level <= max_level; ++level)
-#else
-                for (std::size_t level = min_level; level < max_level; ++level)
-#endif
-                {
-                    auto h_l   = mesh.cell_length(level);
-                    auto h_lp1 = mesh.cell_length(level + 1);
-
-                    auto h_face = h_lp1;
-
-                    //         |__|   l+1
-                    //    |____|      l
-                    //    --------->
-                    //    direction
+                this->template for_each_interior_interface_group<run_type, Get::Intervals, include_periodic>(
+                    d,
+                    mesh,
+                    min_level,
+                    max_level,
+                    [&](double h_face, double left_factor, double right_factor, auto&& for_each_interface)
                     {
-                        auto left_factor  = h_factor(h_face, h_l);
-                        auto right_factor = h_factor(h_face, h_lp1);
-
-                        for_each_interior_interface__level_jump_direction<run_type, Get::Intervals, include_periodic>(
-                            mesh,
-                            level,
-                            flux_def.direction,
-                            flux_def.stencil,
+                        for_each_interface(
                             [&](auto& interface_it, auto& comput_stencil_it)
                             {
                                 StencilData<cfg> data(comput_stencil_it.cells());
@@ -699,40 +618,7 @@ namespace samurai
                                     comput_stencil_it.move_next();
                                 }
                             });
-                    }
-                    //    |__|        l+1
-                    //       |____|   l
-                    //    --------->
-                    //    direction
-                    {
-                        auto left_factor  = h_factor(h_face, h_lp1);
-                        auto right_factor = h_factor(h_face, h_l);
-
-                        for_each_interior_interface__level_jump_opposite_direction<run_type, Get::Intervals, include_periodic>(
-                            mesh,
-                            level,
-                            flux_def.direction,
-                            flux_def.stencil,
-                            [&](auto& interface_it, auto& comput_stencil_it)
-                            {
-                                StencilData<cfg> data(comput_stencil_it.cells());
-                                data.cell_length = h_face;
-
-                                for (std::size_t ii = 0; ii < comput_stencil_it.interval().size(); ++ii)
-                                {
-                                    copy_stencil_values(field, comput_stencil_it.cells(), stencil_values);
-
-                                    jacobian_function(jacobians, data, stencil_values);
-                                    jacobians[0] *= left_factor;
-                                    jacobians[1] *= right_factor;
-                                    apply_contrib(interface_it.cells(), comput_stencil_it.cells(), jacobians[0], jacobians[1]);
-
-                                    interface_it.move_next();
-                                    comput_stencil_it.move_next();
-                                }
-                            });
-                    }
-                }
+                    });
             }
         }
 
