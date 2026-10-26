@@ -749,6 +749,80 @@ jobs:
                   ./demos/FiniteVolume/finite-volume-lid-driven-cavity --min-level 3 --max-level 6
 
     #
+    # OpenMP: the unit tests on 2, 3 and 4 threads
+    #
+    #########################################################
+    linux-mamba-openmp:
+        needs: [changes, pre-commit, cppcheck]
+        if: needs.changes.outputs.code == 'true'
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+            - name: Cache
+              uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+              with:
+                  path: |
+                      ~/.cache/ccache
+                  key: ccache-linux-mamba-openmp-${{ github.run_id }}
+                  restore-keys: |
+                      ccache-linux-mamba-openmp-
+
+            - name: Mamba and samurai env installation
+              uses: mamba-org/setup-micromamba@add3a49764cedee8ee24e82dfde87f5bc2914462 # v2.0.7
+              with:
+                  environment-file: conda/environment.yml
+                  environment-name: samurai-env
+                  cache-environment: true
+                  cache-environment-key: ${{ runner.os }}-${{ hashFiles('conda/environment.yml') }}
+
+            - name: Compiler installation
+              shell: bash -l {0}
+              run: |
+                  conda install -y cxx-compiler ccache
+                  ccache --max-size=2G
+                  ccache --zero-stats
+
+            - name: Conda informations
+              shell: bash -l {0}
+              run: |
+                  conda info
+                  conda list
+
+            - name: Configure
+              shell: bash -l {0}
+              run: |
+                  cmake \
+                      . \
+                      -Bbuild \
+                      -GNinja \
+                      -DCMAKE_BUILD_TYPE=Release \
+                      -DWITH_OPENMP=ON \
+                      -DBUILD_TESTS=ON
+
+            - name: Build
+              shell: bash -l {0}
+              run: |
+                  cmake --build build --target test_samurai_lib --parallel 4
+
+            - name: ccache statistics
+              shell: bash -l {0}
+              if: always()
+              run: ccache --show-stats --verbose
+
+            - name: Test with googletest
+              shell: bash -l {0}
+              run: |
+                  cd build
+                  set -e  # Stop on first failure
+                  # Races in code run inside OpenMP loops only show up with more than one thread.
+                  for n in 2 3 4; do
+                      echo "::group::OMP_NUM_THREADS=$n"
+                      OMP_NUM_THREADS=$n ./tests/test_samurai_lib
+                      echo "::endgroup::"
+                  done
+
+    #
     # MPI with CHECK_NAN
     #
     #########################################################
@@ -1034,6 +1108,7 @@ jobs:
                 macos-mamba,
                 linux-mamba-check-nan,
                 linux-mamba-check-nan-mpi,
+                linux-mamba-openmp,
                 compile_snippets,
                 benchmarks,
                 docs,
