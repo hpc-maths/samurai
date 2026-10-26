@@ -242,13 +242,14 @@ namespace samurai
             }
 
             // =================================================================
-            // Preamble: build sort_vals (key → seconds used for sorting and %)
-            // and set up the three output lambdas that differ between builds:
-            //   print_header()           — column header line
+            // Preamble: build sort_vals (key → seconds used for sorting and %),
+            // set up the two output lambdas that differ between builds:
+            //   print_header()           - column header line
             //   print_time_cols(key, is_root, perc_total, parent_s)
-            //                            — time value column(s) for one row
+            //                            - time value column(s) for one row
+            // and the layout of the footer printed by
             //   print_bottom(grand_total_s, total_measured_s, has_total_runtime)
-            //                            — untimed row + footer
+            //                            - untimed row + footer
             // =================================================================
 
             // Common style constants used by both paths and the unified walk.
@@ -395,60 +396,10 @@ namespace samurai
                 fmt::print("\n");
             };
 
-            // Footer lambda: separator + untimed row + grand total line.
-            const int untimed_time_col_width = timeWidth + 1 + rankWidth + 1 + timeWidth + 1 + rankWidth;
-            auto print_bottom                = [&](double grand_s, double measured_s, bool has_total)
-            {
-                const std::string sep(static_cast<std::size_t>(total_width), '-');
-                fmt::print(dim_style, "{}\n", sep);
-                if (has_total)
-                {
-                    const double untimed_s   = grand_s - measured_s;
-                    const bool overcommitted = untimed_s < 0.0;
-                    if (!overcommitted)
-                    {
-                        const double perc = (grand_s > 0.0) ? untimed_s / grand_s * 100.0 : 0.0;
-                        fmt::print(dim_style,
-                                   "{:<{}} {:>{}.3f} {:>{}.1f}%\n",
-                                   "(untimed)",
-                                   nameWidth,
-                                   untimed_s,
-                                   untimed_time_col_width,
-                                   perc,
-                                   percWidth - 1);
-                    }
-                    else
-                    {
-                        fmt::print(dim_style,
-                                   "{:<{}} {:>{}}\n",
-                                   "(overlap / pause-resume timers)",
-                                   nameWidth,
-                                   "(children exceed parent \u2014 timer overlap detected)",
-                                   untimed_time_col_width + 1 + timeWidth + 1 + percWidth);
-                    }
-                    fmt::print(dim_style, "{}\n", sep);
-                    fmt::print(bold_style,
-                               "{:<{}} {:>{}.3f} {:>{}.1f}%\n",
-                               "total runtime (ave)",
-                               nameWidth,
-                               grand_s,
-                               untimed_time_col_width,
-                               100.0,
-                               percWidth - 1);
-                }
-                else
-                {
-                    fmt::print(bold_style,
-                               "{:<{}} {:>{}.3f} {:>{}.1f}%\n",
-                               "Total (ave)",
-                               nameWidth,
-                               measured_s,
-                               untimed_time_col_width,
-                               100.0,
-                               percWidth - 1);
-                }
-                fmt::print("\n");
-            };
+            // Footer layout: the values are aligned on the "Ave (s)" column.
+            const int footer_time_width          = timeWidth + 1 + rankWidth + 1 + timeWidth + 1 + rankWidth;
+            const int footer_overlap_width       = footer_time_width + 1 + timeWidth + 1 + percWidth;
+            const std::string total_label_suffix = " (ave)";
 
 #else // !SAMURAI_WITH_MPI
       // -----------------------------------------------------------------
@@ -530,6 +481,13 @@ namespace samurai
                 fmt::print("\n");
             };
 
+            // Footer layout: the values are aligned on the "Elapsed (s)" column.
+            const int footer_time_width    = elapsedWidth;
+            const int footer_overlap_width = elapsedWidth + 1 + percWidth + 1 + parWidth + 1 + callsWidth;
+            const std::string total_label_suffix;
+
+#endif // SAMURAI_WITH_MPI
+
             // Footer lambda: separator + untimed row + grand total line.
             auto print_bottom = [&](double grand_s, double measured_s, bool has_total)
             {
@@ -547,7 +505,7 @@ namespace samurai
                                    "(untimed)",
                                    nameWidth,
                                    untimed_s,
-                                   elapsedWidth,
+                                   footer_time_width,
                                    perc,
                                    percWidth - 1);
                     }
@@ -558,26 +516,31 @@ namespace samurai
                                    "(overlap / pause-resume timers)",
                                    nameWidth,
                                    "(children exceed parent \u2014 timer overlap detected)",
-                                   elapsedWidth + 1 + percWidth + 1 + parWidth + 1 + callsWidth);
+                                   footer_overlap_width);
                     }
                     fmt::print(dim_style, "{}\n", sep);
                     fmt::print(bold_style,
                                "{:<{}} {:>{}.3f} {:>{}.1f}%\n",
-                               "total runtime",
+                               "total runtime" + total_label_suffix,
                                nameWidth,
                                grand_s,
-                               elapsedWidth,
+                               footer_time_width,
                                100.0,
                                percWidth - 1);
                 }
                 else
                 {
-                    fmt::print(bold_style, "{:<{}} {:>{}.3f} {:>{}.1f}%\n", "Total", nameWidth, measured_s, elapsedWidth, 100.0, percWidth - 1);
+                    fmt::print(bold_style,
+                               "{:<{}} {:>{}.3f} {:>{}.1f}%\n",
+                               "Total" + total_label_suffix,
+                               nameWidth,
+                               measured_s,
+                               footer_time_width,
+                               100.0,
+                               percWidth - 1);
                 }
                 fmt::print("\n");
             };
-
-#endif // SAMURAI_WITH_MPI
 
             // =================================================================
             // Unified tree walk — no #ifdef below this line
