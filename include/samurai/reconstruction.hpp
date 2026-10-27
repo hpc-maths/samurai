@@ -973,7 +973,8 @@ namespace samurai
      * the source by one of three cases: an exact copy where the source has the same cell; a
      * projection (average of the @c 2^{shift.dim} finer source cells) where the source is finer;
      * or a @ref samurai::portion "portion" prediction where the source is coarser. Requires at least two boundary
-     * ghosts on the source (prediction stencil); throws otherwise.
+     * ghosts on the source (prediction stencil); throws otherwise. The destination field is
+     * resized to its mesh first, so it may be stale after an adaptation of that mesh.
      */
     template <class Field_src, class Field_dst>
     void transfer(Field_src& field_src, Field_dst& field_dst)
@@ -994,6 +995,9 @@ namespace samurai
 
         update_ghost_if_needed(field_src);
 
+        // The destination mesh may have been adapted since field_dst was last sized (an adaptation
+        // only resizes the fields it was given), and every value of field_dst is rewritten below.
+        field_dst.resize();
         field_dst.fill(0.);
 
         for (std::size_t level_dst = mesh_dst.min_level(); level_dst <= mesh_dst.max_level(); ++level_dst)
