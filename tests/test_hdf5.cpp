@@ -1,4 +1,7 @@
+#include <array>
 #include <map>
+#include <string>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -24,6 +27,30 @@ namespace samurai
         Types<std::integral_constant<std::size_t, 1>, std::integral_constant<std::size_t, 2>, std::integral_constant<std::size_t, 3>>;
 
     TYPED_TEST_SUITE(hdf5_test, hdf5_test_types, );
+
+    // Sets args::save_debug_fields for the lifetime of the object, so that it does not leak into the following tests.
+    class SaveDebugFields
+    {
+      public:
+
+        SaveDebugFields()
+            : m_previous(args::save_debug_fields)
+        {
+            args::save_debug_fields = true;
+        }
+
+        SaveDebugFields(const SaveDebugFields&)            = delete;
+        SaveDebugFields& operator=(const SaveDebugFields&) = delete;
+
+        ~SaveDebugFields()
+        {
+            args::save_debug_fields = m_previous;
+        }
+
+      private:
+
+        bool m_previous;
+    };
 
     template <typename mesh_t>
     void test_save(const mesh_t& mesh)
@@ -84,7 +111,7 @@ namespace samurai
         CellArray<dim> ca;
         ca[4] = {4, box};
         test_save(ca);
-        args::save_debug_fields = true;
+        SaveDebugFields debug_fields;
         test_save(ca);
     }
 
@@ -98,7 +125,7 @@ namespace samurai
         Box<double, dim> box(min_corner, max_corner);
         LevelCellArray<dim> lca(4, box);
         test_save(lca);
-        args::save_debug_fields = true;
+        SaveDebugFields debug_fields;
         test_save(lca);
     }
 
@@ -114,7 +141,7 @@ namespace samurai
         Box<double, dim> box(min_corner, max_corner);
         Mesh uniform(box, 4);
         test_save_uniform(uniform);
-        args::save_debug_fields = true;
+        SaveDebugFields debug_fields;
         test_save_uniform(uniform);
     }
 
@@ -130,8 +157,100 @@ namespace samurai
         auto mesh_cfg = mesh_config<dim>().min_level(4).max_level(4);
         auto mesh     = mra::make_mesh(box, mesh_cfg);
         test_save(mesh);
-        args::save_debug_fields = true;
+        SaveDebugFields debug_fields;
         test_save(mesh);
+    }
+
+#ifndef SAMURAI_WITH_MPI
+    template <class value_t>
+    auto read_field(const std::string& filename, const std::string& path)
+    {
+        HighFive::File file(filename, HighFive::File::ReadOnly);
+        std::vector<value_t> data;
+        file.getDataSet(path).read(data);
+        return data;
+    }
+
+    // Checks the debug fields written in filename at prefix against the cells of submesh, in the order the writer visits them.
+    template <class Submesh>
+    void check_debug_fields(const std::string& filename, const std::string& prefix, const Submesh& submesh)
+    {
+        static constexpr std::size_t dim = Submesh::dim;
+
+        auto levels = read_field<std::size_t>(filename, prefix + "/fields/levels");
+        ASSERT_EQ(levels.size(), submesh.nb_cells());
+        std::array<std::vector<int>, dim> indices;
+        std::array<std::vector<double>, dim> coordinates;
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            std::string suffix = dim == 1 ? "" : fmt::format("_{}", d);
+            indices[d]         = read_field<int>(filename, prefix + "/fields/indices" + suffix);
+            coordinates[d]     = read_field<double>(filename, prefix + "/fields/coordinates" + suffix);
+            ASSERT_EQ(indices[d].size(), submesh.nb_cells());
+            ASSERT_EQ(coordinates[d].size(), submesh.nb_cells());
+        }
+
+        std::size_t i = 0;
+        for_each_cell(submesh,
+                      [&](const auto& cell)
+                      {
+                          EXPECT_EQ(levels[i], cell.level);
+                          for (std::size_t d = 0; d < dim; ++d)
+                          {
+                              EXPECT_EQ(indices[d][i], cell.indices[d]);
+                              EXPECT_DOUBLE_EQ(coordinates[d][i], cell.center(d));
+                          }
+                          ++i;
+                      });
+    }
+#endif
+
+    // The cells of a CellArray taken from a mesh are numbered in the whole mesh: the debug fields must not be indexed by
+    // that number, which is larger than the number of cells of the CellArray.
+    TYPED_TEST(hdf5_test, debug_fields_of_cell_array_taken_from_a_mesh)
+    {
+        static constexpr std::size_t dim = TypeParam::value;
+        xt::xtensor_fixed<double, xt::xshape<dim>> min_corner;
+        xt::xtensor_fixed<double, xt::xshape<dim>> max_corner;
+        min_corner.fill(-1);
+        max_corner.fill(1);
+        Box<double, dim> box(min_corner, max_corner);
+        auto mesh       = mra::make_mesh(box, mesh_config<dim>().min_level(2).max_level(4));
+        using mesh_id_t = typename decltype(mesh)::mesh_id_t;
+
+        const auto& ca  = mesh[mesh_id_t::cells];
+        const auto& lca = ca[4];
+
+        SaveDebugFields debug_fields;
+        save("test", "test_debug_fields_ca", ca);
+        save("test", "test_debug_fields_lca", lca);
+#ifndef SAMURAI_WITH_MPI
+        check_debug_fields("test/test_debug_fields_ca.h5", "/mesh", ca);
+        check_debug_fields("test/test_debug_fields_lca.h5", "/mesh", lca);
+#endif
+    }
+
+    // The ghosts of a uniform mesh are written with by_mesh_id: their debug fields must be set too.
+    TYPED_TEST(hdf5_test, debug_fields_of_uniform_mesh_ghosts)
+    {
+        static constexpr std::size_t dim = TypeParam::value;
+        using Mesh                       = UniformMesh<UniformConfig<dim>>;
+        xt::xtensor_fixed<double, xt::xshape<dim>> min_corner;
+        xt::xtensor_fixed<double, xt::xshape<dim>> max_corner;
+        min_corner.fill(-1);
+        max_corner.fill(1);
+        Box<double, dim> box(min_corner, max_corner);
+        Mesh uniform(box, 3);
+
+        SaveDebugFields debug_fields;
+        save("test", "test_debug_fields_uniform", Hdf5Options<Mesh>{true}, uniform);
+#ifndef SAMURAI_WITH_MPI
+        using mesh_id_t = typename Mesh::mesh_id_t;
+        for (auto id : {mesh_id_t::cells, mesh_id_t::cells_and_ghosts})
+        {
+            check_debug_fields("test/test_debug_fields_uniform.h5", fmt::format("/mesh/{}", id), uniform[id]);
+        }
+#endif
     }
 
     TEST(hdf5, vertices_shared_with_non_dyadic_cell_length)

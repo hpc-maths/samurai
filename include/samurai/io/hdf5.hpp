@@ -1031,20 +1031,6 @@ namespace samurai
 
     namespace detail
     {
-        template <class mesh_t>
-            requires std::is_base_of_v<Mesh_base<mesh_t, typename mesh_t::config_t>, mesh_t>
-        const auto& get_all_cells(const mesh_t& mesh)
-        {
-            using mesh_id_t = typename mesh_t::mesh_id_t;
-            return mesh[mesh_id_t::reference];
-        }
-
-        template <class mesh_t>
-        const auto& get_all_cells(const mesh_t& mesh)
-        {
-            return mesh;
-        }
-
         template <class mesh_t, class... T>
         struct hdf5_mesh
         {
@@ -1073,11 +1059,57 @@ namespace samurai
         using hdf5_mesh_t = typename hdf5_mesh<D, T...>::type;
 
         /**
+         * Quantity of a cell (its indices, its center or its level) that the writer saves like a field.
+         *
+         * It has no storage: its value is computed from the cell when it is written. It is therefore defined on every cell of
+         * every submesh, ghosts included, and it does not depend on the cell index, which may number the cells of a larger
+         * mesh (a CellArray taken from a mesh, for instance).
+         */
+        template <class value_t, std::size_t n_comp_, bool is_scalar_, class Func>
+        class CellQuantity
+        {
+          public:
+
+            using value_type                  = value_t;
+            using size_type                   = std::size_t;
+            static constexpr size_type n_comp = n_comp_;
+            static constexpr bool is_scalar   = is_scalar_;
+
+            CellQuantity(std::string name, Func f)
+                : m_name(std::move(name))
+                , m_f(std::move(f))
+            {
+            }
+
+            const std::string& name() const
+            {
+                return m_name;
+            }
+
+            template <class Cell>
+            auto operator[](const Cell& cell) const
+            {
+                return m_f(cell);
+            }
+
+          private:
+
+            std::string m_name;
+            Func m_f;
+        };
+
+        template <class value_t, std::size_t n_comp, bool is_scalar, class Func>
+        auto make_cell_quantity(std::string name, Func&& f)
+        {
+            return CellQuantity<value_t, n_comp, is_scalar, std::decay_t<Func>>(std::move(name), std::forward<Func>(f));
+        }
+
+        /**
          * Creates the output directory and calls write(fields...), adding in front the indices, the coordinates and the level of
          * every cell when --save-debug-fields is set.
          */
         template <class mesh_t, class Write, class... T>
-        void save_with_debug_fields(const fs::path& path, const mesh_t& mesh, Write&& write, const T&... fields)
+        void save_with_debug_fields(const fs::path& path, Write&& write, const T&... fields)
         {
             static constexpr std::size_t dim = mesh_t::dim;
             ScopedTimer timer_save("data saving");
@@ -1089,19 +1121,23 @@ namespace samurai
 
             if (args::save_debug_fields)
             {
-                const auto& mesh_ref = get_all_cells(mesh);
+                using indices_t = xt::xtensor_fixed<int, xt::xshape<dim>>;
 
-                auto index_field = make_vector_field<int, dim>("indices", mesh);
-                auto coord_field = make_vector_field<double, dim>("coordinates", mesh);
-                auto level_field = make_scalar_field<std::size_t>("levels", mesh);
-
-                for_each_cell(mesh_ref,
-                              [&](auto& cell)
-                              {
-                                  index_field[cell] = cell.indices;
-                                  coord_field[cell] = cell.center();
-                                  level_field[cell] = cell.level;
-                              });
+                auto index_field = make_cell_quantity<int, dim, false>("indices",
+                                                                       [](const auto& cell)
+                                                                       {
+                                                                           return indices_t(cell.indices);
+                                                                       });
+                auto coord_field = make_cell_quantity<double, dim, false>("coordinates",
+                                                                          [](const auto& cell)
+                                                                          {
+                                                                              return cell.center();
+                                                                          });
+                auto level_field = make_cell_quantity<std::size_t, 1, true>("levels",
+                                                                            [](const auto& cell)
+                                                                            {
+                                                                                return cell.level;
+                                                                            });
 
                 write(index_field, coord_field, level_field, fields...);
             }
@@ -1122,9 +1158,8 @@ namespace samurai
               const mesh_t& mesh,
               const T&... fields)
     {
-        detail::save_with_debug_fields(
+        detail::save_with_debug_fields<mesh_t>(
             path,
-            mesh,
             [&](const auto&... all_fields)
             {
                 using hdf5_t = detail::hdf5_mesh_t<mesh_t, std::decay_t<decltype(all_fields)>...>;
@@ -1163,9 +1198,8 @@ namespace samurai
 #ifdef SAMURAI_WITH_MPI
         save(path, filename, MPI_COMM_WORLD, options, mesh, fields...);
 #else
-        detail::save_with_debug_fields(
+        detail::save_with_debug_fields<mesh_t>(
             path,
-            mesh,
             [&](const auto&... all_fields)
             {
                 using hdf5_t = detail::hdf5_mesh_t<mesh_t, std::decay_t<decltype(all_fields)>...>;
