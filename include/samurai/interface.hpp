@@ -28,6 +28,139 @@ namespace samurai
         }
     }
 
+    namespace detail
+    {
+        /**
+         * Iterators over the two cells of an interface (in_out_stencil of the direction) and over the computational stencil,
+         * one pair per OpenMP thread.
+         */
+        template <class Mesh, std::size_t comput_stencil_size>
+        class InterfaceIterators
+        {
+            static constexpr std::size_t dim = Mesh::dim;
+
+            using interface_iterator_t      = IteratorStencil<Mesh, 2>;
+            using comput_stencil_iterator_t = IteratorStencil<Mesh, comput_stencil_size>;
+
+          public:
+
+            InterfaceIterators(const Mesh& mesh,
+                               const DirectionVector<dim>& direction,
+                               const StencilAnalyzer<comput_stencil_size, dim>& comput_stencil)
+                : m_interface_stencil(in_out_stencil<dim>(direction))
+#ifndef SAMURAI_WITH_OPENMP
+                , m_interface_it(mesh, m_interface_stencil)
+                , m_comput_stencil_it(mesh, comput_stencil)
+#endif
+            {
+#ifdef SAMURAI_WITH_OPENMP
+                std::size_t num_threads = static_cast<std::size_t>(omp_get_max_threads());
+                for (std::size_t i = 0; i < num_threads; ++i)
+                {
+                    m_interface_its.push_back(make_stencil_iterator(mesh, m_interface_stencil));
+                    m_comput_stencil_its.push_back(make_stencil_iterator(mesh, comput_stencil));
+                }
+#endif
+            }
+
+            // The iterators hold a reference to m_interface_stencil
+            InterfaceIterators(const InterfaceIterators&)            = delete;
+            InterfaceIterators& operator=(const InterfaceIterators&) = delete;
+
+            // Iterator over the interface cells, for the calling thread
+            SAMURAI_INLINE interface_iterator_t& interface_it()
+            {
+#ifdef SAMURAI_WITH_OPENMP
+                return m_interface_its[static_cast<std::size_t>(omp_get_thread_num())];
+#else
+                return m_interface_it;
+#endif
+            }
+
+            // Iterator over the computational stencil, for the calling thread
+            SAMURAI_INLINE comput_stencil_iterator_t& comput_stencil_it()
+            {
+#ifdef SAMURAI_WITH_OPENMP
+                return m_comput_stencil_its[static_cast<std::size_t>(omp_get_thread_num())];
+#else
+                return m_comput_stencil_it;
+#endif
+            }
+
+          private:
+
+            StencilAnalyzer<2, dim> m_interface_stencil;
+#ifdef SAMURAI_WITH_OPENMP
+            std::vector<interface_iterator_t> m_interface_its;
+            std::vector<comput_stencil_iterator_t> m_comput_stencil_its;
+#else
+            interface_iterator_t m_interface_it;
+            comput_stencil_iterator_t m_comput_stencil_it;
+#endif
+        };
+
+        /**
+         * Calls apply_on_interface(coarse_cells, fine_cells) on the cells of the levels l and l+1 between which a level
+         * jump interface of direction d can lie: inside the subdomain, through the periodic boundary and with the MPI
+         * neighbours.
+         * fine_after_coarse tells whether the fine cells come after the coarse cells in the direction (true) or before.
+         */
+        template <bool include_periodic, bool fine_after_coarse, class Mesh, class Func>
+        void for_each_level_jump_cells(const Mesh& mesh, std::size_t level, std::size_t d, Func&& apply_on_interface)
+        {
+            using mesh_id_t = typename Mesh::mesh_id_t;
+
+            const auto& coarse_cells = mesh[mesh_id_t::cells][level];
+            const auto& fine_cells   = mesh[mesh_id_t::cells][level + 1];
+
+            // Periodic shifts that bring the fine cells, resp. the coarse cells, next to the other ones
+            [[maybe_unused]] auto periodic_shifts = [&]()
+            {
+                auto fine_shift   = get_periodic_shift(mesh.domain(), level + 1, d);
+                auto coarse_shift = get_periodic_shift(mesh.domain(), level, d);
+                if constexpr (fine_after_coarse)
+                {
+                    coarse_shift = -coarse_shift;
+                }
+                else
+                {
+                    fine_shift = -fine_shift;
+                }
+                return std::make_pair(fine_shift, coarse_shift);
+            };
+
+            apply_on_interface(coarse_cells, fine_cells);
+            if constexpr (include_periodic)
+            {
+                if (mesh.periodicity()[d])
+                {
+                    const auto [fine_shift, coarse_shift] = periodic_shifts();
+                    apply_on_interface(coarse_cells, translate(fine_cells, fine_shift));
+                    apply_on_interface(translate(coarse_cells, coarse_shift), fine_cells);
+                }
+            }
+#ifdef SAMURAI_WITH_MPI
+            for (const auto& neigh : mesh.mpi_neighbourhood())
+            {
+                const auto& neigh_coarse_cells = neigh.mesh[mesh_id_t::cells][level];
+                const auto& neigh_fine_cells   = neigh.mesh[mesh_id_t::cells][level + 1];
+
+                apply_on_interface(coarse_cells, neigh_fine_cells);
+                apply_on_interface(neigh_coarse_cells, fine_cells);
+                if constexpr (include_periodic)
+                {
+                    if (mesh.periodicity()[d])
+                    {
+                        const auto [fine_shift, coarse_shift] = periodic_shifts();
+                        apply_on_interface(coarse_cells, translate(neigh_fine_cells, fine_shift));
+                        apply_on_interface(translate(neigh_coarse_cells, coarse_shift), fine_cells);
+                    }
+                }
+            }
+#endif
+        }
+    }
+
     /**
      * Iterates over the interfaces of same level only (no level jump).
      * Same parameters as the preceding function.
@@ -39,26 +172,10 @@ namespace samurai
                                                  const StencilAnalyzer<comput_stencil_size, Mesh::dim>& comput_stencil,
                                                  Func&& f)
     {
-        static constexpr std::size_t dim = Mesh::dim;
-        using mesh_id_t                  = typename Mesh::mesh_id_t;
-        using mesh_interval_t            = typename Mesh::mesh_interval_t;
+        using mesh_id_t       = typename Mesh::mesh_id_t;
+        using mesh_interval_t = typename Mesh::mesh_interval_t;
 
-        Stencil<2, dim> interface_stencil_ = in_out_stencil<dim>(direction);
-        auto interface_stencil             = make_stencil_analyzer(interface_stencil_);
-
-#ifdef SAMURAI_WITH_OPENMP
-        std::size_t num_threads = static_cast<std::size_t>(omp_get_max_threads());
-        std::vector<IteratorStencil<Mesh, 2>> interface_its;
-        std::vector<IteratorStencil<Mesh, comput_stencil_size>> comput_stencil_its;
-        for (std::size_t i = 0; i < num_threads; ++i)
-        {
-            interface_its.push_back(make_stencil_iterator(mesh, interface_stencil));
-            comput_stencil_its.push_back(make_stencil_iterator(mesh, comput_stencil));
-        }
-#else
-        auto interface_it      = make_stencil_iterator(mesh, interface_stencil);
-        auto comput_stencil_it = make_stencil_iterator(mesh, comput_stencil);
-#endif
+        detail::InterfaceIterators<Mesh, comput_stencil_size> iterators(mesh, direction, comput_stencil);
 
         auto apply_on_interface = [&](const auto& cells, const auto& shifted_cells)
         {
@@ -68,12 +185,7 @@ namespace samurai
                 intersect,
                 [&](auto mesh_interval)
                 {
-#ifdef SAMURAI_WITH_OPENMP
-                    std::size_t thread      = static_cast<std::size_t>(omp_get_thread_num());
-                    auto& interface_it      = interface_its[thread];
-                    auto& comput_stencil_it = comput_stencil_its[thread];
-#endif
-                    apply_on_interval<get_type>(mesh_interval, interface_it, comput_stencil_it, std::forward<Func>(f));
+                    apply_on_interval<get_type>(mesh_interval, iterators.interface_it(), iterators.comput_stencil_it(), std::forward<Func>(f));
                 });
         };
 
@@ -132,7 +244,6 @@ namespace samurai
                                                            const StencilAnalyzer<comput_stencil_size, Mesh::dim>& comput_stencil,
                                                            Func&& f)
     {
-        using mesh_id_t       = typename Mesh::mesh_id_t;
         using mesh_interval_t = typename Mesh::mesh_interval_t;
 
         if (level >= mesh.max_level())
@@ -176,36 +287,8 @@ namespace samurai
                 });
         };
 
-        apply_on_interface(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level + 1]);
-
-        auto d = find_direction_index(direction);
-        if constexpr (include_periodic)
-        {
-            if (mesh.periodicity()[d])
-            {
-                auto shift = get_periodic_shift(mesh.domain(), level + 1, d);
-                apply_on_interface(mesh[mesh_id_t::cells][level], translate(mesh[mesh_id_t::cells][level + 1], shift));
-                shift = get_periodic_shift(mesh.domain(), level, d);
-                apply_on_interface(translate(mesh[mesh_id_t::cells][level], -shift), mesh[mesh_id_t::cells][level + 1]);
-            }
-        }
-#ifdef SAMURAI_WITH_MPI
-        for (const auto& neigh : mesh.mpi_neighbourhood())
-        {
-            apply_on_interface(mesh[mesh_id_t::cells][level], neigh.mesh[mesh_id_t::cells][level + 1]);
-            apply_on_interface(neigh.mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level + 1]);
-            if constexpr (include_periodic)
-            {
-                if (mesh.periodicity()[d])
-                {
-                    auto shift = get_periodic_shift(mesh.domain(), level + 1, d);
-                    apply_on_interface(mesh[mesh_id_t::cells][level], translate(neigh.mesh[mesh_id_t::cells][level + 1], shift));
-                    shift = get_periodic_shift(mesh.domain(), level, d);
-                    apply_on_interface(translate(neigh.mesh[mesh_id_t::cells][level], -shift), mesh[mesh_id_t::cells][level + 1]);
-                }
-            }
-        }
-#endif
+        static constexpr bool fine_after_coarse = true;
+        detail::for_each_level_jump_cells<include_periodic, fine_after_coarse>(mesh, level, find_direction_index(direction), apply_on_interface);
     }
 
     /**
@@ -232,7 +315,6 @@ namespace samurai
                                                                     Func&& f)
     {
         static constexpr std::size_t dim = Mesh::dim;
-        using mesh_id_t                  = typename Mesh::mesh_id_t;
         using mesh_interval_t            = typename Mesh::mesh_interval_t;
 
         if (level >= mesh.max_level())
@@ -280,36 +362,8 @@ namespace samurai
                 });
         };
 
-        apply_on_interface(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level + 1]);
-
-        auto d = find_direction_index(direction);
-        if constexpr (include_periodic)
-        {
-            if (mesh.periodicity()[d])
-            {
-                auto shift = get_periodic_shift(mesh.domain(), level + 1, d);
-                apply_on_interface(mesh[mesh_id_t::cells][level], translate(mesh[mesh_id_t::cells][level + 1], -shift));
-                shift = get_periodic_shift(mesh.domain(), level, d);
-                apply_on_interface(translate(mesh[mesh_id_t::cells][level], shift), mesh[mesh_id_t::cells][level + 1]);
-            }
-        }
-#ifdef SAMURAI_WITH_MPI
-        for (const auto& neigh : mesh.mpi_neighbourhood())
-        {
-            apply_on_interface(mesh[mesh_id_t::cells][level], neigh.mesh[mesh_id_t::cells][level + 1]);
-            apply_on_interface(neigh.mesh[mesh_id_t::cells][level], mesh[mesh_id_t::cells][level + 1]);
-            if constexpr (include_periodic)
-            {
-                if (mesh.periodicity()[d])
-                {
-                    auto shift = get_periodic_shift(mesh.domain(), level + 1, d);
-                    apply_on_interface(mesh[mesh_id_t::cells][level], translate(neigh.mesh[mesh_id_t::cells][level + 1], -shift));
-                    shift = get_periodic_shift(mesh.domain(), level, d);
-                    apply_on_interface(translate(neigh.mesh[mesh_id_t::cells][level], shift), mesh[mesh_id_t::cells][level + 1]);
-                }
-            }
-        }
-#endif
+        static constexpr bool fine_after_coarse = false;
+        detail::for_each_level_jump_cells<include_periodic, fine_after_coarse>(mesh, level, find_direction_index(direction), apply_on_interface);
 
         // DirectionVector<Mesh::dim> opposite_direction    = -direction;
         // decltype(comput_stencil) opposite_comput_stencil = comput_stencil - direction;
@@ -454,35 +508,16 @@ namespace samurai
                                                 const StencilAnalyzer<comput_stencil_size, Mesh::dim>& comput_stencil,
                                                 Func&& f)
     {
-        static constexpr std::size_t dim = Mesh::dim;
-        using mesh_interval_t            = typename Mesh::mesh_interval_t;
+        using mesh_interval_t = typename Mesh::mesh_interval_t;
 
-        Stencil<2, dim> interface_stencil_ = in_out_stencil<dim>(direction);
-        auto interface_stencil             = make_stencil_analyzer(interface_stencil_);
-
-#ifdef SAMURAI_WITH_OPENMP
-        std::size_t num_threads = static_cast<std::size_t>(omp_get_max_threads());
-        std::vector<IteratorStencil<Mesh, 2>> interface_its;
-        std::vector<IteratorStencil<Mesh, comput_stencil_size>> comput_stencil_its;
-        for (std::size_t i = 0; i < num_threads; ++i)
-        {
-            interface_its.push_back(make_stencil_iterator(mesh, interface_stencil));
-            comput_stencil_its.push_back(make_stencil_iterator(mesh, comput_stencil));
-        }
-#else
-        auto interface_it      = make_stencil_iterator(mesh, interface_stencil);
-        auto comput_stencil_it = make_stencil_iterator(mesh, comput_stencil);
-#endif
+        detail::InterfaceIterators<Mesh, comput_stencil_size> iterators(mesh, direction, comput_stencil);
 
         auto bdry = domain_boundary(mesh, level, direction);
         for_each_meshinterval<mesh_interval_t, run_type>(bdry,
                                                          [&](auto mesh_interval)
                                                          {
-#ifdef SAMURAI_WITH_OPENMP
-                                                             std::size_t thread      = static_cast<std::size_t>(omp_get_thread_num());
-                                                             auto& interface_it      = interface_its[thread];
-                                                             auto& comput_stencil_it = comput_stencil_its[thread];
-#endif
+                                                             auto& interface_it      = iterators.interface_it();
+                                                             auto& comput_stencil_it = iterators.comput_stencil_it();
                                                              interface_it.init(mesh_interval);
                                                              comput_stencil_it.init(mesh_interval);
                                                              if constexpr (get_type == Get::Intervals)
