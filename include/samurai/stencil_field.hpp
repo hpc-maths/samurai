@@ -76,13 +76,114 @@ namespace samurai
         return *static_cast<derived_type*>(this);
     }
 
+    /**
+     * Finite volume operator whose flux through a face only reads the two cells on both sides of the face.
+     * The derived class D defines flux(a, u_left, u_right), where a is the velocity component normal to the face.
+     */
+    template <class D>
+    class two_point_finite_volume : public finite_volume<D>
+    {
+      public:
+
+        // 1D
+        template <class T>
+        SAMURAI_INLINE auto left_flux(double a, const T& u) const
+        {
+            const auto& op = this->derived_cast();
+            return op.flux(a, u(op.level, op.i - 1), u(op.level, op.i));
+        }
+
+        template <class T>
+        SAMURAI_INLINE auto right_flux(double a, const T& u) const
+        {
+            const auto& op = this->derived_cast();
+            return op.flux(a, u(op.level, op.i), u(op.level, op.i + 1));
+        }
+
+        // 2D
+        template <class T>
+        SAMURAI_INLINE auto left_flux(std::array<double, 2> a, const T& u) const
+        {
+            const auto& op = this->derived_cast();
+            return op.flux(a[0], u(op.level, op.i - 1, op.j), u(op.level, op.i, op.j));
+        }
+
+        template <class T>
+        SAMURAI_INLINE auto right_flux(std::array<double, 2> a, const T& u) const
+        {
+            const auto& op = this->derived_cast();
+            return op.flux(a[0], u(op.level, op.i, op.j), u(op.level, op.i + 1, op.j));
+        }
+
+        template <class T>
+        SAMURAI_INLINE auto down_flux(std::array<double, 2> a, const T& u) const
+        {
+            const auto& op = this->derived_cast();
+            return op.flux(a[1], u(op.level, op.i, op.j - 1), u(op.level, op.i, op.j));
+        }
+
+        template <class T>
+        SAMURAI_INLINE auto up_flux(std::array<double, 2> a, const T& u) const
+        {
+            const auto& op = this->derived_cast();
+            return op.flux(a[1], u(op.level, op.i, op.j), u(op.level, op.i, op.j + 1));
+        }
+
+        // 3D
+        template <class T>
+        SAMURAI_INLINE auto left_flux(std::array<double, 3> a, const T& u) const
+        {
+            const auto& op = this->derived_cast();
+            return op.flux(a[0], u(op.level, op.i - 1, op.j, op.k), u(op.level, op.i, op.j, op.k));
+        }
+
+        template <class T>
+        SAMURAI_INLINE auto right_flux(std::array<double, 3> a, const T& u) const
+        {
+            const auto& op = this->derived_cast();
+            return op.flux(a[0], u(op.level, op.i, op.j, op.k), u(op.level, op.i + 1, op.j, op.k));
+        }
+
+        template <class T>
+        SAMURAI_INLINE auto down_flux(std::array<double, 3> a, const T& u) const
+        {
+            const auto& op = this->derived_cast();
+            return op.flux(a[1], u(op.level, op.i, op.j - 1, op.k), u(op.level, op.i, op.j, op.k));
+        }
+
+        template <class T>
+        SAMURAI_INLINE auto up_flux(std::array<double, 3> a, const T& u) const
+        {
+            const auto& op = this->derived_cast();
+            return op.flux(a[1], u(op.level, op.i, op.j, op.k), u(op.level, op.i, op.j + 1, op.k));
+        }
+
+        template <class T>
+        SAMURAI_INLINE auto front_flux(std::array<double, 3> a, const T& u) const
+        {
+            const auto& op = this->derived_cast();
+            return op.flux(a[2], u(op.level, op.i, op.j, op.k - 1), u(op.level, op.i, op.j, op.k));
+        }
+
+        template <class T>
+        SAMURAI_INLINE auto back_flux(std::array<double, 3> a, const T& u) const
+        {
+            const auto& op = this->derived_cast();
+            return op.flux(a[2], u(op.level, op.i, op.j, op.k), u(op.level, op.i, op.j, op.k + 1));
+        }
+
+      protected:
+
+        two_point_finite_volume() = default;
+    };
+
     /*******************
      * upwind operator *
      *******************/
 
     template <std::size_t dim, class TInterval>
     class upwind_op : public field_operator_base<dim, TInterval>,
-                      public finite_volume<upwind_op<dim, TInterval>>
+                      public two_point_finite_volume<upwind_op<dim, TInterval>>
     {
       public:
 
@@ -94,81 +195,6 @@ namespace samurai
             // TODO(loic): remove the xt::eval (bug without, see
             // VF_advection_1d)
             return (.5 * a * (std::forward<T1>(ul) + std::forward<T2>(ur)) + .5 * std::abs(a) * (std::forward<T1>(ul) - std::forward<T2>(ur)));
-        }
-
-        // 1D
-        template <class T>
-        SAMURAI_INLINE auto left_flux(double a, const T& u) const
-        {
-            return flux(a, u(level, i - 1), u(level, i));
-        }
-
-        template <class T>
-        SAMURAI_INLINE auto right_flux(double a, const T& u) const
-        {
-            return flux(a, u(level, i), u(level, i + 1));
-        }
-
-        // 2D
-        template <class T>
-        SAMURAI_INLINE auto left_flux(std::array<double, 2> a, const T& u) const
-        {
-            return flux(a[0], u(level, i - 1, j), u(level, i, j));
-        }
-
-        template <class T>
-        SAMURAI_INLINE auto right_flux(std::array<double, 2> a, const T& u) const
-        {
-            return flux(a[0], u(level, i, j), u(level, i + 1, j));
-        }
-
-        template <class T>
-        SAMURAI_INLINE auto down_flux(std::array<double, 2> a, const T& u) const
-        {
-            return flux(a[1], u(level, i, j - 1), u(level, i, j));
-        }
-
-        template <class T>
-        SAMURAI_INLINE auto up_flux(std::array<double, 2> a, const T& u) const
-        {
-            return flux(a[1], u(level, i, j), u(level, i, j + 1));
-        }
-
-        // 3D
-        template <class T>
-        SAMURAI_INLINE auto left_flux(std::array<double, 3> a, const T& u) const
-        {
-            return flux(a[0], u(level, i - 1, j, k), u(level, i, j, k));
-        }
-
-        template <class T>
-        SAMURAI_INLINE auto right_flux(std::array<double, 3> a, const T& u) const
-        {
-            return flux(a[0], u(level, i, j, k), u(level, i + 1, j, k));
-        }
-
-        template <class T>
-        SAMURAI_INLINE auto down_flux(std::array<double, 3> a, const T& u) const
-        {
-            return flux(a[1], u(level, i, j - 1, k), u(level, i, j, k));
-        }
-
-        template <class T>
-        SAMURAI_INLINE auto up_flux(std::array<double, 3> a, const T& u) const
-        {
-            return flux(a[1], u(level, i, j, k), u(level, i, j + 1, k));
-        }
-
-        template <class T>
-        SAMURAI_INLINE auto front_flux(std::array<double, 3> a, const T& u) const
-        {
-            return flux(a[2], u(level, i, j, k - 1), u(level, i, j, k));
-        }
-
-        template <class T>
-        SAMURAI_INLINE auto back_flux(std::array<double, 3> a, const T& u) const
-        {
-            return flux(a[2], u(level, i, j, k), u(level, i, j, k + 1));
         }
     };
 
@@ -183,7 +209,7 @@ namespace samurai
      *******************/
     template <std::size_t dim, class TInterval>
     class upwind_scalar_burgers_op : public field_operator_base<dim, TInterval>,
-                                     public finite_volume<upwind_scalar_burgers_op<dim, TInterval>>
+                                     public two_point_finite_volume<upwind_scalar_burgers_op<dim, TInterval>>
     {
       public:
 
@@ -214,31 +240,6 @@ namespace samurai
                             });
 
             return out;
-        }
-
-        // 2D
-        template <class T>
-        SAMURAI_INLINE auto left_flux(std::array<double, 2> a, const T& u) const
-        {
-            return flux(a[0], u(level, i - 1, j), u(level, i, j));
-        }
-
-        template <class T>
-        SAMURAI_INLINE auto right_flux(std::array<double, 2> a, const T& u) const
-        {
-            return flux(a[0], u(level, i, j), u(level, i + 1, j));
-        }
-
-        template <class T>
-        SAMURAI_INLINE auto down_flux(std::array<double, 2> a, const T& u) const
-        {
-            return flux(a[1], u(level, i, j - 1), u(level, i, j));
-        }
-
-        template <class T>
-        SAMURAI_INLINE auto up_flux(std::array<double, 2> a, const T& u) const
-        {
-            return flux(a[1], u(level, i, j), u(level, i, j + 1));
         }
     };
 
