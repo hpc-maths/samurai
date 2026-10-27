@@ -709,15 +709,48 @@ namespace samurai
             });
     }
 
+    namespace detail
+    {
+        /**
+         * Fills the ghost layers [first_layer, ghost_width] by polynomial extrapolation, from the closest layer to the farthest.
+         * For each layer, calls fill_layer(bc, stencil, layer), where layer is a std::integral_constant and stencil is the
+         * line stencil along the direction that ends on the ghost of that layer.
+         */
+        template <class Field, class Func>
+        void for_each_extrapolated_ghost_layer(Field& field, int first_layer, int ghost_width, Func&& fill_layer)
+        {
+            static constexpr std::size_t dim = Field::dim;
+
+            // PolynomialExtrapolation is only implemented for even stencil_size, so we dispatch directly on the
+            // ghost layer instead of on the stencil size, to avoid instantiating the unused odd-stencil_size
+            // candidates.
+            static constexpr std::size_t max_stencil_size_implemented_PE = PolynomialExtrapolation<Field, 2>::max_stencil_size_implemented_PE;
+            static constexpr std::size_t max_ghost_layers_implemented_PE = PolynomialExtrapolation<Field, 2>::max_ghost_layers_implemented_PE;
+
+            for (int ghost_layer = first_layer; ghost_layer <= ghost_width; ++ghost_layer)
+            {
+                dispatch_static<1, max_ghost_layers_implemented_PE>(
+                    static_cast<std::size_t>(ghost_layer),
+                    [&](auto ghost_layer_)
+                    {
+                        static constexpr std::size_t layer = decltype(ghost_layer_)::value;
+                        // The stencil ends on the ghost of that layer. It grows with the layer until it
+                        // reaches the largest implemented size, then slides outward at constant size.
+                        static constexpr std::size_t stencil_size = std::min(2 * layer, max_stencil_size_implemented_PE);
+                        static constexpr int stencil_start        = static_cast<int>(layer) - static_cast<int>(stencil_size) + 1;
+
+                        auto& domain = get_mesh(field.mesh());
+                        PolynomialExtrapolation<Field, stencil_size> bc(domain, ConstantBc<Field>(), true);
+
+                        fill_layer(bc, line_stencil_from<dim, 0, stencil_size>(stencil_start), ghost_layer_);
+                    });
+            }
+        }
+    }
+
     template <class Field>
     void update_further_ghosts_by_polynomial_extrapolation(std::size_t level, const DirectionVector<Field::dim>& direction, Field& field)
     {
-        static constexpr std::size_t dim = Field::dim;
-
-        // PolynomialExtrapolation is only implemented for even stencil_size, so we dispatch directly on the
-        // ghost layer instead of on the stencil size, to avoid instantiating the unused odd-stencil_size
-        // candidates.
-        static constexpr std::size_t max_stencil_size_implemented_PE = PolynomialExtrapolation<Field, 2>::max_stencil_size_implemented_PE;
         static constexpr std::size_t max_ghost_layers_implemented_PE = PolynomialExtrapolation<Field, 2>::max_ghost_layers_implemented_PE;
 
         int ghost_width = field.mesh().ghost_width();
@@ -732,63 +765,35 @@ namespace samurai
             ghost_layers_filled_by_bc = std::max(ghost_layers_filled_by_bc, bc->stencil_size() / 2);
         }
 
-        // We populate the ghosts sequentially from the closest to the farthest.
-        for (int ghost_layer = ghost_layers_filled_by_bc + 1; ghost_layer <= ghost_width; ++ghost_layer)
-        {
-            dispatch_static<1, max_ghost_layers_implemented_PE>(
-                static_cast<std::size_t>(ghost_layer),
-                [&](auto ghost_layer_)
-                {
-                    static constexpr std::size_t layer = decltype(ghost_layer_)::value;
-                    // The stencil ends on the ghost of that layer. It grows with the layer until it
-                    // reaches the largest implemented size, then slides outward at constant size.
-                    static constexpr std::size_t stencil_size = std::min(2 * layer, max_stencil_size_implemented_PE);
-                    static constexpr int stencil_start        = static_cast<int>(layer) - static_cast<int>(stencil_size) + 1;
+        detail::for_each_extrapolated_ghost_layer(
+            field,
+            ghost_layers_filled_by_bc + 1,
+            ghost_width,
+            [&](auto& bc, const auto& stencil, auto ghost_layer_)
+            {
+                static constexpr std::size_t layer = decltype(ghost_layer_)::value;
 
-                    auto& domain = detail::get_mesh(field.mesh());
-                    PolynomialExtrapolation<Field, stencil_size> bc(domain, ConstantBc<Field>(), true);
-
-                    auto boundary_cells = domain_boundary(field.mesh(), level, direction);
-                    apply_extrapolation_bc_cells(bc,
-                                                 level,
-                                                 field,
-                                                 direction,
-                                                 boundary_cells,
-                                                 line_stencil_from<dim, 0, stencil_size>(stencil_start),
-                                                 static_cast<int>(layer));
-                });
-        }
+                auto boundary_cells = domain_boundary(field.mesh(), level, direction);
+                apply_extrapolation_bc_cells(bc, level, field, direction, boundary_cells, stencil, static_cast<int>(layer));
+            });
 
         // 2. We fill the ghosts that are further than those filled by the projection of the B.C. (where there are ghost cells below
         // boundary cells)
 
-        const std::size_t ghost_layers_filled_by_projection_bc = 1;
+        const int ghost_layers_filled_by_projection_bc = 1;
 
-        for (int ghost_layer = ghost_layers_filled_by_projection_bc + 1; ghost_layer <= ghost_width; ++ghost_layer)
-        {
-            dispatch_static<1, max_ghost_layers_implemented_PE>(
-                static_cast<std::size_t>(ghost_layer),
-                [&](auto ghost_layer_)
-                {
-                    static constexpr std::size_t layer = decltype(ghost_layer_)::value;
-                    // The stencil ends on the ghost of that layer. It grows with the layer until it
-                    // reaches the largest implemented size, then slides outward at constant size.
-                    static constexpr std::size_t stencil_size = std::min(2 * layer, max_stencil_size_implemented_PE);
-                    static constexpr int stencil_start        = static_cast<int>(layer) - static_cast<int>(stencil_size) + 1;
+        detail::for_each_extrapolated_ghost_layer(
+            field,
+            ghost_layers_filled_by_projection_bc + 1,
+            ghost_width,
+            [&](auto& bc, const auto& stencil, auto ghost_layer_)
+            {
+                static constexpr std::size_t layer = decltype(ghost_layer_)::value;
 
-                    auto& domain = detail::get_mesh(field.mesh());
-                    PolynomialExtrapolation<Field, stencil_size> bc(domain, ConstantBc<Field>(), true);
-
-                    auto domain2         = self(field.mesh().domain()).on(level);
-                    auto boundary_ghosts = difference(domain2, translate(domain2, -direction));
-                    apply_extrapolation_bc_ghosts<layer>(bc,
-                                                         level,
-                                                         field,
-                                                         direction,
-                                                         boundary_ghosts,
-                                                         line_stencil_from<dim, 0, stencil_size>(stencil_start));
-                });
-        }
+                auto domain2         = self(field.mesh().domain()).on(level);
+                auto boundary_ghosts = difference(domain2, translate(domain2, -direction));
+                apply_extrapolation_bc_ghosts<layer>(bc, level, field, direction, boundary_ghosts, stencil);
+            });
     }
 
     template <class Field>
