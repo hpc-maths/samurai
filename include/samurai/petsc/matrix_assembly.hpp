@@ -1,5 +1,6 @@
 #pragma once
 #include "../timers.hpp"
+#include "global_numbering.hpp"
 #include <petsc.h>
 
 #include <fmt/format.h>
@@ -497,6 +498,54 @@ namespace samurai
 
             virtual void setup()
             {
+            }
+        };
+
+        /**
+         * Assembly of a single operator: its rows and columns follow a numbering that it owns (stand-alone assembly)
+         * or that the enclosing block assembly owns.
+         */
+        class NumberedMatrixAssembly : public MatrixAssembly
+        {
+          protected:
+
+            Numbering* m_row_numbering = nullptr;
+            Numbering* m_col_numbering = nullptr;
+
+          public:
+
+            const auto& row_numbering() const
+            {
+                assert(m_row_numbering != nullptr);
+                return *m_row_numbering;
+            }
+
+            auto& row_numbering()
+            {
+                assert(m_row_numbering != nullptr);
+                return *m_row_numbering;
+            }
+
+            const auto& col_numbering() const
+            {
+                assert(m_col_numbering != nullptr);
+                return *m_col_numbering;
+            }
+
+            auto& col_numbering()
+            {
+                assert(m_col_numbering != nullptr);
+                return *m_col_numbering;
+            }
+
+            void set_row_numbering(Numbering& numbering)
+            {
+                m_row_numbering = &numbering;
+            }
+
+            void set_col_numbering(Numbering& numbering)
+            {
+                m_col_numbering = &numbering;
             }
         };
 

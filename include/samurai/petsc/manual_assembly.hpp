@@ -13,7 +13,7 @@ namespace samurai
         class BlockAssembly;
 
         template <class OutputField, class InputField>
-        class ManualAssembly : public MatrixAssembly
+        class ManualAssembly : public NumberedMatrixAssembly
         {
           public:
 
@@ -24,11 +24,6 @@ namespace samurai
           private:
 
             input_field_t* m_unknown = nullptr;
-
-          protected:
-
-            Numbering* m_row_numbering = nullptr;
-            Numbering* m_col_numbering = nullptr;
 
           public:
 
@@ -139,40 +134,6 @@ namespace samurai
             void compute_local_to_global_rows()
             {
                 compute_local_to_global_rows(m_row_numbering->local_to_global_mapping);
-            }
-
-            const auto& row_numbering() const
-            {
-                assert(m_row_numbering != nullptr);
-                return *m_row_numbering;
-            }
-
-            auto& row_numbering()
-            {
-                assert(m_row_numbering != nullptr);
-                return *m_row_numbering;
-            }
-
-            const auto& col_numbering() const
-            {
-                assert(m_col_numbering != nullptr);
-                return *m_col_numbering;
-            }
-
-            auto& col_numbering()
-            {
-                assert(m_col_numbering != nullptr);
-                return *m_col_numbering;
-            }
-
-            void set_row_numbering(Numbering& numbering)
-            {
-                m_row_numbering = &numbering;
-            }
-
-            void set_col_numbering(Numbering& numbering)
-            {
-                m_col_numbering = &numbering;
             }
 
             void sparsity_pattern_boundary(std::vector<PetscInt>&, std::vector<PetscInt>&) const override
