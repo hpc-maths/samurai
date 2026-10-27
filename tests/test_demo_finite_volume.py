@@ -1,3 +1,4 @@
+import h5py
 import os
 import pytest
 import subprocess
@@ -346,3 +347,64 @@ def test_finite_volume_burgers_os_default_options(tmp_path):
         "--nfiles=1",
     ]
     output = subprocess.run(cmd, check=True, capture_output=True)
+
+
+def _datasets(filename):
+    """Return the bytes of every dataset of an HDF5 file, by name.
+
+    A compound dataset is compared member by member: the padding between
+    its members is not part of its values.
+    """
+
+    def values(data):
+        if data.dtype.names:
+            return {member: data[member].tobytes() for member in data.dtype.names}
+        return data.tobytes()
+
+    datasets = {}
+    with h5py.File(filename, "r") as f:
+        f.visititems(
+            lambda name, obj: datasets.__setitem__(name, values(obj[()]))
+            if isinstance(obj, h5py.Dataset)
+            else None
+        )
+    return datasets
+
+
+@pytest.mark.skipif(
+    not sys.platform.startswith("linux"), reason="MALLOC_PERTURB_ is a glibc feature"
+)
+@pytest.mark.parametrize(
+    "exec, Tf",
+    [
+        ("finite-volume-advection-1d", "0.1"),
+        ("finite-volume-advection-2d", "0.01"),
+    ],
+)
+def test_finite_volume_demo_ignores_uninitialized_memory(exec, Tf, tmp_path):
+    # glibc fills each new allocation with the byte given in MALLOC_PERTURB_.
+    # A demo that reads memory it never wrote (or writes it to a file) gives
+    # different files from one value to the other.
+    outputs = []
+    for perturb in ["0", "165", "42"]:
+        path = tmp_path / f"perturb_{perturb}"
+        cmd = [
+            get_executable(Path("../build/demos/FiniteVolume/"), exec),
+            "--path",
+            str(path),
+            "--Tf",
+            Tf,
+        ]
+        env = dict(os.environ, MALLOC_PERTURB_=perturb)
+        subprocess.run(cmd, check=True, capture_output=True, env=env)
+        outputs.append(
+            {f.name: _datasets(f) for f in sorted(path.glob("*.h5"))}
+        )
+
+    assert outputs[0], "the demo wrote no HDF5 file"
+    for output in outputs[1:]:
+        assert output.keys() == outputs[0].keys()
+        for filename, datasets in output.items():
+            assert datasets.keys() == outputs[0][filename].keys(), filename
+            for name, data in datasets.items():
+                assert data == outputs[0][filename][name], f"{filename}:{name}"
