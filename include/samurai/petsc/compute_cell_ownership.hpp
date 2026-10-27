@@ -45,7 +45,7 @@ namespace samurai
             auto samurai_cell_indices_field = make_scalar_field<std::size_t>("samurai_cell_index", mesh);
             for (std::size_t cell_index = 0; cell_index < mesh.nb_cells(); ++cell_index)
             {
-                samurai_cell_indices_field[cell_index] = static_cast<std::size_t>(cell_index);
+                samurai_cell_indices_field[cell_index] = cell_index;
             }
 
             auto petsc_cell_indices_field = make_scalar_field<int>("petsc_cell_index", mesh);
@@ -411,7 +411,7 @@ namespace samurai
                 //     auto samurai_cell_indices_field = make_scalar_field<std::size_t>("samurai_cell_index", mesh);
                 //     for (std::size_t cell_index = 0; cell_index < mesh.nb_cells(); ++cell_index)
                 //     {
-                //         samurai_cell_indices_field[cell_index] = static_cast<std::size_t>(cell_index);
+                //         samurai_cell_indices_field[cell_index] = cell_index;
                 //     }
                 //     save(fs::current_path(), "owner_mismatch", {true, true}, mesh, owner_rank_field, samurai_cell_indices_field);
 
@@ -517,7 +517,7 @@ namespace samurai
                 auto samurai_cell_indices_field = make_scalar_field<std::size_t>("samurai_cell_index", mesh);
                 for (std::size_t cell_index = 0; cell_index < mesh.nb_cells(); ++cell_index)
                 {
-                    samurai_cell_indices_field[cell_index] = static_cast<std::size_t>(cell_index);
+                    samurai_cell_indices_field[cell_index] = cell_index;
                 }
                 save(fs::current_path(), "owner_mismatch", {true, true}, mesh, owner_rank_field, samurai_cell_indices_field);
                 std::cerr << fmt::format("[{}] Error: cell ownership mismatch detected. ", rank);

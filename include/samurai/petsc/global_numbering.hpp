@@ -111,8 +111,8 @@ namespace samurai
             // Owned cells //
             //-------------//
 
-            PetscInt local_index  = static_cast<PetscInt>(block_shift_owned);
-            PetscInt global_index = rank_shift + static_cast<PetscInt>(block_shift_owned);
+            PetscInt local_index  = block_shift_owned;
+            PetscInt global_index = rank_shift + block_shift_owned;
 
             if (args::print_petsc_numbering)
             {
@@ -142,7 +142,7 @@ namespace samurai
             // Ghost cells //
             //-------------//
 
-            local_index = static_cast<PetscInt>(block_shift_ghosts);
+            local_index = block_shift_ghosts;
 
             if (args::print_petsc_numbering)
             {
