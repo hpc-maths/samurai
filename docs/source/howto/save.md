@@ -94,17 +94,14 @@ The arguments of `Hdf5Options` depend on the mesh type:
 
 Both arguments default to `false`.
 
-When you leave out the directory, pass the options as a named object and not as a braced list:
+Without a directory, the files go in the current working directory:
 
 ```{literalinclude} snippet/save/save_all_submeshes.cpp
     :language: c++
     :start-after: // Without a directory
-    :end-at: samurai::save("submesh", options
+    :end-at: samurai::save("submesh", {true, true}
     :dedent:
 ```
-
-The call `samurai::save("submesh", {true, true}, mesh, ...)` also matches the overload that takes a directory and a file name (`{true, true}` converts to a `std::string`), so the call is either ambiguous or resolved to the wrong overload.
-With a directory, as in the snippet above, the braced list works.
 
 ## If you run with MPI
 
@@ -112,6 +109,7 @@ With a directory, as in the snippet above, the braced list works.
 - All ranks write into one HDF5 file. Rank 0 writes the XDMF file.
   In the HDF5 file, the data of each rank is stored under `/mesh/rank_<rank>/`.
 - To use another communicator, pass it after the file name: `samurai::save(path, filename, comm, mesh, fields...)`.
+  The communicator is an `MPI_Comm` or a class that converts to one, such as `boost::mpi::communicator`.
 - To write one file per rank, use `samurai::local_save(path, filename, mesh, fields...)`.
   Each rank writes `<filename>_rank<rank>.h5` and `<filename>_rank<rank>.xdmf`.
 

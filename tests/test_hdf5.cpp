@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #ifdef SAMURAI_WITH_MPI
+#include <boost/mpi/communicator.hpp>
 #include <mpi.h>
 #endif
 
@@ -58,11 +59,11 @@ namespace samurai
         save("test_save_mesh", mesh);
         save("test", "test_save_mesh", mesh);
         save("test", "test_save_mesh", {true, true}, mesh);
-        save("test_save_mesh", Hdf5Options<mesh_t>{true, true}, mesh);
+        save("test_save_mesh", {true, true}, mesh);
         local_save("test_save_mesh", mesh);
         local_save("test", "test_save_mesh", mesh);
         local_save("test", "test_save_mesh", {true, true}, mesh);
-        local_save("test_save_mesh", Hdf5Options<mesh_t>{true, true}, mesh);
+        local_save("test_save_mesh", {true, true}, mesh);
 #ifdef SAMURAI_WITH_MPI
         save("test_save_mesh", MPI_COMM_WORLD, mesh);
         save("test", "test_save_mesh", MPI_COMM_WORLD, mesh);
@@ -73,6 +74,12 @@ namespace samurai
         save("test", "test_save_mesh", MPI_COMM_SELF, mesh);
         save("test", "test_save_mesh", MPI_COMM_SELF, {true, true}, mesh);
         save("test_save_mesh", MPI_COMM_SELF, {true, true}, mesh);
+
+        // A class that converts to MPI_Comm is accepted as a communicator.
+        const boost::mpi::communicator world;
+        save("test", "test_save_mesh", world, mesh);
+        save("test", "test_save_mesh", world, {true, true}, mesh);
+        save("test_save_mesh", world, {true, true}, mesh);
 #endif
     }
 
@@ -81,12 +88,12 @@ namespace samurai
     {
         save("test_save_mesh", mesh);
         save("test", "test_save_mesh", mesh);
-        save("test", "test_save_mesh", Hdf5Options<UniformMesh<config_t>>{true}, mesh);
-        save("test_save_mesh", Hdf5Options<UniformMesh<config_t>>{true}, mesh);
+        save("test", "test_save_mesh", {true}, mesh);
+        save("test_save_mesh", {true}, mesh);
         local_save("test_save_mesh", mesh);
         local_save("test", "test_save_mesh", mesh);
-        local_save("test", "test_save_mesh", Hdf5Options<UniformMesh<config_t>>{true}, mesh);
-        local_save("test_save_mesh", Hdf5Options<UniformMesh<config_t>>{true}, mesh);
+        local_save("test", "test_save_mesh", {true}, mesh);
+        local_save("test_save_mesh", {true}, mesh);
 #ifdef SAMURAI_WITH_MPI
         save("test_save_mesh", MPI_COMM_WORLD, mesh);
         save("test", "test_save_mesh", MPI_COMM_WORLD, mesh);
@@ -97,6 +104,12 @@ namespace samurai
         save("test", "test_save_mesh", MPI_COMM_SELF, mesh);
         save("test", "test_save_mesh", MPI_COMM_SELF, {true}, mesh);
         save("test_save_mesh", MPI_COMM_SELF, {true}, mesh);
+
+        // A class that converts to MPI_Comm is accepted as a communicator.
+        const boost::mpi::communicator world;
+        save("test", "test_save_mesh", world, mesh);
+        save("test", "test_save_mesh", world, {true}, mesh);
+        save("test_save_mesh", world, {true}, mesh);
 #endif
     }
 
@@ -243,7 +256,7 @@ namespace samurai
         Mesh uniform(box, 3);
 
         SaveDebugFields debug_fields;
-        save("test", "test_debug_fields_uniform", Hdf5Options<Mesh>{true}, uniform);
+        save("test", "test_debug_fields_uniform", {true}, uniform);
 #ifndef SAMURAI_WITH_MPI
         using mesh_id_t = typename Mesh::mesh_id_t;
         for (auto id : {mesh_id_t::cells, mesh_id_t::cells_and_ghosts})

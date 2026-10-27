@@ -26,7 +26,10 @@ int main(int argc, char* argv[])
     const fs::path cwd = fs::current_path();
     samurai::save(cwd, "submesh", {true, true}, mesh, u, v);
 
-    // Without a directory, pass the options as a named object
+    // Without a directory
+    samurai::save("submesh", {true, true}, mesh, u, v);
+
+    // The options can also be a named object
     samurai::Hdf5Options<decltype(mesh)> options(true, true);
     samurai::save("submesh", options, mesh, u, v);
 

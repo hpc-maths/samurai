@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <array>
+#include <concepts>
 #include <functional>
 #include <map>
 #include <string>
@@ -1148,44 +1149,67 @@ namespace samurai
         }
     }
 
+    namespace detail
+    {
+        // save and local_save take their sub-mesh options either as an
+        // Hdf5Options object or as a braced list such as `{true, true}`. A
+        // braced list cannot deduce a template parameter, so the parameters
+        // that sit where the options can go (the file name after a directory,
+        // the communicator) are deduced and constrained. As a plain
+        // `std::string`, the file name would accept `{true, true}`; as a plain
+        // `MPI_Comm`, the communicator would accept `{true}` when MPI_Comm is
+        // an integer, as with MPICH.
+        template <class Filename>
+        concept filename_like = std::convertible_to<const Filename&, std::string>;
+
 #ifdef SAMURAI_WITH_MPI
-    template <class mesh_t, class... T>
+        // An MPI_Comm, or a class that converts to one such as
+        // boost::mpi::communicator. Other scalars that merely convert to
+        // MPI_Comm, such as a bool when MPI_Comm is an int, are rejected.
+        template <class Comm>
+        concept mpi_communicator = std::same_as<Comm, MPI_Comm> || (std::is_class_v<Comm> && std::convertible_to<const Comm&, MPI_Comm>);
+#endif
+    }
+
+#ifdef SAMURAI_WITH_MPI
+    template <class mesh_t, detail::mpi_communicator Comm, class... T>
         requires(mesh_like<mesh_t>)
     void save(const fs::path& path,
               const std::string& filename,
-              MPI_Comm comm,
+              const Comm& comm,
               const Hdf5Options<mesh_t>& options,
               const mesh_t& mesh,
               const T&... fields)
     {
+        const MPI_Comm mpi_comm = comm;
         detail::save_with_debug_fields<mesh_t>(
             path,
             [&](const auto&... all_fields)
             {
                 using hdf5_t = detail::hdf5_mesh_t<mesh_t, std::decay_t<decltype(all_fields)>...>;
-                auto h5      = hdf5_t(path, filename, comm, options, mesh, all_fields...);
+                auto h5      = hdf5_t(path, filename, mpi_comm, options, mesh, all_fields...);
                 h5.save();
             },
             fields...);
     }
 
-    template <class mesh_t, class... T>
+    template <class mesh_t, detail::mpi_communicator Comm, class... T>
         requires(mesh_like<mesh_t>)
-    void save(const fs::path& path, const std::string& filename, MPI_Comm comm, const mesh_t& mesh, const T&... fields)
+    void save(const fs::path& path, const std::string& filename, const Comm& comm, const mesh_t& mesh, const T&... fields)
     {
         save(path, filename, comm, Hdf5Options<mesh_t>{}, mesh, fields...);
     }
 
-    template <class mesh_t, class... T>
+    template <class mesh_t, detail::mpi_communicator Comm, class... T>
         requires(mesh_like<mesh_t>)
-    void save(const std::string& filename, MPI_Comm comm, const Hdf5Options<mesh_t>& options, const mesh_t& mesh, const T&... fields)
+    void save(const std::string& filename, const Comm& comm, const Hdf5Options<mesh_t>& options, const mesh_t& mesh, const T&... fields)
     {
         save(fs::current_path(), filename, comm, options, mesh, fields...);
     }
 
-    template <class mesh_t, class... T>
+    template <class mesh_t, detail::mpi_communicator Comm, class... T>
         requires(mesh_like<mesh_t>)
-    void save(const std::string& filename, MPI_Comm comm, const mesh_t& mesh, const T&... fields)
+    void save(const std::string& filename, const Comm& comm, const mesh_t& mesh, const T&... fields)
     {
         save(fs::current_path(), filename, comm, Hdf5Options<mesh_t>{}, mesh, fields...);
     }
@@ -1210,11 +1234,11 @@ namespace samurai
 #endif
     }
 
-    template <class mesh_t, class... T>
+    template <class mesh_t, detail::filename_like Filename, class... T>
         requires(mesh_like<mesh_t>)
-    void save(const fs::path& path, const std::string& filename, const mesh_t& mesh, const T&... fields)
+    void save(const fs::path& path, const Filename& filename, const mesh_t& mesh, const T&... fields)
     {
-        save(path, filename, Hdf5Options<mesh_t>{}, mesh, fields...);
+        save(path, std::string(filename), Hdf5Options<mesh_t>{}, mesh, fields...);
     }
 
     template <class mesh_t, class... T>
@@ -1243,15 +1267,11 @@ namespace samurai
 #endif
     }
 
-    template <class mesh_t, class... T>
+    template <class mesh_t, detail::filename_like Filename, class... T>
         requires(mesh_like<mesh_t>)
-    void local_save(const fs::path& path, const std::string& filename, const mesh_t& mesh, const T&... fields)
+    void local_save(const fs::path& path, const Filename& filename, const mesh_t& mesh, const T&... fields)
     {
-#ifdef SAMURAI_WITH_MPI
-        save(path, filename, MPI_COMM_SELF, Hdf5Options<mesh_t>{}, mesh, fields...);
-#else
-        save(path, filename, Hdf5Options<mesh_t>{}, mesh, fields...);
-#endif
+        local_save(path, std::string(filename), Hdf5Options<mesh_t>{}, mesh, fields...);
     }
 
     template <class mesh_t, class... T>
