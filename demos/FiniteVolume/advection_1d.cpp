@@ -33,6 +33,10 @@ void init(Field& u)
                                {
                                    u[cell] = 1;
                                }
+                               else
+                               {
+                                   u[cell] = 0;
+                               }
                            });
 }
 
