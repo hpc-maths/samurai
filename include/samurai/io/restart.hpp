@@ -102,6 +102,39 @@ namespace samurai
         }
 
         /**
+         * Returns the datatype of `T` in a checkpoint file.
+         *
+         * An Interval is stored packed, without the padding that follows
+         * `step` in memory. HDF5 copies a compound element byte for byte
+         * when the memory and file types are the same, so with the memory
+         * layout the padding bytes reach the file with whatever the memory
+         * held, and two runs write different files. Reading converts the
+         * members by name, so files written with the padded layout still
+         * load.
+         */
+        template <class T>
+        HighFive::DataType file_datatype()
+        {
+            if constexpr (interval_like<T>)
+            {
+                using value_t = typename T::value_t;
+                using index_t = typename T::index_t;
+                return HighFive::CompoundType(
+                    {
+                        {"start", HighFive::create_datatype<value_t>(), 0                  },
+                        {"end",   HighFive::create_datatype<value_t>(), sizeof(value_t)    },
+                        {"step",  HighFive::create_datatype<value_t>(), 2 * sizeof(value_t)},
+                        {"index", HighFive::create_datatype<index_t>(), 3 * sizeof(value_t)}
+                },
+                    3 * sizeof(value_t) + sizeof(index_t));
+            }
+            else
+            {
+                return HighFive::create_datatype<T>();
+            }
+        }
+
+        /**
          * Writes the dataset `name`, one partition per process.
          *
          * Each process writes its `data` in rank order into `<name>/data`, and
@@ -131,7 +164,9 @@ namespace samurai
             }
 
             H5Easy::dump(file, fmt::format("{}/partition", name), bounds);
-            auto dataset = file.createDataSet<T>(fmt::format("{}/data", name), HighFive::DataSpace(std::vector<std::size_t>{bounds.back()}));
+            auto dataset = file.createDataSet(fmt::format("{}/data", name),
+                                              HighFive::DataSpace(std::vector<std::size_t>{bounds.back()}),
+                                              file_datatype<T>());
             dataset.select({bounds[rank]}, {data.size()}).write_raw(data.data(), HighFive::AtomicType<T>{}, transfer_props());
         }
 
