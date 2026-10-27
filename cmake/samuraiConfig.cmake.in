@@ -15,8 +15,11 @@ endif()
 option(SAMURAI_WITH_MPI "Enable MPI" OFF)
 if(SAMURAI_WITH_MPI)
   message(STATUS "SAMURAI_WITH_MPI = ON")
+  # Look HDF5 up here instead of relying on HighFive having done it, so that
+  # HDF5_IS_PARALLEL describes the HDF5 the consuming project uses.
+  find_dependency(HDF5 COMPONENTS C)
   if (NOT HDF5_IS_PARALLEL)
-    message(FATAL_ERROR "HDF5 is not parallel. Please install a parallel version.")
+    message(FATAL_ERROR "samurai was built with MPI and needs a parallel HDF5, but the HDF5 found (version ${HDF5_VERSION}, include directories: ${HDF5_INCLUDE_DIRS}) is serial. Install a parallel HDF5 or point HDF5_ROOT to one.")
   endif()
   find_dependency(Boost COMPONENTS serialization mpi)
   target_link_libraries(samurai::samurai INTERFACE Boost::serialization Boost::mpi)
