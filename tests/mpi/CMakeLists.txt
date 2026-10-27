@@ -31,6 +31,7 @@ add_mpi_gtest(test_lb_sfc_tube)
 add_mpi_gtest(test_lb_diffusion)
 add_mpi_gtest(test_lb_ghosts)
 add_mpi_gtest(test_lb_flux)
+add_mpi_gtest(test_local_save)
 
 # This suite sweeps a large matrix (stencil size x geometry x decomposition, in
 # 2D and 3D) so it needs a longer wall-clock budget than the default MPI tests.
