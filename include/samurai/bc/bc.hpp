@@ -322,69 +322,18 @@ namespace samurai
     // BcRegion implementation //
     /////////////////////////////
 
-    // Everywhere
-    template <std::size_t dim, class TInterval>
-    SAMURAI_INLINE auto Everywhere<dim, TInterval>::get_region(const lca_t& domain) const -> region_t
+    namespace detail
     {
-        std::vector<direction_t> dir;
-        std::vector<lca_t> lca;
-
-        static_nested_loop<dim, -1, 2>(
-            [&](auto& stencil)
-            {
-                int number_of_one = xt::sum(xt::abs(stencil))[0];
-                if (number_of_one > 0)
-                {
-                    dir.emplace_back(stencil);
-                }
-
-                if (number_of_one == 1)
-                {
-                    lca.emplace_back(difference(domain, translate(domain, -stencil)));
-                }
-                else if (number_of_one > 1)
-                {
-                    if constexpr (dim == 2)
-                    {
-                        lca.emplace_back(difference(
-                            domain,
-                            union_(translate(domain, direction_t{-stencil[0], 0}), translate(domain, direction_t{0, -stencil[1]}))));
-                    }
-                    else if constexpr (dim == 3)
-                    {
-                        lca.emplace_back(difference(domain,
-                                                    union_(translate(domain, direction_t{-stencil[0], 0, 0}),
-                                                           translate(domain, direction_t{0, -stencil[1], 0}),
-                                                           translate(domain, direction_t{0, 0, -stencil[2]}))));
-                    }
-                }
-            });
-
-        return std::make_pair(dir, lca);
-    }
-
-    template <std::size_t dim, class TInterval>
-    auto Everywhere<dim, TInterval>::clone() const -> std::unique_ptr<base_t>
-    {
-        return std::make_unique<Everywhere>();
-    }
-
-    // OnDirection
-    template <std::size_t dim, class TInterval, std::size_t nd>
-    OnDirection<dim, TInterval, nd>::OnDirection(const std::array<direction_t, nd>& d)
-        : m_d(d)
-    {
-    }
-
-    template <std::size_t dim, class TInterval, std::size_t nd>
-    SAMURAI_INLINE auto OnDirection<dim, TInterval, nd>::get_region(const lca_t& domain) const -> region_t
-    {
-        using namespace math;
-        std::vector<direction_t> dir;
-        std::vector<lca_t> lca;
-
-        for (auto& stencil : m_d)
+        /**
+         * For a non-zero direction, appends the direction to dir and the cells of domain on the boundary in that direction to lca.
+         * For a diagonal direction, these are the cells that have no neighbour in the domain along at least one of its components.
+         */
+        template <class Direction, class Lca, class Stencil>
+        void append_boundary_region(const Lca& domain, const Stencil& stencil, std::vector<Direction>& dir, std::vector<Lca>& lca)
         {
+            static constexpr std::size_t dim = Lca::dim;
+            using direction_t                = Direction;
+
             int number_of_one = xt::sum(xt::abs(stencil))[0];
             if (number_of_one > 0)
             {
@@ -411,6 +360,47 @@ namespace samurai
                                                        translate(domain, direction_t{0, 0, -stencil[2]}))));
                 }
             }
+        }
+    }
+
+    // Everywhere
+    template <std::size_t dim, class TInterval>
+    SAMURAI_INLINE auto Everywhere<dim, TInterval>::get_region(const lca_t& domain) const -> region_t
+    {
+        std::vector<direction_t> dir;
+        std::vector<lca_t> lca;
+
+        static_nested_loop<dim, -1, 2>(
+            [&](const auto& stencil)
+            {
+                detail::append_boundary_region(domain, stencil, dir, lca);
+            });
+
+        return std::make_pair(dir, lca);
+    }
+
+    template <std::size_t dim, class TInterval>
+    auto Everywhere<dim, TInterval>::clone() const -> std::unique_ptr<base_t>
+    {
+        return std::make_unique<Everywhere>();
+    }
+
+    // OnDirection
+    template <std::size_t dim, class TInterval, std::size_t nd>
+    OnDirection<dim, TInterval, nd>::OnDirection(const std::array<direction_t, nd>& d)
+        : m_d(d)
+    {
+    }
+
+    template <std::size_t dim, class TInterval, std::size_t nd>
+    SAMURAI_INLINE auto OnDirection<dim, TInterval, nd>::get_region(const lca_t& domain) const -> region_t
+    {
+        std::vector<direction_t> dir;
+        std::vector<lca_t> lca;
+
+        for (const auto& stencil : m_d)
+        {
+            detail::append_boundary_region(domain, stencil, dir, lca);
         }
 
         return std::make_pair(dir, lca);
