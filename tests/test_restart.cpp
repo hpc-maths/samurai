@@ -1,3 +1,5 @@
+#include <cstring>
+
 #include <gtest/gtest.h>
 #include <samurai/amr/mesh.hpp>
 #include <samurai/box.hpp>
@@ -264,6 +266,88 @@ namespace samurai
         load("mesh", mesh2);
         EXPECT_TRUE(mesh == mesh2);
         EXPECT_FALSE(mesh2.domain().is_box());
+    }
+
+    // An Interval has padding bytes in memory. Two runs holding the same
+    // intervals with different garbage in that padding must write the same
+    // bytes to the checkpoint file.
+    TEST(restart, intervals_do_not_depend_on_padding)
+    {
+        using interval_t = default_config::interval_t;
+
+        auto make_intervals = [](unsigned char padding)
+        {
+            std::vector<interval_t> intervals(3);
+            // Interval is trivially copyable: memset sets the padding, the
+            // member assignments below leave it untouched.
+            std::memset(static_cast<void*>(intervals.data()), padding, intervals.size() * sizeof(interval_t));
+            for (std::size_t n = 0; n < intervals.size(); ++n)
+            {
+                intervals[n].start = static_cast<int>(10 * n);
+                intervals[n].end   = static_cast<int>(10 * n + 4);
+                intervals[n].step  = 1;
+                intervals[n].index = -static_cast<std::ptrdiff_t>(n);
+            }
+            return intervals;
+        };
+
+        {
+            auto file = detail::open_file(fs::current_path(), "intervals_padding", HighFive::File::Overwrite);
+            detail::dump_partitions(file, "/zeros", make_intervals(0x00));
+            detail::dump_partitions(file, "/ones", make_intervals(0xFF));
+        }
+
+        // Read the raw bytes as stored in the file, without any conversion.
+        HighFive::File file("intervals_padding.h5", HighFive::File::ReadOnly);
+        auto raw_bytes = [&](const std::string& name)
+        {
+            auto dataset = file.getDataSet(name);
+            auto type    = dataset.getDataType();
+            std::vector<unsigned char> bytes(dataset.getElementCount() * type.getSize());
+            dataset.read_raw(bytes.data(), type);
+            return bytes;
+        };
+        EXPECT_EQ(raw_bytes("/zeros/data"), raw_bytes("/ones/data"));
+    }
+
+    // Older checkpoint files store the intervals with their in-memory layout,
+    // padding included. They must still load.
+    TEST(restart, restart_file_with_padded_intervals)
+    {
+        using interval_t = default_config::interval_t;
+
+        auto mesh = create_mesh<2>(1);
+        dump("mesh", mesh);
+
+        // The file is edited without MPI-IO, so a single process must do it:
+        // HDF5 locks the file, and every other process would fail to open it.
+#ifdef SAMURAI_WITH_MPI
+        mpi::communicator world;
+        world.barrier();
+        if (world.rank() == 0)
+#endif
+        {
+            HighFive::File file("mesh.h5", HighFive::File::ReadWrite);
+            for (const auto& level : file.getGroup("/mesh/level").listObjectNames())
+            {
+                for (std::size_t d = 0; d < 2; ++d)
+                {
+                    const auto name = fmt::format("/mesh/level/{}/dim/{}/intervals/data", level, d);
+                    auto dataset    = file.getDataSet(name);
+                    std::vector<interval_t> intervals(dataset.getElementCount());
+                    dataset.read_raw(intervals.data());
+                    file.unlink(name);
+                    file.createDataSet<interval_t>(name, HighFive::DataSpace::From(intervals)).write_raw(intervals.data());
+                }
+            }
+        }
+#ifdef SAMURAI_WITH_MPI
+        world.barrier();
+#endif
+
+        decltype(mesh) mesh2;
+        load("mesh", mesh2);
+        EXPECT_TRUE(mesh == mesh2);
     }
 
     struct mra_factory
