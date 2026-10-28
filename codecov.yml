@@ -1,0 +1,35 @@
+# Codecov configuration. The reports are uploaded by .github/workflows/coverage.yml:
+# cpp is the gcovr report of the C++ tests, python the pytest-cov report of the
+# Python tools.
+coverage:
+    # Coverage informs the review; it never fails a pull request.
+    status:
+        project:
+            default:
+                informational: true
+        patch:
+            default:
+                informational: true
+
+comment:
+    layout: "diff, flags, files"
+    behavior: default
+    require_changes: false
+
+# A flag missing from a commit, for instance when its upload failed, keeps the
+# coverage of the parent commit for its paths.
+flags:
+    cpp:
+        paths:
+            - include/samurai/
+        carryforward: true
+    python:
+        paths:
+            - tools/
+        carryforward: true
+
+ignore:
+    - "demos/"
+    - "tests/"
+    - "benchmark/"
+    - "docs/"

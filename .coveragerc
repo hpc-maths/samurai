@@ -1,0 +1,13 @@
+# Coverage of the Python tools, measured by .github/workflows/coverage.yml with
+# pytest-cov from the repository root.
+[run]
+# The report names each file by its path from the repository root, which
+# Codecov matches to the sources: tools/paraview and tools/yt both have a
+# samurai_load.py.
+relative_files = True
+source_dirs = tools
+
+[report]
+# The directories of tools/ are not packages: without this, the files that no
+# test imports, such as tools/paraview/SamuraiReader.py, would be left out.
+include_namespace_packages = True

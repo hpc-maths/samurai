@@ -1,0 +1,184 @@
+name: coverage
+
+# Coverage of the C++ library (include/samurai/) and of the Python tools
+# (tools/), sent to Codecov. ci.yml calls this workflow on pull requests; it
+# also runs on every push to main, so that Codecov has the coverage of the base
+# commit to compare a pull request with.
+#
+# Uploads from pull requests opened from forks need no token. Uploads from
+# main need the CODECOV_TOKEN secret, unless token authentication for public
+# repositories is disabled in the Codecov settings of the organization. A
+# failed upload never fails the job.
+on:
+    workflow_call:
+        secrets:
+            CODECOV_TOKEN:
+                required: false
+    push:
+        branches: [main]
+
+permissions:
+    contents: read
+
+# Same reason as in ci.yml: PETSc calls MPI_Init even for single-rank runs.
+env:
+    UCX_TLS: self,sm,tcp
+
+jobs:
+    coverage:
+        runs-on: ubuntu-latest
+        # A login shell activates the micromamba environment. -e and pipefail
+        # are spelled out: GitHub only adds them to the default bash shell.
+        defaults:
+            run:
+                shell: bash -elo pipefail {0}
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+            - name: Cache
+              uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: |
+                      ~/.cache/ccache
+                  key: ccache-coverage-${{ github.run_id }}
+                  restore-keys: |
+                      ccache-coverage-
+
+            - name: Mamba and samurai env installation
+              uses: mamba-org/setup-micromamba@f457c30a868e4760d3a6fcea5f25dc655b8edf39 # v3.2.1
+              with:
+                  environment-file: conda/environment.yml
+                  environment-name: samurai-env
+                  cache-environment: true
+                  cache-environment-key: ${{ runner.os }}-${{ hashFiles('conda/environment.yml') }}
+
+            # yt is installed for the tests of the yt frontend, which are
+            # skipped without it. gcovr is pinned: from 8.4, a header line is
+            # counted once per template instance unless --merge-lines is given.
+            - name: Compiler, PETSc and coverage tools installation
+              run: |
+                  micromamba install -y cxx-compiler ccache petsc pkg-config gcovr=8.3 pytest-cov yt
+                  ccache --max-size=2G
+                  ccache --zero-stats
+
+            # ENABLE_COVERAGE builds with --coverage -O0 -g.
+            - name: Configure
+              run: |
+                  cmake \
+                      . \
+                      -Bbuild \
+                      -GNinja \
+                      -DCMAKE_BUILD_TYPE=Debug \
+                      -DENABLE_COVERAGE=ON \
+                      -DWITH_PETSC=ON \
+                      -DBUILD_TESTS=ON
+
+            - name: Build
+              run: |
+                  cmake --build build --parallel 4 --target \
+                      test_samurai_lib \
+                      test_fv_operators_petsc \
+                      generate_paraview_reference \
+                      generate_yt_reference
+
+            - name: ccache statistics
+              if: always()
+              run: ccache --show-stats --verbose
+
+            # The 6D projection/prediction round trips are left out: at -O0
+            # with coverage, scalar_s1_6D alone takes more than 8 minutes, and
+            # the lower dimensions run the same code.
+            - name: Test with googletest
+              run: |
+                  cd build
+                  ./tests/test_samurai_lib --gtest_filter='-ProjectionPredictionRoundtrip/RoundtripTest.ProjectionPrediction/*_6D'
+                  ./tests/test_fv_operators_petsc
+
+            - name: Generate the reader reference files
+              run: |
+                  mkdir -p tests/reference/paraview tests/reference/yt
+                  ./build/tests/generate_paraview_reference tests/reference/paraview
+                  ./build/tests/generate_yt_reference tests/reference/yt
+
+            # The measured files are listed in .coveragerc. The demo tests
+            # (tests/test_demo_*.py) are left out: they would build and run
+            # every demo at -O0, and linux-mamba already runs them in Release.
+            - name: Test the Python tools with pytest
+              run: |
+                  mkdir -p coverage-reports
+                  python -m pytest -v \
+                      tests/test_paraview_reader.py \
+                      tests/test_yt_reader.py \
+                      --cov \
+                      --cov-report=term \
+                      --cov-report=xml:coverage-reports/python.xml
+                  {
+                      echo "### Python coverage (tools/)"
+                      echo
+                      python -m coverage report --format=markdown
+                      echo
+                  } >> "$GITHUB_STEP_SUMMARY"
+
+            # The branches that only throw an exception, and those the compiler
+            # generates on lines without code, are left out, as the gcovr
+            # documentation recommends for C++. A line of range_traverser.hpp
+            # runs often enough to pass the hit count gcovr flags as a possible
+            # counter overflow: it is reported as a warning instead of failing.
+            - name: C++ coverage report
+              run: |
+                  gcovr \
+                      --root . \
+                      --filter include/samurai/ \
+                      --gcov-executable "${CXX%c++}gcov" \
+                      --gcov-ignore-parse-errors=suspicious_hits.warn_once_per_file \
+                      --exclude-throw-branches \
+                      --exclude-unreachable-branches \
+                      --exclude-noncode-lines \
+                      --cobertura coverage-reports/cpp.xml \
+                      --print-summary \
+                      -j 4 \
+                      build | tee coverage-reports/cpp-summary.txt
+                  python -I - coverage-reports/cpp.xml <<'EOF'
+                  # The <methods> of the template instances make up more than
+                  # 99% of the report (more than 200 MB), and Codecov uses the
+                  # line and branch counts only.
+                  import sys
+                  import xml.etree.ElementTree as ET
+
+                  tree = ET.parse(sys.argv[1])
+                  for methods in tree.iter("methods"):
+                      methods.clear()
+                  tree.write(sys.argv[1], encoding="utf-8", xml_declaration=True)
+                  EOF
+                  ls -l coverage-reports/cpp.xml
+                  {
+                      echo "### C++ coverage (include/samurai/)"
+                      echo
+                      echo '```'
+                      grep -E '^(lines|functions|branches):' coverage-reports/cpp-summary.txt
+                      echo '```'
+                  } >> "$GITHUB_STEP_SUMMARY"
+
+            # Only the two reports are sent: the search for other reports and
+            # the plugins (which would run gcov and coverage.py again) are off.
+            - name: Upload the C++ coverage to Codecov
+              uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+              with:
+                  files: coverage-reports/cpp.xml
+                  flags: cpp
+                  name: cpp
+                  disable_search: true
+                  plugins: noop
+                  fail_ci_if_error: false
+                  token: ${{ secrets.CODECOV_TOKEN }}
+
+            - name: Upload the Python coverage to Codecov
+              uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+              with:
+                  files: coverage-reports/python.xml
+                  flags: python
+                  name: python
+                  disable_search: true
+                  plugins: noop
+                  fail_ci_if_error: false
+                  token: ${{ secrets.CODECOV_TOKEN }}

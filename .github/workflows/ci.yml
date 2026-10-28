@@ -1057,6 +1057,18 @@ jobs:
                       "$exe" --benchmark_min_time=0.01s
                   done
     #
+    # Coverage of the C++ tests and of the Python tools, sent to Codecov
+    # (coverage.yml). It is left out of ci-status: a Codecov outage must not
+    # block a pull request, and the same tests run in the other jobs.
+    #
+    #########################################################
+    coverage:
+        needs: [changes, pre-commit, cppcheck]
+        if: needs.changes.outputs.code == 'true'
+        uses: ./.github/workflows/coverage.yml
+        secrets:
+            CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+    #
     # Build the documentation with warnings as errors. It runs on every pull
     # request: a change in a header can break the API pages as much as a
     # change in docs/. The links are checked once a week (docs-links.yml).
