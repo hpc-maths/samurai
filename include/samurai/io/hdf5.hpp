@@ -544,14 +544,23 @@ namespace samurai
 #ifdef SAMURAI_WITH_MPI
     namespace detail
     {
-        inline auto adjust_filename_for_comm(const std::string& filename, MPI_Comm comm)
+        // The name of the files that this rank writes on its own.
+        inline std::string rank_filename(const std::string& filename)
+        {
+            mpi::communicator world;
+            return fmt::format("{}_rank{}", filename, world.rank());
+        }
+
+        // save over a single-process communicator in a run with several
+        // processes: each rank writes its own files, so the rank goes in the name.
+        inline std::string adjust_filename_for_comm(const std::string& filename, MPI_Comm comm)
         {
             mpi::communicator world;
             mpi::communicator comm_wrapped(comm, mpi::comm_create_kind::comm_duplicate);
 
             if (comm_wrapped.size() == 1 && world.size() > 1)
             {
-                return fmt::format("{}_rank{}", filename, world.rank());
+                return rank_filename(filename);
             }
             return filename;
         }
@@ -560,9 +569,9 @@ namespace samurai
     template <class D>
     Hdf5<D>::Hdf5(const fs::path& path, const std::string& filename, MPI_Comm comm)
         : m_mpi_comm(comm)
-        , h5_file(create_h5file(path, detail::adjust_filename_for_comm(filename, comm), comm))
+        , h5_file(create_h5file(path, filename, comm))
         , m_path(path)
-        , m_filename(detail::adjust_filename_for_comm(filename, comm))
+        , m_filename(filename)
     {
         auto xdmf = m_doc.append_child("Xdmf");
         m_domain  = xdmf.append_child("Domain");
@@ -1172,6 +1181,30 @@ namespace samurai
     }
 
 #ifdef SAMURAI_WITH_MPI
+    namespace detail
+    {
+        // Writes `<path>/<filename>.h5` and `.xdmf` over `comm`, with the file
+        // name used as is.
+        template <class mesh_t, class... T>
+        void save_over_comm(const fs::path& path,
+                            const std::string& filename,
+                            MPI_Comm comm,
+                            const Hdf5Options<mesh_t>& options,
+                            const mesh_t& mesh,
+                            const T&... fields)
+        {
+            save_with_debug_fields<mesh_t>(
+                path,
+                [&](const auto&... all_fields)
+                {
+                    using hdf5_t = hdf5_mesh_t<mesh_t, std::decay_t<decltype(all_fields)>...>;
+                    auto h5      = hdf5_t(path, filename, comm, options, mesh, all_fields...);
+                    h5.save();
+                },
+                fields...);
+        }
+    }
+
     template <class mesh_t, detail::mpi_communicator Comm, class... T>
         requires(mesh_like<mesh_t>)
     void save(const fs::path& path,
@@ -1182,15 +1215,7 @@ namespace samurai
               const T&... fields)
     {
         const MPI_Comm mpi_comm = comm;
-        detail::save_with_debug_fields<mesh_t>(
-            path,
-            [&](const auto&... all_fields)
-            {
-                using hdf5_t = detail::hdf5_mesh_t<mesh_t, std::decay_t<decltype(all_fields)>...>;
-                auto h5      = hdf5_t(path, filename, mpi_comm, options, mesh, all_fields...);
-                h5.save();
-            },
-            fields...);
+        detail::save_over_comm(path, detail::adjust_filename_for_comm(filename, mpi_comm), mpi_comm, options, mesh, fields...);
     }
 
     template <class mesh_t, detail::mpi_communicator Comm, class... T>
@@ -1261,7 +1286,9 @@ namespace samurai
     local_save(const fs::path& path, const std::string& filename, const Hdf5Options<mesh_t>& options, const mesh_t& mesh, const T&... fields)
     {
 #ifdef SAMURAI_WITH_MPI
-        save(path, filename, MPI_COMM_SELF, options, mesh, fields...);
+        // The rank is in the name whatever the number of processes, so that a
+        // run on one process names its files like a run on several.
+        detail::save_over_comm(path, detail::rank_filename(filename), MPI_COMM_SELF, options, mesh, fields...);
 #else
         save(path, filename, options, mesh, fields...);
 #endif

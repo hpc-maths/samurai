@@ -111,7 +111,8 @@ Without a directory, the files go in the current working directory:
 - To use another communicator, pass it after the file name: `samurai::save(path, filename, comm, mesh, fields...)`.
   The communicator is an `MPI_Comm` or a class that converts to one, such as `boost::mpi::communicator`.
 - To write one file per rank, use `samurai::local_save(path, filename, mesh, fields...)`.
-  Each rank writes `<filename>_rank<rank>.h5` and `<filename>_rank<rank>.xdmf`.
+  Each rank writes `<filename>_rank<rank>.h5` and `<filename>_rank<rank>.xdmf`, also on a single process.
+  A build without MPI has no ranks: there, `local_save` writes `<filename>.h5` and `<filename>.xdmf`, as `save` does.
 
 ## Check the result
 

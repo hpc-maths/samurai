@@ -86,7 +86,7 @@ namespace
     {
       protected:
 
-        // The tests for 2, 3 and 4 processes may run at the same time in the
+        // The tests for 1 to 4 processes may run at the same time in the
         // same working directory, so the file names carry the process count.
         std::string filename(const std::string& scenario) const
         {
@@ -100,12 +100,11 @@ namespace
         }
 
         // The HDF5 file this rank reads back: the shared one for save, its own
-        // one for local_save. On a single process, local_save adds no suffix.
+        // one for local_save.
         fs::path h5_file(const std::string& name) const
         {
             mpi::communicator world;
-            const bool per_rank = is_local(GetParam()) && world.size() > 1;
-            const auto stem     = per_rank ? fmt::format("{}_rank{}", name, world.rank()) : name;
+            const auto stem = is_local(GetParam()) ? fmt::format("{}_rank{}", name, world.rank()) : name;
             return output_dir() / (stem + ".h5");
         }
 

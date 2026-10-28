@@ -1,5 +1,7 @@
 # MPI tests: one GoogleTest executable per file, each registered with CTest
 # for 2, 3 and 4 processes (3 catches asymmetries that 2 and 4 hide).
+# SINGLE_PROCESS also registers it for 1 process, for the tests whose
+# expectations depend on the process count.
 # Only configured when WITH_MPI=ON (see tests/CMakeLists.txt).
 
 find_package(MPI REQUIRED COMPONENTS CXX)
@@ -7,6 +9,12 @@ find_package(MPI REQUIRED COMPONENTS CXX)
 set(MPI_TEST_PROCS 2 3 4)
 
 function(add_mpi_gtest name)
+    cmake_parse_arguments(PARSE_ARGV 1 ARG "SINGLE_PROCESS" "" "")
+    set(procs ${MPI_TEST_PROCS})
+    if(ARG_SINGLE_PROCESS)
+        list(PREPEND procs 1)
+    endif()
+
     add_executable(${name} main.cpp ${name}.cpp)
     target_include_directories(${name} PRIVATE ${SAMURAI_INCLUDE_DIR})
 
@@ -16,7 +24,7 @@ function(add_mpi_gtest name)
 
     target_link_libraries(${name} samurai gtest)
 
-    foreach(np IN LISTS MPI_TEST_PROCS)
+    foreach(np IN LISTS procs)
         add_test(NAME ${name}_np${np}
                  COMMAND ${MPIEXEC_EXECUTABLE} ${MPIEXEC_NUMPROC_FLAG} ${np} ${MPIEXEC_PREFLAGS}
                          $<TARGET_FILE:${name}> ${MPIEXEC_POSTFLAGS})
@@ -31,8 +39,8 @@ add_mpi_gtest(test_lb_sfc_tube)
 add_mpi_gtest(test_lb_diffusion)
 add_mpi_gtest(test_lb_ghosts)
 add_mpi_gtest(test_lb_flux)
-add_mpi_gtest(test_local_save)
-add_mpi_gtest(test_save_options)
+add_mpi_gtest(test_local_save SINGLE_PROCESS)
+add_mpi_gtest(test_save_options SINGLE_PROCESS)
 
 # This suite sweeps a large matrix (stencil size x geometry x decomposition, in
 # 2D and 3D) so it needs a longer wall-clock budget than the default MPI tests.

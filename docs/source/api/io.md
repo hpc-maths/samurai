@@ -41,7 +41,8 @@ The communicator is an `MPI_Comm` or a class that converts to one, such as `boos
 ```{doxygenfunction} samurai::save(const std::string &filename, const Comm &comm, const mesh_t &mesh, const T&... fields)
 ```
 
-`samurai::local_save` takes the same arguments as the overloads of `save` without a communicator, and writes one pair of files per rank.
+`samurai::local_save` takes the same arguments as the overloads of `save` without a communicator, and writes one pair of files per rank, named `<filename>_rank<rank>`, whatever the number of processes.
+Without MPI, it writes the same files as `save`.
 
 ```{doxygenfunction} samurai::local_save(const fs::path &path, const std::string &filename, const Hdf5Options<mesh_t> &options, const mesh_t &mesh, const T&... fields)
 ```
