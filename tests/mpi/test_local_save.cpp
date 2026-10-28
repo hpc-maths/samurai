@@ -2,8 +2,9 @@
 // SPDX-License-Identifier:  BSD-3-Clause
 
 // local_save is not collective: each rank that calls it writes
-// <filename>_rank<rank>.h5 and .xdmf, holding only its own cells. Every
-// overload is checked, with all ranks calling it and with only some of them.
+// <filename>_rank<rank>.h5 and .xdmf, holding only its own cells, on one
+// process as on several. Every overload is checked, with all ranks calling it
+// and with only some of them.
 
 #include <filesystem>
 #include <string>
@@ -56,7 +57,7 @@ namespace
     {
       protected:
 
-        // The tests for 2, 3 and 4 processes may run at the same time in the
+        // The tests for 1 to 4 processes may run at the same time in the
         // same working directory, so the file names carry the process count.
         std::string filename(const std::string& scenario) const
         {
