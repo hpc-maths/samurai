@@ -8,6 +8,9 @@
 #include <tuple>
 #include <unordered_map>
 
+#include <xtensor/containers/xtensor.hpp>
+#include <xtensor/core/xnoalias.hpp>
+
 #include "algorithm/update_ghost_if_needed.hpp"
 #include "field.hpp"
 #include "numeric/prediction.hpp"
@@ -640,6 +643,13 @@ namespace samurai
 
     namespace detail
     {
+        /// True for an xt::xtensor, false for an xtensor_fixed, a view or a scalar.
+        template <class T>
+        inline constexpr bool is_xtensor_container_v = false;
+
+        template <class EC, std::size_t N, xt::layout_type L, class Tag>
+        inline constexpr bool is_xtensor_container_v<xt::xtensor_container<EC, N, L, Tag>> = true;
+
         /**
          * Sum into @a out the @ref prediction stencils of every child of a signed box
          * @c [start, end) of child indices, one @ref prediction call per child.
@@ -788,6 +798,15 @@ namespace samurai
                         if constexpr (std::is_same_v<result_t, double>)
                         {
                             result += kv.second * get_f(level, indices...)[0];
+                        }
+                        else if constexpr (is_xtensor_container_v<result_t>)
+                        {
+                            // A plain += on an xt::xtensor evaluates the sum into a new
+                            // container, then moves it into result: noalias adds in place.
+                            // Sizing that new container also makes GCC 15 report a false
+                            // -Warray-bounds for a 1D result. An xtensor_fixed result keeps
+                            // the plain +=: noalias(result) += does not compile for it.
+                            xt::noalias(result) += kv.second * get_f(level, indices...);
                         }
                         else
                         {
