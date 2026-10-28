@@ -312,9 +312,11 @@ else()
     target_compile_definitions(samurai INTERFACE SAMURAI_STATIC_MAT_CONTAINER_${SAMURAI_STATIC_MAT_CONTAINER})
 endif()
 
-# Package the project
+# Package the project. samurai is header-only, so the installed package does not
+# depend on the pointer size: ARCH_INDEPENDENT lets 32-bit consumers find it.
 package_project(
   TARGETS samurai project_options project_warnings
+  ARCH_INDEPENDENT
   INTERFACE_DEPENDENCIES_CONFIGURED ${DEPENDENCIES_CONFIGURED}
   INTERFACE_INCLUDES ${INCLUDE_DIR}
 )
