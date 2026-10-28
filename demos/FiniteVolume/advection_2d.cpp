@@ -58,10 +58,9 @@ void save(const fs::path& path, const std::string& filename, const Field& u, con
 #endif
 }
 
-template <std::size_t pred_stencil_size>
-int main_fct(bool first_run, int argc, char* argv[])
+struct Parameters
 {
-    constexpr std::size_t dim = 2;
+    static constexpr std::size_t dim = 2;
 
     // Simulation parameters
     xt::xtensor_fixed<double, xt::xshape<dim>> min_corner = {0., 0.};
@@ -71,77 +70,68 @@ int main_fct(bool first_run, int argc, char* argv[])
     };
     double Tf  = .1;
     double cfl = 0.5;
-    double t   = 0.;
+    double Ti  = 0.;
     std::string restart_file;
 
     // Output parameters
     fs::path path        = fs::current_path();
     std::string filename = "FV_advection_2d";
     std::size_t nfiles   = 1;
+};
 
-    if (first_run)
-    {
-        auto& app = samurai::app;
-        app.add_option("--min-corner", min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
-        app.add_option("--max-corner", max_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
-        app.add_option("--velocity", a, "The velocity of the advection equation")->capture_default_str()->group("Simulation parameters");
-        app.add_option("--cfl", cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
-        app.add_option("--Ti", t, "Initial time")->capture_default_str()->group("Simulation parameters");
-        app.add_option("--Tf", Tf, "Final time")->capture_default_str()->group("Simulation parameters");
-        app.add_option("--restart-file", restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
-        app.add_option("--path", path, "Output path")->capture_default_str()->group("Output");
-        app.add_option("--filename", filename, "File name prefix")->capture_default_str()->group("Output");
-        app.add_option("--nfiles", nfiles, "Number of output files")->capture_default_str()->group("Output");
-    }
-    SAMURAI_PARSE(argc, argv);
+template <std::size_t pred_stencil_size>
+void run(const Parameters& params)
+{
+    constexpr std::size_t dim = Parameters::dim;
 
-    filename = fmt::format("{}_pred_{}", filename, pred_stencil_size);
+    double t                   = params.Ti;
+    const std::string filename = fmt::format("{}_pred_{}", params.filename, pred_stencil_size);
 
-    const samurai::Box<double, dim> box(min_corner, max_corner);
+    const samurai::Box<double, dim> box(params.min_corner, params.max_corner);
     auto config = samurai::mesh_config<dim, pred_stencil_size>().min_level(4).max_level(10).max_stencil_size(2).disable_minimal_ghost_width();
     auto mesh = samurai::mra::make_empty_mesh(config);
     auto u    = samurai::make_scalar_field<double>("u", mesh);
 
-    if (restart_file.empty())
+    if (params.restart_file.empty())
     {
         mesh = samurai::mra::make_mesh(box, config);
         init(u);
     }
     else
     {
-        samurai::load(restart_file, mesh, u);
+        samurai::load(params.restart_file, mesh, u);
     }
     samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
 
-    double dt            = cfl * mesh.min_cell_length();
-    const double dt_save = Tf / static_cast<double>(nfiles);
+    double dt            = params.cfl * mesh.min_cell_length();
+    const double dt_save = params.Tf / static_cast<double>(params.nfiles);
 
     auto unp1 = samurai::make_scalar_field<double>("unp1", mesh);
 
     samurai::VelocityVector<dim> velocity;
     for (std::size_t d = 0; d < dim; ++d)
     {
-        velocity(d) = a[d];
+        velocity(d) = params.a[d];
     }
     auto conv = samurai::make_convection_upwind<decltype(u)>(velocity);
 
     auto MRadaptation = samurai::make_MRAdapt(u);
     auto mra_config   = samurai::mra_config().epsilon(2e-4);
     MRadaptation(mra_config);
-    save(path, filename, u, "_init");
+    save(params.path, filename, u, "_init");
 
     std::size_t nsave = 1;
     std::size_t nt    = 0;
 
-    while (t != Tf)
+    while (t != params.Tf)
     {
         MRadaptation(mra_config);
 
         t += dt;
-        if (t > Tf)
+        if (t > params.Tf)
         {
-            dt += Tf - t;
-            t = Tf;
+            dt += params.Tf - t;
+            t = params.Tf;
         }
 
         std::cout << fmt::format("iteration {}: t = {}, dt = {}", nt++, t, dt) << std::endl;
@@ -151,20 +141,34 @@ int main_fct(bool first_run, int argc, char* argv[])
 
         samurai::swap(u, unp1);
 
-        if (t >= static_cast<double>(nsave) * dt_save || t == Tf)
+        if (t >= static_cast<double>(nsave) * dt_save || t == params.Tf)
         {
-            const std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
-            save(path, filename, u, suffix);
+            const std::string suffix = (params.nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
+            save(params.path, filename, u, suffix);
         }
     }
-    return 0;
 }
 
 int main(int argc, char* argv[])
 {
-    samurai::initialize("Finite volume example for the advection equation in 2d using multiresolution", argc, argv);
-    main_fct<0>(true, argc, argv);
-    main_fct<1>(false, argc, argv);
+    auto& app = samurai::initialize("Finite volume example for the advection equation in 2d using multiresolution", argc, argv);
+
+    // The options are bound to the members of params, which lives until the end of main.
+    Parameters params;
+    app.add_option("--min-corner", params.min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--max-corner", params.max_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--velocity", params.a, "The velocity of the advection equation")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--cfl", params.cfl, "The CFL")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--Ti", params.Ti, "Initial time")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--Tf", params.Tf, "Final time")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--restart-file", params.restart_file, "Restart file")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--path", params.path, "Output path")->capture_default_str()->group("Output");
+    app.add_option("--filename", params.filename, "File name prefix")->capture_default_str()->group("Output");
+    app.add_option("--nfiles", params.nfiles, "Number of output files")->capture_default_str()->group("Output");
+    SAMURAI_PARSE(argc, argv);
+
+    run<0>(params);
+    run<1>(params);
     samurai::finalize();
     return 0;
 }

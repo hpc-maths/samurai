@@ -138,6 +138,8 @@ The multiresolution options work the same way: `--mr-eps`, `--mr-reg` and `--mr-
 
 For the other ways to declare options (vectors, validators, required options, ...), see the [CLI11 book](https://cliutils.github.io/CLI11/book/).
 
+`add_option` keeps a reference to your variable, and each call to `SAMURAI_PARSE` writes the parsed value through it, so the variable has to outlive every parse. Declare it in `main`, or in an object that lives until the end of `main`, and call `SAMURAI_PARSE` once. If several functions, or several instantiations of a function template, need the values, read them in `main` and pass them as arguments, as `demos/FiniteVolume/advection_2d.cpp` does. An option bound to a local variable of a function that has returned points to a stack frame that no longer exists, and the next parse writes into it.
+
 ```{warning}
 samurai accepts unknown options without an error, so a misspelled option such as `--max-levl 7` is ignored. If a value seems to have no effect, check its spelling against the `--help` output.
 ```
