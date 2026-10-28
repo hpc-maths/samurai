@@ -16,7 +16,7 @@ Without a directory, it writes in the current working directory.
 ```{doxygenfunction} samurai::save(const fs::path &path, const std::string &filename, const Hdf5Options<mesh_t> &options, const mesh_t &mesh, const T&... fields)
 ```
 
-```{doxygenfunction} samurai::save(const fs::path &path, const std::string &filename, const mesh_t &mesh, const T&... fields)
+```{doxygenfunction} samurai::save(const fs::path &path, const Filename &filename, const mesh_t &mesh, const T&... fields)
 ```
 
 ```{doxygenfunction} samurai::save(const std::string &filename, const Hdf5Options<mesh_t> &options, const mesh_t &mesh, const T&... fields)
@@ -26,13 +26,14 @@ Without a directory, it writes in the current working directory.
 ```
 
 With MPI, `save` is collective over `MPI_COMM_WORLD`.
-The MPI build adds four overloads that take an `MPI_Comm` after the file name, such as `save(path, filename, comm, options, mesh, fields...)`; this reference is generated without MPI and does not render them.
+The MPI build adds four overloads that take a communicator after the file name, such as `save(path, filename, comm, options, mesh, fields...)`; this reference is generated without MPI and does not render them.
+The communicator is an `MPI_Comm` or a class that converts to one, such as `boost::mpi::communicator`.
 `samurai::local_save` takes the same arguments as `save` and writes one pair of files per rank.
 
 ```{doxygenfunction} samurai::local_save(const fs::path &path, const std::string &filename, const Hdf5Options<mesh_t> &options, const mesh_t &mesh, const T&... fields)
 ```
 
-```{doxygenfunction} samurai::local_save(const fs::path &path, const std::string &filename, const mesh_t &mesh, const T&... fields)
+```{doxygenfunction} samurai::local_save(const fs::path &path, const Filename &filename, const mesh_t &mesh, const T&... fields)
 ```
 
 ```{doxygenfunction} samurai::local_save(const std::string &filename, const Hdf5Options<mesh_t> &options, const mesh_t &mesh, const T&... fields)
