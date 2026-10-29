@@ -147,7 +147,7 @@ void refine_2(mesh_t& mesh, std::size_t max_level)
                         {
                             auto i_c = i_f >> 1;
                             auto j_c = j_f >> 1;
-                            cell_tag(level - 1, i_c, j_c) |= cell_tag(level, i_f - s[0], j_f - s[1]);
+                            xt::noalias(cell_tag(level - 1, i_c, j_c)) |= cell_tag(level, i_f - s[0], j_f - s[1]);
                         }
 
                         i_f = interval.odd_elements();
@@ -156,7 +156,7 @@ void refine_2(mesh_t& mesh, std::size_t max_level)
                             auto i_c = i_f >> 1;
                             auto j_c = j_f >> 1;
 
-                            cell_tag(level - 1, i_c, j_c) |= cell_tag(level, i_f - s[0], j_f - s[1]);
+                            xt::noalias(cell_tag(level - 1, i_c, j_c)) |= cell_tag(level, i_f - s[0], j_f - s[1]);
                         }
                     });
             }

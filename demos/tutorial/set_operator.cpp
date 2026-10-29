@@ -20,25 +20,26 @@ class my_projection_op : public samurai::field_operator_base<dim, TInterval>
     template <class T>
     SAMURAI_INLINE void operator()(samurai::Dim<1>, T& field) const
     {
-        field(level, i) = .5 * (field(level + 1, 2 * i) + field(level + 1, 2 * i + 1));
+        xt::noalias(field(level, i)) = .5 * (field(level + 1, 2 * i) + field(level + 1, 2 * i + 1));
     }
 
     template <class T>
     SAMURAI_INLINE void operator()(samurai::Dim<2>, T& field) const
     {
-        field(level, i, j) = .25
-                           * (field(level + 1, 2 * i, 2 * j) + field(level + 1, 2 * i, 2 * j + 1) + field(level + 1, 2 * i + 1, 2 * j)
-                              + field(level + 1, 2 * i + 1, 2 * j + 1));
+        xt::noalias(field(level, i, j)) = .25
+                                        * (field(level + 1, 2 * i, 2 * j) + field(level + 1, 2 * i, 2 * j + 1)
+                                           + field(level + 1, 2 * i + 1, 2 * j) + field(level + 1, 2 * i + 1, 2 * j + 1));
     }
 
     template <class T>
     SAMURAI_INLINE void operator()(samurai::Dim<3>, T& field) const
     {
-        field(level, i, j, k) = .125
-                              * (field(level + 1, 2 * i, 2 * j, 2 * k) + field(level + 1, 2 * i + 1, 2 * j, 2 * k)
-                                 + field(level + 1, 2 * i, 2 * j + 1, 2 * k) + field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k)
-                                 + field(level + 1, 2 * i, 2 * j, 2 * k + 1) + field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1)
-                                 + field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1) + field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1));
+        xt::noalias(field(level, i, j, k)) = .125
+                                           * (field(level + 1, 2 * i, 2 * j, 2 * k) + field(level + 1, 2 * i + 1, 2 * j, 2 * k)
+                                              + field(level + 1, 2 * i, 2 * j + 1, 2 * k) + field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k)
+                                              + field(level + 1, 2 * i, 2 * j, 2 * k + 1) + field(level + 1, 2 * i + 1, 2 * j, 2 * k + 1)
+                                              + field(level + 1, 2 * i, 2 * j + 1, 2 * k + 1)
+                                              + field(level + 1, 2 * i + 1, 2 * j + 1, 2 * k + 1));
     }
 };
 
@@ -107,7 +108,7 @@ int main()
     subset1.on(0)(
         [&](const auto& i, auto)
         {
-            u(0, i) = 0.5 * (u(1, 2 * i) + u(1, 2 * i + 1));
+            xt::noalias(u(0, i)) = 0.5 * (u(1, 2 * i) + u(1, 2 * i + 1));
         });
 
     std::cout << u << "\n";
