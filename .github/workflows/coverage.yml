@@ -74,8 +74,12 @@ jobs:
                       -DBUILD_TESTS=ON
 
             - name: Build
+              # Two jobs only: at -O0 with coverage and debug info, compiling
+              # test_fv_operators.cpp peaks at 6.2 GB and test_bc_ghost_values.cpp
+              # at 5.2 GB. Four jobs exhaust the 16 GB of the runner, which then
+              # stops with "The runner has received a shutdown signal".
               run: |
-                  cmake --build build --parallel 4 --target \
+                  cmake --build build --parallel 2 --target \
                       test_samurai_lib \
                       test_fv_operators_petsc \
                       generate_paraview_reference \
