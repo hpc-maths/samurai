@@ -87,6 +87,7 @@ Inside the function:
 - `phi(level, ii)` is an xtensor view on the values of `phi` for all the cells of `ii`.
 - `ii - 1` is `ii` shifted by one cell to the left, so `phi(level, ii - 1)` holds the left neighbor of each cell of `ii`.
 - The right-hand side is an xtensor expression over the whole interval. Assigning it to `phi_np1(level, ii)` computes the new values of all these cells in one statement.
+- `xt::noalias` tells xtensor that the two sides do not overlap (they are two different fields), so it writes straight into `phi_np1` without a temporary.
 
 On the mesh of this page, the loop calls the function once, on the interval $[0, 384)$ of level 6.
 Its cell 0 starts at the left edge of the box, $x = -3$, and its cell 383 ends at the right edge, $x = 3$.

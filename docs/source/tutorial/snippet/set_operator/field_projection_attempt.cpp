@@ -45,7 +45,7 @@ int main()
             {
                 interval = i;
                 std::cout << "field projection on " << i << std::endl;
-                u(0, i) = 0.5 * (u(1, 2 * i) + u(1, 2 * i + 1));
+                xt::noalias(u(0, i)) = 0.5 * (u(1, 2 * i) + u(1, 2 * i + 1));
             });
     }
     catch (const std::out_of_range&)

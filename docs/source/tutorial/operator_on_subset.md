@@ -226,6 +226,7 @@ This code is not in the demo, but in the program [`field_projection_attempt.cpp`
 ```
 
 `u(level, i)` gives the values of `u` on the interval `i` of a level.
+The two sides of the assignment are on different levels, so they do not overlap: `xt::noalias` tells xtensor to write into `u(0, i)` without a temporary.
 `2 * i` is the interval of the even fine cells, with a step of 2, and `2 * i + 1` the interval of the odd ones.
 
 The first interval of the set expression, `[1,3)`, works.
