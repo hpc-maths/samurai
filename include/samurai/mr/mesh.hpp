@@ -334,20 +334,27 @@ namespace samurai
         // The prediction operator gives the number of ghost cells to add in each direction.
         if (this->max_level() != this->min_level())
         {
-            auto add_prediction_ghosts = [&](auto&& subset_cells, auto&& subset_cells_and_ghosts, auto level)
+            constexpr auto pred_radius = config_t::prediction_stencil_radius;
+
+            // A cell at `level` needs the prediction ghosts of its parent at level - 1 and of its
+            // grandparent at level - 2. Those levels exist only for level >= 1 and level >= 2: a cell at
+            // level 0 has no coarser level, so it adds nothing. The subsets are built by the factories
+            // only for the coarse levels that exist, so that no level ever underflows.
+            auto add_prediction_ghosts = [&](std::size_t level, auto&& cells_below, auto&& cells_and_ghosts_below)
             {
-                lcl_type& lcl_m1 = cell_list[level - 1];
-
-                subset_cells_and_ghosts(
-                    [&](const auto& interval, const auto& index_yz)
-                    {
-                        lcl_m1[index_yz].add_interval(interval);
-                    });
-
-                if (level - 1 > 0)
+                if (level >= 1)
+                {
+                    lcl_type& lcl_m1 = cell_list[level - 1];
+                    cells_and_ghosts_below(level - 1)(
+                        [&](const auto& interval, const auto& index_yz)
+                        {
+                            lcl_m1[index_yz].add_interval(interval);
+                        });
+                }
+                if (level >= 2)
                 {
                     lcl_type& lcl_m2 = cell_list[level - 2];
-                    subset_cells(
+                    cells_below(level - 2)(
                         [&](const auto& interval, const auto& index_yz)
                         {
                             lcl_m2[index_yz].add_interval(interval);
@@ -361,24 +368,38 @@ namespace samurai
                 {
                     // own part
                     add_prediction_ghosts(
-                        nestedExpand(self(this->cells()[mesh_id_t::cells][level]).on(level - 2), config_t::prediction_stencil_radius),
-                        intersection(nestedExpand(self(this->cells()[mesh_id_t::cells_and_ghosts][level]).on(level - 1),
-                                                  config_t::prediction_stencil_radius),
-                                     nestedExpand(self(this->subdomain()).on(level - 1), config_t::prediction_stencil_radius)),
-                        level);
+                        level,
+                        [&](std::size_t coarse_level)
+                        {
+                            return nestedExpand(self(this->cells()[mesh_id_t::cells][level]).on(coarse_level), pred_radius);
+                        },
+                        [&](std::size_t coarse_level)
+                        {
+                            return intersection(
+                                nestedExpand(self(this->cells()[mesh_id_t::cells_and_ghosts][level]).on(coarse_level), pred_radius),
+                                nestedExpand(self(this->subdomain()).on(coarse_level), pred_radius));
+                        });
 
                     // periodic part
                     const int delta_l = int(this->domain().level() - level);
                     for (const auto& d : directions)
                     {
                         add_prediction_ghosts(
-                            intersection(nestedExpand(translate(this->cells()[mesh_id_t::cells][level], d >> delta_l).on(level - 2),
-                                                      config_t::prediction_stencil_radius),
-                                         self(this->subdomain()).on(level - 2)),
-                            intersection(nestedExpand(translate(this->cells()[mesh_id_t::cells_and_ghosts][level], d >> delta_l).on(level - 1),
-                                                      config_t::prediction_stencil_radius),
-                                         self(this->subdomain()).on(level - 1)),
-                            level);
+                            level,
+                            [&](std::size_t coarse_level)
+                            {
+                                return intersection(
+                                    nestedExpand(translate(this->cells()[mesh_id_t::cells][level], d >> delta_l).on(coarse_level),
+                                                 pred_radius),
+                                    self(this->subdomain()).on(coarse_level));
+                            },
+                            [&](std::size_t coarse_level)
+                            {
+                                return intersection(
+                                    nestedExpand(translate(this->cells()[mesh_id_t::cells_and_ghosts][level], d >> delta_l).on(coarse_level),
+                                                 pred_radius),
+                                    self(this->subdomain()).on(coarse_level));
+                            });
                     }
                 });
 
@@ -391,27 +412,40 @@ namespace samurai
                     [&](std::size_t level)
                     {
                         add_prediction_ghosts(
-                            intersection(nestedExpand(self(neighbour.mesh[mesh_id_t::cells][level]).on(level - 2),
-                                                      config_t::prediction_stencil_radius),
-                                         self(this->subdomain()).on(level - 2)),
-                            intersection(nestedExpand(self(neighbour.mesh[mesh_id_t::cells_and_ghosts][level]).on(level - 1),
-                                                      config_t::prediction_stencil_radius),
-                                         self(this->subdomain()).on(level - 1)),
-                            level);
+                            level,
+                            [&](std::size_t coarse_level)
+                            {
+                                return intersection(nestedExpand(self(neighbour.mesh[mesh_id_t::cells][level]).on(coarse_level), pred_radius),
+                                                    self(this->subdomain()).on(coarse_level));
+                            },
+                            [&](std::size_t coarse_level)
+                            {
+                                return intersection(
+                                    nestedExpand(self(neighbour.mesh[mesh_id_t::cells_and_ghosts][level]).on(coarse_level), pred_radius),
+                                    self(this->subdomain()).on(coarse_level));
+                            });
 
                         const int delta_l = int(this->domain().level() - level);
 
                         for (const auto& d : directions)
                         {
                             add_prediction_ghosts(
-                                intersection(nestedExpand(translate(neighbour.mesh[mesh_id_t::cells][level], d >> delta_l).on(level - 2),
-                                                          config_t::prediction_stencil_radius),
-                                             self(this->subdomain()).on(level - 2)),
-                                intersection(
-                                    nestedExpand(translate(neighbour.mesh[mesh_id_t::cells_and_ghosts][level], d >> delta_l).on(level - 1),
-                                                 config_t::prediction_stencil_radius),
-                                    self(this->subdomain()).on(level - 1)),
-                                level);
+                                level,
+                                [&](std::size_t coarse_level)
+                                {
+                                    return intersection(
+                                        nestedExpand(translate(neighbour.mesh[mesh_id_t::cells][level], d >> delta_l).on(coarse_level),
+                                                     pred_radius),
+                                        self(this->subdomain()).on(coarse_level));
+                                },
+                                [&](std::size_t coarse_level)
+                                {
+                                    return intersection(
+                                        nestedExpand(
+                                            translate(neighbour.mesh[mesh_id_t::cells_and_ghosts][level], d >> delta_l).on(coarse_level),
+                                            pred_radius),
+                                        self(this->subdomain()).on(coarse_level));
+                                });
                         }
                     });
             }
