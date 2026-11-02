@@ -1,4 +1,7 @@
 #include <gtest/gtest.h>
+#include <samurai/algorithm/graduation.hpp>
+#include <samurai/algorithm/update.hpp>
+#include <samurai/bc.hpp>
 #include <samurai/domain_builder.hpp>
 #include <samurai/mr/mesh.hpp>
 #include <samurai/schemes/fv.hpp>
@@ -59,6 +62,87 @@ namespace samurai
 
         // the 8 x 8 cells of [0, 1)^2 at level 3, minus the 4 x 4 cells of the hole
         EXPECT_EQ(mesh.nb_cells(mesh_id_t::cells), 48);
+    }
+
+    // At the re-entrant corner of a hole, a coarse ghost can cover finer cells (so its outer ghosts
+    // are extrapolated) and be in the reference mesh while its inner neighbour is not: it is only
+    // there to compute the details of the finer cells on the other side of the corner. The
+    // extrapolation of the second ghost layer read that inner neighbour, and the ghost update threw.
+    TEST(domain_builder, ghost_update_at_reentrant_corner)
+    {
+#ifdef SAMURAI_WITH_MPI
+        GTEST_SKIP() << "DomainBuilder is not implemented with MPI";
+#endif
+        static constexpr std::size_t dim = 2;
+        DomainBuilder<dim> domain({-2., -2.}, {2., 2.});
+        domain.remove({-1., -1.}, {1., 1.});
+
+        // At level 2, the domain is [0, 16)^2 and the hole is [4, 12)^2.
+        const std::size_t level = 2;
+        auto mesh_cfg           = mesh_config<dim>().min_level(level).max_level(5).disable_args_parse();
+        auto domain_mesh        = mra::make_mesh(domain, mesh_cfg);
+        using Mesh              = decltype(domain_mesh);
+        using mesh_id_t         = typename Mesh::mesh_id_t;
+
+        // Level 5 above the hole, level 4 on its right, level 2 elsewhere, then graded.
+        auto level_of = [&](int i, int j) -> std::size_t
+        {
+            if (j >= 12)
+            {
+                return 5;
+            }
+            if (i >= 12 && j >= 4)
+            {
+                return 4;
+            }
+            return level;
+        };
+        typename Mesh::cl_type cl(domain_mesh.origin_point(), domain_mesh.scaling_factor());
+        for_each_cell(domain_mesh[mesh_id_t::cells],
+                      [&](const auto& cell)
+                      {
+                          const auto i         = cell.indices[0];
+                          const auto j         = cell.indices[1];
+                          const std::size_t l  = level_of(i, j);
+                          const int refinement = 1 << (l - level);
+                          for (int fine_j = j * refinement; fine_j < (j + 1) * refinement; ++fine_j)
+                          {
+                              cl[l][{fine_j}].add_interval({i * refinement, (i + 1) * refinement});
+                          }
+                      });
+        typename Mesh::ca_type ca(cl, true);
+        make_graduation(ca,
+                        domain_mesh.domain_pyramid(),
+                        domain_mesh.mpi_neighbourhood(),
+                        domain_mesh.periodicity(),
+                        domain_mesh.graduation_width(),
+                        domain_mesh.max_stencil_radius());
+        Mesh mesh(ca, domain_mesh);
+
+        // The configuration: the ghost (11, 12), just above the top-right corner of the hole, covers
+        // finer cells. It and the two ghosts below it, in the hole, are in the reference mesh. The
+        // cell above it is not.
+        auto in = [](const auto& lca, int i, int j)
+        {
+            return find(lca, xt::xtensor_fixed<int, xt::xshape<dim>>{i, j}) >= 0;
+        };
+        ASSERT_TRUE(in(mesh.get_union()[level], 11, 12));
+        ASSERT_FALSE(in(mesh[mesh_id_t::cells][level], 11, 12));
+        ASSERT_TRUE(in(mesh[mesh_id_t::reference][level], 11, 12));
+        ASSERT_TRUE(in(mesh[mesh_id_t::reference][level], 11, 11));
+        ASSERT_TRUE(in(mesh[mesh_id_t::reference][level], 11, 10));
+        ASSERT_FALSE(in(mesh[mesh_id_t::reference][level], 11, 13));
+
+        auto u = make_scalar_field<double>("u", mesh, 1.);
+        make_bc<Neumann<1>>(u, 0.);
+        ASSERT_NO_THROW(update_ghost_mr(u));
+
+        // A constant field with a zero normal derivative stays constant in every ghost.
+        for_each_cell(mesh[mesh_id_t::reference],
+                      [&](const auto& cell)
+                      {
+                          EXPECT_DOUBLE_EQ(u[cell], 1.) << cell;
+                      });
     }
 
 }
