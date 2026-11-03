@@ -97,8 +97,10 @@ namespace samurai
             }
             return level;
         };
+        // make_mesh starts at max_level, so the cells are built from the domain projected to level 2.
+        const typename Mesh::lca_type coarse_domain(self(domain_mesh.domain()).on(level));
         typename Mesh::cl_type cl(domain_mesh.origin_point(), domain_mesh.scaling_factor());
-        for_each_cell(domain_mesh[mesh_id_t::cells],
+        for_each_cell(coarse_domain,
                       [&](const auto& cell)
                       {
                           const auto i         = cell.indices[0];
