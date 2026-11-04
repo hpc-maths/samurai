@@ -283,8 +283,8 @@ namespace samurai
     auto ghosts_below_cells(const Mesh& mesh, std::size_t level)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
-        return intersection(mesh[mesh_id_t::all_cells][level], union_(mesh[mesh_id_t::cells][level + 1], mesh[mesh_id_t::cells][level + 2]))
-            .on(level);
+        return intersection(mesh[mesh_id_t::all_cells][level],
+                            union_(self(mesh[mesh_id_t::cells][level + 1]).on(level), self(mesh[mesh_id_t::cells][level + 2]).on(level)));
     }
 
     template <bool enlarge_, class PredictionFn, class TField, class... TFields>
@@ -336,7 +336,7 @@ namespace samurai
 
             double regularity_to_use = cfg.regularity() + dim;
 
-            auto subset_1 = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
+            auto subset_1 = intersection(self(mesh[mesh_id_t::cells][level]).on(level - 1), mesh[mesh_id_t::all_cells][level - 1]);
 
             subset_1.apply_op(mr_criteria(m_detail, m_tag, eps_l, regularity_to_use));
             // TODO: make this update outside the loop with only one communication instead of one per level
@@ -354,7 +354,7 @@ namespace samurai
         times::timers.start("tag finalization");
         for (std::size_t level = max_level; level > 0; --level)
         {
-            auto keep_subset = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::all_cells][level - 1]).on(level - 1);
+            auto keep_subset = intersection(self(mesh[mesh_id_t::cells][level]).on(level - 1), mesh[mesh_id_t::all_cells][level - 1]);
 
             update_tag_periodic(level, m_tag);
             update_tag_subdomains(level, m_tag);

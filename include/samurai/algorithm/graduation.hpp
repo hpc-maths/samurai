@@ -150,7 +150,7 @@ namespace samurai
              *        |===========|-----------| |===========|-----------|
              */
 
-            auto ghost_subset = intersection(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::reference][level - 1]).on(level - 1);
+            auto ghost_subset = intersection(self(mesh[mesh_id_t::cells][level]).on(level - 1), mesh[mesh_id_t::reference][level - 1]);
 
             ghost_subset.apply_op(tag_to_keep<0>(tag));
 

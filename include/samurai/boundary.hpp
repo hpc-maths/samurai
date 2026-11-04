@@ -113,7 +113,7 @@ namespace samurai
         for_each_level(mesh,
                        [&](std::size_t level)
                        {
-                           auto bdry = intersection(mesh[mesh_id_t::cells][level], boundary_region).on(level);
+                           auto bdry = intersection(mesh[mesh_id_t::cells][level], self(boundary_region).on(level));
 
                            std::array<equation_coeffs_t, nb_equations> equations_coeffs;
                            for (std::size_t i = 0; i < nb_equations; ++i)

@@ -90,7 +90,7 @@ namespace samurai
 
         for (std::size_t level = min_level; level < max_level; ++level)
         {
-            auto projection_ghosts = intersection(mesh[ghost_mesh_id][level], mesh[mesh_id_t::cells][level + 1]).on(level);
+            auto projection_ghosts = intersection(mesh[ghost_mesh_id][level], self(mesh[mesh_id_t::cells][level + 1]).on(level));
             for_each_meshinterval<mesh_interval_t>(
                 projection_ghosts,
                 [&](auto mesh_interval)
@@ -168,7 +168,7 @@ namespace samurai
 
         for (std::size_t level = min_level; level < max_level; ++level)
         {
-            auto set = intersection(mesh[ghost_mesh_id][level], mesh[mesh_id_t::cells][level + 1]).on(level);
+            auto set = intersection(mesh[ghost_mesh_id][level], self(mesh[mesh_id_t::cells][level + 1]).on(level));
 
             for_each_cell(mesh, set, std::forward<Func>(f));
         }

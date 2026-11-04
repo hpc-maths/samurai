@@ -168,7 +168,8 @@ namespace samurai
                 lca_t proj_ghost_lca(level, mesh.origin_point(), mesh.scaling_factor());
                 index_t index_ghost;
 
-                auto projection_ghosts = intersection(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::reference][level + 1]).on(level);
+                auto projection_ghosts = intersection(mesh[mesh_id_t::reference][level],
+                                                      self(mesh[mesh_id_t::reference][level + 1]).on(level));
                 for_each_cell(mesh,
                               projection_ghosts,
                               [&](auto& ghost)

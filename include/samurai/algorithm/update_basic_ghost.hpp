@@ -24,7 +24,7 @@ namespace samurai
         update_outer_ghosts(max_level, field, fields...);
         for (std::size_t level = max_level; level >= 1; --level)
         {
-            auto set_at_levelm1 = intersection(mesh[mesh_id_t::proj_cells][level], mesh[mesh_id_t::reference][level - 1]).on(level - 1);
+            auto set_at_levelm1 = intersection(self(mesh[mesh_id_t::proj_cells][level]).on(level - 1), mesh[mesh_id_t::reference][level - 1]);
             set_at_levelm1.apply_op(variadic_projection(field, fields...));
             update_outer_ghosts(level - 1, field, fields...);
         }

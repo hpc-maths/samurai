@@ -118,7 +118,7 @@ namespace samurai
                     auto stencil_analyzer = make_stencil_analyzer(stencil);
 
                     // Inner cells in the boundary region
-                    auto bdry_cells = intersection(mesh[mesh_id_t::cells][level], region_lca[d]).on(level);
+                    auto bdry_cells = intersection(mesh[mesh_id_t::cells][level], self(region_lca[d]).on(level));
                     if (level >= mesh.min_level()) // otherwise there is no cells
                     {
                         apply_bc_on_subset(bc, field, bdry_cells, stencil_analyzer, direction);

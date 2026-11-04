@@ -632,7 +632,7 @@ namespace samurai
 
         for (std::size_t level = min_level; level <= max_level; ++level)
         {
-            auto set = intersection(mesh[mesh_id_t::cells][level], reconstruct_mesh[reconstruct_level]).on(level);
+            auto set = intersection(mesh[mesh_id_t::cells][level], self(reconstruct_mesh[reconstruct_level]).on(level));
             set.apply_op(make_reconstruction(reconstruct_level, reconstruct_field, field));
         }
         return reconstruct_field;
