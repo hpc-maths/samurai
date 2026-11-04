@@ -323,38 +323,31 @@ namespace samurai
         }
     }
 
-    template <std::size_t layers, class Mesh, std::size_t... Is>
-    auto translated_outer_neighbours_impl(const Mesh& mesh,
-                                          std::size_t level,
-                                          const DirectionVector<Mesh::dim>& direction,
-                                          std::index_sequence<Is...>)
+    template <class Mesh, std::size_t stencil_size, std::size_t... Is>
+    auto stencil_origins_in_reference_impl(const Mesh& mesh,
+                                           std::size_t level,
+                                           const Stencil<stencil_size, Mesh::dim>& stencil,
+                                           std::index_sequence<Is...>)
     {
         using mesh_id_t = typename Mesh::mesh_id_t;
 
-        // One translated copy of the reference cells per ghost layer, at offsets
-        // -layers, -(layers - 1), ..., -1 (i.e. -(layers - Is) for Is = 0 .. layers-1).
-        if constexpr (sizeof...(Is) == 1)
-        {
-            // `intersection` requires at least two sets, so the single-layer case is returned as-is.
-            return translate(mesh[mesh_id_t::reference][level], -static_cast<int>(layers) * direction);
-        }
-        else
-        {
-            return intersection(translate(mesh[mesh_id_t::reference][level], -static_cast<int>(layers - Is) * direction)...);
-        }
+        // One copy of the reference cells per stencil cell, translated back by its offset.
+        return intersection(translate(mesh[mesh_id_t::reference][level], DirectionVector<Mesh::dim>(-xt::view(stencil, Is)))...);
     }
 
-    template <std::size_t layers, class Mesh>
-    auto translated_outer_neighbours(const Mesh& mesh, std::size_t level, const DirectionVector<Mesh::dim>& direction)
+    /**
+     * The cells of @a level on which @a stencil can be laid: every cell it reaches, origin included, is in the reference mesh.
+     *
+     * Checking the outer ghosts alone is not enough. A coarse ghost that covers finer cells can be in the reference mesh
+     * without its inner neighbour along the stencil. This happens at a re-entrant corner of a domain with a hole: the
+     * ghost is only there to compute the details of the finer cells on the other side of the corner.
+     */
+    template <class Mesh, std::size_t stencil_size>
+    auto stencil_origins_in_reference(const Mesh& mesh, std::size_t level, const Stencil<stencil_size, Mesh::dim>& stencil)
     {
-        static_assert(layers >= 1, "at least one ghost layer is required");
+        static_assert(stencil_size >= 2, "intersection requires at least two sets");
 
-        // Technically, if mesh.domain().is_box(), then we can only test that the furthest layer of ghosts exists
-        // (i.e. the set return by the case stencil_size == 2 below).
-        // On the other hand, if the domain has holes, we have to check that all the intermediary ghost layers exist.
-        // Since we can't easily make the distinction in a static way, we always check that all the ghost layers exist.
-
-        return translated_outer_neighbours_impl<layers>(mesh, level, direction, std::make_index_sequence<layers>{});
+        return stencil_origins_in_reference_impl(mesh, level, stencil, std::make_index_sequence<stencil_size>{});
     }
 
     /**
@@ -385,8 +378,8 @@ namespace samurai
         auto stencil          = convert_for_direction(stencil_in_x, direction);
         auto stencil_analyzer = make_stencil_analyzer(stencil);
 
-        auto translated_outer_nghbr           = translated_outer_neighbours<ghost_layer>(mesh, level, direction);
-        auto potential_inner_cells_and_ghosts = intersection(translated_outer_nghbr, inner_ghosts_location).on(level);
+        auto stencil_origins                  = stencil_origins_in_reference(mesh, level, stencil);
+        auto potential_inner_cells_and_ghosts = intersection(stencil_origins, inner_ghosts_location).on(level);
         auto inner_cells_and_ghosts           = intersection(potential_inner_cells_and_ghosts, mesh.get_union()[level]).on(level);
         // auto inner_cells_and_ghosts        = intersection(potential_inner_cells_and_ghosts, mesh[mesh_id_t::cells][level + 1]).on(level);
         auto inner_ghosts_with_outer_nghbr = difference(inner_cells_and_ghosts, mesh[mesh_id_t::cells][level]).on(level);
