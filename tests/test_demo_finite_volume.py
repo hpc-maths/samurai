@@ -97,6 +97,34 @@ def test_finite_volume_demo(exec, Tf, config):
     output = subprocess.run(cmd, check=True, capture_output=True)
 
 
+def test_finite_volume_level_set_amr_corners(tmp_path):
+    # --min-corner and --max-corner take one value per dimension: the mesh must
+    # cover exactly the box they describe.
+    cmd = [
+        get_executable(Path("../build/demos/FiniteVolume/"), "finite-volume-level-set-amr"),
+        "--path",
+        str(tmp_path),
+        "--filename",
+        "corners",
+        "--Tf",
+        "0.01",
+        "--min-corner",
+        "-1",
+        "0.5",
+        "--max-corner",
+        "1",
+        "2",
+    ]
+    subprocess.run(cmd, check=True, capture_output=True)
+
+    with h5py.File(tmp_path / "corners.h5", "r") as f:
+        points = f["mesh"]["points"][:]
+    assert points[:, 0].min() == pytest.approx(-1)
+    assert points[:, 0].max() == pytest.approx(1)
+    assert points[:, 1].min() == pytest.approx(0.5)
+    assert points[:, 1].max() == pytest.approx(2)
+
+
 @pytest.mark.h5diff()
 @pytest.mark.parametrize("time_scheme", ["explicit", "implicit"])
 def test_finite_volume_demo_heat(time_scheme, config):

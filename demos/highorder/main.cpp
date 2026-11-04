@@ -130,7 +130,7 @@ int main(int argc, char* argv[])
     std::size_t nfiles   = 1;
 
     app.add_option("--min-corner", min_corner, "The min corner of the box")->capture_default_str()->group("Simulation parameters");
-    app.add_option("--max-corner", min_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
+    app.add_option("--max-corner", max_corner, "The max corner of the box")->capture_default_str()->group("Simulation parameters");
     app.add_option("--refinement", refinement, "Number of refinement")->capture_default_str()->group("Multiresolution");
     app.add_option("--with-correction", correction, "Apply flux correction at the interface of two refinement levels")
         ->capture_default_str()
