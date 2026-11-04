@@ -6,6 +6,7 @@
 #include <array>
 #include <cmath>
 #include <set>
+#include <sstream>
 #include <tuple>
 #include <utility>
 
@@ -336,6 +337,13 @@ namespace samurai
         : m_config(config)
     {
         m_config.check_levels();
+        if (!b.is_valid())
+        {
+            std::ostringstream box;
+            box << b;
+            throw std::invalid_argument(
+                fmt::format("The box {} is empty: its min corner must be below its max corner in every direction.", box.str()));
+        }
         lca_type domain_ref(m_config.start_level(), b, m_config.approx_box_tol(), m_config.scaling_factor());
         build_pyramid(m_domain, domain_ref);
 
