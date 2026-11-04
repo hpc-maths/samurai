@@ -268,7 +268,7 @@ namespace samurai
                            {
                                lcl_type& lcl = cell_list[level];
                                auto set      = intersection(nestedExpand(neighbour.mesh[mesh_id_t::cells][level], max_stencil_radius()),
-                                                       nestedExpand(self(this->subdomain()).on(level), max_stencil_radius()));
+                                                       nestedExpand(this->subdomain(level), max_stencil_radius()));
                                set(
                                    [&](const auto& interval, const auto& index)
                                    {
@@ -303,7 +303,7 @@ namespace samurai
             for (const auto& d : directions)
             {
                 auto set = intersection(nestedExpand(translate(subset, d >> delta_l), this->cfg().max_stencil_radius()),
-                                        nestedExpand(self(this->subdomain()).on(level), this->cfg().max_stencil_radius()));
+                                        nestedExpand(this->subdomain(level), this->cfg().max_stencil_radius()));
                 set(
                     [&](const auto& interval, const auto& index)
                     {
