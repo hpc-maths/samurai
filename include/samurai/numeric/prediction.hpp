@@ -3,7 +3,10 @@
 
 #pragma once
 
+#include <algorithm>
 #include <array>
+#include <cassert>
+#include <cstddef>
 #include <initializer_list>
 #include <tuple>
 #include <type_traits>
@@ -81,6 +84,149 @@ namespace samurai
                 -sign * 4661. / 262144.,
                 sign * 49. / 16384.,
                 -sign * 63. / 262144.};
+    }
+
+    namespace detail
+    {
+        /**
+         * Number of coarse cells a prediction kernel processes at once. Its buffers hold
+         * @a rows rows of @c (chunk + 2 * radius) cells of @a n_comp values; the chunk is
+         * sized so that they stay around 128 KiB whatever the dimension.
+         */
+        template <std::size_t rows, std::size_t radius, std::size_t n_comp>
+        consteval std::size_t prediction_chunk()
+        {
+            constexpr std::size_t budget = 16384 / (rows * n_comp);
+            constexpr std::size_t chunk  = budget > 2 * radius ? budget - 2 * radius : 0;
+            return chunk < 4 ? 4 : (chunk > 64 ? 64 : chunk);
+        }
+
+        /// A fixed-size array when it is small, a heap one otherwise: the stencil of a
+        /// high dimension has too many rows for the stack.
+        template <class T, std::size_t N>
+        struct prediction_buffer
+        {
+            static constexpr bool on_stack = N <= 2048;
+            std::conditional_t<on_stack, std::array<T, on_stack ? N : 1>, std::vector<T>> data;
+
+            prediction_buffer()
+            {
+                if constexpr (!on_stack)
+                {
+                    data.resize(N);
+                }
+            }
+
+            T* get()
+            {
+                return data.data();
+            }
+        };
+
+        /**
+         * Memory offsets of the rows a prediction stencil reads: the coarse cells
+         * @c (x_lo, parent + k) for every @c k in @c [-radius, radius]^(dim-1), in the order
+         * where the outermost direction varies slowest.
+         *
+         * Each direction is searched once per value of the directions above it, instead of
+         * once per stencil cell, and the cells along x are not searched at all: the rows
+         * are contiguous from @a x_lo to @a x_hi, which the caller relies on.
+         */
+        template <std::size_t N, std::size_t radius, std::size_t dim, class TInterval, class Index>
+        SAMURAI_INLINE void prediction_row_offsets(const LevelCellArray<dim, TInterval>& lca,
+                                                   std::size_t start,
+                                                   std::size_t end,
+                                                   typename TInterval::value_t x_lo,
+                                                   [[maybe_unused]] typename TInterval::value_t x_hi,
+                                                   const Index& parent,
+                                                   std::size_t*& out)
+        {
+            using value_t = typename TInterval::value_t;
+            using diff_t  = std::ptrdiff_t;
+
+            if constexpr (N == 0)
+            {
+                const auto pos = interval_search(lca[0].cbegin() + static_cast<diff_t>(start),
+                                                 lca[0].cbegin() + static_cast<diff_t>(end),
+                                                 x_lo);
+                assert(pos >= 0 && "prediction: a cell of the stencil is missing");
+                const auto& row = lca[0][start + static_cast<std::size_t>(pos)];
+                assert(row.contains(x_hi - 1) && "prediction: a row of the stencil is not contiguous");
+                *out++ = static_cast<std::size_t>(row.index + x_lo);
+            }
+            else
+            {
+                for (value_t k = -static_cast<value_t>(radius); k <= static_cast<value_t>(radius); ++k)
+                {
+                    const value_t y = parent[N - 1] + k;
+                    const auto pos  = interval_search(lca[N].cbegin() + static_cast<diff_t>(start),
+                                                     lca[N].cbegin() + static_cast<diff_t>(end),
+                                                     y);
+                    assert(pos >= 0 && "prediction: a cell of the stencil is missing");
+                    const auto off = static_cast<std::size_t>(lca[N][start + static_cast<std::size_t>(pos)].index + y);
+                    prediction_row_offsets<N - 1, radius>(lca, lca.offsets(N)[off], lca.offsets(N)[off + 1], x_lo, x_hi, parent, out);
+                }
+            }
+        }
+
+        /**
+         * Contracts directions @c 1..N of the stencil for both children in each of them,
+         * over one chunk of @a len values per row.
+         *
+         * @a out receives @c 2^N rows; row @c q is the child whose parity in direction @c j
+         * is bit @c j-1 of @c q. Each direction is contracted once, from the innermost
+         * outwards, so the cost grows like @c order^N instead of the @c (2*order)^N of the
+         * full tensor product. @a scratch must hold @c 2^N - 1 more rows.
+         */
+        template <std::size_t N, std::size_t order, std::size_t n_comp, class Value>
+        SAMURAI_INLINE void contract_family(const Value* src,
+                                            const std::size_t*& row_offset,
+                                            std::size_t shift,
+                                            std::size_t len,
+                                            std::size_t stride,
+                                            const std::array<std::array<double, order>, 2>& c,
+                                            double* out,
+                                            double* scratch)
+        {
+            constexpr std::size_t n_out = std::size_t{1} << N;
+            for (std::size_t q = 0; q < n_out; ++q)
+            {
+                std::fill_n(out + q * stride, len, 0.);
+            }
+
+            for (std::size_t k = 0; k < order; ++k)
+            {
+                if constexpr (N == 1)
+                {
+                    const Value* row = src + (*row_offset++) * n_comp + shift;
+                    const double c0  = c[0][k];
+                    const double c1  = c[1][k];
+                    for (std::size_t m = 0; m < len; ++m)
+                    {
+                        out[m] += c0 * row[m];
+                        out[stride + m] += c1 * row[m];
+                    }
+                }
+                else
+                {
+                    constexpr std::size_t n_sub = n_out / 2;
+                    contract_family<N - 1, order, n_comp>(src, row_offset, shift, len, stride, c, scratch, scratch + n_sub * stride);
+                    for (std::size_t q = 0; q < 2; ++q)
+                    {
+                        const double ck = c[q][k];
+                        for (std::size_t sub = 0; sub < n_sub; ++sub)
+                        {
+                            double* o       = out + (q * n_sub + sub) * stride;
+                            const double* t = scratch + sub * stride;
+                            for (std::size_t m = 0; m < len; ++m)
+                            {
+                                o[m] += ck * t[m];
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /////////////////////////
@@ -161,105 +307,99 @@ namespace samurai
                                                                   std::integral_constant<std::size_t, pred_stencil_size>,
                                                                   std::integral_constant<bool, true>) const
     {
+        // Predicts the 2^dim children of every cell of the interval i at `level` onto
+        // `level + 1`. The tensor product is contracted one direction at a time: first the
+        // directions above x, for every child row at once (detail::contract_family), then x.
         static_assert(DEST::n_comp == SRC::n_comp, "Source and destination fields must have the same number of components");
 
-        constexpr std::size_t order = 2 * pred_stencil_size + 1;
+        using value_t                  = typename TInterval::value_t;
+        using mesh_id_t                = typename SRC::mesh_t::mesh_id_t;
+        constexpr std::size_t r        = pred_stencil_size;
+        constexpr std::size_t order    = 2 * r + 1;
+        constexpr std::size_t n_comp   = SRC::n_comp;
+        constexpr std::size_t n_rows   = ce_pow(order, dim - 1);
+        constexpr std::size_t n_family = std::size_t{1} << (dim - 1);
+        constexpr std::size_t chunk    = detail::prediction_chunk<2 * n_family, r, n_comp>();
+        constexpr std::size_t stride   = (chunk + 2 * r) * n_comp;
 
         // (even index coefficients, odd index coefficients)
-        const std::array<std::array<double, order>, 2> interp_coeff_pair = {
-            {prediction_coefficients<pred_stencil_size>(0, 0).c, prediction_coefficients<pred_stencil_size>(1, 0).c}
+        const std::array<std::array<double, order>, 2> c = {
+            {prediction_coefficients<r>(0, 0).c, prediction_coefficients<r>(1, 0).c}
         };
 
-        // Compute the memory accessors for the source data
-        // For example, in 2D, for a prediction stencil of size 1, we need to access the following cells in the source field
-        //
-        // (level, i-1, j+1) (level, i, j+1) (level, i+1, j+1)
-        // (level, i-1, j  ) (level, i, j  ) (level, i+1, j  )
-        // (level, i-1, j-1) (level, i, j-1) (level, i+1, j-1)
-        //
-        // Since the data are contiguous in the i direction, we just have to compute the memory addresses of the first column.
+        const value_t cs = i.start;
+        const value_t ce = i.end;
 
-        std::array<std::size_t, ce_pow(order, dim)> src_offsets;
-        std::size_t ind = 0;
-        static_nested_loop<dim, -static_cast<int>(pred_stencil_size), static_cast<int>(pred_stencil_size) + 1>(
-            [&](const auto& stencil)
+        detail::prediction_buffer<std::size_t, n_rows> row_offsets;
+        {
+            const auto& lca  = src.mesh()[mesh_id_t::reference][level];
+            std::size_t* out = row_offsets.get();
+            detail::prediction_row_offsets<dim - 1, r>(lca,
+                                                       0,
+                                                       lca[dim - 1].size(),
+                                                       cs - static_cast<value_t>(r),
+                                                       ce + static_cast<value_t>(r),
+                                                       index,
+                                                       out);
+        }
+
+        // Child row q is the row 2 * index + (bit j-1 of q in direction j).
+        std::array<std::size_t, n_family> dest_offsets;
+        for (std::size_t q = 0; q < n_family; ++q)
+        {
+            xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> child = 2 * index;
+            for (std::size_t d = 1; d < dim; ++d)
             {
-                auto new_index     = index + xt::view(stencil, xt::range(1, dim));
-                src_offsets[ind++] = memory_offset(src.mesh(), {level, i.start + stencil[0], new_index});
-            });
-
-        // Compute the memory accessors for the destination data
-        // For example, in 2D, we need to access the following cells in the destination field
-        //
-        // (level + 1, 2i  , 2j  ) (level + 1, 2i+1, 2j  )
-        // (level + 1, 2i  , 2j+1) (level + 1, 2i+1, 2j+1)
-        //
-        // Since the data are contiguous in the i direction, once again, we just have to compute the memory addresses of the first column.
-
-        std::array<std::size_t, 1ULL << dim> dest_offsets;
-        ind = 0;
-        static_nested_loop<dim - 1, 0, 2>(
-            [&](const auto& stencil)
-            {
-                auto new_index        = 2 * index + stencil;
-                dest_offsets[ind]     = memory_offset(dest.mesh(), {level + 1, 2 * i.start, new_index});
-                dest_offsets[ind + 1] = dest_offsets[ind] + 1;
-                ind += 2;
-            });
+                child[d - 1] += static_cast<value_t>((q >> (d - 1)) & 1);
+            }
+            dest_offsets[q] = memory_offset(dest.mesh(), {level + 1, 2 * cs, child});
+        }
 
         const auto* src_data = src.data();
         auto* dest_data      = dest.data();
 
-        std::array<double, (1ULL << dim) * SRC::n_comp> dest_values{};
-        for (std::size_t i_c = 0, i_f = 0; i_c < i.size(); ++i_c, i_f += 2)
+        detail::prediction_buffer<double, 2 * n_family * stride> buffer;
+        double* rows = buffer.get();
+
+        for (value_t a = cs; a < ce; a += static_cast<value_t>(chunk))
         {
-            dest_values.fill(0);
-            std::size_t io = 0;
-            static_nested_loop<dim, 0, order>(
-                [&](const auto& stencil)
-                {
-                    std::array<double, SRC::n_comp> field_ijk{};
-                    for (std::size_t n = 0; n < SRC::n_comp; ++n)
-                    {
-                        field_ijk[n] = src_data[(src_offsets[io] + i_c) * SRC::n_comp + n];
-                    }
-                    ++io;
+            const value_t b         = std::min(ce, a + static_cast<value_t>(chunk));
+            const std::size_t len   = static_cast<std::size_t>(b - a + 2 * static_cast<value_t>(r)) * n_comp;
+            const std::size_t shift = static_cast<std::size_t>(a - cs) * n_comp;
 
-                    std::size_t pos = 0;
-                    std::apply(
-                        [&](const auto&... s)
+            if constexpr (dim == 1)
+            {
+                const auto* row = src_data + row_offsets.get()[0] * n_comp + shift;
+                std::copy(row, row + len, rows);
+            }
+            else
+            {
+                const std::size_t* row_offset = row_offsets.get();
+                detail::contract_family<dim - 1, order, n_comp>(src_data, row_offset, shift, len, stride, c, rows, rows + n_family * stride);
+            }
+
+            for (std::size_t q = 0; q < n_family; ++q)
+            {
+                const double* t = rows + q * stride;
+                for (value_t xc = a; xc < b; ++xc)
+                {
+                    const auto x      = static_cast<std::size_t>(xc - a);
+                    const auto fine_x = 2 * static_cast<std::size_t>(xc - cs);
+                    for (std::size_t p = 0; p < 2; ++p)
+                    {
+                        auto* d = dest_data + (dest_offsets[q] + fine_x + p) * n_comp;
+                        for (std::size_t n = 0; n < n_comp; ++n)
                         {
-                            for (std::size_t n = 0; n < SRC::n_comp; ++n)
+                            double v = 0.;
+                            for (std::size_t s = 0; s < order; ++s)
                             {
-                                (void)std::initializer_list<int>{
-                                    ((dest_values[pos++] += field_ijk[n]
-                                                          * std::apply(
-                                                                [&](const auto&... ki)
-                                                                {
-                                                                    std::size_t is = 0;
-                                                                    double coeff   = 1.;
-                                                                    ((coeff *= interp_coeff_pair[ki][static_cast<std::size_t>(stencil[is])],
-                                                                      ++is),
-                                                                     ...);
-                                                                    return coeff;
-                                                                },
-                                                                s)),
-                                     0)...};
+                                v += c[p][s] * t[(x + s) * n_comp + n];
                             }
-                        },
-                        make_index_ranges<dim, 0, 2>());
-                });
-
-            std::size_t id = 0;
-            std::apply(
-                [&](const auto&... s)
-                {
-                    for (std::size_t n = 0; n < SRC::n_comp; ++n)
-                    {
-                        ((dest_data[(s + i_f) * SRC::n_comp + n] = dest_values[id++]), ...);
+                            d[n] = v;
+                        }
                     }
-                },
-                dest_offsets);
+                }
+            }
         }
     }
 
@@ -298,72 +438,112 @@ namespace samurai
                                                                   std::integral_constant<std::size_t, pred_stencil_size>,
                                                                   std::integral_constant<bool, false>) const
     {
+        // Predicts the cells of the interval i at `level` from their parents at
+        // `level - 1`. Above x, every cell of the interval has the same parity, so the
+        // stencil rows are first summed with fixed weights; the x direction comes last.
         static_assert(DEST::n_comp == SRC::n_comp, "Source and destination fields must have the same number of components");
 
-        constexpr std::size_t order = 2 * pred_stencil_size + 1;
-        using value_t               = typename TInterval::value_t;
+        using value_t                = typename TInterval::value_t;
+        using mesh_id_t              = typename SRC::mesh_t::mesh_id_t;
+        constexpr std::size_t r      = pred_stencil_size;
+        constexpr std::size_t order  = 2 * r + 1;
+        constexpr std::size_t n_comp = SRC::n_comp;
+        constexpr std::size_t n_rows = ce_pow(order, dim - 1);
+        constexpr std::size_t chunk  = detail::prediction_chunk<1, r, n_comp>();
 
         // (even index coefficients, odd index coefficients)
-        const std::array<std::array<double, order>, 2> interp_coeff_pair = {
-            {prediction_coefficients<pred_stencil_size>(0, 0).c, prediction_coefficients<pred_stencil_size>(1, 0).c}
+        const std::array<std::array<double, order>, 2> c = {
+            {prediction_coefficients<r>(0, 0).c, prediction_coefficients<r>(1, 0).c}
         };
+
+        const value_t cs = i.start >> 1;
+        const value_t ce = ((i.end - 1) >> 1) + 1;
+
+        auto parent = index;
+        for (std::size_t d = 0; d < dim - 1; ++d)
+        {
+            parent[d] = index[d] >> 1;
+        }
+
+        detail::prediction_buffer<std::size_t, n_rows> row_offsets;
+        {
+            const auto& lca  = src.mesh()[mesh_id_t::reference][level - 1];
+            std::size_t* out = row_offsets.get();
+            detail::prediction_row_offsets<dim - 1, r>(lca,
+                                                       0,
+                                                       lca[dim - 1].size(),
+                                                       cs - static_cast<value_t>(r),
+                                                       ce + static_cast<value_t>(r),
+                                                       parent,
+                                                       out);
+        }
+
+        // Weight of each row: the product of the coefficients of its directions above x,
+        // in the order of prediction_row_offsets (outermost direction slowest).
+        detail::prediction_buffer<double, n_rows> weights;
+        {
+            double* w     = weights.get();
+            w[0]          = 1.;
+            std::size_t n = 1;
+            for (std::size_t d = dim - 1; d >= 1; --d)
+            {
+                const auto& cd = c[static_cast<std::size_t>(index[d - 1] & 1)];
+                for (std::size_t row = n; row-- > 0;)
+                {
+                    for (std::size_t s = order; s-- > 0;)
+                    {
+                        w[row * order + s] = w[row] * cd[s];
+                    }
+                }
+                n *= order;
+            }
+        }
 
         const auto* src_data = src.data();
         auto* dest_data      = dest.data();
+        auto dest_offset     = memory_offset(dest.mesh(), {level, i.start, index});
 
-        auto dest_offset = memory_offset(dest.mesh(), {level, i.start, index});
+        std::array<double, (chunk + 2 * r) * n_comp> t;
 
-        std::array<std::size_t, dim> parity;
-        parity[0] = (i.start & 1) ? 1 : 0;
-        for (std::size_t d = 1; d < dim; ++d)
+        for (value_t a = cs; a < ce; a += static_cast<value_t>(chunk))
         {
-            parity[d] = (index[d - 1] & 1) ? 1 : 0;
-        }
+            const value_t b         = std::min(ce, a + static_cast<value_t>(chunk));
+            const std::size_t len   = static_cast<std::size_t>(b - a + 2 * static_cast<value_t>(r)) * n_comp;
+            const std::size_t shift = static_cast<std::size_t>(a - cs) * n_comp;
 
-        std::array<std::size_t, ce_pow(order, dim)> src_offsets;
-        std::size_t ind = 0;
-        static_nested_loop<dim, -static_cast<int>(pred_stencil_size), static_cast<int>(pred_stencil_size) + 1>(
-            [&](const auto& stencil)
+            const auto* row = src_data + row_offsets.get()[0] * n_comp + shift;
+            const double w0 = weights.get()[0];
+            for (std::size_t m = 0; m < len; ++m)
             {
-                auto new_index     = (index >> 1) + xt::view(stencil, xt::range(1, dim));
-                src_offsets[ind++] = memory_offset(src.mesh(), {level - 1, (i.start >> 1) + stencil[0], new_index});
-            });
-
-        auto apply_pred = [&](const auto& i_f, const auto& i_c)
-        {
-            std::array<double, SRC::n_comp> dest_value{};
-            std::size_t io = 0;
-            static_nested_loop<dim, 0, order>(
-                [&](const auto& stencil)
-                {
-                    for (std::size_t n = 0; n < SRC::n_comp; ++n)
-                    {
-                        auto field_ijk = src_data[(src_offsets[io] + i_c) * SRC::n_comp + n];
-
-                        dest_value[n] += field_ijk
-                                       * std::apply(
-                                             [&](const auto&... ki)
-                                             {
-                                                 std::size_t is = 0;
-                                                 double coeff   = 1.;
-                                                 ((coeff *= interp_coeff_pair[ki][static_cast<std::size_t>(stencil[is])], ++is), ...);
-                                                 return coeff;
-                                             },
-                                             parity);
-                    }
-                    io++;
-                });
-
-            for (std::size_t n = 0; n < SRC::n_comp; ++n)
-            {
-                dest_data[(dest_offset + i_f) * SRC::n_comp + n] = dest_value[n];
+                t[m] = w0 * row[m];
             }
-            parity[0] = (parity[0] & 1) ? 0 : 1;
-        };
+            for (std::size_t row_id = 1; row_id < n_rows; ++row_id)
+            {
+                row             = src_data + row_offsets.get()[row_id] * n_comp + shift;
+                const double wr = weights.get()[row_id];
+                for (std::size_t m = 0; m < len; ++m)
+                {
+                    t[m] += wr * row[m];
+                }
+            }
 
-        for (std::size_t i_f = 0; i_f < i.size(); ++i_f)
-        {
-            apply_pred(i_f, static_cast<std::size_t>(((i.start + static_cast<value_t>(i_f)) >> 1) - (i.start >> 1)));
+            const value_t f_begin = std::max(i.start, 2 * a);
+            const value_t f_end   = std::min(i.end, 2 * b);
+            for (value_t f = f_begin; f < f_end; ++f)
+            {
+                const auto x   = static_cast<std::size_t>((f >> 1) - a);
+                const auto& cp = c[static_cast<std::size_t>(f & 1)];
+                auto* d        = dest_data + (dest_offset + static_cast<std::size_t>(f - i.start)) * n_comp;
+                for (std::size_t n = 0; n < n_comp; ++n)
+                {
+                    double v = 0.;
+                    for (std::size_t s = 0; s < order; ++s)
+                    {
+                        v += cp[s] * t[(x + s) * n_comp + n];
+                    }
+                    d[n] = v;
+                }
+            }
         }
     }
 
