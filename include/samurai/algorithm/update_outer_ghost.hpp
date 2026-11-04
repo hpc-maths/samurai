@@ -28,7 +28,7 @@ namespace samurai
 
         assert(layer > 0 && layer <= mesh.max_stencil_radius());
 
-        auto domain = self(mesh.domain()).on(proj_level);
+        const auto& domain = mesh.domain(proj_level);
 
         auto& inner = mesh.get_union()[proj_level];
         // auto inner = self(mesh[mesh_id_t::cells][proj_level + 1]).on(proj_level);

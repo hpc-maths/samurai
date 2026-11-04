@@ -790,7 +790,7 @@ namespace samurai
             {
                 static constexpr std::size_t layer = decltype(ghost_layer_)::value;
 
-                auto domain2         = self(field.mesh().domain()).on(level);
+                const auto& domain2  = field.mesh().domain(level);
                 auto boundary_ghosts = difference(domain2, translate(domain2, -direction));
                 apply_extrapolation_bc_ghosts<layer>(bc, level, field, direction, boundary_ghosts, stencil);
             });
