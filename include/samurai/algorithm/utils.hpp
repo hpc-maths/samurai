@@ -29,7 +29,12 @@ namespace samurai
         template <class T>
         SAMURAI_INLINE void operator()(Dim<dim>, T& dest, const T& src) const
         {
-            dest(level, i, index) = src(level, i, index);
+            // Both views cover the same interval, so they have the same shape, and
+            // an element is only read to write the same element. noalias assigns
+            // directly, like FieldBase::assign_expression. A plain = would compare
+            // the shapes and keep a broadcast fallback, in which GCC 15 reports a
+            // false -Warray-bounds for a 1D view.
+            noalias(dest(level, i, index)) = src(level, i, index);
         }
     };
 

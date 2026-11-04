@@ -30,7 +30,8 @@ void update_ghost(Field& phi)
         expr(
             [&](const auto& i, auto)
             {
-                phi(level - 1, i) = 0.5 * (phi(level, 2 * i) + phi(level, 2 * i + 1));
+                // The two levels are stored apart: xt::noalias writes without a temporary
+                xt::noalias(phi(level - 1, i)) = 0.5 * (phi(level, 2 * i) + phi(level, 2 * i + 1));
             });
     }
 
@@ -70,14 +71,10 @@ void update_ghost(Field& phi)
             [&](const auto& i, auto)
             {
                 auto i_coarse = i >> 1;
-                if (i.start & 1)
-                {
-                    phi(level, i) = phi(level - 1, i_coarse) + 1. / 8 * (phi(level - 1, i_coarse + 1) - phi(level - 1, i_coarse - 1));
-                }
-                else
-                {
-                    phi(level, i) = phi(level - 1, i_coarse) - 1. / 8 * (phi(level - 1, i_coarse + 1) - phi(level - 1, i_coarse - 1));
-                }
+                // An odd fine cell lies in the right half of its coarse cell
+                const double sign          = (i.start & 1) ? 1. : -1.;
+                xt::noalias(phi(level, i)) = phi(level - 1, i_coarse)
+                                           + sign / 8 * (phi(level - 1, i_coarse + 1) - phi(level - 1, i_coarse - 1));
             });
     }
 }

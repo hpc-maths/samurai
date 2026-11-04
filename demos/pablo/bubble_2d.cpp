@@ -1,6 +1,7 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
+#include <cmath>
 #include <iostream>
 
 #include <filesystem>
@@ -278,13 +279,13 @@ int main(int argc, char* argv[])
 
     xt::random::seed(42);
     using container_t             = xt::xtensor<double, 1>;
-    container_t bb_xcenter        = 0.8 * x_length * xt::random::rand<double>({nb_bubbles}) + 0.1 * x_length;
+    container_t bb_xcenter        = xt::random::rand<double>({nb_bubbles}, 0.1 * x_length, 0.9 * x_length);
     const container_t bb0_xcenter = bb_xcenter;
-    container_t bb_ycenter        = y_length * xt::random::rand<double>({nb_bubbles}) - 0.5 * y_length;
-    const container_t bb_radius   = 0.1 * xt::random::rand<double>({nb_bubbles}) + 0.02;
-    const container_t dy          = 0.005 + 0.05 * xt::random::rand<double>({nb_bubbles});
-    const container_t omega       = 0.5 * xt::random::rand<double>({nb_bubbles});
-    const container_t aa          = 0.15 * xt::random::rand<double>({nb_bubbles});
+    container_t bb_ycenter        = xt::random::rand<double>({nb_bubbles}, -0.5 * y_length, 0.5 * y_length);
+    const container_t bb_radius   = xt::random::rand<double>({nb_bubbles}, 0.02, 0.12);
+    const container_t dy          = xt::random::rand<double>({nb_bubbles}, 0.005, 0.055);
+    const container_t omega       = xt::random::rand<double>({nb_bubbles}, 0., 0.5);
+    const container_t aa          = xt::random::rand<double>({nb_bubbles}, 0., 0.15);
 
     samurai::CellArray<dim> mesh;
 
@@ -306,8 +307,11 @@ int main(int argc, char* argv[])
             t = Tf;
         }
 
-        bb_xcenter = bb0_xcenter + aa * xt::cos(omega * t);
-        bb_ycenter = bb_ycenter + dt * dy;
+        for (std::size_t ib = 0; ib < nb_bubbles; ++ib)
+        {
+            bb_xcenter[ib] = bb0_xcenter[ib] + aa[ib] * std::cos(omega[ib] * t);
+            bb_ycenter[ib] += dt * dy[ib];
+        }
 
         std::cout << fmt::format("iteration -> {} t -> {}", nt++, t) << std::endl;
 

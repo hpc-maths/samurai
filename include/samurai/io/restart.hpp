@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <array>
 #include <concepts>
 #include <filesystem>
 #include <numeric>
@@ -186,8 +187,16 @@ namespace samurai
             H5Easy::dump(file, "/mesh/dim", array_t::dim);
             H5Easy::dump(file, "/mesh/min_level", min_level);
             H5Easy::dump(file, "/mesh/max_level", max_level);
-            // HighFive v3 does not support xfixed_container so we have to dump from an xtensor_container first
-            H5Easy::dump(file, "/mesh/origin_point", xt::xtensor<double, 1>{array.origin_point()});
+            // HighFive v3 has no xtensor_fixed support, so the origin point goes
+            // through a std::array. The copy loops over the elements on purpose:
+            // GCC 15 reports a false -Warray-bounds on std::copy from an xtensor
+            // with a single element.
+            std::array<double, array_t::dim> origin_point;
+            for (std::size_t d = 0; d < array_t::dim; ++d)
+            {
+                origin_point[d] = array.origin_point()[d];
+            }
+            H5Easy::dump(file, "/mesh/origin_point", origin_point);
             H5Easy::dump(file, "/mesh/scaling_factor", array.scaling_factor());
         }
 
@@ -260,8 +269,17 @@ namespace samurai
         template <class array_t>
         void load_geometry(const HighFive::File& file, array_t& array)
         {
-            // HighFive v3 does not support xfixed_container so we have to load into an xtensor_container first
-            array.set_origin_point(H5Easy::load<xt::xtensor<double, 1>>(file, "/mesh/origin_point"));
+            // HighFive v3 has no xtensor_fixed support, so the origin point goes
+            // through a std::array. Neither read into a 1D xt::xtensor nor use
+            // std::copy here: with a single element, both make GCC 15 report a
+            // false -Warray-bounds.
+            const auto origin_point = H5Easy::load<std::array<double, array_t::dim>>(file, "/mesh/origin_point");
+            typename array_t::coords_t coords;
+            for (std::size_t d = 0; d < array_t::dim; ++d)
+            {
+                coords[d] = origin_point[d];
+            }
+            array.set_origin_point(coords);
             array.set_scaling_factor(H5Easy::load<double>(file, "/mesh/scaling_factor"));
         }
 
