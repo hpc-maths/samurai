@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <algorithm>
+
 #include "../algorithm.hpp"
 #include "../numeric/prediction.hpp"
 #include "../numeric/projection.hpp"
@@ -30,7 +32,9 @@ namespace samurai
         }
 
         update_outer_ghosts(0, field, fields...);
-        for (std::size_t level = mesh[mesh_id_t::reference].min_level(); level <= max_level; ++level)
+        // The prediction reads the parent at level - 1: a cell at level 0 has none, so the loop starts at
+        // level 1 when the reference mesh has cells at level 0.
+        for (std::size_t level = std::max(mesh[mesh_id_t::reference].min_level(), std::size_t{1}); level <= max_level; ++level)
         {
             auto set_at_level = intersection(mesh[mesh_id_t::pred_cells][level], mesh[mesh_id_t::reference][level - 1]).on(level);
             set_at_level.apply_op(variadic_prediction<pred_order, false>(field, fields...));
