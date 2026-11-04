@@ -34,6 +34,7 @@
 //     accumulate at corners — hence the subdomain -> periodic -> dim ordering.
 
 #include <algorithm>
+#include <cassert>
 #include <iterator>
 #include <vector>
 
@@ -216,8 +217,13 @@ namespace samurai::detail
 
             if (level > min_level)
             {
-                auto set_at_levelm1 = intersection(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::proj_cells][level - 1]).on(level - 1);
-                set_at_levelm1.apply_op(variadic_projection(field, other_fields...));
+                // The mesh adds the children of every projection ghost to the reference cells of the level
+                // above, since the field projection reads them: the projection ghosts are therefore exactly
+                // intersection(reference[level], proj_cells[level - 1]).on(level - 1), without a set projection.
+                const auto& proj_ghosts = mesh[mesh_id_t::proj_cells][level - 1];
+                assert(
+                    typename Field::mesh_t::lca_type(difference(proj_ghosts, self(mesh[mesh_id_t::reference][level]).on(level - 1))).empty());
+                self(proj_ghosts).apply_op(variadic_projection(field, other_fields...));
             }
         }
 
