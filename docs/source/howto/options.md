@@ -120,7 +120,7 @@ The multiresolution options work the same way: `--mr-eps`, `--mr-reg` and `--mr-
 
 ## Define custom options
 
-`samurai::initialize` returns the `CLI::App` object that holds the options. Add your options to it between `samurai::initialize` and `SAMURAI_PARSE`, so that `SAMURAI_PARSE` reads them and `--help` lists them:
+`samurai::initialize` returns the `samurai::App` object that holds the options, a `CLI::App`. Add your options to it between `samurai::initialize` and `SAMURAI_PARSE`, so that `SAMURAI_PARSE` reads them and `--help` lists them:
 
 ```{literalinclude} snippet/options/custom_options.cpp
   :language: c++
@@ -137,6 +137,8 @@ The multiresolution options work the same way: `--mr-eps`, `--mr-reg` and `--mr-
 ```
 
 For the other ways to declare options (vectors, validators, required options, ...), see the [CLI11 book](https://cliutils.github.io/CLI11/book/).
+
+An option bound to a point, an `xt::xtensor_fixed<double, xt::xshape<dim>>` such as the corners of a `samurai::Box`, takes one value per coordinate: `--max-corner 4 4`. Fewer or more values are an error. Only `samurai::App` reads points this way: through a plain `CLI::App`, or a `CLI::App&` reference to the object `samurai::initialize` returns, CLI11 keeps the first value only.
 
 `add_option` keeps a reference to your variable, and each call to `SAMURAI_PARSE` writes the parsed value through it, so the variable has to outlive every parse. Declare it in `main`, or in an object that lives until the end of `main`, and call `SAMURAI_PARSE` once. If several functions, or several instantiations of a function template, need the values, read them in `main` and pass them as arguments, as `demos/FiniteVolume/advection_2d.cpp` does. An option bound to a local variable of a function that has returned points to a stack frame that no longer exists, and the next parse writes into it.
 

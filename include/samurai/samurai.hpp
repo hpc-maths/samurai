@@ -19,7 +19,7 @@ namespace mpi = boost::mpi;
 
 namespace samurai
 {
-    static CLI::App app;
+    static App app;
 
 #ifdef SAMURAI_WITH_PETSC
 #define SAMURAI_PARSE(argc, argv)       \

@@ -213,6 +213,13 @@ namespace samurai
                               });
             this->cells()[mesh_id_t::cells_and_ghosts] = {cl, false};
 
+            // Without cells, min_level() is past the last level and the loops below would index it.
+            // The other sub-meshes are then empty as well.
+            if (this->cells()[mesh_id_t::cells].empty())
+            {
+                return;
+            }
+
             auto max_level = this->cells()[mesh_id_t::cells].max_level();
             auto min_level = this->cells()[mesh_id_t::cells].min_level();
 

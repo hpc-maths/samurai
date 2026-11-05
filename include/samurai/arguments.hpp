@@ -2,7 +2,15 @@
 // SPDX-License-Identifier:  BSD-3-Clause
 #pragma once
 
+#include <algorithm>
+#include <sstream>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include <CLI/CLI.hpp>
+
+#include <xtensor/containers/xfixed.hpp>
 
 #include "samurai_config.hpp"
 
@@ -35,6 +43,50 @@ namespace samurai
         static double regularity = std::numeric_limits<double>::infinity();
         static bool rel_detail   = false;
     }
+
+    /**
+     * The command-line application returned by samurai::initialize.
+     *
+     * It is a CLI::App that can also read a point, an xt::xtensor_fixed of shape {N} such as the
+     * corners of a Box, from exactly N values: `--max-corner 4 4`. CLI11 does not know this type: it
+     * takes it for a wrapper around a single value, so a plain CLI::App keeps the first value only
+     * and fills the other coordinates with garbage.
+     */
+    class App : public CLI::App
+    {
+      public:
+
+        using CLI::App::add_option;
+        using CLI::App::App;
+
+        template <class value_t, std::size_t N, xt::layout_type L, bool sharable>
+        CLI::Option*
+        add_option(std::string option_name, xt::xtensor_fixed<value_t, xt::xshape<N>, L, sharable>& point, std::string option_description = "")
+        {
+            auto* option = add_option_function<std::vector<value_t>>(
+                std::move(option_name),
+                [&point](const std::vector<value_t>& values)
+                {
+                    std::copy(values.begin(), values.end(), point.begin());
+                },
+                std::move(option_description));
+            option->expected(static_cast<int>(N));
+            // Used by capture_default_str(): print the point as CLI11 prints a container.
+            option->default_function(
+                [&point]()
+                {
+                    std::ostringstream out;
+                    out << '[';
+                    for (std::size_t i = 0; i < N; ++i)
+                    {
+                        out << (i == 0 ? "" : ",") << point[i];
+                    }
+                    out << ']';
+                    return out.str();
+                });
+            return option;
+        }
+    };
 
     SAMURAI_INLINE void read_samurai_arguments(CLI::App& app, int& argc, char**& argv)
     {

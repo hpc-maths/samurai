@@ -7,6 +7,7 @@
 #include <samurai/amr/mesh.hpp>
 #include <samurai/box.hpp>
 #include <samurai/mesh_config.hpp>
+#include <samurai/mr/mesh.hpp>
 
 #include "test_common.hpp"
 
@@ -67,5 +68,33 @@ namespace samurai
         EXPECT_THROW(amr::make_mesh(box, mesh_config<1>().min_level(4).max_level(5).start_level(3)), std::invalid_argument);
 
         EXPECT_THROW((amr::Mesh<mesh_config<1>>(box, mesh_config<1>().min_level(2).max_level(5).start_level(7))), std::invalid_argument);
+    }
+
+    // A box with no extent in one direction has no cell. The mesh rejects it
+    // instead of building a mesh without cells that the fields cannot use.
+    TEST(mesh, empty_box_throws)
+    {
+        const Box<double, 2> flat_box({0., 0.}, {4., 0.});
+        const Box<double, 2> reversed_box({0., 1.}, {1., 0.});
+        auto config = mesh_config<2>().min_level(4).max_level(8);
+
+        EXPECT_THROW(amr::make_mesh(flat_box, config), std::invalid_argument);
+        EXPECT_THROW(amr::make_mesh(reversed_box, config), std::invalid_argument);
+        EXPECT_THROW(mra::make_mesh(flat_box, config), std::invalid_argument);
+        EXPECT_THROW(mra::make_mesh(reversed_box, config), std::invalid_argument);
+    }
+
+    // An AMR mesh built from an empty cell list has no cell, and no ghost or
+    // projection cell either.
+    TEST(mesh, amr_mesh_without_cells)
+    {
+        using mesh_t = amr::Mesh<mesh_config<2>>;
+        const typename mesh_t::cl_type cl;
+
+        auto mesh = amr::make_mesh(cl, mesh_config<2>().min_level(4).max_level(8).disable_args_parse());
+        EXPECT_EQ(mesh.nb_cells(amr::AMR_Id::cells), 0);
+        EXPECT_EQ(mesh.nb_cells(amr::AMR_Id::cells_and_ghosts), 0);
+        EXPECT_EQ(mesh.nb_cells(amr::AMR_Id::proj_cells), 0);
+        EXPECT_EQ(mesh.nb_cells(amr::AMR_Id::all_cells), 0);
     }
 }
