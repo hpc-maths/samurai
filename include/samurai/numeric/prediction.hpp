@@ -7,13 +7,9 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
-#include <initializer_list>
 #include <tuple>
 #include <type_traits>
 #include <utility>
-#include <vector>
-
-#include <xtensor/views/xview.hpp>
 
 #include "../field/concepts.hpp"
 #include "../operators_base.hpp"
@@ -89,139 +85,165 @@ namespace samurai
     namespace detail
     {
         /**
-         * Number of coarse cells a prediction kernel processes at once. Its buffers hold
-         * @a rows rows of @c (chunk + 2 * radius) cells of @a n_comp values; the chunk is
-         * sized so that they stay around 128 KiB whatever the dimension.
+         * The prediction stencil of one coarse row, contracted one direction at a time.
+         *
+         * A predicted value sums the coarse cells @c parent + k, @c k in @c [-r, r]^dim, each
+         * weighted by the product over the directions @c d of @c c[parity_d][k_d]. The sum is
+         * separable, so the directions above x are contracted one after the other: contracting
+         * direction @c N combines the @c 2r+1 contractions of direction @c N-1 into one row per
+         * parity of direction @c N, and x comes last.
+         *
+         * @a n_par is the number of parities kept in every direction above x: 1 to predict a
+         * single fine row, 2 to predict the @c 2^(dim-1) rows of children of a coarse row at
+         * once. With 2, each contraction of direction @c N-1 serves both children of direction
+         * @c N, and the cost grows like @c (2r+1)^dim instead of @c (2(2r+1))^dim.
          */
-        template <std::size_t rows, std::size_t radius, std::size_t n_comp>
-        consteval std::size_t prediction_chunk()
+        template <std::size_t n_par, std::size_t radius, std::size_t n_comp, class LCA, class Value>
+        struct stencil_contraction
         {
-            constexpr std::size_t budget = 16384 / (rows * n_comp);
-            constexpr std::size_t chunk  = budget > 2 * radius ? budget - 2 * radius : 0;
-            return chunk < 4 ? 4 : (chunk > 64 ? 64 : chunk);
-        }
+            static constexpr std::size_t dim    = LCA::dim;
+            static constexpr std::size_t size   = PredictionCoefficients<radius>::size;
+            static constexpr std::size_t n_rows = ce_pow(n_par, dim - 1); ///< fine rows predicted together
+            /// Coarse cells per chunk, so that the buffers stay within 128 KiB whatever the dimension.
+            static constexpr std::size_t chunk  = std::clamp<std::size_t>(8192 / (n_rows * n_comp), size + 3, size + 63) - 2 * radius;
+            static constexpr std::size_t stride = (chunk + 2 * radius) * n_comp; ///< between two rows of a buffer
 
-        /// A fixed-size array when it is small, a heap one otherwise: the stencil of a
-        /// high dimension has too many rows for the stack.
-        template <class T, std::size_t N>
-        struct prediction_buffer
-        {
-            static constexpr bool on_stack = N <= 2048;
-            std::conditional_t<on_stack, std::array<T, on_stack ? N : 1>, std::vector<T>> data;
+            using value_t = typename LCA::interval_t::value_t;
+            using row_t   = std::array<value_t, dim - 1>;
 
-            prediction_buffer()
+            const LCA& lca; ///< the coarse level
+            const Value* src;
+            const std::array<std::array<double, size>, 2>& c; ///< coefficients of the low and the high child
+            row_t parent;                                     ///< the coarse row
+            row_t parity;                                     ///< parity of the first fine row in each direction above x
+            value_t x_lo = 0;                                 ///< the coarse columns [x_lo, x_hi) of the current chunk
+            value_t x_hi = 0;
+
+            /**
+             * Contracts directions @c 1..N of the rows of the stencil found in @c lca[N]
+             * between @a start and @a end. Writes @c n_par^N rows into @a out, where the
+             * parity of direction @c N varies slowest, and returns it. Direction 0 is the
+             * source row itself, which is contiguous over the columns of the chunk.
+             */
+            template <std::size_t N>
+            SAMURAI_INLINE const auto* contract(std::size_t start, std::size_t end, double* out) const
             {
-                if constexpr (!on_stack)
+                if constexpr (N == 0)
                 {
-                    data.resize(N);
+                    const auto& x_interval = find(0, start, end, x_lo);
+                    assert(x_interval.contains(x_hi - 1) && "prediction: a row of the stencil is not contiguous");
+                    return src + static_cast<std::size_t>(x_interval.index + x_lo) * n_comp;
+                }
+                else
+                {
+                    constexpr std::size_t n_sub = ce_pow(n_par, N - 1);
+                    const std::size_t len       = static_cast<std::size_t>(x_hi - x_lo) * n_comp;
+                    std::array<double, N == 1 ? 0 : n_sub * stride> sub;
+
+                    for (std::size_t k = 0; k < size; ++k)
+                    {
+                        const value_t y  = parent[N - 1] + static_cast<value_t>(k) - static_cast<value_t>(radius);
+                        const auto off   = static_cast<std::size_t>(find(N, start, end, y).index + y);
+                        const auto* rows = contract<N - 1>(lca.offsets(N)[off], lca.offsets(N)[off + 1], sub.data());
+
+                        for (std::size_t q = 0; q < n_par; ++q)
+                        {
+                            const double ck = c[static_cast<std::size_t>(parity[N - 1]) + q][k];
+                            for (std::size_t s = 0; s < n_sub; ++s)
+                            {
+                                double* o     = out + (q * n_sub + s) * stride;
+                                const auto* r = rows + s * stride;
+                                for (std::size_t m = 0; m < len; ++m)
+                                {
+                                    o[m] = (k == 0 ? 0. : o[m]) + ck * r[m];
+                                }
+                            }
+                        }
+                    }
+                    return static_cast<const double*>(out);
                 }
             }
 
-            T* get()
+            /// The interval of @c lca[d], between @a start and @a end, that contains @a v.
+            SAMURAI_INLINE const auto& find(std::size_t d, std::size_t start, std::size_t end, value_t v) const
             {
-                return data.data();
+                const auto first = lca[d].cbegin();
+                const auto pos   = interval_search(first + static_cast<std::ptrdiff_t>(start), first + static_cast<std::ptrdiff_t>(end), v);
+                assert(pos >= 0 && "prediction: a cell of the stencil is missing");
+                return lca[d][start + static_cast<std::size_t>(pos)];
             }
         };
 
         /**
-         * Memory offsets of the rows a prediction stencil reads: the coarse cells
-         * @c (x_lo, parent + k) for every @c k in @c [-radius, radius]^(dim-1), in the order
-         * where the outermost direction varies slowest.
-         *
-         * Each direction is searched once per value of the directions above it, instead of
-         * once per stencil cell, and the cells along x are not searched at all: the rows
-         * are contiguous from @a x_lo to @a x_hi, which the caller relies on.
+         * Predicts the fine cells @c [f_lo, f_hi) of the rows @c first + {0..n_par-1}^(dim-1)
+         * of @a fine_level from their parents, one level below.
          */
-        template <std::size_t N, std::size_t radius, std::size_t dim, class TInterval, class Index>
-        SAMURAI_INLINE void prediction_row_offsets(const LevelCellArray<dim, TInterval>& lca,
-                                                   std::size_t start,
-                                                   std::size_t end,
-                                                   typename TInterval::value_t x_lo,
-                                                   [[maybe_unused]] typename TInterval::value_t x_hi,
-                                                   const Index& parent,
-                                                   std::size_t*& out)
+        template <std::size_t n_par, std::size_t radius, class DEST, class SRC, class Row>
+        SAMURAI_INLINE void predict_rows(DEST& dest,
+                                         const SRC& src,
+                                         std::size_t fine_level,
+                                         typename SRC::mesh_t::interval_t::value_t f_lo,
+                                         typename SRC::mesh_t::interval_t::value_t f_hi,
+                                         const Row& first)
         {
-            using value_t = typename TInterval::value_t;
-            using diff_t  = std::ptrdiff_t;
+            using mesh_id_t       = typename SRC::mesh_t::mesh_id_t;
+            constexpr auto n_comp = SRC::n_comp;
+            const auto& lca       = src.mesh()[mesh_id_t::reference][fine_level - 1];
+            using contraction_t = stencil_contraction<n_par, radius, n_comp, std::decay_t<decltype(lca)>, std::decay_t<decltype(*src.data())>>;
+            using value_t         = typename contraction_t::value_t;
+            constexpr auto dim    = contraction_t::dim;
+            constexpr auto stride = contraction_t::stride;
+            constexpr auto chunk  = static_cast<value_t>(contraction_t::chunk);
 
-            if constexpr (N == 0)
+            const std::array<std::array<double, contraction_t::size>, 2> c = {
+                {prediction_coefficients<radius>(0, 0).c, prediction_coefficients<radius>(1, 0).c}
+            };
+
+            contraction_t contraction{lca, src.data(), c, {}, {}};
+            for (std::size_t d = 0; d < dim - 1; ++d)
             {
-                const auto pos = interval_search(lca[0].cbegin() + static_cast<diff_t>(start),
-                                                 lca[0].cbegin() + static_cast<diff_t>(end),
-                                                 x_lo);
-                assert(pos >= 0 && "prediction: a cell of the stencil is missing");
-                const auto& x_interval = lca[0][start + static_cast<std::size_t>(pos)];
-                assert(x_interval.contains(x_hi - 1) && "prediction: a row of the stencil is not contiguous");
-                *out++ = static_cast<std::size_t>(x_interval.index + x_lo);
+                contraction.parent[d] = first[d] >> 1;
+                contraction.parity[d] = first[d] & 1;
             }
-            else
+
+            // Memory offset of the column f_lo in each fine row, in the order of the contraction.
+            std::array<std::size_t, contraction_t::n_rows> dest_rows;
+            for (std::size_t q = 0; q < dest_rows.size(); ++q)
             {
-                for (value_t k = -static_cast<value_t>(radius); k <= static_cast<value_t>(radius); ++k)
+                typename contraction_t::row_t fine_row;
+                for (std::size_t d = 0, digits = q; d < dim - 1; ++d, digits /= n_par)
                 {
-                    const value_t y = parent[N - 1] + k;
-                    const auto pos  = interval_search(lca[N].cbegin() + static_cast<diff_t>(start),
-                                                     lca[N].cbegin() + static_cast<diff_t>(end),
-                                                     y);
-                    assert(pos >= 0 && "prediction: a cell of the stencil is missing");
-                    const auto off = static_cast<std::size_t>(lca[N][start + static_cast<std::size_t>(pos)].index + y);
-                    prediction_row_offsets<N - 1, radius>(lca, lca.offsets(N)[off], lca.offsets(N)[off + 1], x_lo, x_hi, parent, out);
+                    fine_row[d] = first[d] + static_cast<value_t>(digits % n_par);
                 }
-            }
-        }
-
-        /**
-         * Contracts directions @c 1..N of the stencil for both children in each of them,
-         * over one chunk of @a len values per row.
-         *
-         * @a out receives @c 2^N rows; row @c q is the child whose parity in direction @c j
-         * is bit @c j-1 of @c q. Each direction is contracted once, from the innermost
-         * outwards, so the cost grows like @c order^N instead of the @c (2*order)^N of the
-         * full tensor product. @a scratch must hold @c 2^N - 1 more rows.
-         */
-        template <std::size_t N, std::size_t order, std::size_t n_comp, class Value>
-        SAMURAI_INLINE void contract_family(const Value* src,
-                                            const std::size_t*& row_offset,
-                                            std::size_t shift,
-                                            std::size_t len,
-                                            std::size_t stride,
-                                            const std::array<std::array<double, order>, 2>& c,
-                                            double* out,
-                                            double* scratch)
-        {
-            constexpr std::size_t n_out = std::size_t{1} << N;
-            for (std::size_t q = 0; q < n_out; ++q)
-            {
-                std::fill_n(out + q * stride, len, 0.);
+                dest_rows[q] = memory_offset(dest.mesh(), {fine_level, f_lo, fine_row});
             }
 
-            for (std::size_t k = 0; k < order; ++k)
+            std::array<double, contraction_t::n_rows * stride> rows;
+            const value_t c_lo = f_lo >> 1;
+            const value_t c_hi = ((f_hi - 1) >> 1) + 1;
+            for (value_t a = c_lo; a < c_hi; a += chunk)
             {
-                if constexpr (N == 1)
+                const value_t b   = std::min(c_hi, a + chunk);
+                contraction.x_lo  = a - static_cast<value_t>(radius);
+                contraction.x_hi  = b + static_cast<value_t>(radius);
+                const auto* above = contraction.template contract<dim - 1>(0, lca[dim - 1].size(), rows.data());
+
+                // x comes last: the fine cell f reads the 2r+1 columns centred on its parent.
+                for (std::size_t q = 0; q < dest_rows.size(); ++q)
                 {
-                    const Value* src_row = src + (*row_offset++) * n_comp + shift;
-                    const double c0      = c[0][k];
-                    const double c1      = c[1][k];
-                    for (std::size_t m = 0; m < len; ++m)
+                    for (value_t f = std::max(f_lo, 2 * a); f < std::min(f_hi, 2 * b); ++f)
                     {
-                        out[m] += c0 * src_row[m];
-                        out[stride + m] += c1 * src_row[m];
-                    }
-                }
-                else
-                {
-                    constexpr std::size_t n_sub = n_out / 2;
-                    contract_family<N - 1, order, n_comp>(src, row_offset, shift, len, stride, c, scratch, scratch + n_sub * stride);
-                    for (std::size_t q = 0; q < 2; ++q)
-                    {
-                        const double ck = c[q][k];
-                        for (std::size_t sub = 0; sub < n_sub; ++sub)
+                        const auto& cf = c[static_cast<std::size_t>(f & 1)];
+                        const auto* t  = above + q * stride + static_cast<std::size_t>((f >> 1) - a) * n_comp;
+                        auto* d        = dest.data() + (dest_rows[q] + static_cast<std::size_t>(f - f_lo)) * n_comp;
+                        for (std::size_t n = 0; n < n_comp; ++n)
                         {
-                            double* o       = out + (q * n_sub + sub) * stride;
-                            const double* t = scratch + sub * stride;
-                            for (std::size_t m = 0; m < len; ++m)
+                            double v = 0.;
+                            for (std::size_t s = 0; s < contraction_t::size; ++s)
                             {
-                                o[m] += ck * t[m];
+                                v += cf[s] * t[s * n_comp + n];
                             }
+                            d[n] = v;
                         }
                     }
                 }
@@ -240,333 +262,31 @@ namespace samurai
 
         INIT_OPERATOR(prediction_op)
 
-        template <class DEST, class SRC>
-        void
-        operator()(Dim<dim>, DEST& dest, const SRC& src, std::integral_constant<std::size_t, 0>, std::integral_constant<bool, true>) const;
+        /**
+         * With @a dest_on_level, predicts the @c 2^dim children of every cell of the interval
+         * @c i at @c level + 1; otherwise, the cells of @c i at @c level from their parents.
+         */
+        template <class DEST, class SRC, std::size_t radius, bool dest_on_level>
+        SAMURAI_INLINE void operator()(Dim<dim>,
+                                       DEST& dest,
+                                       const SRC& src,
+                                       std::integral_constant<std::size_t, radius>,
+                                       std::integral_constant<bool, dest_on_level>) const
+        {
+            static_assert(DEST::n_comp == SRC::n_comp, "Source and destination fields must have the same number of components");
+            using value_t = typename TInterval::value_t;
 
-        template <class DEST, class SRC>
-        void
-        operator()(Dim<dim>, DEST& dest, const SRC& src, std::integral_constant<std::size_t, 0>, std::integral_constant<bool, false>) const;
+            constexpr std::size_t n_par = dest_on_level ? 2 : 1; // fine rows per row of i, in each direction
+            const auto scale            = static_cast<value_t>(n_par);
 
-        template <class DEST, class SRC, std::size_t order>
-        void
-        operator()(Dim<dim>, DEST& dest, const SRC& src, std::integral_constant<std::size_t, order>, std::integral_constant<bool, true>) const;
-
-        template <class DEST, class SRC, std::size_t order>
-        void
-        operator()(Dim<dim>, DEST& dest, const SRC& src, std::integral_constant<std::size_t, order>, std::integral_constant<bool, false>) const;
+            std::array<value_t, dim - 1> first; // the first fine row
+            for (std::size_t d = 0; d < dim - 1; ++d)
+            {
+                first[d] = scale * index[d];
+            }
+            detail::predict_rows<n_par, radius>(dest, src, level + n_par - 1, scale * i.start, scale * i.end, first);
+        }
     };
-
-    template <std::size_t dim, class TInterval>
-    template <class DEST, class SRC>
-    SAMURAI_INLINE void prediction_op<dim, TInterval>::operator()(Dim<dim>,
-                                                                  DEST& dest,
-                                                                  const SRC& src,
-                                                                  std::integral_constant<std::size_t, 0>,
-                                                                  std::integral_constant<bool, true>) const
-    {
-        static_assert(DEST::n_comp == SRC::n_comp, "Source and destination fields must have the same number of components");
-
-        auto src_offset = memory_offset(src.mesh(), {level, i.start, index});
-
-        std::vector<std::size_t> dest_offsets;
-        dest_offsets.reserve(1ULL << (dim - 1));
-
-        static_nested_loop<dim - 1, 0, 2>(
-            [&](const auto& stencil)
-            {
-                auto new_index = 2 * index + stencil;
-                dest_offsets.push_back(memory_offset(dest.mesh(), {level + 1, 2 * i.start, new_index}));
-            });
-
-        const auto* src_data = src.data();
-        auto* dest_data      = dest.data();
-
-        for (std::size_t i_c = 0, i_f = 0; i_c < i.size(); ++i_c, i_f += 2)
-        {
-            for (std::size_t s = 0; s < dest_offsets.size(); ++s)
-            {
-                const std::size_t src_index   = (src_offset + i_c) * SRC::n_comp;
-                const std::size_t dest_index0 = (dest_offsets[s] + i_f) * SRC::n_comp;
-                const std::size_t dest_index1 = (dest_offsets[s] + i_f + 1) * SRC::n_comp;
-
-                for (std::size_t n = 0; n < SRC::n_comp; ++n)
-                {
-                    dest_data[dest_index0 + n] = src_data[src_index + n];
-                    dest_data[dest_index1 + n] = src_data[src_index + n];
-                }
-            }
-        }
-    }
-
-    template <std::size_t dim, class TInterval>
-    template <class DEST, class SRC, std::size_t pred_stencil_size>
-    SAMURAI_INLINE void prediction_op<dim, TInterval>::operator()(Dim<dim>,
-                                                                  DEST& dest,
-                                                                  const SRC& src,
-                                                                  std::integral_constant<std::size_t, pred_stencil_size>,
-                                                                  std::integral_constant<bool, true>) const
-    {
-        // Predicts the 2^dim children of every cell of the interval i at `level` onto
-        // `level + 1`. The tensor product is contracted one direction at a time: first the
-        // directions above x, for every child row at once (detail::contract_family), then x.
-        static_assert(DEST::n_comp == SRC::n_comp, "Source and destination fields must have the same number of components");
-
-        using value_t                  = typename TInterval::value_t;
-        using mesh_id_t                = typename SRC::mesh_t::mesh_id_t;
-        constexpr std::size_t r        = pred_stencil_size;
-        constexpr std::size_t order    = 2 * r + 1;
-        constexpr std::size_t n_comp   = SRC::n_comp;
-        constexpr std::size_t n_rows   = ce_pow(order, dim - 1);
-        constexpr std::size_t n_family = std::size_t{1} << (dim - 1);
-        constexpr std::size_t chunk    = detail::prediction_chunk<2 * n_family, r, n_comp>();
-        constexpr std::size_t stride   = (chunk + 2 * r) * n_comp;
-
-        // (even index coefficients, odd index coefficients)
-        const std::array<std::array<double, order>, 2> c = {
-            {prediction_coefficients<r>(0, 0).c, prediction_coefficients<r>(1, 0).c}
-        };
-
-        const value_t cs = i.start;
-        const value_t ce = i.end;
-
-        detail::prediction_buffer<std::size_t, n_rows> row_offsets;
-        {
-            const auto& lca  = src.mesh()[mesh_id_t::reference][level];
-            std::size_t* out = row_offsets.get();
-            detail::prediction_row_offsets<dim - 1, r>(lca,
-                                                       0,
-                                                       lca[dim - 1].size(),
-                                                       cs - static_cast<value_t>(r),
-                                                       ce + static_cast<value_t>(r),
-                                                       index,
-                                                       out);
-        }
-
-        // Child row q is the row 2 * index + (bit j-1 of q in direction j).
-        std::array<std::size_t, n_family> dest_offsets;
-        for (std::size_t q = 0; q < n_family; ++q)
-        {
-            xt::xtensor_fixed<value_t, xt::xshape<dim - 1>> child = 2 * index;
-            for (std::size_t d = 1; d < dim; ++d)
-            {
-                child[d - 1] += static_cast<value_t>((q >> (d - 1)) & 1);
-            }
-            dest_offsets[q] = memory_offset(dest.mesh(), {level + 1, 2 * cs, child});
-        }
-
-        const auto* src_data = src.data();
-        auto* dest_data      = dest.data();
-
-        // In 1D there is no direction above x to contract: the x contraction reads the
-        // source row directly and the buffer of contracted rows is empty.
-        detail::prediction_buffer<double, dim == 1 ? 0 : 2 * n_family * stride> buffer;
-
-        for (value_t a = cs; a < ce; a += static_cast<value_t>(chunk))
-        {
-            const value_t b         = std::min(ce, a + static_cast<value_t>(chunk));
-            const std::size_t shift = static_cast<std::size_t>(a - cs) * n_comp;
-
-            // Contracts x for the child row q, from the row t contracted above x.
-            auto contract_x = [&](std::size_t q, const auto* t)
-            {
-                for (value_t xc = a; xc < b; ++xc)
-                {
-                    const auto x      = static_cast<std::size_t>(xc - a);
-                    const auto fine_x = 2 * static_cast<std::size_t>(xc - cs);
-                    for (std::size_t p = 0; p < 2; ++p)
-                    {
-                        auto* d = dest_data + (dest_offsets[q] + fine_x + p) * n_comp;
-                        for (std::size_t n = 0; n < n_comp; ++n)
-                        {
-                            double v = 0.;
-                            for (std::size_t s = 0; s < order; ++s)
-                            {
-                                v += c[p][s] * t[(x + s) * n_comp + n];
-                            }
-                            d[n] = v;
-                        }
-                    }
-                }
-            };
-
-            if constexpr (dim == 1)
-            {
-                contract_x(0, src_data + row_offsets.get()[0] * n_comp + shift);
-            }
-            else
-            {
-                const std::size_t len         = static_cast<std::size_t>(b - a + 2 * static_cast<value_t>(r)) * n_comp;
-                const std::size_t* row_offset = row_offsets.get();
-                double* rows                  = buffer.get();
-                detail::contract_family<dim - 1, order, n_comp>(src_data, row_offset, shift, len, stride, c, rows, rows + n_family * stride);
-                for (std::size_t q = 0; q < n_family; ++q)
-                {
-                    contract_x(q, rows + q * stride);
-                }
-            }
-        }
-    }
-
-    template <std::size_t dim, class TInterval>
-    template <class DEST, class SRC>
-    SAMURAI_INLINE void prediction_op<dim, TInterval>::operator()(Dim<dim>,
-                                                                  DEST& dest,
-                                                                  const SRC& src,
-                                                                  std::integral_constant<std::size_t, 0>,
-                                                                  std::integral_constant<bool, false>) const
-    {
-        static_assert(DEST::n_comp == SRC::n_comp, "Source and destination fields must have the same number of components");
-        using value_t = typename TInterval::value_t;
-
-        const auto* src_data = src.data();
-        auto* dest_data      = dest.data();
-
-        auto src_offset  = memory_offset(src.mesh(), {level - 1, i.start >> 1, index >> 1});
-        auto dest_offset = memory_offset(dest.mesh(), {level, i.start, index});
-
-        for (std::size_t i_f = 0; i_f < i.size(); ++i_f)
-        {
-            const std::size_t i_c = static_cast<std::size_t>(((i.start + static_cast<value_t>(i_f)) >> 1) - (i.start >> 1));
-            for (std::size_t n = 0; n < SRC::n_comp; ++n)
-            {
-                dest_data[(dest_offset + i_f) * SRC::n_comp + n] = src_data[(src_offset + i_c) * SRC::n_comp + n];
-            }
-        }
-    }
-
-    template <std::size_t dim, class TInterval>
-    template <class DEST, class SRC, std::size_t pred_stencil_size>
-    SAMURAI_INLINE void prediction_op<dim, TInterval>::operator()(Dim<dim>,
-                                                                  DEST& dest,
-                                                                  const SRC& src,
-                                                                  std::integral_constant<std::size_t, pred_stencil_size>,
-                                                                  std::integral_constant<bool, false>) const
-    {
-        // Predicts the cells of the interval i at `level` from their parents at
-        // `level - 1`. Above x, every cell of the interval has the same parity, so the
-        // stencil rows are first summed with fixed weights; the x direction comes last.
-        static_assert(DEST::n_comp == SRC::n_comp, "Source and destination fields must have the same number of components");
-
-        using value_t                = typename TInterval::value_t;
-        using mesh_id_t              = typename SRC::mesh_t::mesh_id_t;
-        constexpr std::size_t r      = pred_stencil_size;
-        constexpr std::size_t order  = 2 * r + 1;
-        constexpr std::size_t n_comp = SRC::n_comp;
-        constexpr std::size_t n_rows = ce_pow(order, dim - 1);
-        constexpr std::size_t chunk  = detail::prediction_chunk<1, r, n_comp>();
-
-        // (even index coefficients, odd index coefficients)
-        const std::array<std::array<double, order>, 2> c = {
-            {prediction_coefficients<r>(0, 0).c, prediction_coefficients<r>(1, 0).c}
-        };
-
-        const value_t cs = i.start >> 1;
-        const value_t ce = ((i.end - 1) >> 1) + 1;
-
-        auto parent = index;
-        for (std::size_t d = 0; d < dim - 1; ++d)
-        {
-            parent[d] = index[d] >> 1;
-        }
-
-        detail::prediction_buffer<std::size_t, n_rows> row_offsets;
-        {
-            const auto& lca  = src.mesh()[mesh_id_t::reference][level - 1];
-            std::size_t* out = row_offsets.get();
-            detail::prediction_row_offsets<dim - 1, r>(lca,
-                                                       0,
-                                                       lca[dim - 1].size(),
-                                                       cs - static_cast<value_t>(r),
-                                                       ce + static_cast<value_t>(r),
-                                                       parent,
-                                                       out);
-        }
-
-        // Weight of each row: the product of the coefficients of its directions above x,
-        // in the order of prediction_row_offsets (outermost direction slowest).
-        // In 1D there is no direction above x: the single row has weight 1 and the
-        // x contraction reads the source row directly, so neither the weights nor the
-        // summed row t are needed.
-        detail::prediction_buffer<double, dim == 1 ? 0 : n_rows> weights;
-        if constexpr (dim > 1)
-        {
-            double* w     = weights.get();
-            w[0]          = 1.;
-            std::size_t n = 1;
-            for (std::size_t d = dim - 1; d >= 1; --d)
-            {
-                const auto& cd = c[static_cast<std::size_t>(index[d - 1] & 1)];
-                for (std::size_t row_id = n; row_id-- > 0;)
-                {
-                    for (std::size_t s = order; s-- > 0;)
-                    {
-                        w[row_id * order + s] = w[row_id] * cd[s];
-                    }
-                }
-                n *= order;
-            }
-        }
-
-        const auto* src_data = src.data();
-        auto* dest_data      = dest.data();
-        auto dest_offset     = memory_offset(dest.mesh(), {level, i.start, index});
-
-        std::array<double, dim == 1 ? 0 : (chunk + 2 * r) * n_comp> t;
-
-        for (value_t a = cs; a < ce; a += static_cast<value_t>(chunk))
-        {
-            const value_t b         = std::min(ce, a + static_cast<value_t>(chunk));
-            const std::size_t shift = static_cast<std::size_t>(a - cs) * n_comp;
-            const auto* src_row     = src_data + row_offsets.get()[0] * n_comp + shift;
-
-            // Contracts x from the row tx, already summed above x.
-            auto contract_x = [&](const auto* tx)
-            {
-                const value_t f_begin = std::max(i.start, 2 * a);
-                const value_t f_end   = std::min(i.end, 2 * b);
-                for (value_t f = f_begin; f < f_end; ++f)
-                {
-                    const auto x   = static_cast<std::size_t>((f >> 1) - a);
-                    const auto& cp = c[static_cast<std::size_t>(f & 1)];
-                    auto* d        = dest_data + (dest_offset + static_cast<std::size_t>(f - i.start)) * n_comp;
-                    for (std::size_t n = 0; n < n_comp; ++n)
-                    {
-                        double v = 0.;
-                        for (std::size_t s = 0; s < order; ++s)
-                        {
-                            v += cp[s] * tx[(x + s) * n_comp + n];
-                        }
-                        d[n] = v;
-                    }
-                }
-            };
-
-            if constexpr (dim == 1)
-            {
-                contract_x(src_row);
-            }
-            else
-            {
-                const std::size_t len = static_cast<std::size_t>(b - a + 2 * static_cast<value_t>(r)) * n_comp;
-                const double w0       = weights.get()[0];
-                for (std::size_t m = 0; m < len; ++m)
-                {
-                    t[m] = w0 * src_row[m];
-                }
-                for (std::size_t row_id = 1; row_id < n_rows; ++row_id)
-                {
-                    src_row         = src_data + row_offsets.get()[row_id] * n_comp + shift;
-                    const double wr = weights.get()[row_id];
-                    for (std::size_t m = 0; m < len; ++m)
-                    {
-                        t[m] += wr * src_row[m];
-                    }
-                }
-                contract_x(t.data());
-            }
-        }
-    }
 
     template <std::size_t dim, class TInterval>
     class variadic_prediction_op : public field_operator_base<dim, TInterval>
