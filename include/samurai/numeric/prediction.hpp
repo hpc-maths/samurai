@@ -358,29 +358,18 @@ namespace samurai
         const auto* src_data = src.data();
         auto* dest_data      = dest.data();
 
-        detail::prediction_buffer<double, 2 * n_family * stride> buffer;
-        double* rows = buffer.get();
+        // In 1D there is no direction above x to contract: the x contraction reads the
+        // source row directly and the buffer of contracted rows is empty.
+        detail::prediction_buffer<double, dim == 1 ? 0 : 2 * n_family * stride> buffer;
 
         for (value_t a = cs; a < ce; a += static_cast<value_t>(chunk))
         {
             const value_t b         = std::min(ce, a + static_cast<value_t>(chunk));
-            const std::size_t len   = static_cast<std::size_t>(b - a + 2 * static_cast<value_t>(r)) * n_comp;
             const std::size_t shift = static_cast<std::size_t>(a - cs) * n_comp;
 
-            if constexpr (dim == 1)
+            // Contracts x for the child row q, from the row t contracted above x.
+            auto contract_x = [&](std::size_t q, const auto* t)
             {
-                const auto* src_row = src_data + row_offsets.get()[0] * n_comp + shift;
-                std::copy(src_row, src_row + len, rows);
-            }
-            else
-            {
-                const std::size_t* row_offset = row_offsets.get();
-                detail::contract_family<dim - 1, order, n_comp>(src_data, row_offset, shift, len, stride, c, rows, rows + n_family * stride);
-            }
-
-            for (std::size_t q = 0; q < n_family; ++q)
-            {
-                const double* t = rows + q * stride;
                 for (value_t xc = a; xc < b; ++xc)
                 {
                     const auto x      = static_cast<std::size_t>(xc - a);
@@ -398,6 +387,22 @@ namespace samurai
                             d[n] = v;
                         }
                     }
+                }
+            };
+
+            if constexpr (dim == 1)
+            {
+                contract_x(0, src_data + row_offsets.get()[0] * n_comp + shift);
+            }
+            else
+            {
+                const std::size_t len         = static_cast<std::size_t>(b - a + 2 * static_cast<value_t>(r)) * n_comp;
+                const std::size_t* row_offset = row_offsets.get();
+                double* rows                  = buffer.get();
+                detail::contract_family<dim - 1, order, n_comp>(src_data, row_offset, shift, len, stride, c, rows, rows + n_family * stride);
+                for (std::size_t q = 0; q < n_family; ++q)
+                {
+                    contract_x(q, rows + q * stride);
                 }
             }
         }
@@ -480,7 +485,11 @@ namespace samurai
 
         // Weight of each row: the product of the coefficients of its directions above x,
         // in the order of prediction_row_offsets (outermost direction slowest).
-        detail::prediction_buffer<double, n_rows> weights;
+        // In 1D there is no direction above x: the single row has weight 1 and the
+        // x contraction reads the source row directly, so neither the weights nor the
+        // summed row t are needed.
+        detail::prediction_buffer<double, dim == 1 ? 0 : n_rows> weights;
+        if constexpr (dim > 1)
         {
             double* w     = weights.get();
             w[0]          = 1.;
@@ -503,46 +512,58 @@ namespace samurai
         auto* dest_data      = dest.data();
         auto dest_offset     = memory_offset(dest.mesh(), {level, i.start, index});
 
-        std::array<double, (chunk + 2 * r) * n_comp> t;
+        std::array<double, dim == 1 ? 0 : (chunk + 2 * r) * n_comp> t;
 
         for (value_t a = cs; a < ce; a += static_cast<value_t>(chunk))
         {
             const value_t b         = std::min(ce, a + static_cast<value_t>(chunk));
-            const std::size_t len   = static_cast<std::size_t>(b - a + 2 * static_cast<value_t>(r)) * n_comp;
             const std::size_t shift = static_cast<std::size_t>(a - cs) * n_comp;
+            const auto* src_row     = src_data + row_offsets.get()[0] * n_comp + shift;
 
-            const auto* src_row = src_data + row_offsets.get()[0] * n_comp + shift;
-            const double w0     = weights.get()[0];
-            for (std::size_t m = 0; m < len; ++m)
+            // Contracts x from the row tx, already summed above x.
+            auto contract_x = [&](const auto* tx)
             {
-                t[m] = w0 * src_row[m];
+                const value_t f_begin = std::max(i.start, 2 * a);
+                const value_t f_end   = std::min(i.end, 2 * b);
+                for (value_t f = f_begin; f < f_end; ++f)
+                {
+                    const auto x   = static_cast<std::size_t>((f >> 1) - a);
+                    const auto& cp = c[static_cast<std::size_t>(f & 1)];
+                    auto* d        = dest_data + (dest_offset + static_cast<std::size_t>(f - i.start)) * n_comp;
+                    for (std::size_t n = 0; n < n_comp; ++n)
+                    {
+                        double v = 0.;
+                        for (std::size_t s = 0; s < order; ++s)
+                        {
+                            v += cp[s] * tx[(x + s) * n_comp + n];
+                        }
+                        d[n] = v;
+                    }
+                }
+            };
+
+            if constexpr (dim == 1)
+            {
+                contract_x(src_row);
             }
-            for (std::size_t row_id = 1; row_id < n_rows; ++row_id)
+            else
             {
-                src_row         = src_data + row_offsets.get()[row_id] * n_comp + shift;
-                const double wr = weights.get()[row_id];
+                const std::size_t len = static_cast<std::size_t>(b - a + 2 * static_cast<value_t>(r)) * n_comp;
+                const double w0       = weights.get()[0];
                 for (std::size_t m = 0; m < len; ++m)
                 {
-                    t[m] += wr * src_row[m];
+                    t[m] = w0 * src_row[m];
                 }
-            }
-
-            const value_t f_begin = std::max(i.start, 2 * a);
-            const value_t f_end   = std::min(i.end, 2 * b);
-            for (value_t f = f_begin; f < f_end; ++f)
-            {
-                const auto x   = static_cast<std::size_t>((f >> 1) - a);
-                const auto& cp = c[static_cast<std::size_t>(f & 1)];
-                auto* d        = dest_data + (dest_offset + static_cast<std::size_t>(f - i.start)) * n_comp;
-                for (std::size_t n = 0; n < n_comp; ++n)
+                for (std::size_t row_id = 1; row_id < n_rows; ++row_id)
                 {
-                    double v = 0.;
-                    for (std::size_t s = 0; s < order; ++s)
+                    src_row         = src_data + row_offsets.get()[row_id] * n_comp + shift;
+                    const double wr = weights.get()[row_id];
+                    for (std::size_t m = 0; m < len; ++m)
                     {
-                        v += cp[s] * t[(x + s) * n_comp + n];
+                        t[m] += wr * src_row[m];
                     }
-                    d[n] = v;
                 }
+                contract_x(t.data());
             }
         }
     }
