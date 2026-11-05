@@ -125,6 +125,39 @@ def test_finite_volume_level_set_amr_corners(tmp_path):
     assert points[:, 1].max() == pytest.approx(2)
 
 
+@pytest.mark.parametrize("min_level, max_level", [(1, 5), (1, 6)])
+def test_finite_volume_amr_burgers_hat_adaptation_ends(min_level, max_level, tmp_path):
+    # A pass of the mesh adaptation moves a cell by one level at most, so the
+    # adaptation reaches its fixed point within one pass per level, plus the
+    # pass that finds nothing left to change. With these levels it used to
+    # flip between two meshes forever: the demo is stopped as soon as it
+    # exceeds that bound, so that the test fails instead of hanging.
+    max_passes = max_level - min_level + 2
+    cmd = [
+        get_executable(
+            Path("../build/demos/FiniteVolume/"), "finite-volume-amr-burgers-hat"
+        ),
+        "--path",
+        str(tmp_path),
+        "--min-level",
+        str(min_level),
+        "--max-level",
+        str(max_level),
+        "--Tf",
+        "0.6",
+    ]
+    with subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True) as process:
+        for line in process.stdout:
+            if line.strip().startswith("mesh adaptation:"):
+                n_passes = int(line.split(":")[1]) + 1
+                if n_passes > max_passes:
+                    process.kill()
+                    pytest.fail(
+                        f"the mesh adaptation did not end after {max_passes} passes"
+                    )
+    assert process.returncode == 0
+
+
 @pytest.mark.h5diff()
 @pytest.mark.parametrize("time_scheme", ["explicit", "implicit"])
 def test_finite_volume_demo_heat(time_scheme, config):

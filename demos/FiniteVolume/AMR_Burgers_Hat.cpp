@@ -51,74 +51,77 @@ void init_solution(Field& phi)
                            });
 }
 
+// The mesh is refined where the centered slope of the solution exceeds this threshold.
+constexpr double slope_threshold = 0.01;
+
+// Whether the cells of the interval i at a level have a steep slope.
+template <class Field, class Interval>
+auto steep_slope(const Field& f, std::size_t level, const Interval& i)
+{
+    using namespace samurai::math;
+    const double dx = f.mesh().cell_length(level);
+    return samurai::eval(abs((f(level, i + 1) - f(level, i - 1)) / (2. * dx)) > slope_threshold);
+}
+
+// Whether the cells of the interval i at level - 1, the parents of cells at
+// level, have a steep slope. The values at level - 1 are computed as the mean
+// of the two children at level, so that the parents do not need to be ghosts
+// of the mesh. This reads two cells on each side of the children.
+template <class Field, class Interval>
+auto steep_parent_slope(const Field& f, std::size_t level, const Interval& i)
+{
+    using namespace samurai::math;
+    const double dx = f.mesh().cell_length(level - 1);
+    auto left       = 0.5 * (f(level, 2 * i - 2) + f(level, 2 * i - 1));
+    auto right      = 0.5 * (f(level, 2 * i + 2) + f(level, 2 * i + 3));
+    return samurai::eval(abs((right - left) / (2. * dx)) > slope_threshold);
+}
+
 template <class Field, class Tag>
 void AMR_criteria(const Field& f, Tag& tag)
 {
-    using namespace samurai::math;
-    auto mesh             = f.mesh();
-    using mesh_id_t       = typename Field::mesh_t::mesh_id_t;
-    std::size_t min_level = mesh.min_level();
-    std::size_t max_level = mesh.max_level();
+    const auto& mesh            = f.mesh();
+    using mesh_id_t             = typename Field::mesh_t::mesh_id_t;
+    const std::size_t min_level = mesh.min_level();
+    const std::size_t max_level = mesh.max_level();
 
     tag.fill(static_cast<int>(samurai::CellFlag::keep));
 
-    for (std::size_t level = min_level; level <= max_level; ++level)
+    for (std::size_t level = min_level + 1; level <= max_level; ++level)
     {
-        const double dx = mesh.cell_length(level);
-
-        samurai::for_each_interval(
-            mesh[mesh_id_t::cells][level],
-            [&](std::size_t, auto& i, auto)
+        // Two siblings are coarsened when their parent would not be refined.
+        // Deciding it from the slope at the level of the siblings is not
+        // enough: the parent can then ask for refinement while its children
+        // ask for coarsening, and the mesh adaptation never ends.
+        // Only the parents whose children are all cells at this level can be
+        // coarsened: a parent of finer cells is left out.
+        auto parents = samurai::difference(samurai::self(mesh[mesh_id_t::cells][level]).on(level - 1),
+                                           samurai::self(mesh.get_union()[level]).on(level - 1));
+        parents(
+            [&](const auto& i, const auto&)
             {
-                auto der_approx     = samurai::eval(abs((f(level, i + 1) - f(level, i - 1)) / (2. * dx)));
-                auto der_der_approx = samurai::eval(abs((f(level, i + 1) - 2. * f(level, i) + f(level, i - 1)) / (dx * dx)));
-
-                auto der_plus  = samurai::eval(abs((f(level, i + 1) - f(level, i)) / (dx)));
-                auto der_minus = samurai::eval(abs((f(level, i) - f(level, i - 1)) / (dx)));
-
-                // auto mask = xt::abs(f(level, i)) > 0.001;
-                auto mask = der_approx > 0.01;
-                // auto mask = der_der_approx > 0.01;
-                // auto mask = (xt::abs(der_plus) - xt::abs(der_minus)) > 0.001;
-
-                if (level == max_level)
-                {
-                    samurai::apply_on_masked(tag(level, i),
-                                             mask,
-                                             [](auto& e)
-                                             {
-                                                 e = static_cast<int>(samurai::CellFlag::keep);
-                                             });
-                    samurai::apply_on_masked(tag(level, i),
-                                             !mask,
-                                             [](auto& e)
-                                             {
-                                                 e = static_cast<int>(samurai::CellFlag::coarsen);
-                                             });
-                }
-                else
-                {
-                    if (level == min_level)
-                    {
-                        tag(level, i) = static_cast<int>(samurai::CellFlag::keep);
-                    }
-                    else
-                    {
-                        samurai::apply_on_masked(tag(level, i),
-                                                 mask,
-                                                 [](auto& e)
-                                                 {
-                                                     e = static_cast<int>(samurai::CellFlag::refine);
-                                                 });
-                        samurai::apply_on_masked(tag(level, i),
-                                                 !mask,
-                                                 [](auto& e)
-                                                 {
-                                                     e = static_cast<int>(samurai::CellFlag::coarsen);
-                                                 });
-                    }
-                }
+                samurai::apply_on_masked(!steep_parent_slope(f, level, i),
+                                         [&](auto imask)
+                                         {
+                                             tag(level, 2 * i)(imask)     = static_cast<int>(samurai::CellFlag::coarsen);
+                                             tag(level, 2 * i + 1)(imask) = static_cast<int>(samurai::CellFlag::coarsen);
+                                         });
             });
+    }
+
+    // A cell with a steep slope is refined.
+    for (std::size_t level = min_level; level < max_level; ++level)
+    {
+        samurai::for_each_interval(mesh[mesh_id_t::cells][level],
+                                   [&](std::size_t, const auto& i, const auto&)
+                                   {
+                                       samurai::apply_on_masked(tag(level, i),
+                                                                steep_slope(f, level, i),
+                                                                [](auto& e)
+                                                                {
+                                                                    e = static_cast<int>(samurai::CellFlag::refine);
+                                                                });
+                                   });
     }
 }
 
@@ -174,7 +177,8 @@ int main(int argc, char* argv[])
     SAMURAI_PARSE(argc, argv);
 
     const samurai::Box<double, dim> box({left_box}, {right_box});
-    auto config = samurai::mesh_config<dim>().min_level(2).max_level(7).max_stencil_size(2).disable_minimal_ghost_width();
+    // The coarsening criterion reads two cells on each side of a pair of siblings.
+    auto config = samurai::mesh_config<dim>().min_level(2).max_level(7).max_stencil_radius(2).disable_minimal_ghost_width();
     auto mesh   = samurai::amr::make_empty_mesh(config);
     auto phi    = samurai::make_scalar_field<double>("phi", mesh);
 
