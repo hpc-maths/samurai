@@ -290,6 +290,7 @@ namespace samurai
 
     TEST(prediction_kernel, matches_tensor_product_1d)
     {
+        check_kernels<1, 0, 2>(3);
         check_kernels<1, 1, 1>(5);
         check_kernels<1, 2, 3>(7);
         check_kernels<1, 3, 1>(9);
@@ -297,6 +298,7 @@ namespace samurai
 
     TEST(prediction_kernel, matches_tensor_product_2d)
     {
+        check_kernels<2, 0, 1>(3);
         check_kernels<2, 1, 1>(5);
         check_kernels<2, 2, 2>(7);
         check_kernels<2, 3, 1>(8);
@@ -304,6 +306,7 @@ namespace samurai
 
     TEST(prediction_kernel, matches_tensor_product_3d)
     {
+        check_kernels<3, 0, 3>(3);
         check_kernels<3, 1, 1>(5);
         check_kernels<3, 1, 4>(4);
         check_kernels<3, 2, 1>(6);
@@ -312,6 +315,7 @@ namespace samurai
     // No mesh reaches these dimensions yet; the kernels must already be right there.
     TEST(prediction_kernel, matches_tensor_product_4d_to_6d)
     {
+        check_kernels<4, 0, 1>(3);
         check_kernels<4, 1, 1>(4);
         check_kernels<4, 2, 1>(5);
         check_kernels<5, 1, 2>(3);
