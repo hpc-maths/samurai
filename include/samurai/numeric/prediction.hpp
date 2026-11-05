@@ -150,9 +150,9 @@ namespace samurai
                                                  lca[0].cbegin() + static_cast<diff_t>(end),
                                                  x_lo);
                 assert(pos >= 0 && "prediction: a cell of the stencil is missing");
-                const auto& row = lca[0][start + static_cast<std::size_t>(pos)];
-                assert(row.contains(x_hi - 1) && "prediction: a row of the stencil is not contiguous");
-                *out++ = static_cast<std::size_t>(row.index + x_lo);
+                const auto& x_interval = lca[0][start + static_cast<std::size_t>(pos)];
+                assert(x_interval.contains(x_hi - 1) && "prediction: a row of the stencil is not contiguous");
+                *out++ = static_cast<std::size_t>(x_interval.index + x_lo);
             }
             else
             {
@@ -198,13 +198,13 @@ namespace samurai
             {
                 if constexpr (N == 1)
                 {
-                    const Value* row = src + (*row_offset++) * n_comp + shift;
-                    const double c0  = c[0][k];
-                    const double c1  = c[1][k];
+                    const Value* src_row = src + (*row_offset++) * n_comp + shift;
+                    const double c0      = c[0][k];
+                    const double c1      = c[1][k];
                     for (std::size_t m = 0; m < len; ++m)
                     {
-                        out[m] += c0 * row[m];
-                        out[stride + m] += c1 * row[m];
+                        out[m] += c0 * src_row[m];
+                        out[stride + m] += c1 * src_row[m];
                     }
                 }
                 else
@@ -369,8 +369,8 @@ namespace samurai
 
             if constexpr (dim == 1)
             {
-                const auto* row = src_data + row_offsets.get()[0] * n_comp + shift;
-                std::copy(row, row + len, rows);
+                const auto* src_row = src_data + row_offsets.get()[0] * n_comp + shift;
+                std::copy(src_row, src_row + len, rows);
             }
             else
             {
@@ -488,11 +488,11 @@ namespace samurai
             for (std::size_t d = dim - 1; d >= 1; --d)
             {
                 const auto& cd = c[static_cast<std::size_t>(index[d - 1] & 1)];
-                for (std::size_t row = n; row-- > 0;)
+                for (std::size_t row_id = n; row_id-- > 0;)
                 {
                     for (std::size_t s = order; s-- > 0;)
                     {
-                        w[row * order + s] = w[row] * cd[s];
+                        w[row_id * order + s] = w[row_id] * cd[s];
                     }
                 }
                 n *= order;
@@ -511,19 +511,19 @@ namespace samurai
             const std::size_t len   = static_cast<std::size_t>(b - a + 2 * static_cast<value_t>(r)) * n_comp;
             const std::size_t shift = static_cast<std::size_t>(a - cs) * n_comp;
 
-            const auto* row = src_data + row_offsets.get()[0] * n_comp + shift;
-            const double w0 = weights.get()[0];
+            const auto* src_row = src_data + row_offsets.get()[0] * n_comp + shift;
+            const double w0     = weights.get()[0];
             for (std::size_t m = 0; m < len; ++m)
             {
-                t[m] = w0 * row[m];
+                t[m] = w0 * src_row[m];
             }
             for (std::size_t row_id = 1; row_id < n_rows; ++row_id)
             {
-                row             = src_data + row_offsets.get()[row_id] * n_comp + shift;
+                src_row         = src_data + row_offsets.get()[row_id] * n_comp + shift;
                 const double wr = weights.get()[row_id];
                 for (std::size_t m = 0; m < len; ++m)
                 {
-                    t[m] += wr * row[m];
+                    t[m] += wr * src_row[m];
                 }
             }
 
