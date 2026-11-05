@@ -259,7 +259,7 @@ namespace samurai
         // Common tail shared by every non-default constructor.
         // exchange_neighbour_meshes() wraps the MPI neighbour exchange, and
         // finalize_mesh() performs the post-construction steps (sub-mesh update,
-        // corners, renumbering, origin/scaling propagation, ghost exchange and,
+        // renumbering, origin/scaling propagation, ghost exchange and,
         // under MPI+PETSc, the gravity-center computation).
         void exchange_neighbour_meshes();
         void finalize_mesh(const coords_t& origin_point, double scaling_factor);
@@ -346,6 +346,7 @@ namespace samurai
 #endif
 
         construct_subdomain();
+        construct_corners();
         exchange_neighbour_meshes();
         finalize_mesh(domain_ref.origin_point(), domain_ref.scaling_factor());
     }
@@ -383,6 +384,7 @@ namespace samurai
 
         construct_subdomain();
         m_domain = m_subdomain;
+        construct_corners();
         exchange_neighbour_meshes();
         finalize_mesh(domain_builder.origin_point(), m_config.scaling_factor());
     }
@@ -401,6 +403,7 @@ namespace samurai
 
         construct_subdomain();
         construct_domain();
+        construct_corners();
         exchange_neighbour_meshes();
         finalize_mesh(ca.origin_point(), ca.scaling_factor());
     }
@@ -408,6 +411,7 @@ namespace samurai
     template <class D, class Config>
     SAMURAI_INLINE Mesh_base<D, Config>::Mesh_base(const ca_type& ca, const self_type& ref_mesh)
         : m_domain(ref_mesh.m_domain)
+        , m_corners(ref_mesh.m_corners) // they depend on the domain alone
         , m_mpi_neighbourhood(ref_mesh.m_mpi_neighbourhood)
         , m_config(ref_mesh.m_config)
     {
@@ -440,7 +444,6 @@ namespace samurai
         construct_union();
         update_meshid_neighbour(mesh_id_t::cells);
         update_sub_mesh();
-        construct_corners();
         renumbering();
         set_origin_point(origin_point);
         set_scaling_factor(scaling_factor);
@@ -903,6 +906,7 @@ namespace samurai
         swap(m_subdomain, mesh.m_subdomain);
         swap(m_mpi_neighbourhood, mesh.m_mpi_neighbourhood);
         swap(m_union, mesh.m_union);
+        swap(m_corners, mesh.m_corners);
         swap(m_config, mesh.m_config);
     }
 
