@@ -109,8 +109,8 @@ void AMR_criteria(const Field& f, Tag& tag)
             });
     }
 
-    // A cell with a steep slope is refined, except at the min level where it is kept.
-    for (std::size_t level = min_level + 1; level < max_level; ++level)
+    // A cell with a steep slope is refined.
+    for (std::size_t level = min_level; level < max_level; ++level)
     {
         samurai::for_each_interval(mesh[mesh_id_t::cells][level],
                                    [&](std::size_t, const auto& i, const auto&)
