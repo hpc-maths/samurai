@@ -18,27 +18,34 @@
  *
  * The 1D prediction coefficients, and the shift a stencil takes near a boundary.
  *
- * Prediction interpolates a coarse cell's value onto its children. In dim > 1 it is a
- * tensor product of this 1D family, one factor per direction, so this file holds the
- * whole of what its consumers share: each of them builds its own product from it and
- * keeps its own loop structure.
+ * Prediction gives a value to each child of a coarse cell (its parent). In 1D a parent
+ * has two children: the low one (parity 0) and the high one (parity 1). The coefficients
+ * of a child are the weights applied to the 2r+1 coarse cells centred on its parent, r
+ * being the prediction stencil radius. In dim > 1 prediction is a tensor product of these
+ * 1D weights, one factor per direction.
  *
- * A stencil of prediction stencil radius @c r reads @c 2r+1 consecutive coarse cells.
- * Away from a boundary it is centred on the parent. Near one it is **shifted inward**
- * so that it reads only cells that exist, and the coefficients are re-solved for that
- * shift. @c shift == 0 is the centred family and reproduces
- * @c interp_coeffs<2r+1> (numeric/prediction.hpp) bit-exactly.
+ * They are the only weights that give the exact child average when the coarse values are
+ * cell averages of a polynomial of degree 2r. That condition is a small linear system,
+ * solved here in exact rational arithmetic and rounded to double once, so values such as
+ * 1/8 are bit-exact.
  *
- * Coefficients come from the **cell-average** moment conditions: for every monomial of
- * degree <= @c 2r, the combination of the stencil cells' averages must equal the
- * child's average. That is a @c (2r+1)x(2r+1) system, solved here in exact rational
- * arithmetic and rounded to double once at the end, so a dyadic value - which is every
- * value of the centred family - comes out bit-exact rather than merely close.
+ * Radius 0 is the Haar prediction: one weight, equal to 1, so each child copies its parent.
+ *
+ * Radius 1 gives (1/8, 1, -1/8) for the low child and (-1/8, 1, 1/8) for the high child,
+ * that is u_low = u + (u_left - u_right) / 8, with u the parent and u_left, u_right its
+ * neighbours.
+ *
+ * The two children always average back to their parent.
+ *
+ * Near a boundary the stencil is shifted inward by @c shift cells so that it reads only
+ * cells that exist. For radius 1 and shift 1 it reads the parent and its two right
+ * neighbours, with weights (11/8, -1/2, 1/8) for the low child and (5/8, 1/2, -1/8) for
+ * the high child.
  *
  * Two things are deliberately kept apart, because conflating them is what would make a
  * distributed run depend on its partition:
- *   - @ref samurai::prediction_shift "prediction_shift" decides *which* stencil to use, from the geometry of the
- *     domain alone;
+ *   - @ref samurai::prediction_shift "prediction_shift" decides *which* stencil to use,
+ *     from the geometry of the domain alone;
  *   - whether the cells that stencil names are present locally is a separate, halo
  *     question, and not this file's business.
  */
@@ -63,8 +70,9 @@ namespace samurai
         /**
          * Minimal exact rational, enough to solve the moment system. Normalised after
          * every operation so the magnitudes stay small: for @c radius <= 5 they remain
-         * far inside @c std::int64_t, which the bit-exactness tests against
-         * @c interp_coeffs would catch if it ever stopped being true.
+         * far inside @c std::int64_t, which the bit-exactness test against the tabulated
+         * centred weights (tests/test_prediction_coefficients.cpp) would catch if it ever
+         * stopped being true.
          */
         struct Rational
         {
@@ -140,7 +148,7 @@ namespace samurai
             return r;
         }
 
-        /// Average of @c x^q over @c [lo, hi]. The moment the system is posed on.
+        /// Average of @c x^q over @c [lo, hi). The moment the system is posed on.
         constexpr Rational monomial_average(std::size_t q, Rational lo, Rational hi)
         {
             const Rational num = pow(hi, q + 1) - pow(lo, q + 1);
@@ -148,8 +156,8 @@ namespace samurai
         }
 
         /**
-         * Solve the moment system for one child. The parent cell is @c [0,1], the
-         * stencil cell at offset @c s is @c [s, s+1], and the child is the low or high
+         * Solve the moment system for one child. The parent cell is @c [0, 1), the
+         * stencil cell at offset @c s is @c [s, s+1), and the child is the low or high
          * half of the parent. Gauss-Jordan with partial pivoting on exact rationals, so
          * the result is the exact solution of an exactly-posed system.
          */
