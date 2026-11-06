@@ -19,69 +19,6 @@
 
 namespace samurai
 {
-    // Superseded by @ref prediction_coefficients (numeric/prediction_coefficients.hpp), which
-    // solves these same values from the cell-average moment conditions instead of tabulating
-    // them, and generalises them to the boundary-shifted stencils. Nothing in the library calls
-    // interp_coeffs any more; it is kept as the independent reference that the generated family
-    // is checked against, bit for bit, in tests/test_prediction_coefficients.cpp. It goes away
-    // with the public API break of the boundary rewrite, along with the order ceiling it imposes.
-    template <std::size_t s>
-    SAMURAI_INLINE std::array<double, s> interp_coeffs(double sign);
-
-    template <>
-    SAMURAI_INLINE std::array<double, 1> interp_coeffs(double)
-    {
-        return {1};
-    }
-
-    template <>
-    SAMURAI_INLINE std::array<double, 3> interp_coeffs(double sign)
-    {
-        return {sign / 8., 1, -sign / 8.};
-    }
-
-    template <>
-    SAMURAI_INLINE std::array<double, 5> interp_coeffs(double sign)
-    {
-        return {-sign * 3. / 128., sign * 22. / 128., 1, -sign * 22 / 128., sign * 3. / 128.};
-    }
-
-    template <>
-    SAMURAI_INLINE std::array<double, 7> interp_coeffs(double sign)
-    {
-        return {sign * 5. / 1024., -sign * 11. / 256., sign * 201. / 1024., 1, -sign * 201. / 1024., sign * 11. / 256., -sign * 5. / 1024.};
-    }
-
-    template <>
-    SAMURAI_INLINE std::array<double, 9> interp_coeffs(double sign)
-    {
-        return {-sign * 35. / 32768.,
-                sign * 185. / 16384,
-                -sign * 949. / 16384,
-                sign * 3461. / 16384.,
-                1,
-                -sign * 3461. / 16384.,
-                sign * 949. / 16384,
-                -sign * 185. / 16384,
-                sign * 35. / 32768.};
-    }
-
-    template <>
-    SAMURAI_INLINE std::array<double, 11> interp_coeffs(double sign)
-    {
-        return {sign * 63. / 262144.,
-                -sign * 49. / 16384.,
-                sign * 4661. / 262144.,
-                -sign * 569. / 8192.,
-                sign * 29011. / 131072.,
-                1,
-                -sign * 29011. / 131072.,
-                sign * 569. / 8192.,
-                -sign * 4661. / 262144.,
-                sign * 49. / 16384.,
-                -sign * 63. / 262144.};
-    }
-
     namespace detail
     {
         /**

@@ -240,16 +240,16 @@ namespace samurai
         }
 
         /// Tensor-product weight of a stencil node: the product over the directions of the
-        /// per-direction interpolation coefficients @c interp_coeffs[d][indices[d]].
+        /// per-direction prediction coefficients @c coeffs[d][indices[d]].
         template <std::size_t... Is>
-        auto compute_coeff(const auto& interp_coeffs, const auto& indices, std::index_sequence<Is...>)
+        auto compute_coeff(const auto& coeffs, const auto& indices, std::index_sequence<Is...>)
         {
-            return (std::get<Is>(interp_coeffs)[std::get<Is>(indices)] * ...);
+            return (std::get<Is>(coeffs)[std::get<Is>(indices)] * ...);
         }
 
-        auto compute_coeff(const auto& interp_coeffs, const auto& indices)
+        auto compute_coeff(const auto& coeffs, const auto& indices)
         {
-            return compute_coeff(interp_coeffs, indices, std::make_index_sequence<std::tuple_size_v<std::decay_t<decltype(interp_coeffs)>>>{});
+            return compute_coeff(coeffs, indices, std::make_index_sequence<std::tuple_size_v<std::decay_t<decltype(coeffs)>>>{});
         }
 
         /**
@@ -431,21 +431,21 @@ namespace samurai
         // the origin, with no notion of where the domain boundary is, so it can only be the
         // centred family. A boundary-aware caller passes the position class in (see
         // prediction_coefficients.hpp); the cache key would then have to carry it.
-        auto interp_coeff_values = std::apply(
+        auto prediction_coeff_values = std::apply(
             [&](auto... parity_values)
             {
                 return std::make_tuple(prediction_coefficients<order>(parity_values, 0).c...);
             },
             parities);
 
-        detail::multi_dim_loop(interp_coeff_values,
+        detail::multi_dim_loop(prediction_coeff_values,
                                [&](auto... loop_indices)
                                {
                                    bool is_not_center = ((loop_indices != order) || ...);
 
                                    if (is_not_center)
                                    {
-                                       double c = detail::compute_coeff(interp_coeff_values, std::make_tuple(loop_indices...));
+                                       double c = detail::compute_coeff(prediction_coeff_values, std::make_tuple(loop_indices...));
                                        std::apply(
                                            [&](auto... offsets)
                                            {
