@@ -85,45 +85,64 @@ namespace samurai
     namespace detail
     {
         /**
-         * The prediction stencil of one coarse row, contracted one direction at a time.
+         * Sums the prediction stencil of one coarse row over the directions above x.
          *
-         * A predicted value sums the coarse cells @c parent + k, @c k in @c [-r, r]^dim, each
-         * weighted by the product over the directions @c d of @c c[parity_d][k_d]. The sum is
-         * separable, so the directions above x are contracted one after the other: contracting
-         * direction @c N combines the @c 2r+1 contractions of direction @c N-1 into one row per
-         * parity of direction @c N, and x comes last.
+         * A fine cell is predicted from the coarse cells around its parent, up to the stencil
+         * radius r away in each direction. Each parent has two children per direction, of parity
+         * 0 (low child) or 1 (high child). The weight of a coarse cell is a product of one 1D
+         * weight per direction, so the sum is done one direction at a time: y (then z) here, and
+         * x last in predict_rows(). In 2D with radius 1, around the coarse row y:
+         * @code
+         *   coarse row y+1 --+
+         *   coarse row y   --+--> weights c[0]: fine row 2y      (low children)
+         *   coarse row y-1 --+--> weights c[1]: fine row 2y + 1  (high children, n_par = 2 only)
+         * @endcode
+         * - @c n_par = 1: one fine row, of either parity (prediction ghosts).
+         * - @c n_par = 2: all the child rows of the coarse row at once, which share the work.
          *
-         * @a n_par is the number of parities kept in every direction above x: 1 to predict a
-         * single fine row, 2 to predict the @c 2^(dim-1) rows of children of a coarse row at
-         * once. With 2, each contraction of direction @c N-1 serves both children of direction
-         * @c N, and the cost grows like @c (2r+1)^dim instead of @c (2(2r+1))^dim.
+         * Preconditions:
+         * - every coarse cell of the stencil exists in @a lca;
+         * - the fields store the @a n_comp components of a cell next to each other.
          */
         template <std::size_t n_par, std::size_t radius, std::size_t n_comp, class LCA, class Value>
         struct stencil_contraction
         {
-            static constexpr std::size_t dim    = LCA::dim;
-            static constexpr std::size_t size   = PredictionCoefficients<radius>::size;
-            static constexpr std::size_t n_rows = ce_pow(n_par, dim - 1); ///< fine rows predicted together
-            /// Coarse cells per chunk, so that the buffers stay within 128 KiB whatever the dimension.
-            static constexpr std::size_t chunk  = std::clamp<std::size_t>(8192 / (n_rows * n_comp), size + 3, size + 63) - 2 * radius;
-            static constexpr std::size_t stride = (chunk + 2 * radius) * n_comp; ///< between two rows of a buffer
+            static constexpr std::size_t dim = LCA::dim;
+            /// Number of 1D weights, 2r+1.
+            static constexpr std::size_t size = PredictionCoefficients<radius>::size;
+            /// Number of fine rows predicted together.
+            static constexpr std::size_t n_rows = ce_pow(n_par, dim - 1);
+            /// Number of parents per pass along x, chosen so that the buffers stay under about
+            /// 128 KiB.
+            static constexpr std::size_t chunk = std::clamp<std::size_t>(8192 / (n_rows * n_comp), size + 3, size + 63) - 2 * radius;
+            /// Distance, in doubles, between two rows of a buffer.
+            static constexpr std::size_t stride = (chunk + 2 * radius) * n_comp;
 
             using value_t = typename LCA::interval_t::value_t;
-            using row_t   = std::array<value_t, dim - 1>;
+            /// Coordinates above x: element d is direction d+1.
+            using row_t = std::array<value_t, dim - 1>;
 
-            const LCA& lca; ///< the coarse level
+            /// The coarse cells (reference mesh at the parent level).
+            const LCA& lca;
+            /// The source field values.
             const Value* src;
-            const std::array<std::array<double, size>, 2>& c; ///< coefficients of the low and the high child
-            row_t parent;                                     ///< the coarse row
-            row_t parity;                                     ///< parity of the first fine row in each direction above x
-            value_t x_lo = 0;                                 ///< the coarse columns [x_lo, x_hi) of the current chunk
+            /// The 1D weights of the low child (c[0]) and of the high child (c[1]).
+            const std::array<std::array<double, size>, 2>& c;
+            /// The coarse row: parent of the first fine row.
+            row_t parent;
+            /// Parity of the first fine row in each direction above x.
+            row_t parity;
+            /// First coarse column of the current pass: its first parent minus r.
+            value_t x_lo = 0;
+            /// One past the last coarse column of the current pass: its last parent plus r + 1.
             value_t x_hi = 0;
 
             /**
-             * Contracts directions @c 1..N of the rows of the stencil found in @c lca[N]
-             * between @a start and @a end. Writes @c n_par^N rows into @a out, where the
-             * parity of direction @c N varies slowest, and returns it. Direction 0 is the
-             * source row itself, which is contiguous over the columns of the chunk.
+             * Sums directions 1 to N of the stencil over the columns [x_lo, x_hi) and returns
+             * the resulting rows. [start, end) is the range of intervals of lca[N] to search.
+             * The n_par^N rows go to @a out, @ref stride doubles apart; the parity in
+             * direction N changes slowest. N == 0 sums nothing: it returns a pointer into the
+             * source row, which must be one interval over [x_lo, x_hi).
              */
             template <std::size_t N>
             SAMURAI_INLINE const auto* contract(std::size_t start, std::size_t end, double* out) const
@@ -164,7 +183,7 @@ namespace samurai
                 }
             }
 
-            /// The interval of @c lca[d], between @a start and @a end, that contains @a v.
+            /// The interval of lca[d] in [start, end) that contains @a v; it must exist.
             SAMURAI_INLINE const auto& find(std::size_t d, std::size_t start, std::size_t end, value_t v) const
             {
                 const auto first = lca[d].cbegin();
@@ -175,8 +194,18 @@ namespace samurai
         };
 
         /**
-         * Predicts the fine cells @c [f_lo, f_hi) of the rows @c first + {0..n_par-1}^(dim-1)
-         * of @a fine_level from their parents, one level below.
+         * Predicts the fine cells [f_lo, f_hi) of the fine row @a first (n_par = 1), or of all
+         * the child rows of its coarse row (n_par = 2), from their parents at fine_level - 1.
+         * Works in passes of at most @c chunk parents along x: contract() sums the directions
+         * above x, then each fine cell sums the 2r+1 columns around its parent with the x weights
+         * of its parity.
+         *
+         * @param dest       field written at @a fine_level (can be @a src)
+         * @param src        field read at @a fine_level - 1
+         * @param fine_level level of the predicted cells
+         * @param f_lo       first fine column
+         * @param f_hi       one past the last fine column
+         * @param first      first fine row, as coordinates above x; even when n_par = 2
          */
         template <std::size_t n_par, std::size_t radius, class DEST, class SRC, class Row>
         SAMURAI_INLINE void predict_rows(DEST& dest,
@@ -206,7 +235,7 @@ namespace samurai
                 contraction.parity[d] = first[d] & 1;
             }
 
-            // Memory offset of the column f_lo in each fine row, in the order of the contraction.
+            // Storage index of cell f_lo in each fine row, in the order contract() writes them.
             std::array<std::size_t, contraction_t::n_rows> dest_rows;
             for (std::size_t q = 0; q < dest_rows.size(); ++q)
             {
@@ -218,6 +247,7 @@ namespace samurai
                 dest_rows[q] = memory_offset(dest.mesh(), {fine_level, f_lo, fine_row});
             }
 
+            // Output of contract(); unused in 1D, where contract() points into src.
             std::array<double, contraction_t::n_rows * stride> rows;
             const value_t c_lo = f_lo >> 1;
             const value_t c_hi = ((f_hi - 1) >> 1) + 1;
@@ -228,7 +258,7 @@ namespace samurai
                 contraction.x_hi  = b + static_cast<value_t>(radius);
                 const auto* above = contraction.template contract<dim - 1>(0, lca[dim - 1].size(), rows.data());
 
-                // x comes last: the fine cell f reads the 2r+1 columns centred on its parent.
+                // x last: fine cell f uses the 2r+1 columns centred on its parent.
                 for (std::size_t q = 0; q < dest_rows.size(); ++q)
                 {
                     for (value_t f = std::max(f_lo, 2 * a); f < std::min(f_hi, 2 * b); ++f)
@@ -263,8 +293,9 @@ namespace samurai
         INIT_OPERATOR(prediction_op)
 
         /**
-         * With @a dest_on_level, predicts the @c 2^dim children of every cell of the interval
-         * @c i at @c level + 1; otherwise, the cells of @c i at @c level from their parents.
+         * With @a dest_on_level, predicts the 2^dim children of every cell of @c i at
+         * @c level + 1. Otherwise predicts the cells of @c i at @c level from their parents
+         * (prediction ghosts).
          */
         template <class DEST, class SRC, std::size_t radius, bool dest_on_level>
         SAMURAI_INLINE void operator()(Dim<dim>,
@@ -276,7 +307,7 @@ namespace samurai
             static_assert(DEST::n_comp == SRC::n_comp, "Source and destination fields must have the same number of components");
             using value_t = typename TInterval::value_t;
 
-            constexpr std::size_t n_par = dest_on_level ? 2 : 1; // fine rows per row of i, in each direction
+            constexpr std::size_t n_par = dest_on_level ? 2 : 1; // fine rows per row of i, in each direction above x
             const auto scale            = static_cast<value_t>(n_par);
 
             std::array<value_t, dim - 1> first; // the first fine row
