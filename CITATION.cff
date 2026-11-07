@@ -24,7 +24,7 @@ authors:
     family-names: Matalon
     orcid: https://orcid.org/0000-0002-4288-2289
     affiliation: CMAP, CNRS, Ecole polytechnique, Institut Polytechnique de Paris
-version: 0.33.0
+version: 0.34.0
 license: BSD-3-Clause
 repository-code: https://github.com/hpc-maths/samurai
 url: https://hpc-math-samurai.readthedocs.io

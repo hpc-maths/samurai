@@ -74,7 +74,7 @@
         "MacOS"
     ],
     "programmingLanguage": "C++",
-    "version": "0.33.0",
+    "version": "0.34.0",
     "codeRepository": "https://github.com/hpc-maths/samurai",
     "numpex-catalog:annotatedLink": [
         {
