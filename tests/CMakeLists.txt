@@ -64,6 +64,7 @@ set(SAMURAI_TESTS
     test_portion.cpp
     test_prediction_cache_threads.cpp
     test_prediction_coefficients.cpp
+    test_prediction_kernel.cpp
     test_projection_prediction_roundtrip.cpp
     test_restart.cpp
     test_restart_include.cpp

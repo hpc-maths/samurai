@@ -18,15 +18,16 @@
 //                       does not grow with the level gap. The second half is the load
 //                       bearing one: a bound that grew with the gap would mean the
 //                       multiscale transform is not stable at the boundary.
-//   4. Compatibility  - at shift 0 the coefficients reproduce interp_coeffs bit-exactly,
-//                       so switching a consumer over cannot change an interior value.
+//   4. Reference      - at shift 0 the coefficients equal, bit for bit, the centred
+//                       weights written out as literals below: an independent check of
+//                       the moment solve that pins every interior value.
 
+#include <array>
 #include <cmath>
 #include <map>
 
 #include <gtest/gtest.h>
 
-#include <samurai/numeric/prediction.hpp>
 #include <samurai/numeric/prediction_coefficients.hpp>
 
 namespace samurai
@@ -199,41 +200,62 @@ namespace samurai
     }
 
     //-------------------------------------------------------------------------
-    // 4. Bit-exact agreement with interp_coeffs at shift 0.
+    // 4. Bit-exact agreement with tabulated centred weights.
     //
-    // This is what lets a consumer be switched over without changing any interior value,
-    // so the acceptance bar for the boundary work can be "interior bit-identical" rather
-    // than "interior within tolerance". Note EXPECT_DOUBLE_EQ, not EXPECT_NEAR.
+    // The weights of the low child at shift 0, written out as literals and not computed by
+    // the moment solve, so they check it independently. The high child is the mirror image:
+    // the same weights with the sign of every one but the parent's flipped. Every value is
+    // dyadic, hence exact in double, so the comparison is EXPECT_EQ and a change of a single
+    // bit in any weight, which would change interior values, fails it.
     //-------------------------------------------------------------------------
-    template <std::size_t radius>
-    void check_matches_interp_coeffs()
+    namespace
     {
-        constexpr std::size_t order = 2 * radius + 1;
+        // Low child, shift 0, one array per radius.
+        constexpr std::array<double, 1> reference_r0 = {1.};
+        constexpr std::array<double, 3> reference_r1 = {1. / 8., 1., -1. / 8.};
+        constexpr std::array<double, 5> reference_r2 = {-3. / 128., 22. / 128., 1., -22. / 128., 3. / 128.};
+        constexpr std::array<double, 7> reference_r3 = {5. / 1024., -11. / 256., 201. / 1024., 1., -201. / 1024., 11. / 256., -5. / 1024.};
+        constexpr std::array<double, 9> reference_r4 =
+            {-35. / 32768., 185. / 16384., -949. / 16384., 3461. / 16384., 1., -3461. / 16384., 949. / 16384., -185. / 16384., 35. / 32768.};
+        constexpr std::array<double, 11> reference_r5 = {63. / 262144.,
+                                                         -49. / 16384.,
+                                                         4661. / 262144.,
+                                                         -569. / 8192.,
+                                                         29011. / 131072.,
+                                                         1.,
+                                                         -29011. / 131072.,
+                                                         569. / 8192.,
+                                                         -4661. / 262144.,
+                                                         49. / 16384.,
+                                                         -63. / 262144.};
 
-        // interp_coeffs takes the sign of the child: +1 for the low child, -1 for the high.
-        const auto legacy_lo = interp_coeffs<order>(1.);
-        const auto legacy_hi = interp_coeffs<order>(-1.);
-
-        const auto& lo = prediction_coefficients<radius>(0, 0);
-        const auto& hi = prediction_coefficients<radius>(1, 0);
-
-        EXPECT_EQ(lo.start, -static_cast<int>(radius));
-        EXPECT_EQ(hi.start, -static_cast<int>(radius));
-
-        for (std::size_t k = 0; k < order; ++k)
+        template <std::size_t radius>
+        void check_matches_reference(const std::array<double, 2 * radius + 1>& reference_lo)
         {
-            EXPECT_DOUBLE_EQ(lo.c[k], legacy_lo[k]) << "radius=" << radius << " low child, k=" << k;
-            EXPECT_DOUBLE_EQ(hi.c[k], legacy_hi[k]) << "radius=" << radius << " high child, k=" << k;
+            const auto& lo = prediction_coefficients<radius>(0, 0);
+            const auto& hi = prediction_coefficients<radius>(1, 0);
+
+            EXPECT_EQ(lo.start, -static_cast<int>(radius));
+            EXPECT_EQ(hi.start, -static_cast<int>(radius));
+
+            for (std::size_t k = 0; k < reference_lo.size(); ++k)
+            {
+                const double low  = reference_lo[k];
+                const double high = (k == radius) ? low : -low;
+                EXPECT_EQ(lo.c[k], low) << "radius=" << radius << " low child, k=" << k;
+                EXPECT_EQ(hi.c[k], high) << "radius=" << radius << " high child, k=" << k;
+            }
         }
     }
 
-    TEST(prediction_coefficients, matches_interp_coeffs_bit_exactly)
+    TEST(prediction_coefficients, matches_reference_weights_bit_exactly)
     {
-        check_matches_interp_coeffs<1>();
-        check_matches_interp_coeffs<2>();
-        check_matches_interp_coeffs<3>();
-        check_matches_interp_coeffs<4>();
-        check_matches_interp_coeffs<5>();
+        check_matches_reference<0>(reference_r0);
+        check_matches_reference<1>(reference_r1);
+        check_matches_reference<2>(reference_r2);
+        check_matches_reference<3>(reference_r3);
+        check_matches_reference<4>(reference_r4);
+        check_matches_reference<5>(reference_r5);
     }
 
     //-------------------------------------------------------------------------
