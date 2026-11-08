@@ -24,7 +24,7 @@ This guide takes you from a fresh clone to a passing test suite, and from a typo
 - Git, and a [conda-forge](https://conda-forge.org/download/) installation: `conda`, `mamba` or `micromamba`.
   The commands below use `conda`; replace it with `mamba` or `micromamba` if you use one of those.
 - A C++20 compiler.
-  The CI builds samurai with GCC 11 to 13 and Clang 16 to 19 on Linux, and with the conda-forge compiler on macOS.
+  The CI builds samurai with GCC 11 to 13 and Clang 17 to 19 on Linux, and with the conda-forge compiler on macOS.
 
 ### Get the sources and the dependencies
 
@@ -484,7 +484,7 @@ The CI first classifies the changed files.
   When they touch a snippet directory, `compile_snippets` compiles the snippets, with and without MPI, and checks their outputs.
 - **Any other change** runs the full CI:
   - `cppcheck`;
-  - `linux-mamba`: GCC 11 to 13 and Clang 16 to 19, with PETSc, the demos and the tests; it runs `test_samurai_lib`, `test_fv_operators_petsc` and the pytest suite;
+  - `linux-mamba`: GCC 11 to 13 and Clang 17 to 19, with PETSc, the demos and the tests; it runs `test_samurai_lib`, `test_fv_operators_petsc` and the pytest suite;
   - `linux-mpi-mamba`: MPI demos on 1 to 9 processes and the MPI CTest tests;
   - `macos-mamba`;
   - `linux-mamba-check-nan` and `linux-mamba-check-nan-mpi`: demos built with `SAMURAI_CHECK_NAN`;

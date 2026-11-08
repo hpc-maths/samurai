@@ -150,11 +150,6 @@ jobs:
                     #   package: "gcc-14 g++-14"
                     #   cc: "gcc-14"
                     #   cxx: "g++-14"
-                    - cpp-version: clang-16
-                      compiler: "clang"
-                      package: "clang-16"
-                      cc: "clang-16"
-                      cxx: "clang++-16"
                     - cpp-version: clang-17
                       compiler: "clang"
                       package: "clang-17"
