@@ -98,7 +98,7 @@ jobs:
             - name: cppcheck installation
               shell: bash -el {0}
               run: |
-                  conda install -y cppcheck=2.12 python=3.12 cxx-compiler
+                  micromamba install -y cppcheck=2.12 python=3.12 cxx-compiler
 
             - name: Configure
               shell: bash -el {0}
@@ -215,19 +215,19 @@ jobs:
             - name: Petsc installation
               shell: bash -l {0}
               run: |
-                  conda install -y petsc pkg-config
+                  micromamba install -y petsc pkg-config
 
             # nlohmann_json is only needed by WITH_STATS (samurai/statistics.hpp).
             - name: nlohmann_json installation
               shell: bash -l {0}
               run: |
-                  conda install -y nlohmann_json
+                  micromamba install -y nlohmann_json
 
             - name: Conda informations
               shell: bash -l {0}
               run: |
-                  conda info
-                  conda list
+                  micromamba info
+                  micromamba list
 
             - name: Configure
               shell: bash -l {0}
@@ -701,15 +701,15 @@ jobs:
             - name: Petsc installation
               shell: bash -l {0}
               run: |
-                  conda install -y petsc pkg-config cxx-compiler ccache
+                  micromamba install -y petsc pkg-config cxx-compiler ccache
                   ccache --max-size=2G
                   ccache --zero-stats
 
             - name: Conda informations
               shell: bash -l {0}
               run: |
-                  conda info
-                  conda list
+                  micromamba info
+                  micromamba list
 
             - name: Configure
               shell: bash -l {0}
@@ -779,15 +779,15 @@ jobs:
             - name: Compiler installation
               shell: bash -l {0}
               run: |
-                  conda install -y cxx-compiler ccache
+                  micromamba install -y cxx-compiler ccache
                   ccache --max-size=2G
                   ccache --zero-stats
 
             - name: Conda informations
               shell: bash -l {0}
               run: |
-                  conda info
-                  conda list
+                  micromamba info
+                  micromamba list
 
             - name: Configure
               shell: bash -l {0}
@@ -853,15 +853,15 @@ jobs:
             - name: Petsc installation
               shell: bash -l {0}
               run: |
-                  conda install -y petsc pkg-config cxx-compiler ccache
+                  micromamba install -y petsc pkg-config cxx-compiler ccache
                   ccache --max-size=2G
                   ccache --zero-stats
 
             - name: Conda informations
               shell: bash -l {0}
               run: |
-                  conda info
-                  conda list
+                  micromamba info
+                  micromamba list
 
             - name: Configure
               shell: bash -l {0}
