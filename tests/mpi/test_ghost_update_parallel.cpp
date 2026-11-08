@@ -54,6 +54,12 @@
 //      projection/prediction ghosts, i.e. the ghosts that span several
 //      subdomains) is fully checked.
 //
+//  (C) Adaptation oracle (fixtures adaptation_independence_2d/3d).
+//      The ghosts are filled with garbage, then the mesh is adapted on the
+//      reference and on a tangled decomposition: both must give the same cells
+//      and values. It checks the ghosts outside the domain that the detail
+//      computation reads, which (B) leaves out.
+//
 // Every combination is a distinct GoogleTest case so a failure pinpoints it,
 // and each executable is run at np = 2, 3, 4 by CTest.
 //
@@ -63,6 +69,7 @@
 // serialized requests). Fixed in update_periodic.hpp; the 3D periodic cases below
 // are the regression guard.
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -402,6 +409,167 @@ namespace
     }
 
     INSTANTIATE_TEST_SUITE_P(all, ghost_update_2d, testing::ValuesIn(make_cases()), case_name);
+
+    // Every value that is not a cell is overwritten with `value`, standing for
+    // whatever the memory held before.
+    template <std::size_t Dim, class Field>
+    void poison_ghosts(Field& u, double value)
+    {
+        using mesh_id_t = typename config<Dim>::mesh_id_t;
+        auto& mesh      = u.mesh();
+        for (std::size_t level = mesh[mesh_id_t::reference].min_level(); level <= mesh[mesh_id_t::reference].max_level(); ++level)
+        {
+            auto ghosts = samurai::difference(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::cells][level]);
+            ghosts(
+                [&](const auto& i, const auto& index)
+                {
+                    auto v = u(level, i, index);
+                    std::fill(v.begin(), v.end(), value);
+                });
+        }
+    }
+
+    // (level, indices, value) of every cell, gathered on rank 0.
+    template <std::size_t Dim, class Field>
+    std::map<std::array<long, Dim + 1>, double> gather_cells(const Field& u)
+    {
+        using mesh_id_t = typename config<Dim>::mesh_id_t;
+        mpi::communicator world;
+        std::vector<double> local;
+        samurai::for_each_cell(u.mesh()[mesh_id_t::cells],
+                               [&](const auto& cell)
+                               {
+                                   local.push_back(static_cast<double>(cell.level));
+                                   for (std::size_t d = 0; d < Dim; ++d)
+                                   {
+                                       local.push_back(static_cast<double>(cell.indices[d]));
+                                   }
+                                   local.push_back(u[cell]);
+                               });
+        std::vector<std::vector<double>> all;
+        mpi::gather(world, local, all, 0);
+        std::map<std::array<long, Dim + 1>, double> cells;
+        for (const auto& chunk : all)
+        {
+            for (std::size_t k = 0; k + Dim + 2 <= chunk.size(); k += Dim + 2)
+            {
+                std::array<long, Dim + 1> key{};
+                for (std::size_t d = 0; d <= Dim; ++d)
+                {
+                    key[d] = std::lround(chunk[k + d]);
+                }
+                cells.emplace(key, chunk[k + Dim + 1]);
+            }
+        }
+        return cells;
+    }
+
+    // The mesh adaptation must give the same cells whatever the decomposition
+    // and whatever the ghosts held before the update. The detail computation
+    // reads the edge and corner ghosts outside the domain (outside in several
+    // directions); next to a subdomain interface they used to be neither
+    // computed nor received, so leftover memory decided the refinement.
+    template <std::size_t Dim>
+    void expect_adaptation_decomposition_independent(Geometry geom, int stencil_size, Decomp decomp, const std::string& ctx)
+    {
+        mpi::communicator world;
+
+        auto run = [&](Decomp d)
+        {
+            auto mesh = build_mesh<Dim>(geom, stencil_size, /*periodic=*/false);
+            auto u    = samurai::make_scalar_field<double>("u", mesh);
+            fill_affine<Dim>(u, /*periodic=*/false);
+            apply_decomposition<Dim>(d, u);
+            poison_ghosts<Dim>(u, 1e30);
+            samurai::make_MRAdapt(u)(samurai::mra_config().epsilon(1e-3));
+            return gather_cells<Dim>(u);
+        };
+
+        const auto ref = run(Decomp::None);
+        const auto tst = run(decomp);
+
+        bool ok = true;
+        if (world.rank() == 0)
+        {
+            ok = ref.size() == tst.size();
+            if (!ok)
+            {
+                std::cerr << ctx << ": " << ref.size() << " cells with the reference decomposition, " << tst.size()
+                          << " with the tangled one" << std::endl;
+            }
+            int shown = 0;
+            for (const auto& [key, value] : ref)
+            {
+                auto it = tst.find(key);
+                if (it == tst.end() || it->second != value)
+                {
+                    ok = false;
+                    if (shown++ < 4)
+                    {
+                        std::cerr << ctx << ": cell at level " << key[0] << " differs or is missing" << std::endl;
+                    }
+                }
+            }
+        }
+        mpi::broadcast(world, ok, 0);
+        EXPECT_TRUE_ALL_RANKS(ok);
+    }
+
+    struct ACase
+    {
+        int stencil_size;
+        Geometry geom;
+        Decomp decomp;
+    };
+
+    inline std::vector<ACase> make_acases()
+    {
+        std::vector<ACase> cases;
+        for (Geometry g : {Geometry::CornerQuadrant, Geometry::AdaptedComplex})
+        {
+            for (int s : {2, 5})
+            {
+                cases.push_back({s, g, Decomp::Hilbert});
+            }
+        }
+        return cases;
+    }
+
+    std::string acase_label(const ACase& c)
+    {
+        return std::string("s") + std::to_string(c.stencil_size) + "_" + geom_name(c.geom) + "_" + decomp_name(c.decomp);
+    }
+
+    std::string acase_name(const testing::TestParamInfo<ACase>& info)
+    {
+        return acase_label(info.param);
+    }
+
+    class adaptation_independence_2d : public samurai_test::MpiTest,
+                                       public testing::WithParamInterface<ACase>
+    {
+    };
+
+    TEST_P(adaptation_independence_2d, same_cells_as_reference)
+    {
+        const ACase c = GetParam();
+        expect_adaptation_decomposition_independent<2>(c.geom, c.stencil_size, c.decomp, "2d_" + acase_label(c));
+    }
+
+    INSTANTIATE_TEST_SUITE_P(all, adaptation_independence_2d, testing::ValuesIn(make_acases()), acase_name);
+
+    class adaptation_independence_3d : public samurai_test::MpiTest,
+                                       public testing::WithParamInterface<ACase>
+    {
+    };
+
+    TEST_P(adaptation_independence_3d, same_cells_as_reference)
+    {
+        const ACase c = GetParam();
+        expect_adaptation_decomposition_independent<3>(c.geom, c.stencil_size, c.decomp, "3d_" + acase_label(c));
+    }
+
+    INSTANTIATE_TEST_SUITE_P(all, adaptation_independence_3d, testing::ValuesIn(make_acases()), acase_name);
 
     // ---- (B) matrix: decomposition independence (2D + 3D, periodic) -------
 

@@ -69,6 +69,58 @@ namespace samurai
                 }
             });
 
+        // Ghosts outside the domain in several directions (edges, corners) lie
+        // in no face band above. The corner extrapolation fills the ghost at
+        // corner + offset from the inner corner cell, so its owner is the rank
+        // whose subdomain holds that cell, as for the faces.
+        for_each_diagonal_direction<Field::dim>(
+            [&](const auto& direction)
+            {
+                for (std::size_t d = 0; d < Field::dim; ++d)
+                {
+                    if (direction[d] != 0 && mesh.is_periodic(d))
+                    {
+                        return;
+                    }
+                }
+                auto corner = self(mesh.corner(direction)).on(level);
+                auto& mesh1 = to_send ? mesh : neighbour.mesh;
+                auto& mesh2 = to_send ? neighbour.mesh : mesh;
+
+                // every offset with 1..ghost_width layers along each non-zero component
+                auto offset = direction;
+                std::vector<std::decay_t<decltype(direction)>> offsets{direction};
+                for (std::size_t d = 0; d < Field::dim; ++d)
+                {
+                    if (direction[d] == 0)
+                    {
+                        continue;
+                    }
+                    const std::size_t n = offsets.size();
+                    for (int layer = 2; layer <= ghost_width; ++layer)
+                    {
+                        for (std::size_t k = 0; k < n; ++k)
+                        {
+                            offset    = offsets[k];
+                            offset[d] = layer * direction[d];
+                            offsets.push_back(offset);
+                        }
+                    }
+                }
+                for (const auto& o : offsets)
+                {
+                    auto owned_ghosts = intersection(mesh1[mesh_id_t::reference][level],
+                                                     translate(corner, o),
+                                                     translate(self(mesh1.subdomain(level)), o),
+                                                     mesh2[mesh_id_t::reference][level]);
+                    owned_ghosts(
+                        [&](const auto& i, const auto& index)
+                        {
+                            interval_list.push_back(i, index);
+                        });
+                }
+            });
+
         interval_list.sort_intervals();
 
         lca_t lca(level);
