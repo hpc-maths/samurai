@@ -16,7 +16,7 @@ samurai is a header-only C++ library: whichever route you take, you also need a 
 
 samurai needs:
 
-- a C++20 compiler (the CI builds samurai with GCC 11 to 13 and Clang 16 to 19);
+- a C++20 compiler (the CI builds samurai with GCC 13 to 15 and Clang 20 to 22);
 - CMake 3.16 or later;
 - xtensor later than 0.25 (the configuration stops with an error on 0.25 or older);
 - HighFive 3.0 or later, with HDF5;

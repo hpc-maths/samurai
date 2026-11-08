@@ -78,7 +78,7 @@ jobs:
       - name: clang-tidy installation
         shell: bash -l {0}
         run: |
-          conda install -y clang-tools cxx-compiler clang clangxx
+          micromamba install -y clang-tools cxx-compiler clang clangxx
           pip install compdb
 
       - name: Configure

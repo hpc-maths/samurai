@@ -98,7 +98,7 @@ jobs:
             - name: cppcheck installation
               shell: bash -el {0}
               run: |
-                  conda install -y cppcheck=2.12 python=3.12 cxx-compiler
+                  micromamba install -y cppcheck=2.12 python=3.12 cxx-compiler
 
             - name: Configure
               shell: bash -el {0}
@@ -129,47 +129,36 @@ jobs:
             fail-fast: false
             matrix:
                 include:
-                    - cpp-version: gcc-11
-                      compiler: "gcc"
-                      package: "gcc-11 g++-11"
-                      cc: "gcc-11"
-                      cxx: "g++-11"
-                    - cpp-version: gcc-12
-                      compiler: "gcc"
-                      package: "gcc-12 g++-12"
-                      cc: "gcc-12"
-                      cxx: "g++-12"
                     - cpp-version: gcc-13
                       compiler: "gcc"
                       package: "gcc-13 g++-13"
                       cc: "gcc-13"
                       cxx: "g++-13"
-                    # - cpp-version: gcc-14
-                    #   os: ubuntu-latest
-                    #   compiler: "gcc"
-                    #   package: "gcc-14 g++-14"
-                    #   cc: "gcc-14"
-                    #   cxx: "g++-14"
-                    - cpp-version: clang-16
+                    - cpp-version: gcc-14
+                      compiler: "gcc"
+                      package: "gcc-14 g++-14"
+                      cc: "gcc-14"
+                      cxx: "g++-14"
+                    - cpp-version: gcc-15
+                      compiler: "gcc"
+                      package: "gcc-15 g++-15"
+                      cc: "gcc-15"
+                      cxx: "g++-15"
+                    - cpp-version: clang-20
                       compiler: "clang"
-                      package: "clang-16"
-                      cc: "clang-16"
-                      cxx: "clang++-16"
-                    - cpp-version: clang-17
+                      package: "clang-20"
+                      cc: "clang-20"
+                      cxx: "clang++-20"
+                    - cpp-version: clang-21
                       compiler: "clang"
-                      package: "clang-17"
-                      cc: "clang-17"
-                      cxx: "clang++-17"
-                    - cpp-version: clang-18
+                      package: "clang-21"
+                      cc: "clang-21"
+                      cxx: "clang++-21"
+                    - cpp-version: clang-22
                       compiler: "clang"
-                      package: "clang-18"
-                      cc: "clang-18"
-                      cxx: "clang++-18"
-                    - cpp-version: clang-19
-                      compiler: "clang"
-                      package: "clang-19"
-                      cc: "clang-19"
-                      cxx: "clang++-19"
+                      package: "clang-22"
+                      cc: "clang-22"
+                      cxx: "clang++-22"
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -215,19 +204,19 @@ jobs:
             - name: Petsc installation
               shell: bash -l {0}
               run: |
-                  conda install -y petsc pkg-config
+                  micromamba install -y petsc pkg-config
 
             # nlohmann_json is only needed by WITH_STATS (samurai/statistics.hpp).
             - name: nlohmann_json installation
               shell: bash -l {0}
               run: |
-                  conda install -y nlohmann_json
+                  micromamba install -y nlohmann_json
 
             - name: Conda informations
               shell: bash -l {0}
               run: |
-                  conda info
-                  conda list
+                  micromamba info
+                  micromamba list
 
             - name: Configure
               shell: bash -l {0}
@@ -701,15 +690,15 @@ jobs:
             - name: Petsc installation
               shell: bash -l {0}
               run: |
-                  conda install -y petsc pkg-config cxx-compiler ccache
+                  micromamba install -y petsc pkg-config cxx-compiler ccache
                   ccache --max-size=2G
                   ccache --zero-stats
 
             - name: Conda informations
               shell: bash -l {0}
               run: |
-                  conda info
-                  conda list
+                  micromamba info
+                  micromamba list
 
             - name: Configure
               shell: bash -l {0}
@@ -779,15 +768,15 @@ jobs:
             - name: Compiler installation
               shell: bash -l {0}
               run: |
-                  conda install -y cxx-compiler ccache
+                  micromamba install -y cxx-compiler ccache
                   ccache --max-size=2G
                   ccache --zero-stats
 
             - name: Conda informations
               shell: bash -l {0}
               run: |
-                  conda info
-                  conda list
+                  micromamba info
+                  micromamba list
 
             - name: Configure
               shell: bash -l {0}
@@ -853,15 +842,15 @@ jobs:
             - name: Petsc installation
               shell: bash -l {0}
               run: |
-                  conda install -y petsc pkg-config cxx-compiler ccache
+                  micromamba install -y petsc pkg-config cxx-compiler ccache
                   ccache --max-size=2G
                   ccache --zero-stats
 
             - name: Conda informations
               shell: bash -l {0}
               run: |
-                  conda info
-                  conda list
+                  micromamba info
+                  micromamba list
 
             - name: Configure
               shell: bash -l {0}
