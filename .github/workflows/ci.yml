@@ -154,21 +154,6 @@ jobs:
                       package: "gcc-15 g++-15"
                       cc: "gcc-15"
                       cxx: "g++-15"
-                    - cpp-version: clang-17
-                      compiler: "clang"
-                      package: "clang-17"
-                      cc: "clang-17"
-                      cxx: "clang++-17"
-                    - cpp-version: clang-18
-                      compiler: "clang"
-                      package: "clang-18"
-                      cc: "clang-18"
-                      cxx: "clang++-18"
-                    - cpp-version: clang-19
-                      compiler: "clang"
-                      package: "clang-19"
-                      cc: "clang-19"
-                      cxx: "clang++-19"
                     - cpp-version: clang-20
                       compiler: "clang"
                       package: "clang-20"
