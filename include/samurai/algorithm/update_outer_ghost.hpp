@@ -337,6 +337,40 @@ namespace samurai
         }
     }
 
+    // Field projection of the corner ghosts at `level` to level-1 and level-2,
+    // in every non-periodic diagonal direction.
+    template <class Field>
+    void project_outer_corners_below(std::size_t level, Field& field)
+    {
+        constexpr std::size_t dim = Field::dim;
+        auto& mesh                = field.mesh();
+        if constexpr (dim > 1)
+        {
+            if (level <= mesh.max_level() && level >= mesh.min_level())
+            {
+                for_each_diagonal_direction<dim>(
+                    [&](auto& direction)
+                    {
+                        for (std::size_t d = 0; d < dim; ++d)
+                        {
+                            if (direction[d] != 0 && mesh.is_periodic(d))
+                            {
+                                return;
+                            }
+                        }
+                        project_corner_below(level, direction, field);
+                    });
+            }
+        }
+    }
+
+    template <class Field, class... Fields>
+    void project_outer_corners_below(std::size_t level, Field& field, Fields&... fields)
+    {
+        project_outer_corners_below(level, field);
+        (project_outer_corners_below(level, fields), ...);
+    }
+
     template <class Field>
     void update_outer_ghosts(std::size_t level, Field& field)
     {
@@ -373,11 +407,11 @@ namespace samurai
                             // diagonal velocities does). It runs BEFORE project_corner_below so that the
                             // value carried down to the coarser levels is the corrected one.
                             apply_field_bc_diagonal(level, direction, field);
-                            project_corner_below(level, direction, field); // project to level-1 and level-2
                         }
                     });
             }
         }
+        project_outer_corners_below(level, field);
 
         // Apply the B.C. at the same level as the cells and project below
         for_each_cartesian_direction<dim>(

@@ -212,6 +212,12 @@ namespace samurai::detail
             // outer_subdomain_corner) must still be redistributed to every rank
             // that references them.
             exchange_subdomains_merged(level, field, other_fields...);
+#ifdef SAMURAI_WITH_MPI
+            // update_outer_ghosts copied the corner ghosts of this level down to
+            // level-1 and level-2 before this exchange; copy them again now that
+            // the corner ghosts of the neighbours have arrived.
+            project_outer_corners_below(level, field, other_fields...);
+#endif
             update_ghost_periodic(level, field, other_fields...);
 
             if (level > min_level)
