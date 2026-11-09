@@ -11,6 +11,10 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
+#ifndef SAMURAI_DEMO_DIM
+#define SAMURAI_DEMO_DIM 2
+#endif
+
 template <std::size_t dim>
 double exact_solution(xt::xtensor_fixed<double, xt::xshape<dim>> coords, double t, double diff_coeff)
 {
@@ -53,7 +57,7 @@ int main(int argc, char* argv[])
 {
     auto& app = samurai::initialize("Finite volume example for the heat equation", argc, argv);
 
-    static constexpr std::size_t dim = 2;
+    static constexpr std::size_t dim = SAMURAI_DEMO_DIM;
     using Box                        = samurai::Box<double, dim>;
     using point_t                    = typename Box::point_t;
 
@@ -71,7 +75,7 @@ int main(int argc, char* argv[])
         left_box  = -20;
         right_box = 20;
     }
-    else if constexpr (dim == 2)
+    else
     {
         left_box  = -4;
         right_box = 4;

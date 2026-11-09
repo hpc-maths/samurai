@@ -54,6 +54,17 @@ if(${WITH_PETSC})
         target_compile_definitions(${executable_name} PUBLIC SAMURAI_WITH_PETSC)
         target_link_libraries(${executable_name} samurai ${PETSC_LINK_LIBRARIES})
     endforeach()
+
+    # 3D variants of two demos
+    foreach(demo_entry heat.cpp:finite-volume-heat-3d linear_convection.cpp:finite-volume-linear-convection-3d)
+        string(REPLACE ":" ";" demo_parts ${demo_entry})
+        list(GET demo_parts 0 source_file)
+        list(GET demo_parts 1 executable_name)
+
+        add_executable(${executable_name} ${source_file})
+        target_compile_definitions(${executable_name} PUBLIC SAMURAI_WITH_PETSC SAMURAI_DEMO_DIM=3)
+        target_link_libraries(${executable_name} samurai ${PETSC_LINK_LIBRARIES})
+    endforeach()
 endif()
 
 # Create standard executables
