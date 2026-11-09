@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <set>
@@ -250,6 +251,8 @@ namespace samurai
         void construct_domain();
         void build_pyramid(ca_type& pyramid, const lca_type& reference);
         void construct_union();
+        void complete_reference_from_neighbours();
+        lca_type outer_ghost_sources(std::size_t fine_level) const;
         void construct_corners();
         void update_sub_mesh();
         void renumbering();
@@ -452,12 +455,59 @@ namespace samurai
         construct_union();
         update_meshid_neighbour(mesh_id_t::cells);
         update_sub_mesh();
+        complete_reference_from_neighbours();
         renumbering();
         set_origin_point(origin_point);
         set_scaling_factor(scaling_factor);
         update_mesh_neighbour();
 #if defined(SAMURAI_WITH_MPI) && defined(SAMURAI_WITH_PETSC)
         compute_gravity_center();
+#endif
+    }
+
+    // The ghosts outside the domain filled from their children (project_bc,
+    // project_corner_below) average or copy the children found in the
+    // reference. Sequentially, these are the children of the global reference,
+    // which is the union of the references of all the ranks. The children held
+    // by a neighbour only are added here, so that every rank reads the same
+    // children as a single process would, whatever the partition.
+    template <class D, class Config>
+    void Mesh_base<D, Config>::complete_reference_from_neighbours()
+    {
+#ifdef SAMURAI_WITH_MPI
+        if (m_mpi_neighbourhood.empty())
+        {
+            return;
+        }
+        ScopedTimer timer("complete_reference_from_neighbours");
+        update_meshid_neighbour(mesh_id_t::reference);
+
+        const auto& ref = m_cells[mesh_id_t::reference];
+        cl_type cell_list(ref.origin_point(), ref.scaling_factor());
+        bool added = false;
+        for (std::size_t level = ref.min_level() + 1; level <= max_level(); ++level)
+        {
+            const auto children = outer_ghost_sources(level);
+            for (const auto& neighbour : m_mpi_neighbourhood)
+            {
+                auto missing = difference(intersection(children, neighbour.mesh[mesh_id_t::reference][level]), ref[level]);
+                missing(
+                    [&](const auto& i, const auto& index)
+                    {
+                        cell_list[level][index].add_interval(i);
+                        added = true;
+                    });
+            }
+        }
+        if (added)
+        {
+            for_each_interval(ref,
+                              [&](std::size_t level, const auto& i, const auto& index)
+                              {
+                                  cell_list[level][index].add_interval(i);
+                              });
+            m_cells[mesh_id_t::reference] = {cell_list, false};
+        }
 #endif
     }
 
@@ -993,6 +1043,62 @@ namespace samurai
                         });
                 });
         }
+    }
+
+    // Ghosts at `fine_level` that the ghosts outside the domain at a coarser
+    // level read: the children of the face ghosts that project_bc fills (from
+    // min_level - 1 on, facing the union) and those of the corner ghosts that
+    // project_corner_below fills (from a source level in [min_level, max_level]).
+    template <class D, class Config>
+    auto Mesh_base<D, Config>::outer_ghost_sources(std::size_t fine_level) const -> lca_type
+    {
+        const std::size_t min_lvl = min_level();
+        lcl_type lcl(fine_level);
+        if (fine_level == 0 || fine_level > max_level())
+        {
+            return lca_type(lcl);
+        }
+        auto add = [&](auto&& set)
+        {
+            set(
+                [&](const auto& i, const auto& index)
+                {
+                    lcl[index].add_interval(i);
+                });
+        };
+        const std::size_t level = fine_level - 1;
+        const auto& ref         = m_cells[mesh_id_t::reference];
+        if (fine_level >= min_lvl)
+        {
+            for_each_cartesian_direction<dim>(
+                [&](auto d, const auto& direction)
+                {
+                    if (!is_periodic(d))
+                    {
+                        for (int layer = 1; layer <= ghost_width(); ++layer)
+                        {
+                            add(difference(intersection(ref[level], translate(m_union[level], layer * direction)), domain(level)).on(fine_level));
+                        }
+                    }
+                });
+            for_each_diagonal_direction<dim>(
+                [&](const auto& direction)
+                {
+                    for (std::size_t d = 0; d < dim; ++d)
+                    {
+                        if (direction[d] != 0 && is_periodic(d))
+                        {
+                            return;
+                        }
+                    }
+                    for (std::size_t delta = 1; delta <= std::min<std::size_t>(2, fine_level); ++delta)
+                    {
+                        const std::size_t coarse = fine_level - delta;
+                        add(intersection(ref[coarse], translate(self(corner(direction)).on(coarse), direction)).on(fine_level));
+                    }
+                });
+        }
+        return lca_type(lcl);
     }
 
     template <class D, class Config>

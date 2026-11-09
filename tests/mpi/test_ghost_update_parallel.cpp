@@ -529,7 +529,13 @@ namespace
         {
             for (int s : {2, 5})
             {
-                cases.push_back({s, g, Decomp::Hilbert});
+                // FineCheckerboard and RandomHash split the children of a cell
+                // between ranks, so the reference of no rank holds all the
+                // children of some coarse ghosts outside the domain.
+                for (Decomp d : {Decomp::Hilbert, Decomp::FineCheckerboard, Decomp::RandomHash})
+                {
+                    cases.push_back({s, g, d});
+                }
             }
         }
         return cases;
