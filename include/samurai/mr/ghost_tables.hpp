@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "../algorithm/update_periodic.hpp"
 #include "../numeric/prediction_coefficients.hpp"
 #include "../static_algorithm.hpp"
 #include "../subset/node.hpp"
@@ -29,16 +30,18 @@ namespace samurai::detail
         std::vector<std::size_t> src;     // n_src rows per entry
     };
 
-    // The field projection and the prediction of update_ghost_mr as flat tables,
-    // built once per mesh from the same set expressions. Running them gives the
+    // The field projection, the prediction and the periodic copies of
+    // update_ghost_mr as flat tables, built once per mesh from the same set
+    // expressions. Running them gives the
     // same values, bit for bit, without traversing the set expressions again.
     template <std::size_t dim, class value_t>
     struct GhostTables
     {
         using table_t = GhostTable<dim, value_t>;
 
-        std::vector<table_t> projection; // projection[l]: ghosts at l, mean of their children at l + 1
-        std::vector<table_t> prediction; // prediction[l]: ghosts at l, predicted from l - 1
+        std::vector<table_t> projection;          // projection[l]: ghosts at l, mean of their children at l + 1
+        std::vector<table_t> prediction;          // prediction[l]: ghosts at l, predicted from l - 1
+        std::vector<PeriodicGhostTable> periodic; // periodic[l]: periodic ghosts at l
 
         // No tables: the mesh was never finalized.
         GhostTables() = default;
@@ -57,6 +60,11 @@ namespace samurai::detail
             constexpr auto r     = static_cast<value_t>(Mesh::config_t::prediction_stencil_radius);
             projection.resize(max_level + 1);
             prediction.resize(max_level + 1);
+            periodic.reserve(max_level + 1);
+            for (std::size_t level = 0; level <= max_level; ++level)
+            {
+                periodic.push_back(make_periodic_ghost_table(level, mesh));
+            }
 
             auto offset = [&](std::size_t level, value_t x, const auto& index)
             {

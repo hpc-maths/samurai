@@ -20,68 +20,50 @@ namespace mpi = boost::mpi;
 
 namespace samurai
 {
-    template <class Field>
-    void update_ghost_periodic(std::size_t level, Field& field)
+    namespace detail
     {
-        iterate_over_periodic_ghosts(level,
-                                     field,
-                                     [&](const auto& i_ghosts, const auto& index_ghosts, const auto& i_cells, const auto& index_cells)
-                                     {
-                                         field(level, i_ghosts, index_ghosts) = field(level, i_cells, index_cells);
-                                     });
-    }
-
-    template <class Field, class Func>
-    void iterate_over_periodic_ghosts(std::size_t level, Field& field, Func&& copy_values)
-    {
-#ifdef SAMURAI_WITH_MPI
-        using field_value_t = typename Field::value_type;
-#endif
-        using mesh_id_t        = typename Field::mesh_t::mesh_id_t;
-        using lca_type         = typename Field::mesh_t::lca_type;
-        using interval_value_t = typename Field::interval_t::value_t;
-        using box_t            = Box<interval_value_t, Field::dim>;
-
-        constexpr std::size_t dim = Field::dim;
-
-        auto& mesh = field.mesh();
-
-        const auto& domain      = mesh.domain();
-        const auto& min_indices = domain.min_indices();
-        const auto& max_indices = domain.max_indices();
-
-        const auto& mesh_ref = mesh[mesh_id_t::reference];
-
-        const std::size_t delta_l = domain.level() - level;
-
-        xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> min_corner;
-        xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> max_corner;
-        xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> shift;
-
-        for (std::size_t d = 0; d < dim; ++d)
+        // Walks the periodic ghosts of `level`, one periodic direction after the
+        // other, and tells the visitor, in this order for each direction:
+        // - copy(i_ghosts, index_ghosts, i_cells, index_cells) for each interval
+        //   of ghosts whose periodic image is held by this rank;
+        // - with MPI, send(k, i_cells, index_cells) for each interval of cells
+        //   whose periodic image is a ghost of the k-th neighbour, then
+        //   exchange(), then receive(k, i_ghosts, index_ghosts) for each interval
+        //   of ghosts whose periodic image belongs to the k-th neighbour, then
+        //   end_exchange();
+        // - end_direction().
+        template <class Mesh, class Visitor>
+        void visit_periodic_ghosts(std::size_t level, const Mesh& mesh, Visitor& visitor)
         {
-            min_corner[d] = (min_indices[d] >> delta_l) - mesh.ghost_width();
-            max_corner[d] = (max_indices[d] >> delta_l) + mesh.ghost_width();
-            shift[d]      = 0;
-        }
-#ifdef SAMURAI_WITH_MPI
-        mpi::communicator world;
-#endif // SAMURAI_WITH_MPI
-        for (std::size_t d = 0; d < dim; ++d)
-        {
-            if (mesh.is_periodic(d))
+            using mesh_id_t           = typename Mesh::mesh_id_t;
+            using lca_type            = typename Mesh::lca_type;
+            using interval_value_t    = typename Mesh::interval_t::value_t;
+            using box_t               = Box<interval_value_t, Mesh::dim>;
+            constexpr std::size_t dim = Mesh::dim;
+
+            const auto& domain      = mesh.domain();
+            const auto& min_indices = domain.min_indices();
+            const auto& max_indices = domain.max_indices();
+            const auto& mesh_ref    = mesh[mesh_id_t::reference];
+
+            const std::size_t delta_l = domain.level() - level;
+
+            xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> min_corner;
+            xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> max_corner;
+            xt::xtensor_fixed<interval_value_t, xt::xshape<dim>> shift;
+
+            for (std::size_t d = 0; d < dim; ++d)
             {
-#ifdef SAMURAI_WITH_MPI
-                // These MUST be scoped to the current dimension: reusing the same
-                // request vector across dimensions would call wait_all() again on
-                // requests already completed in the previous dimension, which is
-                // undefined for boost::mpi's serialized-vector requests and
-                // corrupts the MPI request state (intermittent hangs/crashes).
-                std::vector<mpi::request> req;
-                req.reserve(mesh.mpi_neighbourhood().size());
-                std::vector<std::vector<field_value_t>> field_data_out(mesh.mpi_neighbourhood().size());
-                std::vector<field_value_t> field_data_in;
-#endif // SAMURAI_WITH_MPI
+                min_corner[d] = (min_indices[d] >> delta_l) - mesh.ghost_width();
+                max_corner[d] = (max_indices[d] >> delta_l) + mesh.ghost_width();
+                shift[d]      = 0;
+            }
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                if (!mesh.is_periodic(d))
+                {
+                    continue;
+                }
                 shift[d]                  = (max_indices[d] - min_indices[d]) >> delta_l;
                 const auto shift_interval = shift[0];
                 const auto shift_index    = xt::view(shift, xt::range(1, _));
@@ -111,72 +93,299 @@ namespace samurai
                 set1(
                     [&](const auto& i, const auto& index)
                     {
-                        copy_values(i, index, i - shift_interval, index - shift_index);
+                        visitor.copy(i, index, i - shift_interval, index - shift_index);
                     });
                 auto set2 = intersection(translate(intersection(mesh_ref[level], lca_max_m), -shift),
                                          intersection(mesh_ref[level], lca_min_m));
                 set2(
                     [&](const auto& i, const auto& index)
                     {
-                        copy_values(i, index, i + shift_interval, index + shift_index);
+                        visitor.copy(i, index, i + shift_interval, index + shift_index);
                     });
 #ifdef SAMURAI_WITH_MPI
-                size_t neighbor_id = 0;
+                std::size_t k = 0;
                 for (const auto& mpi_neighbor : mesh.mpi_neighbourhood())
                 {
                     const auto& neighbor_mesh_ref = mpi_neighbor.mesh[mesh_id_t::reference];
 
-                    field_data_out[neighbor_id].clear();
                     auto set1_mpi = intersection(translate(intersection(mesh_ref[level], lca_min_p), shift),
                                                  intersection(neighbor_mesh_ref[level], lca_max_p));
                     set1_mpi(
                         [&](const auto& i, const auto& index)
                         {
-                            const auto& field_data = field(level, i - shift_interval, index - shift_index);
-                            std::copy(field_data.begin(), field_data.end(), std::back_inserter(field_data_out[neighbor_id]));
+                            visitor.send(k, i - shift_interval, index - shift_index);
                         });
                     auto set2_mpi = intersection(translate(intersection(mesh_ref[level], lca_max_m), -shift),
                                                  intersection(neighbor_mesh_ref[level], lca_min_m));
                     set2_mpi(
                         [&](const auto& i, const auto& index)
                         {
-                            const auto& field_data = field(level, i + shift_interval, index + shift_index);
-                            std::copy(field_data.begin(), field_data.end(), std::back_inserter(field_data_out[neighbor_id]));
+                            visitor.send(k, i + shift_interval, index + shift_index);
                         });
-                    req.push_back(world.isend(mpi_neighbor.rank, mpi_neighbor.rank, field_data_out[neighbor_id]));
-                    ++neighbor_id;
+                    ++k;
                 }
+                visitor.exchange();
+                k = 0;
                 for (const auto& mpi_neighbor : mesh.mpi_neighbourhood())
                 {
                     const auto& neighbor_mesh_ref = mpi_neighbor.mesh[mesh_id_t::reference];
 
-                    world.recv(mpi_neighbor.rank, world.rank(), field_data_in);
-                    auto it       = field_data_in.cbegin();
                     auto set1_mpi = intersection(translate(intersection(neighbor_mesh_ref[level], lca_min_p), shift),
                                                  intersection(mesh_ref[level], lca_max_p));
                     set1_mpi(
                         [&](const auto& i, const auto& index)
                         {
-                            std::copy(it, it + std::ssize(field(level, i, index)), field(level, i, index).begin());
-                            it += std::ssize(field(level, i, index));
+                            visitor.receive(k, i, index);
                         });
                     auto set2_mpi = intersection(translate(intersection(neighbor_mesh_ref[level], lca_max_m), -shift),
                                                  intersection(mesh_ref[level], lca_min_m));
                     set2_mpi(
                         [&](const auto& i, const auto& index)
                         {
-                            std::copy(it, it + std::ssize(field(level, i, index)), field(level, i, index).begin());
-                            it += std::ssize(field(level, i, index));
+                            visitor.receive(k, i, index);
                         });
+                    ++k;
                 }
-                mpi::wait_all(req.begin(), req.end());
-#endif // SAMURAI_WITH_MPI
-                /* reset variables for next iterations. */
+                visitor.end_exchange();
+#endif
+                visitor.end_direction();
+                // reset for the next direction
                 shift[d]      = 0;
                 min_corner[d] = (min_indices[d] >> delta_l) - mesh.ghost_width();
                 max_corner[d] = (max_indices[d] >> delta_l) + mesh.ghost_width();
             }
         }
+
+        // Copies the periodic images held by this rank with `copy_values` and
+        // exchanges the others with the neighbours.
+        template <class Field, class Func>
+        struct FieldPeriodicVisitor
+        {
+            using value_t = typename Field::value_type;
+
+            std::size_t level;
+            Field& field;
+            Func& copy_values;
+#ifdef SAMURAI_WITH_MPI
+            mpi::communicator world{};
+            std::vector<std::vector<value_t>> out = std::vector<std::vector<value_t>>(field.mesh().mpi_neighbourhood().size());
+            std::vector<std::vector<value_t>> in  = std::vector<std::vector<value_t>>(field.mesh().mpi_neighbourhood().size());
+            std::vector<std::ptrdiff_t> read      = std::vector<std::ptrdiff_t>(field.mesh().mpi_neighbourhood().size());
+            std::vector<mpi::request> req{};
+#endif
+
+            void copy(const auto& i_ghosts, const auto& index_ghosts, const auto& i_cells, const auto& index_cells)
+            {
+                copy_values(i_ghosts, index_ghosts, i_cells, index_cells);
+            }
+
+#ifdef SAMURAI_WITH_MPI
+            void send(std::size_t k, const auto& i, const auto& index)
+            {
+                const auto& data = field(level, i, index);
+                std::copy(data.begin(), data.end(), std::back_inserter(out[k]));
+            }
+
+            void exchange()
+            {
+                const auto& neighbours = field.mesh().mpi_neighbourhood();
+                for (std::size_t k = 0; k < neighbours.size(); ++k)
+                {
+                    req.push_back(world.isend(neighbours[k].rank, neighbours[k].rank, out[k]));
+                }
+                for (std::size_t k = 0; k < neighbours.size(); ++k)
+                {
+                    world.recv(neighbours[k].rank, world.rank(), in[k]);
+                    read[k] = 0;
+                }
+            }
+
+            void receive(std::size_t k, const auto& i, const auto& index)
+            {
+                auto data    = field(level, i, index);
+                const auto n = std::ssize(data);
+                std::copy(in[k].cbegin() + read[k], in[k].cbegin() + read[k] + n, data.begin());
+                read[k] += n;
+            }
+
+            // The requests MUST not outlive the direction: calling wait_all() again on
+            // completed boost::mpi serialized requests corrupts the MPI request state.
+            void end_exchange()
+            {
+                mpi::wait_all(req.begin(), req.end());
+                req.clear();
+                for (auto& o : out)
+                {
+                    o.clear();
+                }
+            }
+#endif
+
+            void end_direction()
+            {
+            }
+        };
+
+        // Runs of consecutive cells, given by the storage index of the first one.
+        struct PeriodicRun
+        {
+            std::size_t dest;
+            std::size_t src;
+            std::size_t len;
+        };
+
+        // The periodic ghosts of one level as storage indices, one entry per
+        // periodic direction in the order of visit_periodic_ghosts.
+        struct PeriodicGhostTable
+        {
+            struct Direction
+            {
+                std::vector<PeriodicRun> copies;
+                std::vector<std::vector<PeriodicRun>> send; // per neighbour, the cells to send (src, len)
+                std::vector<std::vector<PeriodicRun>> recv; // per neighbour, the ghosts received (dest, len)
+            };
+
+            std::vector<Direction> directions;
+        };
+
+        template <class Mesh>
+        struct PeriodicTableBuilder
+        {
+            std::size_t level;
+            const Mesh& mesh;
+            PeriodicGhostTable table{};
+            PeriodicGhostTable::Direction current{};
+
+            std::size_t offset(const auto& i, const auto& index) const
+            {
+                return static_cast<std::size_t>(memory_offset(mesh, {level, i.start, index}));
+            }
+
+            void copy(const auto& i_ghosts, const auto& index_ghosts, const auto& i_cells, const auto& index_cells)
+            {
+                current.copies.push_back({offset(i_ghosts, index_ghosts), offset(i_cells, index_cells), i_ghosts.size()});
+            }
+
+            void send(std::size_t k, const auto& i, const auto& index)
+            {
+                current.send.resize(mesh.mpi_neighbourhood().size());
+                current.send[k].push_back({0, offset(i, index), i.size()});
+            }
+
+            void exchange()
+            {
+                current.send.resize(mesh.mpi_neighbourhood().size());
+                current.recv.resize(mesh.mpi_neighbourhood().size());
+            }
+
+            void receive(std::size_t k, const auto& i, const auto& index)
+            {
+                current.recv[k].push_back({offset(i, index), 0, i.size()});
+            }
+
+            void end_exchange()
+            {
+            }
+
+            void end_direction()
+            {
+                table.directions.push_back(std::move(current));
+                current = {};
+            }
+        };
+
+        template <class Mesh>
+        PeriodicGhostTable make_periodic_ghost_table(std::size_t level, const Mesh& mesh)
+        {
+            PeriodicTableBuilder<Mesh> builder{level, mesh};
+            visit_periodic_ghosts(level, mesh, builder);
+            return std::move(builder.table);
+        }
+
+        // Same writes as the copies and the exchanges of visit_periodic_ghosts,
+        // from the table. The components of a cell are next to each other, as in
+        // projection_op_.
+        template <class Field>
+        void update_periodic_ghosts(Field& field, const PeriodicGhostTable& table)
+        {
+            using value_t            = typename Field::value_type;
+            constexpr std::size_t nc = Field::n_comp;
+            auto* data               = field.data();
+#ifdef SAMURAI_WITH_MPI
+            mpi::communicator world;
+            const auto& neighbours = field.mesh().mpi_neighbourhood();
+#endif
+            for (const auto& direction : table.directions)
+            {
+                for (const auto& run : direction.copies)
+                {
+                    std::copy(data + run.src * nc, data + (run.src + run.len) * nc, data + run.dest * nc);
+                }
+#ifdef SAMURAI_WITH_MPI
+                if (neighbours.empty())
+                {
+                    continue;
+                }
+                std::vector<std::vector<value_t>> out(neighbours.size());
+                std::vector<mpi::request> req;
+                req.reserve(neighbours.size());
+                for (std::size_t k = 0; k < neighbours.size(); ++k)
+                {
+                    for (const auto& run : direction.send[k])
+                    {
+                        out[k].insert(out[k].end(), data + run.src * nc, data + (run.src + run.len) * nc);
+                    }
+                    req.push_back(world.isend(neighbours[k].rank, neighbours[k].rank, out[k]));
+                }
+                std::vector<value_t> in;
+                for (std::size_t k = 0; k < neighbours.size(); ++k)
+                {
+                    world.recv(neighbours[k].rank, world.rank(), in);
+                    auto it = in.cbegin();
+                    for (const auto& run : direction.recv[k])
+                    {
+                        const auto n = static_cast<std::ptrdiff_t>(run.len * nc);
+                        std::copy(it, it + n, data + run.dest * nc);
+                        it += n;
+                    }
+                }
+                mpi::wait_all(req.begin(), req.end());
+#endif
+            }
+        }
+
+        template <class Mesh>
+        concept has_ghost_tables = requires(const Mesh& mesh) { mesh.ghost_tables(); };
+    }
+
+    // Calls copy_values(i_ghosts, index_ghosts, i_cells, index_cells) for each
+    // interval of periodic ghosts whose image this rank holds, and exchanges the
+    // others with the neighbours.
+    template <class Field, class Func>
+    void iterate_over_periodic_ghosts(std::size_t level, Field& field, Func&& copy_values)
+    {
+        detail::FieldPeriodicVisitor<Field, std::decay_t<Func>> visitor{level, field, copy_values};
+        detail::visit_periodic_ghosts(level, field.mesh(), visitor);
+    }
+
+    template <class Field>
+    void update_ghost_periodic(std::size_t level, Field& field)
+    {
+        if constexpr (detail::has_ghost_tables<typename Field::mesh_t>)
+        {
+            const auto& tables = field.mesh().ghost_tables();
+            if (!tables.empty())
+            {
+                detail::update_periodic_ghosts(field, tables.periodic[level]);
+                return;
+            }
+        }
+        iterate_over_periodic_ghosts(level,
+                                     field,
+                                     [&](const auto& i_ghosts, const auto& index_ghosts, const auto& i_cells, const auto& index_cells)
+                                     {
+                                         field(level, i_ghosts, index_ghosts) = field(level, i_cells, index_cells);
+                                     });
     }
 
     template <class Field, class... Fields>

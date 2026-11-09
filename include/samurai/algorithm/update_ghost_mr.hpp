@@ -216,9 +216,6 @@ namespace samurai::detail
         set.apply_op(variadic_prediction<pred_order, false>(field, other_fields...));
     }
 
-    template <class Mesh>
-    concept has_ghost_tables = requires(const Mesh& mesh) { mesh.ghost_tables(); };
-
     // Same values as project_ghosts_with_sets, from the tables of the mesh when it has them.
     template <class Field, class... Fields>
     void project_ghosts(std::size_t level, Field& field, Fields&... other_fields)
