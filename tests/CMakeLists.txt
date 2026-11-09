@@ -49,6 +49,7 @@ set(SAMURAI_TESTS
     test_flux_based_nonlin.cpp
     test_for_each.cpp
     test_fv_operators.cpp
+    test_ghost_tables.cpp
     test_ghost_update.cpp
     test_graduation.cpp
     test_hdf5.cpp
