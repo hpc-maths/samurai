@@ -11,6 +11,10 @@
 #include <filesystem>
 namespace fs = std::filesystem;
 
+#ifndef SAMURAI_DEMO_DIM
+#define SAMURAI_DEMO_DIM 2
+#endif
+
 template <class Field>
 void save(const fs::path& path, const std::string& filename, const Field& u, const std::string& suffix = "")
 {
@@ -36,7 +40,7 @@ int main(int argc, char* argv[])
 {
     auto& app = samurai::initialize("Finite volume example for the linear convection equation", argc, argv);
 
-    static constexpr std::size_t dim = 2;
+    static constexpr std::size_t dim = SAMURAI_DEMO_DIM;
     using Box                        = samurai::Box<double, dim>;
     using point_t                    = typename Box::point_t;
 
@@ -103,11 +107,19 @@ int main(int argc, char* argv[])
                                                        const auto& x = coords(0);
                                                        return (x >= -0.8 && x <= -0.3) ? 1. : 0.;
                                                    }
-                                                   else
+                                                   else if constexpr (dim == 2)
                                                    {
                                                        const auto& x = coords(0);
                                                        const auto& y = coords(1);
                                                        return (x >= -0.8 && x <= -0.3 && y >= 0.3 && y <= 0.8) ? 1. : 0.;
+                                                   }
+                                                   else
+                                                   {
+                                                       const auto& x = coords(0);
+                                                       const auto& y = coords(1);
+                                                       const auto& z = coords(2);
+                                                       return (x >= -0.8 && x <= -0.3 && y >= 0.3 && y <= 0.8 && z >= 0.3 && z <= 0.8) ? 1.
+                                                                                                                                       : 0.;
                                                    }
                                                });
     }
@@ -124,9 +136,13 @@ int main(int argc, char* argv[])
     // Convection operator
     samurai::VelocityVector<dim> velocity;
     velocity.fill(1);
-    if constexpr (dim == 2)
+    if constexpr (dim >= 2)
     {
         velocity(1) = -1;
+    }
+    if constexpr (dim == 3)
+    {
+        velocity(2) = -1;
     }
     auto conv = samurai::make_convection_weno5<decltype(u)>(velocity);
     auto id   = samurai::make_identity<decltype(u)>();

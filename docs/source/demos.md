@@ -150,10 +150,12 @@ Options that start with a single dash, such as `-pc_type lu`, go to the PETSc so
 | Target | Problem |
 | --- | --- |
 | `finite-volume-heat` | 2D heat equation, implicit or explicit (`--explicit`). |
+| `finite-volume-heat-3d` | The same heat equation in 3D. |
 | `finite-volume-heat-heterogeneous` | 2D heat equation with a diffusion coefficient that depends on the cell. See {ref}`lin_heter_operators`. |
 | `finite-volume-heat-nonlinear` | 2D nonlinear heat equation, with a flux written by the user. Its printed L2 error is wrong ([#610](https://github.com/hpc-maths/samurai/issues/610)). |
 | `finite-volume-nagumo` | 1D Nagumo reaction-diffusion equation, implicit or IMEX. See {doc}`tutorial/reaction_diffusion`. |
 | `finite-volume-linear-convection` | 2D periodic convection with WENO5, explicit or backward Euler (`--implicit`). |
+| `finite-volume-linear-convection-3d` | The same convection in 3D. |
 | `finite-volume-stokes-2d` | 2D Stokes problem, stationary (`s`) or not (`ns`), solved as a block system. |
 | `finite-volume-lid-driven-cavity` | Lid-driven cavity, incompressible Navier-Stokes. |
 | `finite-volume-diff-heated-cavity` | Differentially heated cavity, Navier-Stokes with a Boussinesq buoyancy term. |
@@ -163,10 +165,12 @@ Run commands, from `build/demos/FiniteVolume`:
 
 ```bash
 ./finite-volume-heat --init-sol crenel --Tf 0.1 --min-level 3 --max-level 8 -pc_type lu
+./finite-volume-heat-3d --explicit --init-sol crenel --Tf 0.1 --min-level 3 --max-level 6
 ./finite-volume-heat-heterogeneous --Tf 0.1 --min-level 3 --max-level 6 -ksp_type preonly -pc_type lu
 ./finite-volume-heat-nonlinear --Tf 0.1 --min-level 3 --max-level 6
 ./finite-volume-nagumo --min-level 4 --max-level 8 --Tf 0.1 --dt 0.02
 ./finite-volume-linear-convection --min-level 1 --max-level 6 --Tf 0.1 --nfiles 1
+./finite-volume-linear-convection-3d --min-level 3 --max-level 6 --Tf 0.1 --nfiles 1
 ./finite-volume-stokes-2d --test-case s --min-level 5 --max-level 5
 ./finite-volume-lid-driven-cavity --min-level 3 --max-level 6 --Tf 0.03 --nfiles 1 -pc_type lu
 ./finite-volume-diff-heated-cavity --Tf 0.7 --nfiles 1

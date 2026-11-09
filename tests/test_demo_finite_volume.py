@@ -360,6 +360,32 @@ def test_finite_volume_demo_linear_convection(time_scheme, config):
     output = subprocess.run(cmd, check=True, capture_output=True)
 
 
+# The 3D variants share the source of the 2D demos: check that they run.
+@pytest.mark.parametrize("time_scheme", ["explicit", "implicit"])
+@pytest.mark.parametrize(
+    "exec, options",
+    [
+        ("finite-volume-heat-3d", ["--save-final-state-only", "--init-sol=crenel"]),
+        ("finite-volume-linear-convection-3d", ["--nfiles=1"]),
+    ],
+)
+def test_finite_volume_demo_3d(exec, options, time_scheme, tmp_path):
+    cmd = [
+        get_executable(Path("../build/demos/FiniteVolume/"), exec),
+        "--path",
+        str(tmp_path),
+        "--min-level=2",
+        "--max-level=4",
+        "--Tf=0.01",
+        *options,
+    ]
+    if time_scheme == "explicit" and exec == "finite-volume-heat-3d":
+        cmd.append("--explicit")
+    if time_scheme == "implicit" and exec == "finite-volume-linear-convection-3d":
+        cmd.append("--implicit")
+    subprocess.run(cmd, check=True, capture_output=True)
+
+
 @pytest.mark.h5diff()
 def test_finite_volume_demo_obstacle_linear_convection(config):
     cmd = [
