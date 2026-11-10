@@ -8,7 +8,6 @@
 #include "../algorithm.hpp"
 #include "../bc/apply_field_bc.hpp"
 #include "outer_ghost_sets.hpp"
-#include "update_periodic.hpp" // detail::has_ghost_tables
 
 #ifndef NDEBUG
 #include "../io/hdf5.hpp"
@@ -23,23 +22,6 @@ namespace samurai
 {
     namespace detail
     {
-        // Calls f with the tables of the ghosts outside the (box) domain at `level`
-        // when the mesh holds them, and returns what f returns: true when the
-        // tables did the work.
-        template <class Mesh, class Func>
-        bool with_outer_ghost_tables(const Mesh& mesh, std::size_t level, Func&& f)
-        {
-            if constexpr (has_ghost_tables<Mesh>)
-            {
-                const auto& outer = mesh.ghost_tables().outer;
-                return level < outer.size() && f(outer[level]);
-            }
-            else
-            {
-                return false;
-            }
-        }
-
         // project_bc on a field: the sum of the children from 0, divided by their number
         template <class Field>
         struct FieldBCProjection

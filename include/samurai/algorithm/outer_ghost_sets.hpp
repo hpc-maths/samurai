@@ -7,11 +7,30 @@
 #include <vector>
 
 #include "../algorithm.hpp"
+#include "../bc/extrapolation_sets.hpp"
 #include "../boundary.hpp"
 #include "../stencil.hpp"
+#include "update_periodic.hpp" // has_ghost_tables
 
 namespace samurai::detail
 {
+    // Calls f with the tables of the ghosts outside the (box) domain at `level`
+    // when the mesh holds them, and returns what f returns: true when the
+    // tables did the work.
+    template <class Mesh, class Func>
+    bool with_outer_ghost_tables(const Mesh& mesh, std::size_t level, Func&& f)
+    {
+        if constexpr (has_ghost_tables<Mesh>)
+        {
+            const auto& outer = mesh.ghost_tables().outer;
+            return level < outer.size() && f(outer[level]);
+        }
+        else
+        {
+            return false;
+        }
+    }
+
     // Position of `direction` in for_each_cartesian_direction.
     template <std::size_t dim>
     std::size_t cartesian_direction_index(const DirectionVector<dim>& direction)
@@ -203,13 +222,23 @@ namespace samurai::detail
         std::vector<std::size_t> src;
     };
 
+    // update_outer_corners_by_polynomial_extrapolation in one diagonal direction.
+    struct CornerExtrapolation
+    {
+        bool recorded = false;
+        ExtrapolationSequence sequence;
+    };
+
     // The ghosts outside a box domain at one level that update_outer_ghosts
-    // fills from other ghosts.
+    // fills from other ghosts or by polynomial extrapolation.
     struct OuterGhostTables
     {
-        std::vector<std::vector<BCProjectionTable>> projection; // [direction][layer - 1]: project_bc to this level
-        std::vector<std::vector<CopyTable>> prediction;         // [direction][layer - 1]: predict_bc at this level
-        CopyTable corners;                                      // project_outer_corners_below from this level
+        std::vector<std::vector<BCProjectionTable>> projection;                  // [direction][layer - 1]: project_bc to this level
+        std::vector<std::vector<CopyTable>> prediction;                          // [direction][layer - 1]: predict_bc at this level
+        CopyTable corners;                                                       // project_outer_corners_below from this level
+        std::vector<LazyExtrapolationLayers> extrapolation_on_cells;             // [direction], each layer recorded on first use
+        std::vector<std::vector<ExtrapolationSequence>> extrapolation_on_ghosts; // [direction][layer - 1], from the layer 2
+        std::vector<CornerExtrapolation> corner_extrapolation;                   // [direction_code(diagonal direction)]
     };
 
     template <class Mesh>
@@ -263,14 +292,31 @@ namespace samurai::detail
         const int n_layers           = mesh.max_stencil_radius();
         const int n_projected_layers = (n_layers + 1) / 2;
 
+        // update_further_ghosts_by_polynomial_extrapolation, when the ghost width is one it can fill
+        const int ghost_width           = static_cast<int>(mesh.ghost_width());
+        const bool record_extrapolation = level >= mesh.min_level() && level <= mesh.max_level()
+                                       && ghost_width <= static_cast<int>(max_ghost_layers_implemented_PE);
+
         for_each_cartesian_direction<dim>(
             [&](auto d, const auto& direction)
             {
                 auto& projection = tables.projection.emplace_back();
                 auto& prediction = tables.prediction.emplace_back();
+                auto& on_cells   = tables.extrapolation_on_cells.emplace_back();
+                auto& on_ghosts  = tables.extrapolation_on_ghosts.emplace_back();
                 if (mesh.is_periodic(d))
                 {
                     return;
+                }
+                if (record_extrapolation)
+                {
+                    on_cells = LazyExtrapolationLayers(static_cast<std::size_t>(ghost_width));
+                    on_ghosts.resize(static_cast<std::size_t>(ghost_width));
+                    for (int layer = 2; layer <= ghost_width; ++layer)
+                    {
+                        ExtrapolationRecorder from_ghosts{on_ghosts[static_cast<std::size_t>(layer - 1)]};
+                        visit_extrapolation_on_ghosts(mesh, level, direction, layer, layer, from_ghosts);
+                    }
                 }
                 // the levels where update_outer_ghosts calls project_bc and predict_bc
                 if (level < mesh.max_level() && level + 1 >= mesh.min_level())
@@ -320,6 +366,12 @@ namespace samurai::detail
                 return tables;
             }
             CornerCopyRecorder<Mesh> recorder{tables.corners, level, mesh};
+            std::size_t n_directions = 1;
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                n_directions *= 3;
+            }
+            tables.corner_extrapolation.resize(n_directions);
             for_each_diagonal_direction<dim>(
                 [&](const auto& direction)
                 {
@@ -330,6 +382,10 @@ namespace samurai::detail
                             return;
                         }
                     }
+                    auto& corner    = tables.corner_extrapolation[direction_code(direction)];
+                    corner.recorded = true;
+                    ExtrapolationRecorder extrapolation{corner.sequence};
+                    visit_corner_extrapolation(mesh, level, direction, extrapolation);
                     visit_corner_copies(mesh, level, direction, recorder);
                 });
         }

@@ -4,7 +4,7 @@
 // The tables of update_ghost_mr against the set expressions they replace: on an
 // adapted mesh, the field projection, the prediction, the periodic copies and the
 // ghosts outside the domain filled from other ghosts (project_bc, predict_bc and
-// the corner copies) must give the same values, bit for bit, at every level, for a
+// the corner copies) or by polynomial extrapolation must give the same values, bit for bit, at every level, for a
 // scalar and a vector field.
 
 #include <array>
@@ -323,6 +323,123 @@ namespace samurai
             check(s, "scalar");
             check(v, "vector");
         }
+
+        // update_further_ghosts_by_polynomial_extrapolation and
+        // update_outer_corners_by_polynomial_extrapolation through the tables of
+        // the mesh and through the set expressions. A ghost width of 3 and a B.C.
+        // that fills one layer use the stencils of size 2, 4 and 6.
+        template <std::size_t dim>
+        void check_extrapolation_tables()
+        {
+            const std::size_t max_level = dim == 3 ? 5 : 7;
+            auto config                 = mesh_config<dim>().min_level(2).max_level(max_level).max_stencil_size(6);
+            auto mesh                   = mra::make_mesh(Box<double, dim>(xt::zeros<double>({dim}), xt::ones<double>({dim})), config);
+
+            auto u = make_scalar_field<double>("u", mesh);
+            for_each_cell(mesh,
+                          [&](const auto& cell)
+                          {
+                              u[cell] = std::tanh(100 * (cell.center(0) - 0.5));
+                          });
+            make_bc<Neumann<1>>(u, 0.);
+            make_MRAdapt(u)(mra_config().epsilon(1e-3));
+            const auto& m = u.mesh();
+            ASSERT_EQ(m.ghost_width(), 3);
+
+            std::array<std::size_t, 7> n_stencils{}; // by stencil size
+            for (const auto& level_tables : m.ghost_tables().outer)
+            {
+                auto count = [&](const auto& sequence)
+                {
+                    for (const auto& t : sequence)
+                    {
+                        n_stencils[t.stencil_size] += t.cells.size() / t.stencil_size;
+                    }
+                };
+                for (const auto& by_layer : level_tables.extrapolation_on_ghosts)
+                {
+                    for (const auto& sequence : by_layer)
+                    {
+                        count(sequence);
+                    }
+                }
+                for (const auto& corner : level_tables.corner_extrapolation)
+                {
+                    count(corner.sequence);
+                }
+            }
+            // in 1D there is neither a corner nor a ghost below the projected ones: only the
+            // layers extrapolated from the cells, recorded on first use and checked below
+            if constexpr (dim > 1)
+            {
+                ASSERT_GT(n_stencils[2], 0u); // corners
+                ASSERT_GT(n_stencils[4], 0u);
+                ASSERT_GT(n_stencils[6], 0u);
+            }
+
+            auto s = make_scalar_field<double>("s", m);
+            auto v = make_vector_field<double, 3>("v", m);
+            make_bc<Dirichlet<1>>(s, 0.);
+            make_bc<Dirichlet<1>>(v, 0., 0., 0.);
+            fill_all(s, 0.1);
+            fill_all(v, 0.7);
+
+            auto check = [&](auto& f, const std::string& name)
+            {
+                using field_t = std::decay_t<decltype(f)>;
+                for (std::size_t level = m.min_level(); level <= m.max_level(); ++level)
+                {
+                    for_each_cartesian_direction<dim>(
+                        [&](auto, const auto& direction)
+                        {
+                            auto with_sets  = f;
+                            auto with_table = f;
+                            detail::FieldExtrapolation<field_t> visitor{with_sets};
+                            detail::visit_extrapolation_on_cells(m, level, direction, 2, 3, visitor);
+                            detail::visit_extrapolation_on_ghosts(m, level, direction, 2, 3, visitor);
+                            update_further_ghosts_by_polynomial_extrapolation(level, direction, with_table);
+                            EXPECT_TRUE(same_bits(with_sets, with_table)) << name << ": further ghosts at level " << level;
+                        });
+                    if constexpr (dim > 1)
+                    {
+                        for_each_diagonal_direction<dim>(
+                            [&](const auto& direction)
+                            {
+                                auto with_sets  = f;
+                                auto with_table = f;
+                                detail::FieldExtrapolation<field_t> visitor{with_sets};
+                                detail::visit_corner_extrapolation(m, level, direction, visitor);
+                                update_outer_corners_by_polynomial_extrapolation(level, direction, with_table);
+                                EXPECT_TRUE(same_bits(with_sets, with_table)) << name << ": corners at level " << level;
+                            });
+                    }
+                }
+            };
+            check(s, "scalar");
+            check(v, "vector");
+
+            // The layers extrapolated from the cells are recorded the first time a field
+            // asks for them: the B.C. above fills one layer, so the layers 2 and 3 now are.
+            std::size_t n_recorded = 0;
+            for (const auto& level_tables : m.ghost_tables().outer)
+            {
+                for (const auto& layers : level_tables.extrapolation_on_cells)
+                {
+                    for (int layer = 2; layer <= static_cast<int>(layers.size()); ++layer)
+                    {
+                        for (const auto& t : layers.get(layer,
+                                                        [](auto&)
+                                                        {
+                                                            FAIL() << "a layer extrapolated from the cells was not recorded";
+                                                        }))
+                        {
+                            n_recorded += t.cells.size();
+                        }
+                    }
+                }
+            }
+            EXPECT_GT(n_recorded, 0u);
+        }
     }
 
     TEST(ghost_tables, same_values_as_sets_1d)
@@ -371,5 +488,23 @@ namespace samurai
     TEST(ghost_tables, same_outer_ghosts_as_sets_3d)
     {
         check_outer_tables<3>();
+    }
+}
+
+namespace samurai
+{
+    TEST(ghost_tables, same_extrapolation_as_sets_1d)
+    {
+        check_extrapolation_tables<1>();
+    }
+
+    TEST(ghost_tables, same_extrapolation_as_sets_2d)
+    {
+        check_extrapolation_tables<2>();
+    }
+
+    TEST(ghost_tables, same_extrapolation_as_sets_3d)
+    {
+        check_extrapolation_tables<3>();
     }
 }
