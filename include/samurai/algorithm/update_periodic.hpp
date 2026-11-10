@@ -308,10 +308,10 @@ namespace samurai
         template <class Field>
         void update_periodic_ghosts(Field& field, const PeriodicGhostTable& table)
         {
-            using value_t            = typename Field::value_type;
             constexpr std::size_t nc = Field::n_comp;
             auto* data               = field.data();
 #ifdef SAMURAI_WITH_MPI
+            using value_t = typename Field::value_type;
             mpi::communicator world;
             const auto& neighbours = field.mesh().mpi_neighbourhood();
 #endif
