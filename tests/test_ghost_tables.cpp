@@ -2,14 +2,16 @@
 // SPDX-License-Identifier:  BSD-3-Clause
 
 // The tables of update_ghost_mr against the set expressions they replace: on an
-// adapted mesh, the field projection, the prediction and the periodic copies of
-// the ghosts of every level must give the same values, bit for bit, for a scalar
-// and a vector field updated together.
+// adapted mesh, the field projection, the prediction, the periodic copies and the
+// ghosts outside the domain filled from other ghosts (project_bc, predict_bc and
+// the corner copies) must give the same values, bit for bit, at every level, for a
+// scalar and a vector field.
 
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstring>
+#include <string>
 
 #include <gtest/gtest.h>
 
@@ -78,6 +80,32 @@ namespace samurai
                 n_predicted += t.dest.size();
             }
             ASSERT_GT(n_projected, 0u);
+            {
+                const auto& mm = u.mesh();
+                for (std::size_t l = mm.min_level(); l <= mm.max_level(); ++l)
+                {
+                    std::cerr << "level " << l << " cells " << mm[std::decay_t<decltype(mm)>::mesh_id_t::cells][l].nb_cells() << " ref "
+                              << mm[std::decay_t<decltype(mm)>::mesh_id_t::reference][l].nb_cells();
+                    for_each_cartesian_direction<dim>(
+                        [&](auto, const auto& dir)
+                        {
+                            std::size_t n = 0;
+                            if (l > mm.min_level())
+                            {
+                                auto g = intersection(domain_boundary_outer_layer(mm, l - 1, dir, 1),
+                                                      mm[std::decay_t<decltype(mm)>::mesh_id_t::reference][l])
+                                             .on(l);
+                                g(
+                                    [&](const auto& i, const auto&)
+                                    {
+                                        n += i.size();
+                                    });
+                            }
+                            std::cerr << " pred " << n;
+                        });
+                    std::cerr << "\n";
+                }
+            }
             ASSERT_GT(n_predicted, 0u);
 
             auto s = make_scalar_field<double>("s", u.mesh());
@@ -174,6 +202,127 @@ namespace samurai
                 EXPECT_TRUE(same_bits(s_sets, s_table) && same_bits(v_sets, v_table)) << "periodic ghosts at level " << level;
             }
         }
+
+        // project_bc, predict_bc and the corner copies through the tables of the mesh
+        // and through the set expressions.
+        template <std::size_t dim>
+        void check_outer_tables()
+        {
+            const std::size_t max_level = dim == 3 ? 5 : 7;
+            auto config                 = mesh_config<dim>().min_level(2).max_level(max_level).max_stencil_size(4);
+            auto mesh                   = mra::make_mesh(Box<double, dim>(xt::zeros<double>({dim}), xt::ones<double>({dim})), config);
+
+            // a front across x = 0.5 that cuts the other boundaries: the levels change
+            // along them, so predict_bc has ghosts to fill
+            auto u = make_scalar_field<double>("u", mesh);
+            for_each_cell(mesh,
+                          [&](const auto& cell)
+                          {
+                              u[cell] = std::tanh(100 * (cell.center(0) - 0.5));
+                          });
+            make_bc<Neumann<1>>(u, 0.);
+            make_MRAdapt(u)(mra_config().epsilon(1e-3));
+
+            const auto& outer = u.mesh().ghost_tables().outer;
+            ASSERT_FALSE(outer.empty());
+            std::size_t n_projected = 0;
+            std::size_t n_predicted = 0;
+            std::size_t n_corners   = 0;
+            for (const auto& level_tables : outer)
+            {
+                for (const auto& by_layer : level_tables.projection)
+                {
+                    for (const auto& t : by_layer)
+                    {
+                        n_projected += t.dest.size();
+                    }
+                }
+                for (const auto& by_layer : level_tables.prediction)
+                {
+                    for (const auto& t : by_layer)
+                    {
+                        n_predicted += t.dest.size();
+                    }
+                }
+                n_corners += level_tables.corners.dest.size();
+            }
+            ASSERT_GT(n_projected, 0u);
+            // in 1D the boundary is a single cell: no level jump along it to predict
+            if constexpr (dim > 1)
+            {
+                ASSERT_GT(n_predicted, 0u);
+                ASSERT_GT(n_corners, 0u);
+            }
+
+            auto s = make_scalar_field<double>("s", u.mesh());
+            auto v = make_vector_field<double, 3>("v", u.mesh());
+            make_bc<Dirichlet<2>>(s, 0.);
+            make_bc<Dirichlet<2>>(v, 0., 0., 0.);
+            fill_all(s, 0.1);
+            fill_all(v, 0.7);
+            const auto& m = u.mesh();
+
+            auto check = [&](auto& f, const std::string& name)
+            {
+                for (std::size_t level = m.min_level() - 1; level <= m.max_level(); ++level)
+                {
+                    for_each_cartesian_direction<dim>(
+                        [&](auto, const auto& direction)
+                        {
+                            if (level < m.max_level())
+                            {
+                                auto with_sets  = f;
+                                auto with_table = f;
+                                detail::with_bc_projection_ghosts(m,
+                                                                  level,
+                                                                  direction,
+                                                                  1,
+                                                                  [&](auto& ghosts)
+                                                                  {
+                                                                      project_bc(ghosts, level, direction, 1, with_sets);
+                                                                  });
+                                project_bc(level, direction, 1, with_table);
+                                EXPECT_TRUE(same_bits(with_sets, with_table)) << name << ": project_bc to level " << level;
+                            }
+                            if (level > m.min_level())
+                            {
+                                auto with_sets  = f;
+                                auto with_table = f;
+                                for (int layer = 1; layer <= 2; ++layer)
+                                {
+                                    detail::with_bc_prediction_layer(m,
+                                                                     level,
+                                                                     direction,
+                                                                     layer,
+                                                                     [&](auto& ghosts)
+                                                                     {
+                                                                         predict_bc(ghosts, level, direction, with_sets);
+                                                                     });
+                                }
+                                predict_bc(level, direction, with_table);
+                                EXPECT_TRUE(same_bits(with_sets, with_table)) << name << ": predict_bc at level " << level;
+                            }
+                        });
+                    if constexpr (dim > 1)
+                    {
+                        if (level >= m.min_level())
+                        {
+                            auto with_sets  = f;
+                            auto with_table = f;
+                            for_each_diagonal_direction<dim>(
+                                [&](const auto& direction)
+                                {
+                                    project_corner_below(level, direction, with_sets);
+                                });
+                            project_outer_corners_below(level, with_table);
+                            EXPECT_TRUE(same_bits(with_sets, with_table)) << name << ": corner copies from level " << level;
+                        }
+                    }
+                }
+            };
+            check(s, "scalar");
+            check(v, "vector");
+        }
     }
 
     TEST(ghost_tables, same_values_as_sets_1d)
@@ -204,5 +353,23 @@ namespace samurai
     {
         check_periodic_tables<3>(true);
         check_periodic_tables<3>(false);
+    }
+}
+
+namespace samurai
+{
+    TEST(ghost_tables, same_outer_ghosts_as_sets_1d)
+    {
+        check_outer_tables<1>();
+    }
+
+    TEST(ghost_tables, same_outer_ghosts_as_sets_2d)
+    {
+        check_outer_tables<2>();
+    }
+
+    TEST(ghost_tables, same_outer_ghosts_as_sets_3d)
+    {
+        check_outer_tables<3>();
     }
 }
