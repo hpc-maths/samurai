@@ -17,6 +17,7 @@
 #include "../subset/apply.hpp"
 #include "../subset/node.hpp"
 #include "../timers.hpp"
+#include "ghost_tables.hpp"
 
 using namespace xt::placeholders;
 
@@ -122,7 +123,43 @@ namespace samurai
                double scaling_factor = 0);
 
         void update_sub_mesh_impl();
+
+        void swap(MRMesh& mesh) noexcept;
+
+        // The tables of update_ghost_mr, built with the mesh; empty for a mesh
+        // that was never finalized. The cells of a mesh do not change after its
+        // construction (adaptation and load balancing swap in a new mesh), so
+        // they stay valid.
+        using ghost_tables_t = detail::GhostTables<dim, typename interval_t::value_t>;
+
+        const ghost_tables_t& ghost_tables() const;
+
+      private:
+
+        void build_ghost_tables();
+
+        ghost_tables_t m_ghost_tables;
     };
+
+    template <class Config>
+    SAMURAI_INLINE void MRMesh<Config>::swap(MRMesh& mesh) noexcept
+    {
+        base_type::swap(mesh);
+        std::swap(m_ghost_tables, mesh.m_ghost_tables);
+    }
+
+    template <class Config>
+    SAMURAI_INLINE auto MRMesh<Config>::ghost_tables() const -> const ghost_tables_t&
+    {
+        return m_ghost_tables;
+    }
+
+    template <class Config>
+    SAMURAI_INLINE void MRMesh<Config>::build_ghost_tables()
+    {
+        ScopedTimer timer("ghost tables");
+        m_ghost_tables = ghost_tables_t(*this);
+    }
 
     template <class Config>
     SAMURAI_INLINE MRMesh<Config>::MRMesh(const config_t& config)
@@ -134,36 +171,42 @@ namespace samurai
     SAMURAI_INLINE MRMesh<Config>::MRMesh(const ca_type& ca, const self_type& ref_mesh)
         : base_type(ca, ref_mesh)
     {
+        build_ghost_tables();
     }
 
     template <class Config>
     SAMURAI_INLINE MRMesh<Config>::MRMesh(const cl_type& cl, const self_type& ref_mesh)
         : base_type(cl, ref_mesh)
     {
+        build_ghost_tables();
     }
 
     template <class Config>
     SAMURAI_INLINE MRMesh<Config>::MRMesh(const cl_type& cl, const config_t& config)
         : base_type(cl, config)
     {
+        build_ghost_tables();
     }
 
     template <class Config>
     SAMURAI_INLINE MRMesh<Config>::MRMesh(const ca_type& ca, const config_t& config)
         : base_type(ca, config)
     {
+        build_ghost_tables();
     }
 
     template <class Config>
     SAMURAI_INLINE MRMesh<Config>::MRMesh(const samurai::Box<double, dim>& b, const config_t& config)
         : base_type(b, config)
     {
+        build_ghost_tables();
     }
 
     template <class Config>
     SAMURAI_INLINE MRMesh<Config>::MRMesh(const samurai::DomainBuilder<dim>& domain_builder, const config_t& config)
         : base_type(domain_builder, config)
     {
+        build_ghost_tables();
     }
 
     template <class Config>
@@ -182,6 +225,7 @@ namespace samurai
                         .approx_box_tol(approx_box_tol)
                         .scaling_factor(scaling_factor_))
     {
+        build_ghost_tables();
     }
 
     template <class Config>
@@ -200,6 +244,7 @@ namespace samurai
                         .approx_box_tol(approx_box_tol)
                         .scaling_factor(scaling_factor_))
     {
+        build_ghost_tables();
     }
 
     template <class Config>
@@ -220,6 +265,7 @@ namespace samurai
                         .approx_box_tol(approx_box_tol)
                         .scaling_factor(scaling_factor_))
     {
+        build_ghost_tables();
     }
 
     template <class Config>
