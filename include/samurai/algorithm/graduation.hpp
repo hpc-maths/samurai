@@ -3,6 +3,9 @@
 
 #pragma once
 
+#include <iterator>
+#include <vector>
+
 #include <xtensor/containers/xtensor.hpp>
 #include <xtensor/views/xmasked_view.hpp>
 
@@ -290,17 +293,18 @@ namespace samurai
 
     // Case 1 (jump l -> l-1): the level-l cells sitting on each non-periodic physical face,
     // thickened n_contig cells inward (fine-cell units) so a coarser cell's wide stencil
-    // never reaches past the domain. Returns the level-l cells to add.
+    // never reaches past the domain. Returns the level-l cells to add that are not already
+    // in `present` (usually none, so usually nothing is built).
     template <size_t dim, typename TInterval>
     LevelCellArray<dim, TInterval> boundary_case1_cells(size_t l,
                                                         int n_contig,
                                                         const CellArray<dim, TInterval>& domain,
                                                         const std::array<bool, dim>& is_periodic,
-                                                        const std::vector<LevelCellArray<dim, TInterval>>& fine_sources)
+                                                        const std::vector<LevelCellArray<dim, TInterval>>& fine_sources,
+                                                        const LevelCellArray<dim, TInterval>& present = {})
     {
         using lca_t = LevelCellArray<dim, TInterval>;
         lca_t extra;
-        bool have = false;
         for (const auto& fine_l : fine_sources)
         {
             for_each_cartesian_direction<dim>(
@@ -311,11 +315,17 @@ namespace samurai
                         return;
                     }
                     const lca_t boundary_cells(difference(fine_l, translate(domain[l], -t)));
+                    if (boundary_cells.empty())
+                    {
+                        return;
+                    }
                     for (int i = 2; i <= n_contig; i += 2)
                     {
-                        lca_t inside(intersection(translate(boundary_cells, -i * t), domain[l]));
-                        extra = have ? lca_t(union_(extra, inside)) : std::move(inside);
-                        have  = true;
+                        lca_t inside(difference(intersection(translate(boundary_cells, -i * t), domain[l]), present));
+                        if (!inside.empty())
+                        {
+                            extra = extra.empty() ? std::move(inside) : lca_t(union_(extra, inside));
+                        }
                     }
                 });
         }
@@ -326,17 +336,17 @@ namespace samurai
     // cell within (radius-1) COARSE cells inward is refined to level l, pulling the fine
     // level out to the physical boundary. Expressed at l-1 (coarse domain face from the
     // pyramid + fine cells projected down) because the distance unit is the coarse cell.
-    // Returns the level-l cells to add.
+    // Returns the level-l cells to add, except those already in `present`.
     template <size_t dim, typename TInterval>
     LevelCellArray<dim, TInterval> boundary_case2_cells(size_t l,
                                                         int max_stencil_radius,
                                                         const CellArray<dim, TInterval>& domain,
                                                         const std::array<bool, dim>& is_periodic,
-                                                        const std::vector<LevelCellArray<dim, TInterval>>& fine_sources)
+                                                        const std::vector<LevelCellArray<dim, TInterval>>& fine_sources,
+                                                        const LevelCellArray<dim, TInterval>& present = {})
     {
         using lca_t = LevelCellArray<dim, TInterval>;
         lca_t extra;
-        bool have = false;
         if (max_stencil_radius <= 2 || l == 0)
         {
             return extra;
@@ -355,9 +365,12 @@ namespace samurai
                     const lca_t face_coarse(difference(domain[lc], translate(domain[lc], -t)));
                     for (int i = 1; i < max_stencil_radius; ++i)
                     {
-                        lca_t ref(self(lca_t(intersection(face_coarse, translate(fine_on_c, i * t)))).on(l));
-                        extra = have ? lca_t(union_(extra, ref)) : std::move(ref);
-                        have  = true;
+                        const lca_t coarse(intersection(face_coarse, translate(fine_on_c, i * t)));
+                        lca_t ref(difference(self(coarse).on(l), present));
+                        if (!ref.empty())
+                        {
+                            extra = extra.empty() ? std::move(ref) : lca_t(union_(extra, ref));
+                        }
                     }
                 });
         }
@@ -419,20 +432,6 @@ namespace samurai
         } // end for
     }
 
-    // Single-pass graded closure (no MPI neighbour, no periodicity, no boundary
-    // contiguity - interior grading only). One top-down sweep, no fixed-point.
-    //
-    // F[l] = the region required at level >= l, as whole level-l cells, built from the
-    // finest level down:
-    //   F[max] = ca[max]
-    //   F[l]   = ( ca[l] UNION expand(F[l+1].on(l), grad_width) ) rounded up to whole
-    //            level-(l-1) parents
-    // The rounding enforces samurai's complete-tree invariant: a cell of level l exists
-    // iff its (l-1) parent is refined, which forces ALL that parent's children to level
-    // >= l. So a coarse cell touched by grading is refined IN FULL - never partially,
-    // which is what would leave a hole. A cell sits at exactly level l where it is
-    // required at l but not at l+1:
-    //   graded[l] = F[l] \ F[l+1].on(l)
     // Single-pass graded closure - interior grading only, one top-down sweep, no
     // fixed-point.
     //
@@ -533,27 +532,61 @@ namespace samurai
                 first    = false;
             }
         }
-        const auto clip = [&](lca_t&& x, size_t l) -> lca_t
+        // round_and_clip(x) = x rounded up to whole (l-1) parents (complete-tree invariant), then
+        // clipped. It distributes over unions and is idempotent. Only the coarse parents are
+        // built as an intermediate: it is cheaper than rounding in one expression.
+        const auto round_and_clip = [&](const auto& x, size_t l) -> lca_t
         {
-            return use_coverage ? lca_t(intersection(x, self(coverage).on(l))) : lca_t(intersection(x, domain[l]));
+            const auto clip = [&](const auto& y)
+            {
+                return use_coverage ? lca_t(intersection(y, self(coverage).on(l))) : lca_t(intersection(y, domain[l]));
+            };
+            if (l == min_level)
+            {
+                return clip(x);
+            }
+            const lca_t parents(self(x).on(l - 1));
+            return clip(self(parents).on(l));
+        };
+        // Whether round_and_clip(x) == x: x holds whole parents (rounding adds no cell) and
+        // lies in the clip region. Nothing is built.
+        const auto is_round_and_clipped = [&](const lca_t& x, size_t l)
+        {
+            if (l > min_level)
+            {
+                std::size_t n_parents = 0;
+                self(x).on(l - 1)(
+                    [&](const auto& i, const auto&)
+                    {
+                        n_parents += static_cast<std::size_t>(i.size());
+                    });
+                if ((n_parents << dim) != x.nb_cells())
+                {
+                    return false;
+                }
+            }
+            return use_coverage ? difference(x, self(coverage).on(l)).empty() : difference(x, domain[l]).empty();
         };
 
         std::array<lca_t, max_size> F;
+        // graded[l] = F[l] \ F[l+1].on(l), the cells that end up at exactly level l.
+        ca_type graded_ca;
+        const auto graded_level = [&](size_t l) -> lca_t
+        {
+            return (l < max_level) ? lca_t(difference(F[l], self(F[l + 1]).on(l))) : F[l];
+        };
 
-        // Fold the boundary contiguity into the sweep at level l. The ENTIRE body is behind
-        // `if constexpr (FoldBoundary)`, so for the interior-only instantiation (radius <= 1)
-        // this lambda is empty and its per-level calls cost nothing - the common case pays
-        // zero for the boundary machinery.
+        // Fold the boundary contiguity into the sweep at level l and store graded[l]. The
+        // boundary part is behind `if constexpr (FoldBoundary)`, so the interior-only
+        // instantiation (radius <= 1) pays nothing for it.
         //
         // When folding: case 2 runs FIRST (it can add boundary cells), then case 1 runs on
         // the UPDATED level-l cells, so it thickens the run case 2 just created - the
         // boundary->boundary feedback the looped algorithm needs a whole re-grade turn for.
-        // Case 1 only ever adds cells inward (never new face cells), so a single case2 ->
-        // case1 order converges with no within-level iteration. The driving level-l cells are
-        // taken from THIS rank AND every neighbour (per-level graded-cell exchange, tags
-        // disjoint from the F[l] exchange and from each other), so the result is independent
-        // of the MPI partition.
-        const auto extend_boundary = [&]([[maybe_unused]] size_t l)
+        // The driving level-l cells are taken from THIS rank AND every neighbour (per-level
+        // graded-cell exchange, tags disjoint from the F[l] exchange and from each other),
+        // so the result is independent of the MPI partition.
+        const auto extend_boundary = [&](size_t l)
         {
             if constexpr (FoldBoundary)
             {
@@ -567,69 +600,90 @@ namespace samurai
                 //    small R (2, 3) the 2*(R-2) term collapses to 0/2, so this floor takes over.
                 // The two terms cross at R=4; below it R wins, above it 2*(R-2) (slope 2R-4) wins.
                 const int n_contig = std::max(max_stencil_radius, 2 * (max_stencil_radius - 2));
-                if (max_stencil_radius <= 1 || domain.empty() || n_contig <= 1)
+                if (max_stencil_radius > 1 && !domain.empty() && n_contig > 1)
                 {
+                    // sources[0] is graded[l] on this rank, the others are the neighbours' ones.
+                    std::vector<lca_t> sources;
+                    sources.push_back(graded_level(l));
+                    const auto exchange_graded_level = [&](int phase)
+                    {
+                        sources.resize(1);
+                        if (has_neighbour)
+                        {
+                            auto nbr = exchange_level_mpi(sources[0],
+                                                          mpi_neighbourhood,
+                                                          static_cast<int>(max_size * static_cast<std::size_t>(1 + phase) + l));
+                            std::move(nbr.begin(), nbr.end(), std::back_inserter(sources));
+                        }
+                    };
+                    // Each boundary step sets F[l] = round_and_clip(F[l] U cells). round_and_clip
+                    // distributes over unions and is idempotent, so once F[l] is closed under it this
+                    // is F[l] U round_and_clip(cells missing from F[l]): only that small set is
+                    // rounded. Below max_level F[l] comes from round_and_clip; at max_level it is the
+                    // input level, closed by the first step. Returns whether F[l] changed.
+                    bool closed     = l < max_level;
+                    const auto grow = [&](const lca_t& missing)
+                    {
+                        bool changed = false;
+                        if (!closed)
+                        {
+                            closed = true;
+                            if (!is_round_and_clipped(F[l], l))
+                            {
+                                lca_t closure = round_and_clip(F[l], l);
+                                changed       = !(closure == F[l]);
+                                F[l]          = std::move(closure);
+                            }
+                        }
+                        if (!missing.empty())
+                        {
+                            const lca_t added = round_and_clip(missing, l);
+                            // Under MPI the missing cells may lie outside this subdomain and be clipped away.
+                            if (!difference(added, F[l]).empty())
+                            {
+                                F[l]    = lca_t(union_(F[l], added));
+                                changed = true;
+                            }
+                        }
+                        if (changed)
+                        {
+                            sources[0] = graded_level(l);
+                        }
+                        return changed;
+                    };
+
+                    // Corner coupling: extending the run along one boundary face can create
+                    // cells that sit on a PERPENDICULAR face, which then need their own boundary
+                    // extension. Repeat case2+case1 until F[l] stops growing (bounded, local to
+                    // the corner region). Under MPI the continuation is agreed with one small
+                    // all_reduce per turn so every rank runs the same number of exchange turns
+                    // (a data-dependent local count would desynchronise the collective).
+#ifdef SAMURAI_WITH_MPI
+                    mpi::communicator world;
+#endif
+                    bool changed = true;
+                    while (
+#ifdef SAMURAI_WITH_MPI
+                        world.size() > 1 ? mpi::all_reduce(world, changed, std::logical_or()) : changed
+#else
+                        changed
+#endif
+                    )
+                    {
+                        changed = false;
+                        if (max_stencil_radius > 2 && l > 0)
+                        {
+                            exchange_graded_level(0);
+                            changed = grow(boundary_case2_cells(l, max_stencil_radius, domain, is_periodic, sources, F[l]));
+                        }
+                        exchange_graded_level(1);
+                        changed = grow(boundary_case1_cells(l, n_contig, domain, is_periodic, sources, F[l])) || changed;
+                    }
+                    graded_ca[l] = std::move(sources[0]);
                     return;
                 }
-                // The actual level-l cells (F[l] also carries everything required finer).
-                const auto graded_level = [&](size_t ll) -> lca_t
-                {
-                    return (ll < max_level) ? lca_t(difference(F[ll], self(F[ll + 1]).on(ll))) : F[ll];
-                };
-                const auto exchange_graded_level = [&](const lca_t& graded_l, size_t ll, int phase) -> std::vector<lca_t>
-                {
-                    if (!has_neighbour)
-                    {
-                        return {};
-                    }
-                    return exchange_level_mpi(graded_l,
-                                              mpi_neighbourhood,
-                                              static_cast<int>(max_size * static_cast<std::size_t>(1 + phase) + ll));
-                };
-                const auto grow_F = [&](size_t ll, lca_t&& piece)
-                {
-                    lca_t req(union_(F[ll], piece));
-                    F[ll] = (ll > min_level) ? clip(lca_t(self(req).on(ll - 1).on(ll)), ll) : clip(std::move(req), ll);
-                };
-                const auto sources = [&](const lca_t& my_fine, const std::vector<lca_t>& nbr_fine)
-                {
-                    std::vector<lca_t> s;
-                    s.reserve(1 + nbr_fine.size());
-                    s.push_back(my_fine);
-                    s.insert(s.end(), nbr_fine.begin(), nbr_fine.end());
-                    return s;
-                };
-
-                // Corner coupling: extending the run along one boundary face can create
-                // cells that sit on a PERPENDICULAR face, which then need their own boundary
-                // extension. Repeat case2+case1 until F[l] stops growing (bounded, local to
-                // the corner region). Under MPI the continuation is agreed with one small
-                // all_reduce per turn so every rank runs the same number of exchange turns
-                // (a data-dependent local count would desynchronise the collective).
-#ifdef SAMURAI_WITH_MPI
-                mpi::communicator world;
-#endif
-                bool changed = true;
-                while (
-#ifdef SAMURAI_WITH_MPI
-                    world.size() > 1 ? mpi::all_reduce(world, changed, std::logical_or()) : changed
-#else
-                    changed
-#endif
-                )
-                {
-                    const lca_t before = F[l];
-                    lca_t g            = graded_level(l);
-                    if (max_stencil_radius > 2 && l > 0)
-                    {
-                        grow_F(l,
-                               boundary_case2_cells(l, max_stencil_radius, domain, is_periodic, sources(g, exchange_graded_level(g, l, 0))));
-                        g = graded_level(l); // refresh: case 1 must see the cells case 2 just added
-                    }
-                    grow_F(l, boundary_case1_cells(l, n_contig, domain, is_periodic, sources(g, exchange_graded_level(g, l, 1))));
-                    changed = !(F[l] == before);
-                }
             }
+            graded_ca[l] = graded_level(l);
         };
 
         std::array<std::vector<lca_t>, max_size> neighbour_F;
@@ -646,19 +700,24 @@ namespace samurai
             // boundary). The neighbour cells outside this subdomain are removed by the
             // coverage clip below; those within grad_width of the boundary force the local
             // boundary cells.
-            lca_t finer = F[l + 1];
-            for (const auto& nf : neighbour_F[l + 1])
+            lca_t finer_with_neighbours;
+            if (!neighbour_F[l + 1].empty())
             {
-                // Union accumulation with a per-step lca_t reconstruction: a raw loop reads better than std::accumulate.
-                // cppcheck-suppress useStlAlgorithm
-                finer = lca_t(union_(finer, nf));
+                finer_with_neighbours = F[l + 1];
+                for (const auto& nf : neighbour_F[l + 1])
+                {
+                    // Union accumulation with a per-step lca_t reconstruction: a raw loop reads better than std::accumulate.
+                    // cppcheck-suppress useStlAlgorithm
+                    finer_with_neighbours = lca_t(union_(finer_with_neighbours, nf));
+                }
             }
+            const lca_t& finer = neighbour_F[l + 1].empty() ? F[l + 1] : finer_with_neighbours;
 
-            lca_t expanded(nestedExpand(self(finer).on(l), w));
-            // Periodicity: a finer cell near a periodic boundary must also force
-            // refinement near the opposite boundary (wrapped copies of the buffer).
             if (any_periodic)
             {
+                // Periodicity: a finer cell near a periodic boundary must also force
+                // refinement near the opposite boundary (wrapped copies of the buffer).
+                lca_t expanded(nestedExpand(self(finer).on(l), w));
                 const lca_t base = expanded;
                 for (const auto& d : detail::get_periodic_directions(nb_cells_finest_level, int(domain.max_level()) - int(l), is_periodic))
                 {
@@ -666,29 +725,17 @@ namespace samurai
                     // cppcheck-suppress useStlAlgorithm
                     expanded = lca_t(union_(expanded, translate(base, d)));
                 }
+                F[l] = round_and_clip(union_(ca[l], expanded), l);
             }
-            lca_t req(union_(ca[l], expanded));
-            // Round up to whole (l-1) parents (complete-tree invariant) then clip.
-            F[l] = (l > min_level) ? clip(lca_t(self(req).on(l - 1).on(l)), l) : clip(std::move(req), l);
+            else
+            {
+                F[l] = round_and_clip(union_(ca[l], nestedExpand(self(finer).on(l), w)), l);
+            }
             extend_boundary(l);
             if (has_neighbour)
             {
                 neighbour_F[l] = exchange_level_mpi(F[l], mpi_neighbourhood, static_cast<int>(l));
             }
-        }
-
-        ca_type graded_ca;
-        const auto collect = [&](size_t l)
-        {
-            return [&, l](const auto& x_interval, const auto& yz)
-            {
-                graded_ca[l].add_interval_back(x_interval, yz);
-            };
-        };
-        graded_ca[max_level] = F[max_level];
-        for (size_t l = min_level; l < max_level; ++l)
-        {
-            difference(F[l], self(F[l + 1]).on(l))(collect(l));
         }
         std::swap(ca, graded_ca);
     }
