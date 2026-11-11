@@ -3,13 +3,16 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
+#include <optional>
 #include <vector>
 
 #include "../algorithm.hpp"
 #include "../bc/extrapolation_sets.hpp"
 #include "../boundary.hpp"
 #include "../stencil.hpp"
+#include "cell_block.hpp"
 #include "update_periodic.hpp" // has_ghost_tables
 
 namespace samurai::detail
@@ -278,15 +281,210 @@ namespace samurai::detail
         }
     };
 
+    //////////////////////////////////////////////////////////////////////
+    // Tables from direct walks
+    //////////////////////////////////////////////////////////////////////
+
+    // The entries the traversals above give, in the same order, found by
+    // walking the rows of the mesh near the face of a box domain. The cells, and
+    // so the union, lie in the domain.
+
     template <class Mesh>
-    OuterGhostTables make_outer_ghost_tables(std::size_t level, const Mesh& mesh)
+    using cell_block_t = CellBlock<typename Mesh::interval_t::value_t, Mesh::dim>;
+
+    // with_bc_projection_ghosts and visit_bc_projection: the ghosts are the
+    // union cells on the face of the domain moved `layer` cells out, when they
+    // are in the reference mesh.
+    template <class Mesh>
+    void scan_bc_projection(const Mesh& mesh,
+                            std::size_t level,
+                            const cell_block_t<Mesh>& domain,
+                            const DirectionVector<Mesh::dim>& direction,
+                            int layer,
+                            BCProjectionTable& table)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+
+        const auto& ref                      = mesh[mesh_id_t::reference];
+        const DirectionVector<Mesh::dim> out = layer * direction;
+        for_each_interval_in_block(
+            mesh.get_union()[level],
+            face_layer(domain, direction, 0),
+            [&](auto start, auto end, const auto& coords, auto)
+            {
+                for_each_interval_in_block(
+                    ref[level],
+                    translate(row_block(coords, start, end), out),
+                    [&](auto ghost_start, auto ghost_end, const auto& ghost_coords, auto shift)
+                    {
+                        auto ghost = ghost_coords;
+                        for (auto x = ghost_start; x < ghost_end; ++x)
+                        {
+                            ghost[0] = x;
+                            table.dest.push_back(static_cast<std::size_t>(x + shift));
+                            // the children at level + 1 or, when there are none, at level + 2
+                            for (std::size_t delta_l = 1; delta_l <= 2 && table.child.size() == table.start.back(); ++delta_l)
+                            {
+                                for_each_interval_in_block(ref[level + delta_l],
+                                                           refine(cell_block(ghost), delta_l),
+                                                           [&](auto child_start, auto child_end, const auto&, auto child_shift)
+                                                           {
+                                                               for (auto c = child_start; c < child_end; ++c)
+                                                               {
+                                                                   table.child.push_back(static_cast<std::size_t>(c + child_shift));
+                                                               }
+                                                           });
+                            }
+                            table.start.push_back(table.child.size());
+                        }
+                    });
+            });
+    }
+
+    // with_bc_prediction_layer: the ghosts at `level` whose parent is a cell at
+    // level - 1 on the face of the domain moved `layer` cells out. Returns false
+    // when a parent is not in the reference mesh.
+    template <class Mesh>
+    bool scan_bc_prediction(const Mesh& mesh,
+                            std::size_t level,
+                            const cell_block_t<Mesh>& coarse_domain,
+                            const DirectionVector<Mesh::dim>& direction,
+                            int layer,
+                            CopyTable& table)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+
+        const auto& ref                       = mesh[mesh_id_t::reference];
+        const DirectionVector<Mesh::dim> back = -layer * direction;
+        bool found                            = true;
+        for_each_interval_in_block(ref[level],
+                                   refine(face_layer(coarse_domain, direction, layer), 1),
+                                   [&](auto start, auto end, const auto& coords, auto shift)
+                                   {
+                                       auto parent_coords = coords;
+                                       std::transform(coords.begin(),
+                                                      coords.end(),
+                                                      parent_coords.begin(),
+                                                      [](auto c)
+                                                      {
+                                                          return c >> 1;
+                                                      });
+                                       RowLookup parents(ref[level - 1], parent_coords);
+                                       for_each_interval_in_block(mesh[mesh_id_t::cells][level - 1],
+                                                                  translate(row_block(parent_coords, start >> 1, ((end - 1) >> 1) + 1), back),
+                                                                  [&](auto cells_start, auto cells_end, const auto&, auto)
+                                                                  {
+                                                                      const auto first = std::max(start, (cells_start - back[0]) << 1);
+                                                                      const auto last  = std::min(end, (cells_end - back[0]) << 1);
+                                                                      for (auto x = first; x < last; ++x)
+                                                                      {
+                                                                          const auto parent = parents(x >> 1);
+                                                                          found             = found && parent >= 0;
+                                                                          table.dest.push_back(static_cast<std::size_t>(x + shift));
+                                                                          table.src.push_back(static_cast<std::size_t>(parent));
+                                                                      }
+                                                                  });
+                                   });
+        return found;
+    }
+
+    // visit_corner_copies.
+    template <class Mesh>
+    bool scan_corner_copies(const Mesh& mesh, std::size_t level, const DirectionVector<Mesh::dim>& direction, CopyTable& table)
+    {
+        using mesh_id_t                  = typename Mesh::mesh_id_t;
+        static constexpr std::size_t dim = Mesh::dim;
+
+        if (level == 0)
+        {
+            return true;
+        }
+        const auto corner = corner_block(mesh, direction, level);
+        if (!corner)
+        {
+            return false;
+        }
+        const auto& ref        = mesh[mesh_id_t::reference];
+        const auto outer_ghost = translate(*corner, direction);
+        for (std::size_t delta_l = 1; delta_l <= 2; ++delta_l)
+        {
+            const auto proj_level = level - delta_l;
+            for_each_interval_in_block(ref[proj_level],
+                                       coarsen(outer_ghost, delta_l),
+                                       [&](auto start, auto end, const auto& coords, auto shift)
+                                       {
+                                           auto ghost = coords;
+                                           for (auto x = start; x < end; ++x)
+                                           {
+                                               ghost[0] = x;
+                                               // a coarse ghost has a child in the outer corner ghosts at `level`
+                                               bool has_child = false;
+                                               for_each_interval_in_block(ref[level],
+                                                                          intersect(refine(cell_block(ghost), delta_l), outer_ghost),
+                                                                          [&](auto, auto, const auto&, auto)
+                                                                          {
+                                                                              has_child = true;
+                                                                          });
+                                               if (!has_child)
+                                               {
+                                                   continue;
+                                               }
+                                               // copied from its corner-most child when it exists
+                                               auto child = ghost;
+                                               for (std::size_t d = 0; d < dim; ++d)
+                                               {
+                                                   child[d] = (ghost[d] << delta_l) + (direction[d] == -1 ? ((1 << delta_l) - 1) : 0);
+                                               }
+                                               const auto src = cell_index(ref[level], child);
+                                               if (src >= 0)
+                                               {
+                                                   table.dest.push_back(static_cast<std::size_t>(x + shift));
+                                                   table.src.push_back(static_cast<std::size_t>(src));
+                                               }
+                                           }
+                                       });
+            if (proj_level == 0)
+            {
+                break;
+            }
+        }
+        return true;
+    }
+
+    // The tables of `level`, from direct walks when `by_scan` and the domain is
+    // a box at the levels they need, from the set expressions otherwise.
+    template <class Mesh>
+    OuterGhostTables make_outer_ghost_tables(std::size_t level, const Mesh& mesh, bool by_scan = true)
     {
         constexpr std::size_t dim = Mesh::dim;
+        using block_t             = cell_block_t<Mesh>;
         OuterGhostTables tables;
         auto offset = [&](std::size_t l, auto x, const auto& index)
         {
             return static_cast<std::size_t>(memory_offset(mesh, {l, x, index}));
         };
+
+        // the domain at `level` and level - 1 when the walks apply: it is a box
+        // that holds the cells and the union
+        using mesh_id_t = typename Mesh::mesh_id_t;
+        std::optional<block_t> domain;
+        std::optional<block_t> coarse_domain;
+        if (by_scan)
+        {
+            domain = as_block(mesh.domain(level));
+            if (domain && !(block_holds(*domain, mesh[mesh_id_t::cells][level]) && block_holds(*domain, mesh.get_union()[level])))
+            {
+                domain.reset();
+            }
+            if (level > 0)
+            {
+                coarse_domain = as_block(mesh.domain(level - 1));
+                if (coarse_domain && !block_holds(*coarse_domain, mesh[mesh_id_t::cells][level - 1]))
+                {
+                    coarse_domain.reset();
+                }
+            }
+        }
 
         // the layers update_outer_ghosts asks for when the B.C. uses the whole stencil
         const int n_layers           = mesh.max_stencil_radius();
@@ -323,15 +521,23 @@ namespace samurai::detail
                 {
                     for (int layer = 1; layer <= n_projected_layers; ++layer)
                     {
-                        BCProjectionRecorder<Mesh> recorder{projection.emplace_back(), level, mesh};
-                        with_bc_projection_ghosts(mesh,
-                                                  level,
-                                                  direction,
-                                                  layer,
-                                                  [&](auto& ghosts)
-                                                  {
-                                                      visit_bc_projection(mesh, ghosts, level, recorder);
-                                                  });
+                        auto& table = projection.emplace_back();
+                        if (domain)
+                        {
+                            scan_bc_projection(mesh, level, *domain, direction, layer, table);
+                        }
+                        else
+                        {
+                            BCProjectionRecorder<Mesh> recorder{table, level, mesh};
+                            with_bc_projection_ghosts(mesh,
+                                                      level,
+                                                      direction,
+                                                      layer,
+                                                      [&](auto& ghosts)
+                                                      {
+                                                          visit_bc_projection(mesh, ghosts, level, recorder);
+                                                      });
+                        }
                     }
                 }
                 if (level > mesh.min_level() && level <= mesh.max_level())
@@ -339,6 +545,11 @@ namespace samurai::detail
                     for (int layer = 1; layer <= n_layers; ++layer)
                     {
                         auto& table = prediction.emplace_back();
+                        if (coarse_domain && scan_bc_prediction(mesh, level, *coarse_domain, direction, layer, table))
+                        {
+                            continue;
+                        }
+                        table = {};
                         with_bc_prediction_layer(mesh,
                                                  level,
                                                  direction,
@@ -365,7 +576,6 @@ namespace samurai::detail
             {
                 return tables;
             }
-            CornerCopyRecorder<Mesh> recorder{tables.corners, level, mesh};
             std::size_t n_directions = 1;
             for (std::size_t d = 0; d < dim; ++d)
             {
@@ -386,7 +596,15 @@ namespace samurai::detail
                     corner.recorded = true;
                     ExtrapolationRecorder extrapolation{corner.sequence};
                     visit_corner_extrapolation(mesh, level, direction, extrapolation);
-                    visit_corner_copies(mesh, level, direction, recorder);
+                    CopyTable copies;
+                    if (!by_scan || !scan_corner_copies(mesh, level, direction, copies))
+                    {
+                        copies = {};
+                        CornerCopyRecorder<Mesh> recorder{copies, level, mesh};
+                        visit_corner_copies(mesh, level, direction, recorder);
+                    }
+                    tables.corners.dest.insert(tables.corners.dest.end(), copies.dest.begin(), copies.dest.end());
+                    tables.corners.src.insert(tables.corners.src.end(), copies.src.begin(), copies.src.end());
                 });
         }
         return tables;

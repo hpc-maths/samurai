@@ -5,13 +5,17 @@
 // adapted mesh, the field projection, the prediction, the periodic copies and the
 // ghosts outside the domain filled from other ghosts (project_bc, predict_bc and
 // the corner copies) or by polynomial extrapolation must give the same values, bit for bit, at every level, for a
-// scalar and a vector field.
+// scalar and a vector field. The tables of the ghosts outside the domain, built
+// from direct walks of the mesh, must also hold the very entries the set
+// expressions give, in the same order.
 
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstring>
+#include <functional>
 #include <string>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -21,10 +25,26 @@
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
 
+#ifdef SAMURAI_WITH_MPI
+#include <boost/mpi.hpp>
+#endif
+
 namespace samurai
 {
     namespace
     {
+        // The tables are local to a rank, and a rank may hold no boundary: the
+        // counts that show a test is not empty are summed over the ranks.
+        std::size_t over_ranks(std::size_t n)
+        {
+#ifdef SAMURAI_WITH_MPI
+            boost::mpi::communicator world;
+            return boost::mpi::all_reduce(world, n, std::plus<std::size_t>());
+#else
+            return n;
+#endif
+        }
+
         // Every stored value, ghosts included, set to a value that differs from
         // one storage slot to the next.
         template <class Field>
@@ -79,34 +99,8 @@ namespace samurai
             {
                 n_predicted += t.dest.size();
             }
-            ASSERT_GT(n_projected, 0u);
-            {
-                const auto& mm = u.mesh();
-                for (std::size_t l = mm.min_level(); l <= mm.max_level(); ++l)
-                {
-                    std::cerr << "level " << l << " cells " << mm[std::decay_t<decltype(mm)>::mesh_id_t::cells][l].nb_cells() << " ref "
-                              << mm[std::decay_t<decltype(mm)>::mesh_id_t::reference][l].nb_cells();
-                    for_each_cartesian_direction<dim>(
-                        [&](auto, const auto& dir)
-                        {
-                            std::size_t n = 0;
-                            if (l > mm.min_level())
-                            {
-                                auto g = intersection(domain_boundary_outer_layer(mm, l - 1, dir, 1),
-                                                      mm[std::decay_t<decltype(mm)>::mesh_id_t::reference][l])
-                                             .on(l);
-                                g(
-                                    [&](const auto& i, const auto&)
-                                    {
-                                        n += i.size();
-                                    });
-                            }
-                            std::cerr << " pred " << n;
-                        });
-                    std::cerr << "\n";
-                }
-            }
-            ASSERT_GT(n_predicted, 0u);
+            ASSERT_GT(over_ranks(n_projected), 0u);
+            ASSERT_GT(over_ranks(n_predicted), 0u);
 
             auto s = make_scalar_field<double>("s", u.mesh());
             auto v = make_vector_field<double, 3>("v", u.mesh());
@@ -183,7 +177,7 @@ namespace samurai
                     n_copies += direction.copies.size();
                 }
             }
-            ASSERT_GT(n_copies, 0u);
+            ASSERT_GT(over_ranks(n_copies), 0u);
 
             auto s = make_scalar_field<double>("s", u.mesh());
             auto v = make_vector_field<double, 3>("v", u.mesh());
@@ -246,12 +240,12 @@ namespace samurai
                 }
                 n_corners += level_tables.corners.dest.size();
             }
-            ASSERT_GT(n_projected, 0u);
+            ASSERT_GT(over_ranks(n_projected), 0u);
             // in 1D the boundary is a single cell: no level jump along it to predict
             if constexpr (dim > 1)
             {
-                ASSERT_GT(n_predicted, 0u);
-                ASSERT_GT(n_corners, 0u);
+                ASSERT_GT(over_ranks(n_predicted), 0u);
+                ASSERT_GT(over_ranks(n_corners), 0u);
             }
 
             auto s = make_scalar_field<double>("s", u.mesh());
@@ -372,9 +366,9 @@ namespace samurai
             // layers extrapolated from the cells, recorded on first use and checked below
             if constexpr (dim > 1)
             {
-                ASSERT_GT(n_stencils[2], 0u); // corners
-                ASSERT_GT(n_stencils[4], 0u);
-                ASSERT_GT(n_stencils[6], 0u);
+                ASSERT_GT(over_ranks(n_stencils[2]), 0u); // corners
+                ASSERT_GT(over_ranks(n_stencils[4]), 0u);
+                ASSERT_GT(over_ranks(n_stencils[6]), 0u);
             }
 
             auto s = make_scalar_field<double>("s", m);
@@ -438,8 +432,211 @@ namespace samurai
                     }
                 }
             }
-            EXPECT_GT(n_recorded, 0u);
+            EXPECT_GT(over_ranks(n_recorded), 0u);
         }
+    }
+
+    namespace
+    {
+        // Entries of the outer ghost tables by kind, to make sure a mesh has some.
+        struct OuterEntries
+        {
+            std::size_t projection = 0;
+            std::size_t prediction = 0;
+            std::size_t corners    = 0;
+        };
+
+        // The outer ghost tables of every level from the direct walks against
+        // those from the set expressions, entry by entry and in order. Each walk
+        // must apply: none may fall back on the set expressions.
+        template <class Mesh>
+        OuterEntries expect_same_outer_tables(const Mesh& mesh, const std::string& name)
+        {
+            constexpr std::size_t dim = Mesh::dim;
+            OuterEntries n;
+
+            for (std::size_t level = 0; level <= mesh.max_level(); ++level)
+            {
+                const auto where = name + " at level " + std::to_string(level);
+                const auto scans = detail::make_outer_ghost_tables(level, mesh);
+                const auto sets  = detail::make_outer_ghost_tables(level, mesh, false);
+
+                EXPECT_TRUE(detail::as_block(mesh.domain(level))) << where;
+
+                EXPECT_EQ(scans.projection.size(), sets.projection.size()) << where;
+                for (std::size_t d = 0; d < std::min(scans.projection.size(), sets.projection.size()); ++d)
+                {
+                    EXPECT_EQ(scans.projection[d].size(), sets.projection[d].size()) << where;
+                    for (std::size_t l = 0; l < std::min(scans.projection[d].size(), sets.projection[d].size()); ++l)
+                    {
+                        const auto& a = scans.projection[d][l];
+                        const auto& b = sets.projection[d][l];
+                        EXPECT_TRUE(a.dest == b.dest && a.start == b.start && a.child == b.child)
+                            << where << ": project_bc in direction " << d << ", layer " << l + 1;
+                        n.projection += b.dest.size();
+                    }
+                }
+
+                EXPECT_EQ(scans.prediction.size(), sets.prediction.size()) << where;
+                for (std::size_t d = 0; d < std::min(scans.prediction.size(), sets.prediction.size()); ++d)
+                {
+                    EXPECT_EQ(scans.prediction[d].size(), sets.prediction[d].size()) << where;
+                    for (std::size_t l = 0; l < std::min(scans.prediction[d].size(), sets.prediction[d].size()); ++l)
+                    {
+                        const auto& a = scans.prediction[d][l];
+                        const auto& b = sets.prediction[d][l];
+                        EXPECT_TRUE(a.dest == b.dest && a.src == b.src) << where << ": predict_bc in direction " << d << ", layer " << l + 1;
+                        n.prediction += b.dest.size();
+                    }
+                }
+
+                EXPECT_TRUE(scans.corners.dest == sets.corners.dest && scans.corners.src == sets.corners.src) << where << ": corner copies";
+                n.corners += sets.corners.dest.size();
+
+                // the walks that may fall back on the set expressions
+                if (level >= mesh.min_level())
+                {
+                    for_each_cartesian_direction<dim>(
+                        [&](auto d, const auto& direction)
+                        {
+                            if (mesh.is_periodic(d))
+                            {
+                                return;
+                            }
+                            if (level > mesh.min_level())
+                            {
+                                const auto coarse_domain = detail::as_block(mesh.domain(level - 1));
+                                for (int layer = 1; layer <= mesh.max_stencil_radius(); ++layer)
+                                {
+                                    detail::CopyTable table;
+                                    EXPECT_TRUE(coarse_domain && detail::scan_bc_prediction(mesh, level, *coarse_domain, direction, layer, table))
+                                        << where << ": predict_bc in direction " << d << ", layer " << layer;
+                                }
+                            }
+                        });
+                    if constexpr (dim > 1)
+                    {
+                        for_each_diagonal_direction<dim>(
+                            [&](const auto& direction)
+                            {
+                                for (std::size_t d = 0; d < dim; ++d)
+                                {
+                                    if (direction[d] != 0 && mesh.is_periodic(d))
+                                    {
+                                        return;
+                                    }
+                                }
+                                detail::CopyTable copies;
+                                EXPECT_TRUE(detail::scan_corner_copies(mesh, level, direction, copies)) << where;
+                            });
+                    }
+                }
+            }
+            return n;
+        }
+
+        // A mesh adapted to a blob of radius `radius` centred at `center`.
+        template <std::size_t dim, class Config>
+        auto
+        blob_mesh(const Box<double, dim>& box, const Config& config, const xt::xtensor_fixed<double, xt::xshape<dim>>& center, double radius)
+        {
+            auto mesh = mra::make_mesh(box, config);
+            auto u    = make_scalar_field<double>("u", mesh);
+            for_each_cell(mesh,
+                          [&](const auto& cell)
+                          {
+                              double r2 = 0;
+                              for (std::size_t d = 0; d < dim; ++d)
+                              {
+                                  r2 += (cell.center(d) - center[d]) * (cell.center(d) - center[d]);
+                              }
+                              u[cell] = std::tanh(50 * (std::sqrt(r2) - radius));
+                          });
+            make_bc<Neumann<1>>(u, 0.);
+            make_MRAdapt(u)(mra_config().epsilon(1e-3));
+            return u.mesh();
+        }
+
+        template <std::size_t dim>
+        void check_outer_tables_by_scan()
+        {
+            using point_t               = xt::xtensor_fixed<double, xt::xshape<dim>>;
+            const std::size_t max_level = dim == 3 ? 5 : 7;
+            const Box<double, dim> unit = {xt::zeros<double>({dim}), xt::ones<double>({dim})};
+            point_t corner              = xt::ones<double>({dim});
+            point_t centre              = 0.4 * xt::ones<double>({dim});
+            OuterEntries total;
+            auto add = [&](const OuterEntries& n)
+            {
+                total.projection += n.projection;
+                total.prediction += n.prediction;
+                total.corners += n.corners;
+            };
+
+            // a blob across a corner: the finest level reaches the boundary
+            for (int stencil_size : {2, 4, 6})
+            {
+                auto config = mesh_config<dim>().min_level(2).max_level(max_level).max_stencil_size(stencil_size);
+                add(expect_same_outer_tables(blob_mesh(unit, config, corner, 0.3), "corner blob, stencil " + std::to_string(stencil_size)));
+            }
+
+            // a blob inside: the faces only have the coarse levels, min_level 1
+            // (stencil 6 as the ink mesh of the lid-driven cavity demo)
+            for (int stencil_size : {4, 6})
+            {
+                auto config = mesh_config<dim>().min_level(1).max_level(max_level).max_stencil_size(stencil_size);
+                add(expect_same_outer_tables(blob_mesh(unit, config, centre, 0.2), "inner blob, stencil " + std::to_string(stencil_size)));
+            }
+
+            // a box that is not a cube, with negative coordinates, and a gap of
+            // several levels between min_level and the finest cells
+            {
+                point_t lo  = -0.75 * xt::ones<double>({dim});
+                point_t hi  = 0.5 * xt::ones<double>({dim});
+                hi[0]       = 1.25;
+                point_t c   = lo;
+                c[0]        = 0.;
+                auto config = mesh_config<dim>().min_level(3).max_level(max_level).max_stencil_size(4).disable_minimal_ghost_width();
+                add(expect_same_outer_tables(blob_mesh(Box<double, dim>(lo, hi), config, c, 0.25), "shifted box"));
+            }
+
+            // periodic in x: no table in x, nor at the corners it closes
+            if constexpr (dim > 1)
+            {
+                std::array<bool, dim> periodic{};
+                periodic[0] = true;
+                auto config = mesh_config<dim>().min_level(2).max_level(max_level).max_stencil_size(4).periodic(periodic);
+                add(expect_same_outer_tables(blob_mesh(unit, config, corner, 0.3), "periodic in x"));
+            }
+
+            // a uniform mesh
+            {
+                auto config = mesh_config<dim>().min_level(3).max_level(3).max_stencil_size(4);
+                add(expect_same_outer_tables(mra::make_mesh(unit, config), "uniform"));
+            }
+
+            EXPECT_GT(over_ranks(total.projection), 0u);
+            if constexpr (dim > 1)
+            {
+                EXPECT_GT(over_ranks(total.prediction), 0u);
+                EXPECT_GT(over_ranks(total.corners), 0u);
+            }
+        }
+    }
+
+    TEST(ghost_tables, outer_tables_by_scan_1d)
+    {
+        check_outer_tables_by_scan<1>();
+    }
+
+    TEST(ghost_tables, outer_tables_by_scan_2d)
+    {
+        check_outer_tables_by_scan<2>();
+    }
+
+    TEST(ghost_tables, outer_tables_by_scan_3d)
+    {
+        check_outer_tables_by_scan<3>();
     }
 
     TEST(ghost_tables, same_values_as_sets_1d)
