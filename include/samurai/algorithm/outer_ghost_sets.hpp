@@ -512,8 +512,16 @@ namespace samurai::detail
                     on_ghosts.resize(static_cast<std::size_t>(ghost_width));
                     for (int layer = 2; layer <= ghost_width; ++layer)
                     {
-                        ExtrapolationRecorder from_ghosts{on_ghosts[static_cast<std::size_t>(layer - 1)]};
-                        visit_extrapolation_on_ghosts(mesh, level, direction, layer, layer, from_ghosts);
+                        auto& sequence = on_ghosts[static_cast<std::size_t>(layer - 1)];
+                        if (domain)
+                        {
+                            scan_extrapolation_on_ghosts(mesh, level, *domain, direction, layer, sequence);
+                        }
+                        else
+                        {
+                            ExtrapolationRecorder from_ghosts{sequence};
+                            visit_extrapolation_on_ghosts(mesh, level, direction, layer, layer, from_ghosts);
+                        }
                     }
                 }
                 // the levels where update_outer_ghosts calls project_bc and predict_bc
@@ -594,8 +602,12 @@ namespace samurai::detail
                     }
                     auto& corner    = tables.corner_extrapolation[direction_code(direction)];
                     corner.recorded = true;
-                    ExtrapolationRecorder extrapolation{corner.sequence};
-                    visit_corner_extrapolation(mesh, level, direction, extrapolation);
+                    if (!by_scan || !scan_corner_extrapolation(mesh, level, direction, corner.sequence))
+                    {
+                        corner.sequence.clear();
+                        ExtrapolationRecorder extrapolation{corner.sequence};
+                        visit_corner_extrapolation(mesh, level, direction, extrapolation);
+                    }
                     CopyTable copies;
                     if (!by_scan || !scan_corner_copies(mesh, level, direction, copies))
                     {

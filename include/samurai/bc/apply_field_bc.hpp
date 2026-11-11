@@ -466,8 +466,7 @@ namespace samurai
                             layer,
                             [&](auto& to_record)
                             {
-                                detail::ExtrapolationRecorder recorder{to_record};
-                                detail::visit_extrapolation_on_cells(field.mesh(), level, direction, layer, layer, recorder);
+                                detail::record_extrapolation_on_cells(field.mesh(), level, direction, layer, to_record);
                             });
                         detail::run_extrapolation(field, sequence);
                     }

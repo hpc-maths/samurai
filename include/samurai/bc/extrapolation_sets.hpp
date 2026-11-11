@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "../algorithm/cell_block.hpp"
 #include "../boundary.hpp"
 #include "../static_dispatch.hpp"
 #include "../stencil.hpp"
@@ -469,6 +470,17 @@ namespace samurai::detail
         mutable std::vector<std::atomic<bool>> m_recorded;
     };
 
+    // Appends one stencil to the sequence: a new table when its size changes.
+    template <std::size_t size>
+    void append_stencil(ExtrapolationSequence& sequence, const std::array<std::size_t, size>& indices)
+    {
+        if (sequence.empty() || sequence.back().stencil_size != size)
+        {
+            sequence.push_back({size, {}});
+        }
+        sequence.back().cells.insert(sequence.back().cells.end(), indices.begin(), indices.end());
+    }
+
     struct ExtrapolationRecorder
     {
         ExtrapolationSequence& sequence;
@@ -477,14 +489,12 @@ namespace samurai::detail
         void stencil(const Cells& cells)
         {
             constexpr std::size_t size = std::tuple_size_v<Cells>;
-            if (sequence.empty() || sequence.back().stencil_size != size)
+            std::array<std::size_t, size> indices;
+            for (std::size_t k = 0; k < size; ++k)
             {
-                sequence.push_back({size, {}});
+                indices[k] = static_cast<std::size_t>(cells[k].index);
             }
-            for (const auto& cell : cells)
-            {
-                sequence.back().cells.push_back(static_cast<std::size_t>(cell.index));
-            }
+            append_stencil(sequence, indices);
         }
     };
 
@@ -527,6 +537,282 @@ namespace samurai::detail
                 default:
                     break;
             }
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////
+    // Tables from direct walks
+    //////////////////////////////////////////////////////////////////////
+
+    // The same stencils as the traversals above, found by walking the rows of
+    // the mesh near the face of a box domain instead of building set
+    // expressions. Each scan returns false when it meets a stencil cell that is
+    // not in the reference mesh where the traversal does not check it: the
+    // caller then records the traversal itself.
+
+    // What a traversal checks before laying a stencil.
+    enum class CheckedCells
+    {
+        all,   // every stencil cell is in the reference mesh
+        ghost, // the ghost to fill, the last cell, is in the reference mesh
+        none,
+    };
+
+    template <std::size_t size, std::size_t dim>
+    std::array<DirectionVector<dim>, size> stencil_offsets(const Stencil<size, dim>& stencil)
+    {
+        std::array<DirectionVector<dim>, size> offsets;
+        for (std::size_t k = 0; k < size; ++k)
+        {
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                offsets[k][d] = stencil(k, d);
+            }
+        }
+        return offsets;
+    }
+
+    // Appends the stencils laid on the cells [start, end) of the row of
+    // `coords`, their cells read in `ref`.
+    template <class LCA, std::size_t size>
+    bool record_row_stencils(const LCA& ref,
+                             const std::array<typename LCA::value_t, LCA::dim>& coords,
+                             typename LCA::value_t start,
+                             typename LCA::value_t end,
+                             const std::array<DirectionVector<LCA::dim>, size>& stencil,
+                             CheckedCells checked,
+                             ExtrapolationSequence& sequence)
+    {
+        auto rows = [&]<std::size_t... k>(std::index_sequence<k...>)
+        {
+            return std::array<RowLookup<LCA>, size>{RowLookup<LCA>(ref, translate(coords, stencil[k]))...};
+        }(std::make_index_sequence<size>{});
+
+        std::array<std::size_t, size> indices;
+        for (auto x = start; x < end; ++x)
+        {
+            bool missing_ghost = false;
+            bool missing_other = false;
+            for (std::size_t k = 0; k < size; ++k)
+            {
+                const auto index = rows[k](x + stencil[k][0]);
+                if (index < 0)
+                {
+                    (k == size - 1 ? missing_ghost : missing_other) = true;
+                }
+                else
+                {
+                    indices[k] = static_cast<std::size_t>(index);
+                }
+            }
+            if ((checked == CheckedCells::all && (missing_ghost || missing_other)) || (checked == CheckedCells::ghost && missing_ghost))
+            {
+                continue;
+            }
+            if (missing_ghost || missing_other)
+            {
+                return false;
+            }
+            append_stencil(sequence, indices);
+        }
+        return true;
+    }
+
+    // visit_extrapolation_on_cells of one layer. The cells lie in the domain,
+    // so the boundary cells are those on its face.
+    template <class Mesh>
+    bool scan_extrapolation_on_cells(const Mesh& mesh,
+                                     std::size_t level,
+                                     const CellBlock<typename Mesh::interval_t::value_t, Mesh::dim>& domain,
+                                     const DirectionVector<Mesh::dim>& direction,
+                                     int layer,
+                                     ExtrapolationSequence& sequence)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+
+        bool done = true;
+        for_each_extrapolated_ghost_layer<Mesh::dim>(
+            layer,
+            layer,
+            [&](const auto& stencil_in_x, auto)
+            {
+                const auto stencil = stencil_offsets(convert_for_direction(stencil_in_x, direction));
+                const auto checked = layer == 1 ? CheckedCells::none : CheckedCells::ghost;
+                for_each_interval_in_block(
+                    mesh[mesh_id_t::cells][level],
+                    face_layer(domain, direction, 0),
+                    [&](auto start, auto end, const auto& coords, auto)
+                    {
+                        done = done && record_row_stencils(mesh[mesh_id_t::reference][level], coords, start, end, stencil, checked, sequence);
+                    });
+            });
+        return done;
+    }
+
+    // visit_extrapolation_on_ghosts of one layer: the union cells on the face
+    // of the domain that are not cells, where the whole stencil is in the
+    // reference mesh.
+    template <class Mesh>
+    void scan_extrapolation_on_ghosts(const Mesh& mesh,
+                                      std::size_t level,
+                                      const CellBlock<typename Mesh::interval_t::value_t, Mesh::dim>& domain,
+                                      const DirectionVector<Mesh::dim>& direction,
+                                      int layer,
+                                      ExtrapolationSequence& sequence)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+
+        for_each_extrapolated_ghost_layer<Mesh::dim>(
+            layer,
+            layer,
+            [&](const auto& stencil_in_x, auto)
+            {
+                const auto stencil = stencil_offsets(convert_for_direction(stencil_in_x, direction));
+                const auto& ref    = mesh[mesh_id_t::reference][level];
+                for_each_interval_in_block(mesh.get_union()[level],
+                                           face_layer(domain, direction, 0),
+                                           [&](auto start, auto end, const auto& coords, auto)
+                                           {
+                                               const auto row = coords;
+                                               auto x         = start;
+                                               auto gap       = [&](auto gap_end)
+                                               {
+                                                   if (x < gap_end)
+                                                   {
+                                                       record_row_stencils(ref, row, x, gap_end, stencil, CheckedCells::all, sequence);
+                                                   }
+                                               };
+                                               for_each_interval_in_block(mesh[mesh_id_t::cells][level],
+                                                                          row_block(row, start, end),
+                                                                          [&](auto cells_start, auto cells_end, const auto&, auto)
+                                                                          {
+                                                                              gap(cells_start);
+                                                                              x = cells_end;
+                                                                          });
+                                               gap(end);
+                                           });
+            });
+    }
+
+    // visit_corner_extrapolation.
+    template <class Mesh>
+    bool
+    scan_corner_extrapolation(const Mesh& mesh, std::size_t level, const DirectionVector<Mesh::dim>& direction, ExtrapolationSequence& sequence)
+    {
+        static constexpr std::size_t dim = Mesh::dim;
+        using mesh_id_t                  = typename Mesh::mesh_id_t;
+
+        const auto corner = corner_block(mesh, direction, level);
+        if (!corner)
+        {
+            return false;
+        }
+        const auto& cells = mesh[mesh_id_t::cells][level];
+        const auto& ref   = mesh[mesh_id_t::reference][level];
+        bool done         = true;
+        auto record       = [&](const auto& block, const auto& stencil, CheckedCells checked)
+        {
+            for_each_interval_in_block(cells,
+                                       block,
+                                       [&](auto start, auto end, const auto& coords, auto)
+                                       {
+                                           done = done && record_row_stencils(ref, coords, start, end, stencil, checked, sequence);
+                                       });
+        };
+
+        // Step 1: the diagonal ghosts, layer by layer
+        const int ghost_width = static_cast<int>(mesh.ghost_width());
+        for (int ghost_layer = 1; ghost_layer <= ghost_width; ++ghost_layer)
+        {
+            const auto checked = ghost_layer == 1 ? CheckedCells::none : CheckedCells::ghost;
+            if (static_cast<std::size_t>(2 * ghost_layer) <= max_stencil_size_implemented_PE)
+            {
+                dispatch_static<1, max_stencil_size_implemented_PE / 2>(
+                    static_cast<std::size_t>(ghost_layer),
+                    [&](auto ghost_layer_)
+                    {
+                        static constexpr std::size_t stencil_size = 2 * decltype(ghost_layer_)::value;
+                        record(*corner, stencil_offsets(convert_for_direction(line_stencil<dim, 0, stencil_size>(), direction)), checked);
+                    });
+            }
+            else
+            {
+                DirectionVector<dim> to_ghost = (2 * ghost_layer - 1) * direction;
+                DirectionVector<dim> mirror   = (1 - ghost_layer) * direction;
+                std::array<DirectionVector<dim>, 2> stencil;
+                stencil[0].fill(0);
+                stencil[1] = to_ghost;
+                record(translate(*corner, mirror), stencil, checked);
+            }
+        }
+
+        // Step 2: the off-diagonal ghosts, copies of the diagonal ones, in the
+        // order of visit_corner_extrapolation
+        std::size_t num_nonzero = 0;
+        std::array<DirectionVector<dim>, dim> e_dirs;
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            if (direction[d] != 0)
+            {
+                e_dirs[num_nonzero].fill(0);
+                e_dirs[num_nonzero][d] = direction[d];
+                ++num_nonzero;
+            }
+        }
+        if (num_nonzero < 2)
+        {
+            return done;
+        }
+        std::size_t num_combos = 1;
+        for (std::size_t p = 1; p < num_nonzero; ++p)
+        {
+            num_combos *= static_cast<std::size_t>(ghost_width);
+        }
+        for (int k = 1; k <= ghost_width; ++k)
+        {
+            for (std::size_t combo = 0; combo < num_combos; ++combo)
+            {
+                DirectionVector<dim> delta;
+                delta.fill(0);
+                bool is_source  = true;
+                std::size_t tmp = combo;
+                for (std::size_t p = 1; p < num_nonzero; ++p)
+                {
+                    const int d_p = static_cast<int>(tmp % static_cast<std::size_t>(ghost_width)) - (k - 1);
+                    tmp /= static_cast<std::size_t>(ghost_width);
+                    delta += d_p * e_dirs[p];
+                    is_source = is_source && d_p == 0;
+                }
+                if (is_source)
+                {
+                    continue;
+                }
+                std::array<DirectionVector<dim>, 2> stencil;
+                stencil[0] = k * direction;
+                stencil[1] = stencil[0] + delta;
+                record(*corner, stencil, CheckedCells::none);
+            }
+        }
+        return done;
+    }
+
+    // The layer `layer` of visit_extrapolation_on_cells, recorded from direct
+    // walks on a box domain.
+    template <class Mesh>
+    void record_extrapolation_on_cells(const Mesh& mesh,
+                                       std::size_t level,
+                                       const DirectionVector<Mesh::dim>& direction,
+                                       int layer,
+                                       ExtrapolationSequence& sequence)
+    {
+        using mesh_id_t   = typename Mesh::mesh_id_t;
+        const auto domain = as_block(mesh.domain(level));
+        if (!domain || !block_holds(*domain, mesh[mesh_id_t::cells][level])
+            || !scan_extrapolation_on_cells(mesh, level, *domain, direction, layer, sequence))
+        {
+            sequence.clear();
+            ExtrapolationRecorder recorder{sequence};
+            visit_extrapolation_on_cells(mesh, level, direction, layer, layer, recorder);
         }
     }
 

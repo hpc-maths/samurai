@@ -438,17 +438,47 @@ namespace samurai
 
     namespace
     {
+        bool same_sequence(const detail::ExtrapolationSequence& a, const detail::ExtrapolationSequence& b)
+        {
+            if (a.size() != b.size())
+            {
+                return false;
+            }
+            for (std::size_t k = 0; k < a.size(); ++k)
+            {
+                if (a[k].stencil_size != b[k].stencil_size || a[k].cells != b[k].cells)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        std::size_t n_stencil_cells(const detail::ExtrapolationSequence& sequence)
+        {
+            std::size_t n = 0;
+            for (const auto& t : sequence)
+            {
+                n += t.cells.size();
+            }
+            return n;
+        }
+
         // Entries of the outer ghost tables by kind, to make sure a mesh has some.
         struct OuterEntries
         {
-            std::size_t projection = 0;
-            std::size_t prediction = 0;
-            std::size_t corners    = 0;
+            std::size_t projection    = 0;
+            std::size_t prediction    = 0;
+            std::size_t corners       = 0;
+            std::size_t on_ghosts     = 0;
+            std::size_t on_cells      = 0;
+            std::size_t corner_layers = 0;
         };
 
         // The outer ghost tables of every level from the direct walks against
-        // those from the set expressions, entry by entry and in order. Each walk
-        // must apply: none may fall back on the set expressions.
+        // those from the set expressions, entry by entry and in order, the layers
+        // extrapolated from the cells included. Each walk must apply: none may
+        // fall back on the set expressions.
         template <class Mesh>
         OuterEntries expect_same_outer_tables(const Mesh& mesh, const std::string& name)
         {
@@ -493,15 +523,50 @@ namespace samurai
                 EXPECT_TRUE(scans.corners.dest == sets.corners.dest && scans.corners.src == sets.corners.src) << where << ": corner copies";
                 n.corners += sets.corners.dest.size();
 
+                EXPECT_EQ(scans.extrapolation_on_ghosts.size(), sets.extrapolation_on_ghosts.size()) << where;
+                for (std::size_t d = 0; d < std::min(scans.extrapolation_on_ghosts.size(), sets.extrapolation_on_ghosts.size()); ++d)
+                {
+                    EXPECT_EQ(scans.extrapolation_on_ghosts[d].size(), sets.extrapolation_on_ghosts[d].size()) << where;
+                    for (std::size_t l = 0; l < std::min(scans.extrapolation_on_ghosts[d].size(), sets.extrapolation_on_ghosts[d].size());
+                         ++l)
+                    {
+                        EXPECT_TRUE(same_sequence(scans.extrapolation_on_ghosts[d][l], sets.extrapolation_on_ghosts[d][l]))
+                            << where << ": extrapolation on the ghosts in direction " << d << ", layer " << l + 1;
+                        n.on_ghosts += n_stencil_cells(sets.extrapolation_on_ghosts[d][l]);
+                    }
+                }
+
+                EXPECT_EQ(scans.corner_extrapolation.size(), sets.corner_extrapolation.size()) << where;
+                for (std::size_t c = 0; c < std::min(scans.corner_extrapolation.size(), sets.corner_extrapolation.size()); ++c)
+                {
+                    EXPECT_EQ(scans.corner_extrapolation[c].recorded, sets.corner_extrapolation[c].recorded) << where;
+                    EXPECT_TRUE(same_sequence(scans.corner_extrapolation[c].sequence, sets.corner_extrapolation[c].sequence))
+                        << where << ": corner extrapolation " << c;
+                    n.corner_layers += n_stencil_cells(sets.corner_extrapolation[c].sequence);
+                }
+
                 // the walks that may fall back on the set expressions
                 if (level >= mesh.min_level())
                 {
+                    const auto domain = detail::as_block(mesh.domain(level));
                     for_each_cartesian_direction<dim>(
                         [&](auto d, const auto& direction)
                         {
                             if (mesh.is_periodic(d))
                             {
                                 return;
+                            }
+                            for (int layer = 1; layer <= static_cast<int>(mesh.ghost_width()); ++layer)
+                            {
+                                detail::ExtrapolationSequence scanned;
+                                detail::ExtrapolationSequence visited;
+                                EXPECT_TRUE(domain && detail::scan_extrapolation_on_cells(mesh, level, *domain, direction, layer, scanned))
+                                    << where << ": extrapolation on the cells in direction " << d << ", layer " << layer;
+                                detail::ExtrapolationRecorder recorder{visited};
+                                detail::visit_extrapolation_on_cells(mesh, level, direction, layer, layer, recorder);
+                                EXPECT_TRUE(same_sequence(scanned, visited))
+                                    << where << ": extrapolation on the cells in direction " << d << ", layer " << layer;
+                                n.on_cells += n_stencil_cells(visited);
                             }
                             if (level > mesh.min_level())
                             {
@@ -526,7 +591,9 @@ namespace samurai
                                         return;
                                     }
                                 }
+                                detail::ExtrapolationSequence sequence;
                                 detail::CopyTable copies;
+                                EXPECT_TRUE(detail::scan_corner_extrapolation(mesh, level, direction, sequence)) << where;
                                 EXPECT_TRUE(detail::scan_corner_copies(mesh, level, direction, copies)) << where;
                             });
                     }
@@ -571,6 +638,9 @@ namespace samurai
                 total.projection += n.projection;
                 total.prediction += n.prediction;
                 total.corners += n.corners;
+                total.on_ghosts += n.on_ghosts;
+                total.on_cells += n.on_cells;
+                total.corner_layers += n.corner_layers;
             };
 
             // a blob across a corner: the finest level reaches the boundary
@@ -616,10 +686,13 @@ namespace samurai
             }
 
             EXPECT_GT(over_ranks(total.projection), 0u);
+            EXPECT_GT(over_ranks(total.on_cells), 0u);
             if constexpr (dim > 1)
             {
                 EXPECT_GT(over_ranks(total.prediction), 0u);
                 EXPECT_GT(over_ranks(total.corners), 0u);
+                EXPECT_GT(over_ranks(total.on_ghosts), 0u);
+                EXPECT_GT(over_ranks(total.corner_layers), 0u);
             }
         }
     }
