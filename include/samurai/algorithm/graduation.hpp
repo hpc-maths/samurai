@@ -22,6 +22,7 @@ namespace mpi = boost::mpi;
 #include "../subset/node.hpp"
 #include "../subset/utils.hpp"
 #include "../timers.hpp"
+#include "cell_array_from_tag.hpp"
 #include "utils.hpp"
 
 namespace samurai
@@ -748,128 +749,5 @@ namespace samurai
 
         is_periodic.fill(false);
         return make_graduation(ca, domain, mpi_neighbourhood, is_periodic, grad_width);
-    }
-
-    /// The cells the tags add to and remove from a CellArray (update_cell_array_from_tag).
-    template <class CA>
-    struct TagChanges
-    {
-        CA add_m;    ///< the parents of the cells to coarsen, one level down
-        CA remove_m; ///< the cells to coarsen
-        CA add_p;    ///< the children of the cells to refine, one level up
-        CA remove_p; ///< the cells to refine
-    };
-
-    /// The cells to add and to remove to apply the tags of the cells of old_ca: a cell tagged refine below the
-    /// max level is replaced by its children, a cell tagged coarsen and not keep above the min level by its parent.
-    template <std::size_t dim, class TInterval, size_t max_size, class Tag>
-    TagChanges<CellArray<dim, TInterval, max_size>> cells_changed_by_tag(const CellArray<dim, TInterval, max_size>& old_ca, const Tag& tag)
-    {
-        using size_type        = unsigned int;
-        using value_t          = typename TInterval::value_t;
-        using unsigned_value_t = typename std::make_unsigned_t<value_t>;
-        using ca_type          = CellArray<dim, TInterval, max_size>;
-        using coord_type       = typename ca_type::lca_type::coord_type;
-
-        const auto& mesh = tag.mesh();
-
-        // On an empty (sub)mesh min_level() returns max_size + 1 and max_level()
-        // returns 0, so start_level > end_level: the half-open `<` test then runs
-        // zero iterations instead of walking off the level array (a `!=` test
-        // would overflow past max_size and segfault). An empty rank -- e.g. right
-        // after load balancing concentrates every cell elsewhere -- must adapt to
-        // an empty cell array, not crash.
-        const size_t start_level = old_ca.min_level();
-        const size_t end_level   = old_ca.max_level() + 1;
-
-        // create the ensemble of cells to coarsen
-        TagChanges<ca_type> changes;
-        auto& ca_add_m    = changes.add_m;
-        auto& ca_remove_m = changes.remove_m;
-        auto& ca_add_p    = changes.add_p;
-        auto& ca_remove_p = changes.remove_p;
-
-        std::vector<TInterval> add_p_interval;
-        std::vector<coord_type> add_p_inner_stencil;
-        std::vector<size_t> add_p_idx;
-
-        for (size_t level = start_level; level < end_level; ++level)
-        {
-            const auto begin = old_ca[level].cbegin();
-            const auto end   = old_ca[level].cend();
-            for (auto it = begin; it != end; ++it)
-            {
-                const auto& x_interval = *it;
-                const auto& yz         = it.index();
-                const bool is_yz_even  = dim == 1 or xt::all(xt::equal(yz % 2, 0));
-
-                for (value_t x = x_interval.start; x < x_interval.end; ++x)
-                {
-                    const size_type itag         = static_cast<size_type>(x_interval.index) + static_cast<unsigned_value_t>(x);
-                    const bool refine            = tag[itag] & static_cast<std::uint8_t>(CellFlag::refine);
-                    const bool coarsenAndNotKeep = tag[itag] & static_cast<std::uint8_t>(CellFlag::coarsen)
-                                               and not(tag[itag] & static_cast<std::uint8_t>(CellFlag::keep));
-                    if (refine and level < mesh.max_level())
-                    {
-                        ca_remove_p[level].add_point_back(x, yz);
-                        if constexpr (dim == 1)
-                        {
-                            ca_add_p[level + 1].add_interval_back({2 * x, 2 * x + 2}, {});
-                        }
-                        else
-                        {
-                            nestedLoop<dim - 1, 0, dim - 2>(0,
-                                                            2,
-                                                            [&](const auto& inner_stencil)
-                                                            {
-                                                                add_p_interval.push_back({2 * x, 2 * x + 2});
-                                                                if constexpr (dim > 2)
-                                                                {
-                                                                    add_p_inner_stencil.emplace_back(2 * yz + inner_stencil);
-                                                                    add_p_idx.push_back(add_p_interval.size() - 1); // std::iota
-                                                                                                                    // on the fly
-                                                                }
-                                                            });
-                        }
-                    }
-                    else if (coarsenAndNotKeep and level > mesh.min_level())
-                    {
-                        if (x % 2 == 0 and is_yz_even) // should be modified when using load balancing.
-                        {
-                            ca_add_m[level - 1].add_point_back(x >> 1, yz >> 1);
-                        }
-                        ca_remove_m[level].add_point_back(x, yz);
-                    }
-                } // end for each x
-                if (dim != 1 and (it + 1 == end or (it + 1).index()[dim - 2] != yz[dim - 2]))
-                {
-                    add_list_of_interval_back(add_p_interval, coord_type(2 * yz), add_p_inner_stencil, add_p_idx, ca_add_p[level + 1]);
-                    add_p_interval.clear();
-                    add_p_inner_stencil.clear();
-                    add_p_idx.clear();
-                }
-            } // end for each interval
-        } // end for each level
-        return changes;
-    }
-
-    template <std::size_t dim, class TInterval, size_t max_size, class Tag>
-    CellArray<dim, TInterval, max_size> update_cell_array_from_tag(const CellArray<dim, TInterval, max_size>& old_ca, const Tag& tag)
-    {
-        ScopedTimer timer("update_cell_array_from_tag");
-        const auto& mesh                                          = tag.mesh();
-        const auto [ca_add_m, ca_remove_m, ca_add_p, ca_remove_p] = cells_changed_by_tag(old_ca, tag);
-
-        CellArray<dim, TInterval, max_size> new_ca;
-        for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
-        {
-            auto set = difference(union_(old_ca[level], ca_add_m[level], ca_add_p[level]), union_(ca_remove_m[level], ca_remove_p[level]));
-            set(
-                [&](const auto& x_interval, const auto& yz)
-                {
-                    new_ca[level].add_interval_back(x_interval, yz);
-                });
-        }
-        return new_ca;
     }
 }
