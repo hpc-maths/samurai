@@ -101,10 +101,11 @@ Check that the `Build configuration` section matches the options you passed:
 
 ```text
 Build configuration
-  field container : xtensor
-  MPI             : ON
-  PETSc           : ON
-  OpenMP          : OFF
+  field container     : xtensor
+  cell list container : flat_map
+  MPI                 : ON
+  PETSc               : ON
+  OpenMP              : OFF
   ...
 ```
 

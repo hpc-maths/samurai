@@ -5,6 +5,9 @@
 
 #include <cstddef>
 #include <iostream>
+#ifdef SAMURAI_CELL_LIST_CONTAINER_LIST_OF_INTERVALS
+#include <map>
+#endif
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -20,107 +23,100 @@ namespace samurai
 {
     namespace detail
     {
-        /// Sorted vector of (coordinate, value) pairs with a hinted operator[]:
-        /// the rows of a level are visited in order, so the lookup starts from
-        /// the last row touched instead of a tree search, and a new row is
-        /// almost always appended.
+        /// Sorted vector of (coordinate, value) pairs, used like a std::map.
+        /// operator[] starts its search from the last row touched: rows are
+        /// mostly visited in increasing order, so a new row is usually appended.
         template <typename TCoord, typename T>
-        class FlatMap
+        class FlatMap : private std::vector<std::pair<TCoord, T>>
         {
           public:
 
-            using value_type     = std::pair<TCoord, T>;
-            using storage_t      = std::vector<value_type>;
-            using iterator       = typename storage_t::iterator;
-            using const_iterator = typename storage_t::const_iterator;
+            using base_t = std::vector<std::pair<TCoord, T>>;
+            using base_t::begin;
+            using base_t::cbegin;
+            using base_t::cend;
+            using base_t::empty;
+            using base_t::end;
+            using base_t::size;
 
+            using const_iterator = typename base_t::const_iterator;
+            using iterator       = typename base_t::iterator;
+            using value_type     = typename base_t::value_type;
+
+            /// Value stored at key, inserted at its sorted position if missing.
             T& operator[](TCoord key)
             {
-                if (m_data.empty())
+                base_t& data = *this;
+                if (data.empty())
                 {
-                    m_data.emplace_back(key, T{});
+                    data.emplace_back(key, T{});
                     m_hint = 0;
-                    return m_data[0].second;
+                    return data[0].second;
                 }
                 std::size_t i = m_hint;
-                if (key > m_data[i].first)
+                if (key > data[i].first)
                 {
-                    while (i + 1 < m_data.size() && key > m_data[i + 1].first)
+                    while (i + 1 < data.size() && key > data[i + 1].first)
                     {
                         ++i;
                     }
-                    // key is in (m_data[i].first, m_data[i+1].first) or beyond the end
-                    if (i + 1 < m_data.size() && key == m_data[i + 1].first)
-                    {
-                        m_hint = i + 1;
-                        return m_data[i + 1].second;
-                    }
+                    // key is in (data[i].first, data[i+1].first] or beyond the end
                     m_hint = i + 1;
-                    return m_data.emplace(m_data.begin() + static_cast<std::ptrdiff_t>(i + 1), key, T{})->second;
+                    if (i + 1 < data.size() && key == data[i + 1].first)
+                    {
+                        return data[i + 1].second;
+                    }
+                    return data.emplace(data.begin() + static_cast<std::ptrdiff_t>(i + 1), key, T{})->second;
                 }
-                while (i > 0 && key < m_data[i].first)
+                while (i > 0 && key < data[i].first)
                 {
                     --i;
                 }
-                if (key == m_data[i].first)
+                if (key == data[i].first)
                 {
                     m_hint = i;
-                    return m_data[i].second;
+                    return data[i].second;
                 }
-                // either key < m_data[0].first (i == 0), or m_data[i].first < key < m_data[i+1].first
-                const std::size_t pos = key < m_data[i].first ? i : i + 1;
+                // key is before data[0] (i == 0) or between data[i] and data[i+1]
+                const std::size_t pos = key < data[i].first ? i : i + 1;
                 m_hint                = pos;
-                return m_data.emplace(m_data.begin() + static_cast<std::ptrdiff_t>(pos), key, T{})->second;
-            }
-
-            bool empty() const
-            {
-                return m_data.empty();
-            }
-
-            std::size_t size() const
-            {
-                return m_data.size();
+                return data.emplace(data.begin() + static_cast<std::ptrdiff_t>(pos), key, T{})->second;
             }
 
             void clear()
             {
-                m_data.clear();
+                base_t::clear();
                 m_hint = 0;
-            }
-
-            iterator begin()
-            {
-                return m_data.begin();
-            }
-
-            iterator end()
-            {
-                return m_data.end();
-            }
-
-            const_iterator begin() const
-            {
-                return m_data.begin();
-            }
-
-            const_iterator end() const
-            {
-                return m_data.end();
             }
 
           private:
 
-            storage_t m_data;
+            /// Index of the last row touched.
             std::size_t m_hint = 0;
         };
 
-        /// Type helper to create nested flat maps with final interval list
+        // Storage of a LevelCellList: sorted vectors by default, std::map and
+        // forward lists with SAMURAI_CELL_LIST_CONTAINER=list_of_intervals.
+#ifdef SAMURAI_CELL_LIST_CONTAINER_LIST_OF_INTERVALS
+        template <typename TCoord, typename T>
+        using cell_list_map_t = std::map<TCoord, T>;
+
+        template <typename TCoord, typename TIndex>
+        using cell_list_intervals_t = ListOfIntervals<TCoord, TIndex>;
+#else
+        template <typename TCoord, typename T>
+        using cell_list_map_t = FlatMap<TCoord, T>;
+
+        template <typename TCoord, typename TIndex>
+        using cell_list_intervals_t = FlatListOfIntervals<TCoord, TIndex>;
+#endif
+
+        /// Type helper to create nested maps with final interval list
         template <typename TCoord, typename TIntervalList, std::size_t N>
         struct PartialGrid
         {
             using next_type = typename PartialGrid<TCoord, TIntervalList, N - 1>::type;
-            using type      = FlatMap<TCoord, next_type>;
+            using type      = cell_list_map_t<TCoord, next_type>;
         };
 
         template <typename TCoord, typename TIntervalList>
@@ -129,7 +125,7 @@ namespace samurai
             using type = TIntervalList;
         };
 
-        /** Nested FlatMap accessor.
+        /** Nested map accessor.
          *
          * It is separated from the LevelCellList in order to automatically
          * manage the constness of the context (avoid duplicated code).
@@ -144,7 +140,7 @@ namespace samurai
         template <typename GridYZ, typename Index, std::size_t dim>
         SAMURAI_INLINE decltype(auto) access_grid_yz(GridYZ& grid_yz, const Index& index, std::integral_constant<std::size_t, dim>)
         {
-            // For other dimensions, we dive into the nested FlatMap
+            // For other dimensions, we dive into the nested map
             return access_grid_yz(grid_yz[index[dim - 1]], index, std::integral_constant<std::size_t, dim - 1>{});
         }
     } // namespace detail
@@ -162,7 +158,7 @@ namespace samurai
         using index_t             = typename interval_t::index_t;
         using coord_index_t       = typename interval_t::coord_index_t;
         using index_yz_t          = xt::xtensor_fixed<coord_index_t, xt::xshape<dim - 1>>;
-        using list_interval_t     = FlatListOfIntervals<coord_index_t, index_t>;
+        using list_interval_t     = detail::cell_list_intervals_t<coord_index_t, index_t>;
         using coords_t            = xt::xtensor_fixed<double, xt::xshape<dim>>;
 
         /// Sparse dim-1 array that points to the interval lists along the x

@@ -1,7 +1,7 @@
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <map>
-#include <random>
 #include <set>
 #include <tuple>
 #include <vector>
@@ -24,8 +24,27 @@ namespace samurai
 
     namespace
     {
-        // Random intervals (some empty, overlapping or touching) added to rows
-        // visited in random order: the LevelCellArray built from the list must
+        // Deterministic 64-bit linear congruential generator: the test only
+        // needs arbitrary, reproducible values.
+        class Lcg
+        {
+          public:
+
+            /// Integer in [lo, hi]
+            int next(int lo, int hi)
+            {
+                m_state         = m_state * 6364136223846793005ULL + 1442695040888963407ULL;
+                const auto span = static_cast<std::uint64_t>(hi - lo + 1);
+                return lo + static_cast<int>((m_state >> 33) % span);
+            }
+
+          private:
+
+            std::uint64_t m_state = 42;
+        };
+
+        // Arbitrary intervals (some empty, overlapping or touching) added to rows
+        // visited in arbitrary order: the LevelCellArray built from the list must
         // hold, row by row in increasing order, the union of the intervals.
         template <std::size_t dim>
         void check_random_rows()
@@ -35,10 +54,7 @@ namespace samurai
             using row_t    = std::array<int, dim - 1>;
             using index_yz = typename lcl_t::index_yz_t;
 
-            std::mt19937 gen(42);
-            std::uniform_int_distribution<int> row_coord(-6, 6);
-            std::uniform_int_distribution<int> start(-40, 40);
-            std::uniform_int_distribution<int> length(-1, 6);
+            Lcg gen;
 
             lcl_t lcl(5);
             std::map<row_t, std::set<int>> expected; // ordered like the cell array: last coordinate first
@@ -48,11 +64,11 @@ namespace samurai
                 index_yz index;
                 for (std::size_t d = 0; d < dim - 1; ++d)
                 {
-                    index[d]         = row_coord(gen);
+                    index[d]         = gen.next(-6, 6);
                     row[dim - 2 - d] = index[d];
                 }
-                const int s = start(gen);
-                const int e = s + length(gen);
+                const int s = gen.next(-40, 40);
+                const int e = s + gen.next(-1, 6);
                 lcl[index].add_interval({s, e});
                 auto& points = expected[row];
                 for (int x = s; x < e; ++x)
