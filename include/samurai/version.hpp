@@ -199,6 +199,11 @@ namespace samurai
 #else
         info.push_back({"field container", "xtensor"});
 #endif
+#ifdef SAMURAI_CELL_LIST_CONTAINER_LIST_OF_INTERVALS
+        info.push_back({"cell list container", "list_of_intervals"});
+#else
+        info.push_back({"cell list container", "flat_map"});
+#endif
 #ifdef SAMURAI_WITH_MPI
         info.push_back({"MPI", "ON"});
 #else
