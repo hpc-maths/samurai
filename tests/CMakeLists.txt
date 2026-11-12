@@ -81,6 +81,7 @@ set(SAMURAI_TESTS
     test_uniform_mesh.cpp
     test_utils.cpp
     test_version.cpp
+    test_weno5.cpp
 )
 
 if(rapidcheck_FOUND)
