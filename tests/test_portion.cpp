@@ -4,10 +4,12 @@
 #include <functional>
 #include <map>
 #include <set>
+#include <stdexcept>
 #include <utility>
 
 #include <samurai/algorithm.hpp>
 #include <samurai/algorithm/update_ghost_mr.hpp>
+#include <samurai/amr/mesh.hpp>
 #include <samurai/box.hpp>
 #include <samurai/cell_list.hpp>
 #include <samurai/field.hpp>
@@ -16,6 +18,7 @@
 #include <samurai/mr/mesh.hpp>
 #include <samurai/reconstruction.hpp>
 #include <samurai/samurai.hpp>
+#include <samurai/schemes/fv.hpp>
 #include <samurai/uniform_mesh.hpp>
 
 // Tests for portion() (include/samurai/reconstruction.hpp): the reconstructed value a field would
@@ -803,5 +806,101 @@ namespace samurai
     {
         check_band_covers_read_footprint<1, 3>(2, 2, 1);
         check_band_covers_read_footprint<2, 3>(2, 1, 1);
+    }
+
+    // ------------------------------------------------------------------ AMR meshes
+    //  The exact reconstruction reads cells U proj_cells as the levels backed by real data, the
+    //  multiresolution convention of proj_cells. An AMR mesh stores proj_cells differently, so the
+    //  exact reconstruction must be rejected there. The flat one still works.
+    namespace
+    {
+        // 1D AMR mesh on [0, 1]: level 2 on [0, 1/4), level 3 on [1/4, 1/2), level 4 on [1/2, 1).
+        auto three_level_amr_mesh()
+        {
+            auto cfg = mesh_config<1>().min_level(2).max_level(4).max_stencil_radius(2);
+            CellList<1> cl;
+            cl[2][{}].add_interval({0, 1});
+            cl[3][{}].add_interval({2, 4});
+            cl[4][{}].add_interval({8, 16});
+            return amr::make_mesh(CellArray<1>(cl), cfg);
+        }
+
+        template <class Mesh>
+        auto smooth_field(Mesh& mesh)
+        {
+            auto u = make_scalar_field<double>("u", mesh);
+            for_each_cell(mesh,
+                          [&](const auto& cell)
+                          {
+                              u[cell] = 1. + 0.5 * std::sin(2. * M_PI * cell.center(0));
+                          });
+            make_bc<Neumann<1>>(u, 0.);
+            return u;
+        }
+
+        // Upwind flux a * u(left cell of the face) on a 2-cell stencil.
+        template <class Field>
+        auto make_upwind_2(double a)
+        {
+            using cfg = FluxConfig<SchemeType::NonLinear, 2, Field, Field>;
+            FluxDefinition<cfg> flux;
+            flux[0].cons_flux_function = [a](FluxValue<cfg>& f, const StencilData<cfg>&, const StencilValues<cfg>& u)
+            {
+                f = a * u[0];
+            };
+            return make_flux_based_scheme(flux);
+        }
+    }
+
+    TEST(reconstruction, exact_rejected_on_amr_mesh)
+    {
+        auto mesh = three_level_amr_mesh();
+        auto u    = smooth_field(mesh);
+        EXPECT_THROW(reconstruction(u, true), std::invalid_argument);
+    }
+
+    TEST(reconstruction, flat_works_on_amr_mesh)
+    {
+        auto mesh = three_level_amr_mesh();
+        auto u    = smooth_field(mesh);
+        auto r    = reconstruction(u, false);
+
+        // Each leaf is the mean of its finest-level children.
+        const std::size_t L = mesh.domain().level();
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          const auto delta_l = L - cell.level;
+                          const auto first   = cell.indices[0] << delta_l;
+                          const auto n       = decltype(first){1} << delta_l;
+                          double mean        = 0.;
+                          for (auto i = first; i < first + n; ++i)
+                          {
+                              mean += r(L, {i, i + 1})(0);
+                          }
+                          mean /= static_cast<double>(n);
+                          EXPECT_NEAR(mean, u[cell], 1e-12) << "level " << cell.level << ", index " << cell.indices[0];
+                      });
+    }
+
+    TEST(reconstruction, exact_finer_level_flux_rejected_on_amr_mesh)
+    {
+        auto mesh   = three_level_amr_mesh();
+        auto u      = smooth_field(mesh);
+        auto scheme = make_upwind_2<decltype(u)>(1.);
+        scheme.enable_max_level_flux(true);
+
+        // Early, in the setter ...
+        EXPECT_THROW(scheme.set_exact_reconstruction(true), std::invalid_argument);
+        EXPECT_NO_THROW(scheme.set_exact_reconstruction(false));
+        EXPECT_NO_THROW(scheme(u)); // the flat finer-level flux still runs
+
+        // ... and when the scheme runs with the global default.
+        const bool saved           = args::exact_reconstruction;
+        args::exact_reconstruction = true;
+        auto from_default          = make_upwind_2<decltype(u)>(1.);
+        args::exact_reconstruction = saved;
+        from_default.enable_max_level_flux(true);
+        EXPECT_THROW(from_default(u), std::invalid_argument);
     }
 }

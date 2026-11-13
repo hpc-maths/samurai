@@ -122,7 +122,8 @@ namespace samurai
         app.add_flag("--exact-reconstruction",
                      args::exact_reconstruction,
                      "Reconstruct across refinement boundaries with the real finer cells instead of the flat prediction (LBM stream, FV "
-                     "finer-level fluxes, reconstruction()). Removes the projection error at interfaces; default: off")
+                     "finer-level fluxes, reconstruction()). Removes the projection error at interfaces. Needs a multiresolution mesh, "
+                     "rejected on an AMR mesh; default: off")
             ->capture_default_str()
             ->group("SAMURAI");
         app.add_flag("--refine-boundary", args::refine_boundary, "Keep the boundary refined at max_level")->capture_default_str()->group("SAMURAI");

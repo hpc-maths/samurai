@@ -81,9 +81,10 @@ namespace samurai
 
         // When computing fluxes at a finer level, reconstruct the finer stencil values with the real
         // finer cells across refinement boundaries instead of the flat prediction (see
-        // reconstruct_exact). Default: the global --exact-reconstruction option.
+        // reconstruct_exact). Default: the global --exact-reconstruction option. Throws on an AMR mesh.
         void set_exact_reconstruction(bool exact)
         {
+            check_exact_reconstruction_supported<mesh_t>(exact);
             m_exact_reconstruction = exact;
         }
 
@@ -566,6 +567,11 @@ namespace samurai
         template <Run run_type = Run::Sequential, bool enable_finer_level_flux, class Func>
         void for_each_interior_interface(std::size_t d, input_field_t& field, Func&& apply_contrib)
         {
+            if constexpr (enable_finer_level_flux)
+            {
+                check_exact_reconstruction_supported<mesh_t>(m_exact_reconstruction);
+            }
+
             auto& mesh = field.mesh();
 
             // The neighbor subdomain may have a finer level or a coarser level than the current subdomain.

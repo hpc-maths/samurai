@@ -197,7 +197,9 @@ Where the neighbourhood is entirely coarse, no real finer cell is ever met and
 exact reconstruction gives **exactly the same result** as flat - the two differ
 only near refinement boundaries. Exact reconstruction is turned on with the
 `--exact-reconstruction` command-line option, or by calling
-`reconstruction(field, /*exact=*/true)`.
+`reconstruction(field, /*exact=*/true)`. It needs a multiresolution mesh: an AMR
+mesh stores its projection cells with another convention, so asking for the exact
+reconstruction there throws `std::invalid_argument`.
 
 #### In symbols: the capped cascade
 

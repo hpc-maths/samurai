@@ -190,9 +190,11 @@ namespace samurai
          * (the fast production path). When on, wherever the prediction cone crosses a refinement
          * boundary it instead uses the real detail carried by the finer leaves that are actually
          * present (see @ref reconstruct_exact_box), removing the projection error at interfaces.
+         * Throws @c std::invalid_argument on an AMR mesh.
          */
         void set_exact_reconstruction(bool exact)
         {
+            check_exact_reconstruction_supported<typename field_t::mesh_t>(exact);
             m_exact_reconstruction = exact;
         }
 
@@ -213,6 +215,8 @@ namespace samurai
         void operator()(field_t& f, MField& m, double dt = 0.)
         {
             ScopedTimer timer_op(m_name + " operator");
+
+            check_exact_reconstruction_supported<typename field_t::mesh_t>(m_exact_reconstruction);
 
             update_ghost_mr(f);
 

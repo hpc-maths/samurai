@@ -12,8 +12,10 @@
 #include <cmath>
 #include <limits>
 #include <span>
+#include <stdexcept>
 
 #include <samurai/algorithm.hpp>
+#include <samurai/amr/mesh.hpp>
 #include <samurai/bc.hpp>
 #include <samurai/field.hpp>
 #include <samurai/mr/adapt.hpp>
@@ -1625,5 +1627,62 @@ namespace samurai
         EXPECT_LT(r.u_solid_max, 1e-12);
         EXPECT_GT(r.cd, 0.);
         EXPECT_LT(r.cd, 10.);
+    }
+
+    // The exact-reconstruction stream reads cells U proj_cells as the levels backed by real data,
+    // the multiresolution convention of proj_cells. An AMR mesh stores proj_cells differently, so
+    // the scheme must reject the exact reconstruction there.
+    TEST(lbm_d1q2, exact_reconstruction_rejected_on_amr_mesh)
+    {
+        auto cfg = mesh_config<1>().min_level(2).max_level(4).max_stencil_radius(2);
+        CellList<1> cl;
+        cl[2][{}].add_interval({0, 1});
+        cl[3][{}].add_interval({2, 4});
+        cl[4][{}].add_interval({8, 16});
+        auto mesh = amr::make_mesh(CellArray<1>(cl), cfg);
+
+        auto m = make_vector_field<double, 2>("m", mesh);
+        auto f = make_vector_field<double, 2>("f", mesh);
+        m.fill(1.);
+        f.fill(0.);
+        make_bc<Neumann<1>>(f, 0., 0.);
+
+        const double lambda = 1.;
+        std::array<std::array<double, 2>, 2> M{
+            {{1., 1.}, {lambda, -lambda}}
+        };
+        std::array<std::array<double, 2>, 2> invM{
+            {{0.5, 0.5 / lambda}, {0.5, -0.5 / lambda}}
+        };
+        auto eq = [](std::array<double, 2>& meq, std::span<const double> mm)
+        {
+            meq[0] = mm[0];
+            meq[1] = 0.5 * mm[0];
+        };
+        auto make_scheme = [&]()
+        {
+            return make_lbm_scheme<decltype(f)>("D1Q2",
+                                                lambda,
+                                                velocity_scheme<1, 2>(
+                                                    {
+                                                        {{1}, {-1}}
+            },
+                                                    M,
+                                                    invM,
+                                                    {0., 1.5},
+                                                    eq));
+        };
+
+        // Early, in the setter ...
+        auto scheme = make_scheme();
+        EXPECT_THROW(scheme.set_exact_reconstruction(true), std::invalid_argument);
+
+        // ... and when the scheme runs with the global default.
+        const bool saved           = args::exact_reconstruction;
+        args::exact_reconstruction = true;
+        auto from_default          = make_scheme();
+        args::exact_reconstruction = saved;
+        from_default.init_equilibrium(f, m);
+        EXPECT_THROW(from_default(f, m), std::invalid_argument);
     }
 }

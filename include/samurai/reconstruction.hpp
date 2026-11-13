@@ -7,6 +7,7 @@
 #include <map>
 #include <stdexcept>
 #include <tuple>
+#include <type_traits>
 #include <unordered_map>
 #include <vector>
 
@@ -1009,6 +1010,20 @@ namespace samurai
         }
     } // namespace detail
 
+    // The exact reconstruction relies on the multiresolution convention of proj_cells. An AMR
+    // mesh stores them differently, so the exact reconstruction is rejected there.
+    template <class Mesh>
+    void check_exact_reconstruction_supported([[maybe_unused]] bool exact)
+    {
+        if constexpr (std::is_same_v<typename Mesh::mesh_id_t, amr::AMR_Id>)
+        {
+            if (exact)
+            {
+                throw std::invalid_argument("--exact-reconstruction needs a multiresolution mesh, it is not available on an AMR mesh.");
+            }
+        }
+    }
+
     // Build, per level, the (cells U proj_cells) LevelCellArray used as the "real-backed" set by
     // the exact-reconstruction reconstruction. Index by level; entries below min_level / above max_level are
     // empty. update_ghost_mr must have run so proj_cells carry the exact child means.
@@ -1017,6 +1032,8 @@ namespace samurai
     {
         using lca_t     = typename Mesh::lca_type;
         using mesh_id_t = typename Mesh::mesh_id_t;
+
+        check_exact_reconstruction_supported<Mesh>(true);
 
         std::vector<lca_t> stored(mesh.max_level() + 1);
         for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
@@ -1283,6 +1300,9 @@ namespace samurai
      * leaf is reconstructed with the capped cascade of @ref reconstruct_exact_box, which
      * uses the real finer cells across refinement boundaries.
      *
+     * The exact reconstruction needs a multiresolution mesh: on an AMR mesh, @p exact
+     * throws @c std::invalid_argument.
+     *
      * Requires at least two boundary ghosts (the prediction stencil reaches two coarse
      * cells); throws otherwise. Ghosts are refreshed first via @c update_ghost_if_needed.
      */
@@ -1294,6 +1314,8 @@ namespace samurai
         using ca_type    = typename mesh_t::ca_type;
         using interval_t = typename mesh_t::interval_t;
         using value_t    = typename interval_t::value_t;
+
+        check_exact_reconstruction_supported<mesh_t>(exact);
 
         if (field.mesh().max_stencil_radius() < 2)
         {
