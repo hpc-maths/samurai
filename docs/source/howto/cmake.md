@@ -86,7 +86,8 @@ set(SAMURAI_WITH_MPI ON CACHE BOOL "Enable MPI")
 find_package(samurai REQUIRED)
 ```
 
-The package also defines `SAMURAI_FLUX_CONTAINER`, the container that stores the fluxes of finite volume schemes: `xtensor` (default) or `array`.
+The package also defines `SAMURAI_FLUX_CONTAINER`, the container that stores the fluxes of finite volume schemes: `array` (default) or `xtensor`.
+The [reference of the finite volume schemes](../reference/finite_volume_schemes.md#arrays-of-components) describes both.
 
 ## Run the program
 

@@ -146,7 +146,7 @@ The example `fv_burgers.cpp` writes $\nabla \cdot f(u)$ with the Burgers flux $f
 ```
 
 The flux function receives the flux to set, the stencil data and the stencil values `u`, where `u[i]` is the value in the `i`-th stencil cell.
-For a field with several components, `u[i]` and the flux are arrays of components.
+For a field with several components, `u[i]` and the flux are arrays of components: write the flux with their arithmetic and with functions such as `abs`, `sqrt`, `sum` or `maximum`, listed in the [reference](../reference/finite_volume_schemes.md#arrays-of-components).
 
 An implicit solve of a non-linear scheme runs Newton's method, which needs the derivative of the flux with respect to each stencil value: set it in `cons_jacobian_function`.
 `jac[i]` is the derivative with respect to `u[i]`, a matrix of size (output components) x (input components), or a number for scalar fields.

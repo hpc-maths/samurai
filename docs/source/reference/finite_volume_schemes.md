@@ -283,6 +283,47 @@ A `NonLinear` flux function computes the flux from the stencil values:
 | `samurai::StencilData<cfg>` | the cells of the computational stencil and their length, as for the heterogeneous schemes |
 | `samurai::StencilValues<cfg>` | the values of the input field in the stencil cells, in the order of the configured stencil |
 
+(arrays_of_components)=
+
+#### Arrays of components
+
+For a vector field, each stencil value `u[i]` and the flux are a `samurai::StdArrayWrapper<T, N>`, a fixed-size array of `N` components of type `T` whose arithmetic is evaluated at once.
+The result of an operation is a new array, never an expression that refers to its operands, so `auto` and `const auto&` are safe on any intermediate result.
+For a scalar field, both are a number of type `T`.
+
+| Operation | Syntax |
+| --- | --- |
+| component | `a(k)`, `a[k]`, `a.size()`, `a.data()`, range-based `for` |
+| arithmetic, component by component | `a + b`, `a - b`, `a * b`, `a / b`, `-a`, and the same with a scalar on either side |
+| compound assignment | `a += b`, `a -= b`, `a *= b`, `a /= b`, with an array or a scalar |
+| functions, component by component | `abs(a)`, `sqrt(a)`, `pow(a, p)`, `minimum(a, b)`, `maximum(a, b)` |
+| reductions to a scalar | `sum(a)`, `amin(a)`, `amax(a)`, `norm_l2(a)` |
+| comparison and output | `a == b`, `a != b`, `std::cout << a` |
+
+The functions carry the names of their `xtensor` counterparts and are called without a namespace: `abs(a)`, not `xt::abs(a)`.
+The reductions return the number itself, where `xt::sum(a)` returns an expression to call with `()`.
+
+An array mixes with `xtensor` containers and expressions of the same size, such as a `samurai::Array`, an `xt::xtensor_fixed` or `field[cell]`:
+
+```c++
+xt::xtensor_fixed<double, xt::xshape<2>> x{1., 2.};
+samurai::StdArrayWrapper<double, 2> a = x; // from an xtensor expression
+auto b = 2. * a - x;                       // an array
+x += b;                                    // into an xtensor container
+x = a;                                     // converts to xt::xtensor_fixed
+field[cell] = a + field[cell];             // into the values of a cell
+```
+
+A binary operation between an array and an `xtensor` expression returns an array.
+The other `xt::` functions do not take an array: call them on `a.to_xtensor()`, a copy of the array as an `xt::xtensor_fixed`.
+
+```c++
+auto head = xt::view(a.to_xtensor(), xt::range(0, 1));
+```
+
+The CMake option `SAMURAI_FLUX_CONTAINER` sets the type of the flux of a vector field: `array` (default) for `samurai::StdArrayWrapper`, `xtensor` for `xt::xtensor_fixed`, `eigen3` for an `Eigen::Array`.
+The stencil values are arrays whatever the option.
+
 ### Jacobian function
 
 An implicit non-linear scheme is solved by a Newton method, which needs the Jacobian matrix of the flux with respect to the stencil values.
