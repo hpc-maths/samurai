@@ -1,9 +1,9 @@
 // Copyright 2018-2025 the samurai's authors
 // SPDX-License-Identifier:  BSD-3-Clause
 
-// StdArrayWrapper: a fixed-size array with eager, element-wise arithmetic.
-// The tests are written outside the samurai namespace, the way user code is:
-// the functions on arrays must be found without qualification.
+// StdArrayWrapper: the field values a flux function reads, and the default
+// flux container. The tests are written outside the samurai namespace, the way
+// user code is: the functions on arrays must be found without qualification.
 
 #include <array>
 #include <cmath>
@@ -18,6 +18,10 @@
 #include <xtensor/reducers/xnorm.hpp>
 #include <xtensor/views/xview.hpp>
 
+#include <samurai/box.hpp>
+#include <samurai/field.hpp>
+#include <samurai/mr/mesh.hpp>
+#include <samurai/schemes/fv.hpp>
 #include <samurai/storage/std/algebraic_array.hpp>
 
 namespace
@@ -39,6 +43,12 @@ namespace
     double first_value(const xfixed3& x)
     {
         return x(0);
+    }
+
+    auto make_mesh()
+    {
+        const samurai::Box<double, 1> box{{0}, {1}};
+        return samurai::mra::make_mesh(box, samurai::mesh_config<1>().min_level(3).max_level(3));
     }
 }
 
@@ -341,4 +351,168 @@ TEST(algebraic_array, compound_assignment_to_xtensor_expression)
     xt::col(matrix, 1) -= a;
     EXPECT_EQ(xt::col(matrix, 0), (xfixed3{1., 1., 1.}));
     EXPECT_EQ(xt::col(matrix, 1), (xfixed3{0., -1., -3.}));
+}
+
+//--------//
+// Fields //
+//--------//
+
+TEST(algebraic_array, field_value_types)
+{
+    const auto mesh = make_mesh();
+    auto u          = samurai::make_vector_field<double, 3>("u", mesh);
+    auto s          = samurai::make_scalar_field<double>("s", mesh);
+    auto one        = samurai::make_vector_field<double, 1>("one", mesh);
+
+    static_assert(std::is_same_v<decltype(u)::local_data_type, array3>);
+    static_assert(std::is_same_v<decltype(s)::local_data_type, double>);
+    static_assert(std::is_same_v<decltype(one)::local_data_type, samurai::StdArrayWrapper<double, 1>>);
+
+    // The values of one cell stay an xtensor expression.
+    static_assert(xt::is_xexpression<decltype(u[samurai::Cell<1, samurai::default_config::interval_t>()])>::value);
+
+#if !defined(SAMURAI_FLUX_CONTAINER_XTENSOR) && !defined(SAMURAI_FLUX_CONTAINER_EIGEN3)
+    static_assert(std::is_same_v<samurai::flux_array_t<double, 3>, array3>);
+#endif
+}
+
+TEST(algebraic_array, cell_values_of_a_vector_field)
+{
+    const auto mesh = make_mesh();
+    auto u          = samurai::make_vector_field<double, 3>("u", mesh);
+    u.fill(0.);
+
+    samurai::for_each_cell(mesh,
+                           [&](const auto& cell)
+                           {
+                               const double i = static_cast<double>(cell.index);
+                               const array3 a{i, 10. + i, 20. + i};
+
+                               u[cell] = a;
+                               EXPECT_EQ(u[cell](0), i);
+                               EXPECT_EQ(u[cell](1), 10. + i);
+                               EXPECT_EQ(u[cell](2), 20. + i);
+
+                               u[cell] += a;
+                               EXPECT_EQ(u[cell](1), 2. * (10. + i));
+                               u[cell] -= 2. * a;
+                               EXPECT_EQ(u[cell](1), 0.);
+                               EXPECT_EQ(u[cell](2), 0.);
+
+                               u[cell] = 0.5 * (a + a); // an array temporary
+
+                               // The view still takes what an xtensor view takes.
+                               u[cell] = u[cell] + xfixed3{1., 1., 1.};
+                               EXPECT_EQ(u[cell](2), 21. + i);
+                               u[cell] = xfixed3{i, 10. + i, 20. + i};
+                           });
+
+    // Nothing leaked into the neighbouring cells.
+    const auto& const_u = u;
+    samurai::for_each_cell(mesh,
+                           [&](const auto& cell)
+                           {
+                               const double i = static_cast<double>(cell.index);
+
+                               const array3 read = const_u[cell];
+                               expect_values(read, i, 10. + i, 20. + i);
+
+                               array3 assigned;
+                               assigned = u[cell];
+                               expect_values(assigned, i, 10. + i, 20. + i);
+
+                               // Array next to the values of a cell: an array.
+                               static_assert(is_array3<decltype(read - u[cell])>);
+                               static_assert(is_array3<decltype(u[cell] * 2. + read)>);
+                               expect_values(read - u[cell], 0, 0, 0);
+                               expect_values(u[cell] * 2. + read, 3. * i, 3. * (10. + i), 3. * (20. + i));
+                           });
+
+    // Cell to cell, and a scalar for every component.
+    samurai::Cell<1, samurai::default_config::interval_t> first;
+    samurai::Cell<1, samurai::default_config::interval_t> last;
+    bool is_first = true;
+    samurai::for_each_cell(mesh,
+                           [&](const auto& cell)
+                           {
+                               if (is_first)
+                               {
+                                   first    = cell;
+                                   is_first = false;
+                               }
+                               last = cell;
+                           });
+    u[first] = u[last];
+    expect_values(array3(u[first]), array3(u[last])[0], array3(u[last])[1], array3(u[last])[2]);
+    u[first] = 7.;
+    expect_values(array3(u[first]), 7, 7, 7);
+    EXPECT_EQ(u[last](0), static_cast<double>(last.index));
+}
+
+TEST(algebraic_array, cell_values_of_a_one_component_vector_field)
+{
+    using array1 = samurai::StdArrayWrapper<double, 1>;
+
+    const auto mesh = make_mesh();
+    auto u          = samurai::make_vector_field<double, 1>("u", mesh);
+    u.fill(0.);
+
+    samurai::for_each_cell(mesh,
+                           [&](const auto& cell)
+                           {
+                               const double i = static_cast<double>(cell.index);
+                               u[cell]        = array1{i};
+                               u[cell] += array1{1.};
+                           });
+    samurai::for_each_cell(mesh,
+                           [&](const auto& cell)
+                           {
+                               const array1 read = u[cell];
+                               EXPECT_EQ(read[0], 1. + static_cast<double>(cell.index));
+                           });
+}
+
+// A flux function the way user code writes it: values of the stencil, an
+// xtensor constant, functions on arrays.
+TEST(algebraic_array, flux_function_on_a_vector_field)
+{
+    static constexpr std::size_t dim = 1;
+
+    const samurai::Box<double, dim> box{{0}, {1}};
+    auto mesh = samurai::mra::make_mesh(box, samurai::mesh_config<dim>().min_level(4).max_level(4).periodic(true));
+    auto u    = samurai::make_vector_field<double, 2>("u", mesh);
+    samurai::for_each_cell(mesh,
+                           [&](const auto& cell)
+                           {
+                               u[cell] = samurai::StdArrayWrapper<double, 2>{1. + cell.center(0), -2.};
+                           });
+
+    using field_t = decltype(u);
+    using cfg     = samurai::FluxConfig<samurai::SchemeType::NonLinear, 2, field_t, field_t>;
+
+    const xt::xtensor_fixed<double, xt::xshape<2>> velocity{1., 3.};
+
+    samurai::FluxDefinition<cfg> flux;
+    flux[0].cons_flux_function = [&](samurai::FluxValue<cfg>& f, const samurai::StencilData<cfg>&, const samurai::StencilValues<cfg>& v)
+    {
+        static_assert(std::is_same_v<std::decay_t<decltype(v[0])>, samurai::StdArrayWrapper<double, 2>>);
+        // velocity * |uL|, written with a detour through the right value
+        const auto jump = v[1] - v[0];
+        f               = velocity * abs(v[1] - jump) + 0. * sqrt(abs(jump));
+    };
+    auto scheme = samurai::make_flux_based_scheme(flux);
+
+    auto du = samurai::make_vector_field<double, 2>("du", mesh);
+    du      = scheme(u);
+
+    const double h = mesh.cell_length(4);
+    samurai::for_each_cell(mesh,
+                           [&](const auto& cell)
+                           {
+                               // Upwind difference of velocity * |u|: u(1) is constant.
+                               const bool first      = cell.indices[0] == 0;
+                               const double expected = first ? (h - 1.) / h : 1.;
+                               EXPECT_NEAR(du[cell](0), expected, 1e-12);
+                               EXPECT_NEAR(du[cell](1), 0., 1e-12);
+                           });
 }

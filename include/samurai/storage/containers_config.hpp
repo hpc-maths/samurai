@@ -35,9 +35,6 @@ namespace samurai
     template <class value_type, std::size_t size = 1, bool can_collapse = true>
     using field_data_storage_t = eigen_container<value_type, size>;
 
-    template <class value_type, std::size_t size, bool can_collapse = true>
-    using local_field_data_t = eigen_collapsable_static_array<value_type, size, can_collapse>;
-
     template <class T>
     using default_view_t = Eigen::IndexedView<T, Eigen::internal::ArithmeticSequenceRange<16777215, -1, 16777215>, Eigen::internal::SingleRange<0>>;
 #else // SAMURAI_FIELD_CONTAINER_XTENSOR
@@ -45,12 +42,15 @@ namespace samurai
     template <class value_type, std::size_t size = 1, bool can_collapse = true>
     using field_data_storage_t = xtensor_container<value_type, size, can_collapse>;
 
-    template <class value_type, std::size_t size, bool can_collapse = true>
-    using local_field_data_t = xtensor_collapsable_static_array<value_type, size, can_collapse>;
-
     template <class T>
     using default_view_t = xt::xview<T&, xt::xstepped_range<long>>;
 #endif
+
+    // The values of one cell, copied out of the field: what a flux function reads.
+    // An eager array whatever the field container, so that the arithmetic of a
+    // flux function builds no lazy expression.
+    template <class value_type, std::size_t size, bool can_collapse = true>
+    using local_field_data_t = collapsable_algebraic_std_array<value_type, size, can_collapse>;
 
     //--------------//
     // Static array //
@@ -71,14 +71,14 @@ namespace samurai
     //----------------//
 
     template <class value_type, std::size_t size>
-#if defined(SAMURAI_FLUX_CONTAINER_ARRAY)
-    using flux_array_t    = StdArrayWrapper<value_type, size>;
+#if defined(SAMURAI_FLUX_CONTAINER_XTENSOR)
+    using flux_array_t    = xtensor_static_array<value_type, size>;
     using flux_index_type = std::size_t;
 #elif defined(SAMURAI_FLUX_CONTAINER_EIGEN3)
     using flux_array_t    = eigen_static_array<value_type, size>;
     using flux_index_type = Eigen::Index;
-#else // SAMURAI_FLUX_CONTAINER_XTENSOR
-    using flux_array_t    = xtensor_static_array<value_type, size>;
+#else // SAMURAI_FLUX_CONTAINER_ARRAY
+    using flux_array_t    = StdArrayWrapper<value_type, size>;
     using flux_index_type = std::size_t;
 #endif
 

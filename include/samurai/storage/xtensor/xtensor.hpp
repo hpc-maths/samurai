@@ -3,6 +3,10 @@
 
 #pragma once
 
+#include <cassert>
+#include <cstddef>
+#include <utility>
+
 // #include <xtensor/xlayout.hpp>
 #include <xtensor/containers/xtensor.hpp>
 #include <xtensor/core/xnoalias.hpp>
@@ -137,17 +141,51 @@ namespace samurai
         }
     }
 
+    template <class T, std::size_t N>
+    struct StdArrayWrapper;
+
+    /**
+     * The values of one cell of a vector field: an xtensor view that also
+     * accepts an eager array on the right of '='.
+     * xtensor alone would take the array for a scalar.
+     */
+    template <class View>
+    struct cell_view : View
+    {
+        using View::operator=;
+
+        explicit cell_view(View&& view)
+            : View(std::move(view))
+        {
+        }
+
+        template <class T, std::size_t N>
+        cell_view& operator=(const StdArrayWrapper<T, N>& values)
+        {
+            assert(this->dimension() == 1 && this->size() == N);
+            for (std::size_t i = 0; i < N; ++i)
+            {
+                (*this)(i) = values[i];
+            }
+            return *this;
+        }
+    };
+
     template <xtensor_container_like Container>
     auto view(Container& container, std::size_t index)
     {
         using traits = detail::xtensor_container_traits<std::remove_const_t<Container>>;
-        if constexpr (traits::size == 1 && !traits::can_collapse)
+        if constexpr (traits::size == 1 && traits::can_collapse)
         {
-            return xt::view(container.data(), xt::all(), index);
+            return xt::view(container.data(), index);
+        }
+        else if constexpr (traits::size == 1)
+        {
+            return cell_view(xt::view(container.data(), xt::all(), index));
         }
         else
         {
-            return xt::view(container.data(), index);
+            return cell_view(xt::view(container.data(), index));
         }
     }
 
