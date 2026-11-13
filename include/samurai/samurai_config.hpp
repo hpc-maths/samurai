@@ -3,35 +3,36 @@
 
 #pragma once
 
+#include <cstddef>
+#include <type_traits>
+
 /**
- * @brief Conditional inlining macros controlled by CMake.
+ * @brief Inlining macros.
  *
- * When SAMURAI_ENABLE_INLINE is defined (default ON):
- * - SAMURAI_INLINE expands to the standard `inline` keyword.
- * - SAMURAI_FORCE_INLINE expands to compiler-specific forced inlining hints.
+ * SAMURAI_INLINE follows the CMake options:
+ * - SAMURAI_FORCE_INLINE=ON: forced inlining, as SAMURAI_ALWAYS_INLINE.
+ * - SAMURAI_ENABLE_INLINE=ON (default): the standard `inline` keyword.
+ * - both OFF: nothing, for analysis and debugging.
  *
- * When SAMURAI_ENABLE_INLINE is NOT defined:
- * - Both macros expand to nothing, disabling inlining for analysis/debugging.
- *
- * Compiler support for SAMURAI_FORCE_INLINE:
+ * SAMURAI_ALWAYS_INLINE forces inlining whatever the CMake options. Use it on
+ * the small functions a flux function calls for every face:
  * - GCC/Clang: `inline __attribute__((always_inline))`
  * - MSVC: `__forceinline`
- * - Others: falls back to `inline`
+ * - others: falls back to `inline`
  */
-#if defined(SAMURAI_FORCE_INLINE)
-// Precedence: if the force-inline flag is set, use forced inlining
 #if defined(_MSC_VER)
-#define SAMURAI_INLINE __forceinline
+#define SAMURAI_ALWAYS_INLINE __forceinline
 #elif defined(__GNUC__) || defined(__clang__)
-#define SAMURAI_INLINE inline __attribute__((always_inline))
+#define SAMURAI_ALWAYS_INLINE inline __attribute__((always_inline))
 #else
-#define SAMURAI_INLINE inline
+#define SAMURAI_ALWAYS_INLINE inline
 #endif
+
+#if defined(SAMURAI_FORCE_INLINE)
+#define SAMURAI_INLINE SAMURAI_ALWAYS_INLINE
 #elif defined(SAMURAI_ENABLE_INLINE)
-// Enable standard inlining only
 #define SAMURAI_INLINE inline
 #else
-// Disable all inlining
 #define SAMURAI_INLINE
 #endif
 

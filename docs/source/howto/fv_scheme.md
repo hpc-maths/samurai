@@ -232,6 +232,23 @@ A scheme whose stencil does not fit throws an error when you apply it, as the [t
 
 If the cells the flux reads depend on the solution, as in an upwind or WENO scheme, configure a stencil that holds every cell the flux may read and choose among them in the flux function.
 
+## Force the inlining of the flux helpers
+
+A flux function runs once per face, so the functions it calls should be inlined into it.
+Compilers do not always do it: on a MUSCL scheme with an HLLC solver for the Euler equations, GCC left the slope limiter, the variable conversions and the Riemann solver as separate calls.
+Mark these functions with `SAMURAI_ALWAYS_INLINE`, which forces the inlining whatever the build options:
+
+```c++
+template <class State>
+SAMURAI_ALWAYS_INLINE auto cons2prim(const State& q)
+{
+    // ...
+}
+```
+
+The macro replaces the `inline` keyword and applies to functions and member functions, not to lambdas.
+Keep it for small functions called for every face, and time the scheme before and after: forced inlining grows the code and does not always pay.
+
 ## Solve the scheme implicitly
 
 Pass the scheme, or a combination such as `id + dt * my_scheme`, to `samurai::petsc::make_solver`, as the [PETSc how-to guide](petsc.md) explains.

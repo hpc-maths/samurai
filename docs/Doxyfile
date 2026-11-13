@@ -14,11 +14,11 @@ WARN_IF_UNDOCUMENTED = NO
 # Report every warning, then exit with a non-zero status if there was any.
 WARN_AS_ERROR     = FAIL_ON_WARNINGS
 MACRO_EXPANSION = YES
-# Expand SAMURAI_INLINE to nothing so that signatures do not depend on the
+# Expand the inlining macros to nothing so that signatures do not depend on the
 # inlining options (see include/samurai/samurai_config.hpp).
 # Define SAMURAI_WITH_MPI so that the reference covers the MPI-only API, such as
 # the load balancing driver and its strategies.
-PREDEFINED = SAMURAI_INLINE= SAMURAI_WITH_MPI
+PREDEFINED = SAMURAI_INLINE= SAMURAI_ALWAYS_INLINE= SAMURAI_WITH_MPI
 # Implementation details are not part of the public API: the detail namespaces,
 # the cut search helpers of the SFC strategy, and the friend declarations that
 # Boost.Serialization needs in MPI builds.
