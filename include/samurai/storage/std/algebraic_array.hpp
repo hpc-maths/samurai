@@ -1,7 +1,23 @@
+// Copyright 2018-2025 the samurai's authors
+// SPDX-License-Identifier:  BSD-3-Clause
+
 #pragma once
-#include "../collapsable.hpp"
+
+#include <algorithm>
 #include <array>
-#include <math.h>
+#include <cassert>
+#include <cmath>
+#include <cstddef>
+#include <initializer_list>
+#include <ostream>
+#include <type_traits>
+#include <utility>
+
+#include <xtensor/containers/xfixed.hpp>
+#include <xtensor/core/xexpression.hpp>
+
+#include "../../samurai_config.hpp"
+#include "../collapsable.hpp"
 #if defined(SAMURAI_FIELD_CONTAINER_EIGEN3)
 #include "../eigen/eigen.hpp"
 #endif
@@ -9,22 +25,44 @@
 namespace samurai
 {
     /**
-     * Simple array with algebraic operations
+     * Fixed-size array of N values with element-wise arithmetic.
+     *
+     * Every operation is eager and returns a new array by value. There is no
+     * expression template, so a result never refers to its operands.
+     * This is the type of the field values a flux function reads, and the
+     * default flux container.
+     *
+     * It mixes with xtensor: an array is built from, assigned from and combined
+     * with any 1D xtensor expression of N values, and it converts to
+     * xt::xtensor_fixed. A mixed operation returns an array.
      */
     template <class T, std::size_t N>
     struct StdArrayWrapper
     {
-        using value_type = T;
+        using value_type     = T;
+        using size_type      = std::size_t;
+        using iterator       = typename std::array<T, N>::iterator;
+        using const_iterator = typename std::array<T, N>::const_iterator;
+        using xtensor_type   = xt::xtensor_fixed<T, xt::xshape<N>>;
 
       private:
 
         std::array<T, N> _a;
 
+        template <class E>
+        void copy_from(const xt::xexpression<E>& e)
+        {
+            const auto& values = e.derived_cast();
+            assert(values.dimension() == 1 && values.size() == N);
+            for (std::size_t i = 0; i < N; ++i)
+            {
+                _a[i] = static_cast<T>(values(i));
+            }
+        }
+
       public:
 
-        StdArrayWrapper()
-        {
-        }
+        StdArrayWrapper() = default;
 
         explicit StdArrayWrapper(const std::array<T, N>& a)
             : _a(a)
@@ -36,53 +74,77 @@ namespace samurai
         {
         }
 
+        // The constraint keeps '{array}' a copy instead of a one-element list.
         template <class T2>
+            requires std::is_convertible_v<T2, T>
         StdArrayWrapper(std::initializer_list<T2> list)
         {
             assert(list.size() == N);
-            auto it = list.begin();
-            for (std::size_t i = 0; i < N; ++i)
-            {
-                _a[i] = *it;
-                it++;
-            }
+            std::transform(list.begin(),
+                           list.end(),
+                           _a.begin(),
+                           [](const T2& value)
+                           {
+                               return static_cast<T>(value);
+                           });
         }
 
-        template <class... T2>
-        StdArrayWrapper(xt::xfunction<T2...> xt) // cppcheck-suppress noExplicitConstructor
+        // Any 1D xtensor expression of N values: container, view or function.
+        template <class E>
+            requires std::is_convertible_v<typename E::value_type, T>
+        StdArrayWrapper(const xt::xexpression<E>& e) // cppcheck-suppress noExplicitConstructor
         {
-            for (std::size_t i = 0; i < N; ++i)
-            {
-                this->_a[i] = xt(i);
-            }
-        }
-
-        template <class... T2>
-        StdArrayWrapper(xt::xview<T2...> xt) // cppcheck-suppress noExplicitConstructor
-        {
-            for (std::size_t i = 0; i < N; ++i)
-            {
-                this->_a[i] = xt(i);
-            }
+            copy_from(e);
         }
 
 #if defined(SAMURAI_FIELD_CONTAINER_EIGEN3)
-        template <class T2>
-        StdArrayWrapper(const T2& eigen) // cppcheck-suppress noExplicitConstructor
+        template <class D>
+        StdArrayWrapper(const Eigen::DenseBase<D>& e) // cppcheck-suppress noExplicitConstructor
         {
+            assert(e.size() == static_cast<Eigen::Index>(N));
             for (std::size_t i = 0; i < N; ++i)
             {
-                this->_a[i] = eigen(static_cast<Eigen::Index>(i));
+                _a[i] = static_cast<T>(e.derived()(static_cast<Eigen::Index>(i)));
             }
         }
 #endif
 
+        // Every component is set to 'value'.
         StdArrayWrapper(T value) // cppcheck-suppress noExplicitConstructor
         {
             _a.fill(value);
         }
 
+        template <class E>
+            requires std::is_convertible_v<typename E::value_type, T>
+        StdArrayWrapper& operator=(const xt::xexpression<E>& e)
+        {
+            copy_from(e);
+            return *this;
+        }
+
+        // For the code that names an xtensor type: 'xt::xtensor_fixed<...> x = array;'.
+        operator xtensor_type() const
+            requires std::is_arithmetic_v<T>
+        {
+            return to_xtensor();
+        }
+
+        // A copy as an xtensor container, to call an 'xt::' function on it.
+        xtensor_type to_xtensor() const
+            requires std::is_arithmetic_v<T>
+        {
+            xtensor_type x;
+            std::copy(_a.begin(), _a.end(), x.begin());
+            return x;
+        }
+
         auto& array()
+        {
+            return _a;
+        }
+
+        const auto& array() const
         {
             return _a;
         }
@@ -91,6 +153,36 @@ namespace samurai
         constexpr std::size_t size() const
         {
             return N;
+        }
+
+        iterator begin()
+        {
+            return _a.begin();
+        }
+
+        const_iterator begin() const
+        {
+            return _a.begin();
+        }
+
+        iterator end()
+        {
+            return _a.end();
+        }
+
+        const_iterator end() const
+        {
+            return _a.end();
+        }
+
+        T* data()
+        {
+            return _a.data();
+        }
+
+        const T* data() const
+        {
+            return _a.data();
         }
 
         T& operator()(std::size_t i)
@@ -113,22 +205,16 @@ namespace samurai
             return _a[i];
         }
 
-        template <class xt>
-        auto operator=(T value)
+        void fill(T value)
         {
-            fill(value);
+            _a.fill(value);
         }
 
-        template <class xt>
-        auto operator=(const xt& other)
-        {
-            for (std::size_t i = 0; i < N; ++i)
-            {
-                _a[i] = other(i);
-            }
-        }
+        //----------------------//
+        // Compound assignments //
+        //----------------------//
 
-        auto& operator+=(const StdArrayWrapper<T, N>& other)
+        StdArrayWrapper& operator+=(const StdArrayWrapper& other)
         {
             for (std::size_t i = 0; i < N; ++i)
             {
@@ -137,16 +223,7 @@ namespace samurai
             return *this;
         }
 
-        auto& operator*=(const StdArrayWrapper<T, N>& other)
-        {
-            for (std::size_t i = 0; i < N; ++i)
-            {
-                _a[i] *= other._a[i];
-            }
-            return *this;
-        }
-
-        auto& operator-=(const StdArrayWrapper<T, N>& other)
+        StdArrayWrapper& operator-=(const StdArrayWrapper& other)
         {
             for (std::size_t i = 0; i < N; ++i)
             {
@@ -155,7 +232,16 @@ namespace samurai
             return *this;
         }
 
-        auto& operator/=(const StdArrayWrapper<T, N>& other)
+        StdArrayWrapper& operator*=(const StdArrayWrapper& other)
+        {
+            for (std::size_t i = 0; i < N; ++i)
+            {
+                _a[i] *= other._a[i];
+            }
+            return *this;
+        }
+
+        StdArrayWrapper& operator/=(const StdArrayWrapper& other)
         {
             for (std::size_t i = 0; i < N; ++i)
             {
@@ -164,8 +250,33 @@ namespace samurai
             return *this;
         }
 
-        template <class NumberType, typename std::enable_if_t<std::is_arithmetic_v<NumberType>, bool> = true>
-        auto& operator+=(NumberType scalar)
+        template <class E>
+        StdArrayWrapper& operator+=(const xt::xexpression<E>& e)
+        {
+            return *this += StdArrayWrapper(e);
+        }
+
+        template <class E>
+        StdArrayWrapper& operator-=(const xt::xexpression<E>& e)
+        {
+            return *this -= StdArrayWrapper(e);
+        }
+
+        template <class E>
+        StdArrayWrapper& operator*=(const xt::xexpression<E>& e)
+        {
+            return *this *= StdArrayWrapper(e);
+        }
+
+        template <class E>
+        StdArrayWrapper& operator/=(const xt::xexpression<E>& e)
+        {
+            return *this /= StdArrayWrapper(e);
+        }
+
+        template <class Scalar>
+            requires std::is_arithmetic_v<Scalar>
+        StdArrayWrapper& operator+=(Scalar scalar)
         {
             for (std::size_t i = 0; i < N; ++i)
             {
@@ -174,18 +285,9 @@ namespace samurai
             return *this;
         }
 
-        template <class NumberType, typename std::enable_if_t<std::is_arithmetic_v<NumberType>, bool> = true>
-        auto& operator*=(NumberType scalar)
-        {
-            for (std::size_t i = 0; i < N; ++i)
-            {
-                _a[i] *= scalar;
-            }
-            return *this;
-        }
-
-        template <class NumberType, typename std::enable_if_t<std::is_arithmetic_v<NumberType>, bool> = true>
-        auto& operator-=(NumberType scalar)
+        template <class Scalar>
+            requires std::is_arithmetic_v<Scalar>
+        StdArrayWrapper& operator-=(Scalar scalar)
         {
             for (std::size_t i = 0; i < N; ++i)
             {
@@ -194,8 +296,20 @@ namespace samurai
             return *this;
         }
 
-        template <class NumberType, typename std::enable_if_t<std::is_arithmetic_v<NumberType>, bool> = true>
-        auto& operator/=(NumberType scalar)
+        template <class Scalar>
+            requires std::is_arithmetic_v<Scalar>
+        StdArrayWrapper& operator*=(Scalar scalar)
+        {
+            for (std::size_t i = 0; i < N; ++i)
+            {
+                _a[i] *= scalar;
+            }
+            return *this;
+        }
+
+        template <class Scalar>
+            requires std::is_arithmetic_v<Scalar>
+        StdArrayWrapper& operator/=(Scalar scalar)
         {
             for (std::size_t i = 0; i < N; ++i)
             {
@@ -204,158 +318,390 @@ namespace samurai
             return *this;
         }
 
-        void fill(T value)
+        //------------------------------------------------------------------//
+        // Functions found by argument-dependent lookup: 'abs(a)', 'sum(a)' //
+        //------------------------------------------------------------------//
+        // They carry the names of their xtensor counterparts. Being friends,
+        // they do not hide '::sqrt' and the like inside the samurai namespace.
+
+        friend bool operator==(const StdArrayWrapper& a, const StdArrayWrapper& b)
         {
-            _a.fill(value);
+            return a._a == b._a;
+        }
+
+        friend std::ostream& operator<<(std::ostream& out, const StdArrayWrapper& a)
+        {
+            out << "{";
+            for (std::size_t i = 0; i < N; ++i)
+            {
+                out << (i == 0 ? "" : ", ") << a._a[i];
+            }
+            return out << "}";
+        }
+
+        friend StdArrayWrapper abs(const StdArrayWrapper& a)
+        {
+            StdArrayWrapper b;
+            for (std::size_t i = 0; i < N; ++i)
+            {
+                b._a[i] = std::abs(a._a[i]);
+            }
+            return b;
+        }
+
+        friend StdArrayWrapper sqrt(const StdArrayWrapper& a)
+        {
+            StdArrayWrapper b;
+            for (std::size_t i = 0; i < N; ++i)
+            {
+                b._a[i] = std::sqrt(a._a[i]);
+            }
+            return b;
+        }
+
+        // Element-wise minimum. A scalar operand stands for a constant array.
+        friend StdArrayWrapper minimum(const StdArrayWrapper& a, const StdArrayWrapper& b)
+        {
+            StdArrayWrapper c;
+            for (std::size_t i = 0; i < N; ++i)
+            {
+                c._a[i] = std::min(a._a[i], b._a[i]);
+            }
+            return c;
+        }
+
+        // Element-wise maximum. A scalar operand stands for a constant array.
+        friend StdArrayWrapper maximum(const StdArrayWrapper& a, const StdArrayWrapper& b)
+        {
+            StdArrayWrapper c;
+            for (std::size_t i = 0; i < N; ++i)
+            {
+                c._a[i] = std::max(a._a[i], b._a[i]);
+            }
+            return c;
+        }
+
+        friend T sum(const StdArrayWrapper& a)
+        {
+            T s{};
+            for (std::size_t i = 0; i < N; ++i)
+            {
+                s += a._a[i];
+            }
+            return s;
+        }
+
+        // Smallest component.
+        friend T amin(const StdArrayWrapper& a)
+        {
+            return *std::min_element(a._a.begin(), a._a.end());
+        }
+
+        // Largest component.
+        friend T amax(const StdArrayWrapper& a)
+        {
+            return *std::max_element(a._a.begin(), a._a.end());
+        }
+
+        // Euclidean norm.
+        friend T norm_l2(const StdArrayWrapper& a)
+        {
+            T s{};
+            for (std::size_t i = 0; i < N; ++i)
+            {
+                s += a._a[i] * a._a[i];
+            }
+            return std::sqrt(s);
         }
     };
 
-    template <class NumberType, class T, std::size_t size>
-    auto operator*(NumberType scalar, const StdArrayWrapper<T, size>& a)
+    namespace detail
     {
-        StdArrayWrapper<T, size> b(a);
+        template <class>
+        struct is_std_array_wrapper : std::false_type
+        {
+        };
+
+        template <class T, std::size_t N>
+        struct is_std_array_wrapper<StdArrayWrapper<T, N>> : std::true_type
+        {
+        };
+    }
+
+    // A StdArrayWrapper, whatever its constness and value category.
+    template <class A>
+    concept std_array_wrapper = detail::is_std_array_wrapper<std::decay_t<A>>::value;
+
+    // An xtensor expression, whatever its constness and value category.
+    template <class E>
+    concept xtensor_expression = xt::is_xexpression<E>::value;
+
+    //------------------//
+    // array (op) array //
+    //------------------//
+
+    template <class T, std::size_t N>
+    StdArrayWrapper<T, N> operator+(const StdArrayWrapper<T, N>& a, const StdArrayWrapper<T, N>& b)
+    {
+        StdArrayWrapper<T, N> c(a);
+        c += b;
+        return c;
+    }
+
+    template <class T, std::size_t N>
+    StdArrayWrapper<T, N> operator-(const StdArrayWrapper<T, N>& a, const StdArrayWrapper<T, N>& b)
+    {
+        StdArrayWrapper<T, N> c(a);
+        c -= b;
+        return c;
+    }
+
+    template <class T, std::size_t N>
+    StdArrayWrapper<T, N> operator*(const StdArrayWrapper<T, N>& a, const StdArrayWrapper<T, N>& b)
+    {
+        StdArrayWrapper<T, N> c(a);
+        c *= b;
+        return c;
+    }
+
+    template <class T, std::size_t N>
+    StdArrayWrapper<T, N> operator/(const StdArrayWrapper<T, N>& a, const StdArrayWrapper<T, N>& b)
+    {
+        StdArrayWrapper<T, N> c(a);
+        c /= b;
+        return c;
+    }
+
+    template <class T, std::size_t N>
+    StdArrayWrapper<T, N> operator-(const StdArrayWrapper<T, N>& a)
+    {
+        StdArrayWrapper<T, N> b;
+        for (std::size_t i = 0; i < N; ++i)
+        {
+            b[i] = -a[i];
+        }
+        return b;
+    }
+
+    //-------------------//
+    // array (op) scalar //
+    //-------------------//
+    // Each operator has its own loop. One written as a call to its mirror,
+    // 'scalar * a' as 'a * scalar', is not always inlined by GCC, which
+    // measurably slows a flux function down.
+
+    template <class T, std::size_t N, class Scalar>
+        requires std::is_arithmetic_v<Scalar>
+    StdArrayWrapper<T, N> operator+(const StdArrayWrapper<T, N>& a, Scalar scalar)
+    {
+        StdArrayWrapper<T, N> b(a);
+        b += scalar;
+        return b;
+    }
+
+    template <class Scalar, class T, std::size_t N>
+        requires std::is_arithmetic_v<Scalar>
+    StdArrayWrapper<T, N> operator+(Scalar scalar, const StdArrayWrapper<T, N>& a)
+    {
+        StdArrayWrapper<T, N> b(a);
+        b += scalar;
+        return b;
+    }
+
+    template <class T, std::size_t N, class Scalar>
+        requires std::is_arithmetic_v<Scalar>
+    StdArrayWrapper<T, N> operator-(const StdArrayWrapper<T, N>& a, Scalar scalar)
+    {
+        StdArrayWrapper<T, N> b(a);
+        b -= scalar;
+        return b;
+    }
+
+    template <class Scalar, class T, std::size_t N>
+        requires std::is_arithmetic_v<Scalar>
+    StdArrayWrapper<T, N> operator-(Scalar scalar, const StdArrayWrapper<T, N>& a)
+    {
+        StdArrayWrapper<T, N> b;
+        for (std::size_t i = 0; i < N; ++i)
+        {
+            b[i] = scalar - a[i];
+        }
+        return b;
+    }
+
+    template <class T, std::size_t N, class Scalar>
+        requires std::is_arithmetic_v<Scalar>
+    StdArrayWrapper<T, N> operator*(const StdArrayWrapper<T, N>& a, Scalar scalar)
+    {
+        StdArrayWrapper<T, N> b(a);
         b *= scalar;
         return b;
     }
 
-    template <class T, std::size_t size, class NumberType>
-    auto operator*(const StdArrayWrapper<T, size>& a, NumberType scalar)
+    template <class Scalar, class T, std::size_t N>
+        requires std::is_arithmetic_v<Scalar>
+    StdArrayWrapper<T, N> operator*(Scalar scalar, const StdArrayWrapper<T, N>& a)
     {
-        return scalar * a;
+        StdArrayWrapper<T, N> b(a);
+        b *= scalar;
+        return b;
     }
 
-    template <class NumberType, class T, std::size_t size>
-    StdArrayWrapper<T, size>&& operator*(NumberType scalar, StdArrayWrapper<T, size>&& a)
+    template <class T, std::size_t N, class Scalar>
+        requires std::is_arithmetic_v<Scalar>
+    StdArrayWrapper<T, N> operator/(const StdArrayWrapper<T, N>& a, Scalar scalar)
     {
-        a *= scalar;
-        return std::move(a);
-    }
-
-    template <class T, std::size_t size, class NumberType>
-    StdArrayWrapper<T, size>&& operator*(StdArrayWrapper<T, size>&& a, NumberType scalar)
-    {
-        a *= scalar;
-        return std::move(a);
-    }
-
-    template <class T, std::size_t size, class NumberType>
-    auto operator/(const StdArrayWrapper<T, size>& a, NumberType scalar)
-    {
-        StdArrayWrapper<T, size> b(a);
+        StdArrayWrapper<T, N> b(a);
         b /= scalar;
         return b;
     }
 
-    template <class T, std::size_t size, class NumberType>
-    auto operator/(NumberType scalar, const StdArrayWrapper<T, size>& a)
+    template <class Scalar, class T, std::size_t N>
+        requires std::is_arithmetic_v<Scalar>
+    StdArrayWrapper<T, N> operator/(Scalar scalar, const StdArrayWrapper<T, N>& a)
     {
-        StdArrayWrapper<T, size> b;
-        for (std::size_t i = 0; i < size; ++i)
+        StdArrayWrapper<T, N> b;
+        for (std::size_t i = 0; i < N; ++i)
         {
             b[i] = scalar / a[i];
         }
         return b;
     }
 
-    template <class NumberType, class T, std::size_t size>
-    auto operator+(NumberType scalar, const StdArrayWrapper<T, size>& a)
+    //-------------------------------//
+    // array (op) xtensor expression //
+    //-------------------------------//
+    // The expression is evaluated and the result is an array.
+    //
+    // xtensor declares 'operator+(E1&&, E2&&)' for any pair holding one xtensor
+    // expression, and would take the array for a scalar. The operators below
+    // have the same signature plus a constraint, which is what makes overload
+    // resolution prefer them.
+
+    template <class A, class E>
+        requires std_array_wrapper<A> && xtensor_expression<E>
+    auto operator+(A&& a, E&& e)
     {
-        StdArrayWrapper<T, size> b(a);
-        b += scalar;
-        return b;
+        return a + std::decay_t<A>(e);
     }
 
-    template <class T, std::size_t size, class NumberType>
-    auto operator+(const StdArrayWrapper<T, size>& a, NumberType scalar)
+    template <class E, class A>
+        requires xtensor_expression<E> && std_array_wrapper<A>
+    auto operator+(E&& e, A&& a)
     {
-        return scalar + a;
+        return std::decay_t<A>(e) + a;
     }
 
-    template <class T, std::size_t size>
-    auto operator+(const StdArrayWrapper<T, size>& a, const StdArrayWrapper<T, size>& b)
+    template <class A, class E>
+        requires std_array_wrapper<A> && xtensor_expression<E>
+    auto operator-(A&& a, E&& e)
     {
-        StdArrayWrapper<T, size> c(a);
-        c += b;
-        return c;
+        return a - std::decay_t<A>(e);
     }
 
-    template <class T, std::size_t size>
-    StdArrayWrapper<T, size>&& operator+(const StdArrayWrapper<T, size>& a, StdArrayWrapper<T, size>&& b)
+    template <class E, class A>
+        requires xtensor_expression<E> && std_array_wrapper<A>
+    auto operator-(E&& e, A&& a)
     {
-        b += a;
-        return std::move(b);
+        return std::decay_t<A>(e) - a;
     }
 
-    template <class T, std::size_t size>
-    StdArrayWrapper<T, size>&& operator+(StdArrayWrapper<T, size>&& a, const StdArrayWrapper<T, size>& b)
+    template <class A, class E>
+        requires std_array_wrapper<A> && xtensor_expression<E>
+    auto operator*(A&& a, E&& e)
     {
-        a += b;
-        return std::move(a);
+        return a * std::decay_t<A>(e);
     }
 
-    template <class T, std::size_t size>
-    auto operator+(StdArrayWrapper<T, size>&& a, StdArrayWrapper<T, size>&& b)
+    template <class E, class A>
+        requires xtensor_expression<E> && std_array_wrapper<A>
+    auto operator*(E&& e, A&& a)
     {
-        a += b;
-        return std::move(a);
+        return std::decay_t<A>(e) * a;
     }
 
-    template <class T, std::size_t size>
-    auto operator-(const StdArrayWrapper<T, size>& a, const StdArrayWrapper<T, size>& b)
+    template <class A, class E>
+        requires std_array_wrapper<A> && xtensor_expression<E>
+    auto operator/(A&& a, E&& e)
     {
-        StdArrayWrapper<T, size> c(a);
-        c -= b;
-        return c;
+        return a / std::decay_t<A>(e);
     }
 
-    template <class T, std::size_t size>
-    StdArrayWrapper<T, size>&& operator-(StdArrayWrapper<T, size>&& a, const StdArrayWrapper<T, size>& b)
+    template <class E, class A>
+        requires xtensor_expression<E> && std_array_wrapper<A>
+    auto operator/(E&& e, A&& a)
     {
-        a -= b;
-        return std::move(a);
+        return std::decay_t<A>(e) / a;
     }
 
-    template <class T, std::size_t size>
-    auto operator*(const StdArrayWrapper<T, size>& a, const StdArrayWrapper<T, size>& b)
+    //--------------------------------//
+    // xtensor expression (op)= array //
+    //--------------------------------//
+    // 'x' is a 1D container or view of N values, temporary views included:
+    // 'xt::col(matrix, j) -= array'. Without these operators, xtensor would
+    // take the array for a scalar.
+
+    template <class X, class T, std::size_t N>
+        requires xtensor_expression<X>
+    X& operator+=(X&& x, const StdArrayWrapper<T, N>& a)
     {
-        StdArrayWrapper<T, size> c(a);
-        c *= b;
-        return c;
+        assert(x.dimension() == 1 && x.size() == N);
+        for (std::size_t i = 0; i < N; ++i)
+        {
+            x(i) += a[i];
+        }
+        return x;
     }
 
-    template <class T, std::size_t size>
-    auto operator/(const StdArrayWrapper<T, size>& a, const StdArrayWrapper<T, size>& b)
+    template <class X, class T, std::size_t N>
+        requires xtensor_expression<X>
+    X& operator-=(X&& x, const StdArrayWrapper<T, N>& a)
     {
-        StdArrayWrapper<T, size> c(a);
-        c /= b;
-        return c;
+        assert(x.dimension() == 1 && x.size() == N);
+        for (std::size_t i = 0; i < N; ++i)
+        {
+            x(i) -= a[i];
+        }
+        return x;
     }
 
-    template <class T, std::size_t size>
-    auto operator-(const StdArrayWrapper<T, size>& a)
+    template <class X, class T, std::size_t N>
+        requires xtensor_expression<X>
+    X& operator*=(X&& x, const StdArrayWrapper<T, N>& a)
     {
-        return -1. * a;
+        assert(x.dimension() == 1 && x.size() == N);
+        for (std::size_t i = 0; i < N; ++i)
+        {
+            x(i) *= a[i];
+        }
+        return x;
     }
 
-    template <class T, std::size_t size, class NumberType>
-    auto pow(const StdArrayWrapper<T, size>& a, NumberType exponent)
+    template <class X, class T, std::size_t N>
+        requires xtensor_expression<X>
+    X& operator/=(X&& x, const StdArrayWrapper<T, N>& a)
     {
-        StdArrayWrapper<T, size> b;
-        for (std::size_t i = 0; i < size; ++i)
+        assert(x.dimension() == 1 && x.size() == N);
+        for (std::size_t i = 0; i < N; ++i)
+        {
+            x(i) /= a[i];
+        }
+        return x;
+    }
+
+    //-----------//
+    // Functions //
+    //-----------//
+
+    template <class T, std::size_t N, class Scalar>
+    StdArrayWrapper<T, N> pow(const StdArrayWrapper<T, N>& a, Scalar exponent)
+    {
+        StdArrayWrapper<T, N> b;
+        for (std::size_t i = 0; i < N; ++i)
         {
             b[i] = std::pow(a[i], exponent);
         }
         return b;
-    }
-
-    template <class T, std::size_t size, class NumberType>
-    StdArrayWrapper<T, size>&& pow(StdArrayWrapper<T, size>&& a, NumberType exponent)
-    {
-        for (std::size_t i = 0; i < size; ++i)
-        {
-            a[i] = std::pow(a[i], exponent);
-        }
-        return std::move(a);
     }
 
     template <class NumberType1,
@@ -364,6 +710,12 @@ namespace samurai
     SAMURAI_INLINE auto pow(NumberType1 base, NumberType2 exponent)
     {
         return std::pow(base, exponent);
+    }
+
+    template <class T, std::size_t N>
+    void fill(StdArrayWrapper<T, N>& array, T value)
+    {
+        array.fill(value);
     }
 
     template <class value_type, std::size_t size, bool can_collapse>

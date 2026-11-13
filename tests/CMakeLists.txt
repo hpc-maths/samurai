@@ -35,6 +35,7 @@ set(TEST_TIMERS_HELPERS
 
 set(SAMURAI_TESTS
     test_adapt.cpp
+    test_algebraic_array.cpp
     test_arguments.cpp
     test_bc.cpp
     test_bc_ghost_values.cpp
