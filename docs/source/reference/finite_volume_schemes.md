@@ -283,7 +283,7 @@ A `NonLinear` flux function computes the flux from the stencil values:
 | `samurai::StencilData<cfg>` | the cells of the computational stencil and their length, as for the heterogeneous schemes |
 | `samurai::StencilValues<cfg>` | the values of the input field in the stencil cells, in the order of the configured stencil |
 
-(arrays_of_components)=
+(arrays-of-components)=
 
 #### Arrays of components
 

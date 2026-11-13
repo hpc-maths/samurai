@@ -317,7 +317,7 @@ TEST(algebraic_array, mixed_with_xtensor_expression)
 
     // A lazy xtensor function, an array temporary, another value type.
     expect_values((x + x) - a, 15, 6, 0);
-    expect_values(0.5 * (x + x - 2. * (a - a)), 8, 4, 2);
+    expect_values(0.5 * (x + x - 2. * (a - x)), 15, 6, 0);
     expect_values(n * a, 1, 4, 12);
 
     array3 b{1., 2., 4.};
