@@ -1,8 +1,11 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <functional>
 #include <map>
+#include <memory>
 #include <set>
 #include <stdexcept>
 #include <utility>
@@ -806,6 +809,152 @@ namespace samurai
     {
         check_band_covers_read_footprint<1, 3>(2, 2, 1);
         check_band_covers_read_footprint<2, 3>(2, 1, 1);
+    }
+
+    // ------------------------------------------------------------------ finer-level flux
+    //  With --finer-level-flux -1, the non-linear flux rebuilds its stencil at the max level from
+    //  the coarse stencil cells. Each fine stencil value must be the one main's per-cell portion()
+    //  gives (flat), or reconstruct_exact() (exact). The refinement reaches the domain boundary, where
+    //  a read past the coarse stencil cells finds no stored cell.
+    namespace
+    {
+        // 2D MR mesh adapted around a bump sitting on the bottom boundary.
+        auto boundary_refined_mesh(bool periodic)
+        {
+            constexpr std::size_t dim = 2;
+            auto cfg = mesh_config<dim>().min_level(2).max_level(6).max_stencil_size(4).graduation_width(2).disable_minimal_ghost_width();
+            cfg.periodic(periodic);
+            const xt::xtensor_fixed<double, xt::xshape<dim>> lo = {0., 0.};
+            const xt::xtensor_fixed<double, xt::xshape<dim>> hi = {1., 1.};
+            return mra::make_mesh(Box<double, dim>(lo, hi), cfg);
+        }
+
+        template <class Field>
+        void fill_bump(Field& u)
+        {
+            for_each_cell(u.mesh(),
+                          [&](const auto& cell)
+                          {
+                              const double x = cell.center(0) - 0.5;
+                              const double y = cell.center(1);
+                              u[cell]        = 0.5 * std::exp(-50. * (x * x + y * y));
+                          });
+        }
+
+        // Runs a stencil-4 non-linear flux at the max level and returns the largest gap between the
+        // stencil values it received and a per-cell reference (portion() or reconstruct_exact()).
+        double finer_level_flux_gap(bool periodic, bool exact)
+        {
+            constexpr std::size_t dim = 2;
+            auto mesh                 = boundary_refined_mesh(periodic);
+            auto u                    = make_scalar_field<double>("u", mesh);
+            fill_bump(u);
+            make_MRAdapt(u)(mra_config().epsilon(1e-3));
+            fill_bump(u);
+            if (!periodic)
+            {
+                make_bc<Dirichlet<1>>(u, 0.);
+            }
+
+            using field_t           = decltype(u);
+            using mesh_t            = typename field_t::mesh_t;
+            using interval_t        = typename mesh_t::interval_t;
+            using value_t           = typename interval_t::value_t;
+            using cfg               = FluxConfig<SchemeType::NonLinear, 4, field_t, field_t>;
+            constexpr std::size_t r = mesh_t::config_t::prediction_stencil_radius;
+            const std::size_t L     = mesh.max_level();
+            const double fine_dx    = mesh.cell_length(L);
+            const auto stored       = make_real_backed_lca(mesh);
+
+            auto read = [&](std::size_t l, const std::array<value_t, dim>& c) -> double
+            {
+                return u(l, interval_t{c[0], c[0] + 1}, c[1])[0];
+            };
+
+            double gap           = 0.;
+            std::size_t nb_finer = 0;
+            FluxDefinition<cfg> flux;
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                // Fine fluxes of one interface come in a row, one per transverse child.
+                auto last  = std::make_shared<std::pair<std::size_t, std::array<value_t, dim>>>();
+                auto child = std::make_shared<value_t>(0);
+
+                flux[d].cons_flux_function = [&, d, last, child](FluxValue<cfg>& f, const StencilData<cfg>& data, const StencilValues<cfg>& v)
+                {
+                    f = v[1] * v[2] + 0.1 * (v[0] - v[3]);
+
+                    const auto& right = data.cells[2];
+                    if (data.cell_length != fine_dx || right.level == L)
+                    {
+                        return; // boundary interface or max level: plain copy
+                    }
+                    std::array<value_t, dim> rc{right.indices[0], right.indices[1]};
+                    if (last->first == right.level && last->second == rc)
+                    {
+                        ++*child;
+                    }
+                    else
+                    {
+                        *last  = {right.level, rc};
+                        *child = 0;
+                    }
+
+                    const std::size_t level   = right.level;
+                    const std::size_t delta_l = L - level;
+                    const std::size_t t       = 1 - d;
+                    for (std::size_t s = 0; s < 4; ++s)
+                    {
+                        std::array<value_t, dim> g;
+                        g[d] = (rc[d] << delta_l) - 2 + static_cast<value_t>(s);
+                        g[t] = (rc[t] << delta_l) + *child;
+
+                        double expected = 0.;
+                        if (exact)
+                        {
+                            exact_reconstruction_memo_t<dim, value_t> memo;
+                            expected = reconstruct_exact<r>(level, delta_l, g, read, stored, memo);
+                        }
+                        else
+                        {
+                            const value_t mask = (value_t{1} << delta_l) - 1;
+                            expected           = portion(u,
+                                               level,
+                                               delta_l,
+                                               std::make_tuple(interval_t{g[0] >> delta_l, (g[0] >> delta_l) + 1}, g[1] >> delta_l),
+                                               std::make_tuple(g[0] & mask, g[1] & mask))[0];
+                        }
+                        gap = std::max(gap, std::abs(v[s] - expected));
+                    }
+                    ++nb_finer;
+                };
+            }
+
+            auto scheme = make_flux_based_scheme(flux);
+            scheme.enable_max_level_flux(true);
+            scheme.set_exact_reconstruction(exact);
+            auto result = scheme(u);
+            (void)result;
+
+            EXPECT_GT(nb_finer, 0u);
+            return gap;
+        }
+    }
+
+    TEST(finer_level_flux, flat_matches_portion_with_refinement_at_the_boundary)
+    {
+        for (bool periodic : {false, true})
+        {
+            EXPECT_LT(finer_level_flux_gap(periodic, false), 1e-13) << "periodic=" << periodic;
+        }
+    }
+
+    TEST(finer_level_flux, exact_matches_reconstruct_exact_with_refinement_at_the_boundary)
+    {
+        for (bool periodic : {false, true})
+        {
+            EXPECT_LT(finer_level_flux_gap(periodic, true), 1e-13) << "periodic=" << periodic;
+        }
     }
 
     // ------------------------------------------------------------------ AMR meshes

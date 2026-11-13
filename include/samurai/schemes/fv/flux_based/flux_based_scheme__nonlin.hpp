@@ -282,9 +282,11 @@ namespace samurai
 
         // Reconstruct the whole finer stencil block of one interface at once (flat via
         // reconstruct_flat_box, or exact via reconstruct_exact_box), per component, into box_values.
-        // The block is the stencil_size fine cells around the interface (flux direction, plus a small
-        // margin) times the 2^{delta_l} children in each transverse direction - covering every cell
-        // predict_value reads. This replaces the per-cell portion() with one dense cascade.
+        // The block is exactly the stencil_size fine cells around the interface (flux direction)
+        // times the 2^{delta_l} children in each transverse direction: the cells predict_value reads.
+        // Its cascade then reads the same coarse cells as one portion() per fine cell. A wider box
+        // would read past them, where the mesh may store no cell (e.g. a corner near the boundary).
+        // This replaces the per-cell portion() with one dense cascade.
         //
         // Deliberately no interface band here, unlike LBMScheme::stream_exact_reconstruction. Such a
         // band would be safe - away from any refinement, the exact and flat cascades are the same code
@@ -313,8 +315,8 @@ namespace samurai
                 if (k == flux_dir)
                 {
                     const interval_value_t interface = right.indices[k] << delta_l; // fine coord of the interface
-                    box.lo[k]                        = interface - half - static_cast<interval_value_t>(r);
-                    box.hi[k]                        = interface + half + static_cast<interval_value_t>(r);
+                    box.lo[k]                        = interface - half;
+                    box.hi[k]                        = interface + half;
                 }
                 else
                 {
