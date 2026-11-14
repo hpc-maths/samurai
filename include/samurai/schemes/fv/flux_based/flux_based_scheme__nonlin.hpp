@@ -455,8 +455,10 @@ namespace samurai
                                          const input_field_t& field,
                                          Func&& apply_contrib)
         {
-            std::vector<StencilValues<cfg>> stencil_values_list(flux_params.n_fine_fluxes);
+            thread_local std::vector<StencilValues<cfg>> stencil_values_list;
+            stencil_values_list.resize(flux_params.n_fine_fluxes);
             FluxValuePair<cfg> flux_values;
+            FluxValuePair<cfg> flux_sum;
             StencilData<cfg> data(comput_stencil_it.cells());
 
             data.cell_length = flux_params.cell_length;
@@ -465,14 +467,18 @@ namespace samurai
             {
                 compute_stencil_values<enable_finer_level_flux>(flux_params, comput_stencil_it.cells(), field, stencil_values_list);
 
-                for (std::size_t k = 0; k < flux_params.n_fine_fluxes; ++k)
+                // The fine fluxes of an interface all go to the same two cells: sum them first.
+                flux_function(flux_sum, data, stencil_values_list[0]);
+                for (std::size_t k = 1; k < flux_params.n_fine_fluxes; ++k)
                 {
                     flux_function(flux_values, data, stencil_values_list[k]);
-                    flux_values[0] *= flux_params.left_factor;
-                    flux_values[1] *= flux_params.right_factor;
-                    apply_contrib(interface_it.cells()[0], flux_values[0]);
-                    apply_contrib(interface_it.cells()[1], flux_values[1]);
+                    flux_sum[0] += flux_values[0];
+                    flux_sum[1] += flux_values[1];
                 }
+                flux_sum[0] *= flux_params.left_factor;
+                flux_sum[1] *= flux_params.right_factor;
+                apply_contrib(interface_it.cells()[0], flux_sum[0]);
+                apply_contrib(interface_it.cells()[1], flux_sum[1]);
 
                 interface_it.move_next();
                 comput_stencil_it.move_next();
