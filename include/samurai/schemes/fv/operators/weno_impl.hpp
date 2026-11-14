@@ -1,4 +1,5 @@
 #pragma once
+#include <cmath>
 #include <math.h>
 #include <type_traits>
 
@@ -17,49 +18,70 @@ namespace samurai
         {
             using Type = Container;
         };
+
+        /**
+         * WENO5 flux from the five scalar values of the stencil, f0 being the center.
+         * Based on 'Efficient implementation of Weighted ENO schemes', Jiang and Shu, 1996.
+         */
+        template <class T>
+        T weno5_flux(T fm2, T fm1, T f0, T fp1, T fp2)
+        {
+            const T eps = 1e-6;
+
+            // clang-format off
+
+            // (2.8) and Table I (r=3)
+            auto q0 =  1./3 * fm2 - 7./6 * fm1 + 11./6 * f0;
+            auto q1 = -1./6 * fm1 + 5./6 * f0  +  1./3 * fp1;
+            auto q2 =  1./3 * f0  + 5./6 * fp1 -  1./6 * fp2;
+
+            // (3.2)-(3.4)
+            // The exponent is a literal, so an optimizing compiler turns each pow into a product.
+            auto IS0 = 13./12 * std::pow(fm2 - 2*fm1 + f0,  2) + 1./4 * std::pow(  fm2 - 4*fm1 + 3*f0,  2);
+            auto IS1 = 13./12 * std::pow(fm1 - 2*f0  + fp1, 2) + 1./4 * std::pow(  fm1         -   fp1, 2);
+            auto IS2 = 13./12 * std::pow(f0  - 2*fp1 + fp2, 2) + 1./4 * std::pow(3*f0  - 4*fp1 +   fp2, 2);
+
+            // clang-format on
+
+            // (2.16) and Table II (r=3)
+            auto alpha0 = 0.1 / std::pow((eps + IS0), 2);
+            auto alpha1 = 0.6 / std::pow((eps + IS1), 2);
+            auto alpha2 = 0.3 / std::pow((eps + IS2), 2);
+
+            // (2.15)
+            auto sum_alphas = alpha0 + alpha1 + alpha2;
+            auto omega0     = alpha0 / sum_alphas;
+            auto omega1     = alpha1 / sum_alphas;
+            auto omega2     = alpha2 / sum_alphas;
+
+            // (2.10)
+            return static_cast<T>(omega0 * q0 + omega1 * q1 + omega2 * q2);
+        }
     }
 
     /**
-     * WENO5 implementation.
-     * Based on 'Efficent implementation of Weighted ENO schemes', Jiang and Shu, 1996.
+     * WENO5 flux from the stencil values f[0], ..., f[4], f[2] being the center.
+     * The values are scalars or fixed-size vectors. Vectors are handled one component
+     * at a time with the scalar formula, which is much faster than lazy expressions on
+     * small vectors.
      */
     template <class flux_type, class stencil_values>
-    auto compute_weno5_flux(flux_type& flux, stencil_values& f)
+    void compute_weno5_flux(flux_type& flux, const stencil_values& f)
     {
         using value_type = typename stencil_values::value_type;
-        // using scalar_type = std::conditional_t<std::is_floating_point_v<value_type>, value_type, typename value_type::value_type>;
-        using scalar_type = typename detail::ScalarType<value_type>::Type;
 
-        static constexpr std::size_t j = 2; // stencil center in f
-        const scalar_type eps          = 1e-6;
-
-        // clang-format off
-
-        // (2.8) and Table I (r=3)
-        auto q0 =  1./3 * f[j-2] - 7./6 * f[j-1] + 11./6 * f[j  ];
-        auto q1 = -1./6 * f[j-1] + 5./6 * f[j  ] +  1./3 * f[j+1];
-        auto q2 =  1./3 * f[j  ] + 5./6 * f[j+1] -  1./6 * f[j+2];
-
-        // (3.2)-(3.4)
-        auto IS0 = 13./12 * pow(f[j-2] - 2*f[j-1] + f[j  ], 2) + 1./4 * pow(  f[j-2] -4*f[j-1] + 3*f[j  ], 2);
-        auto IS1 = 13./12 * pow(f[j-1] - 2*f[j  ] + f[j+1], 2) + 1./4 * pow(  f[j-1]           -   f[j+1], 2);
-        auto IS2 = 13./12 * pow(f[j  ] - 2*f[j+1] + f[j+2], 2) + 1./4 * pow(3*f[j  ] -4*f[j+1] +   f[j+2], 2);
-
-        // clang-format on
-
-        // (2.16) and Table II (r=3)
-        auto alpha0 = 0.1 / pow((eps + IS0), 2);
-        auto alpha1 = 0.6 / pow((eps + IS1), 2);
-        auto alpha2 = 0.3 / pow((eps + IS2), 2);
-
-        // (2.15)
-        auto sum_alphas = alpha0 + alpha1 + alpha2;
-        auto omega0     = alpha0 / sum_alphas;
-        auto omega1     = alpha1 / sum_alphas;
-        auto omega2     = alpha2 / sum_alphas;
-
-        // (2.10)
-        flux = omega0 * q0 + omega1 * q1 + omega2 * q2;
+        if constexpr (std::is_floating_point_v<value_type>)
+        {
+            flux = detail::weno5_flux(f[0], f[1], f[2], f[3], f[4]);
+        }
+        else
+        {
+            using index_t = decltype(flux.size());
+            for (index_t c = 0; c < flux.size(); ++c)
+            {
+                flux[c] = detail::weno5_flux(f[0][c], f[1][c], f[2][c], f[3][c], f[4][c]);
+            }
+        }
     }
 
     // template <class ScalarType, class Field, class Func>

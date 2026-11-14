@@ -11,14 +11,14 @@ namespace samurai
     /**
      * Simple array with algebraic operations
      */
-    template <class T, std::size_t size>
+    template <class T, std::size_t N>
     struct StdArrayWrapper
     {
         using value_type = T;
 
       private:
 
-        std::array<T, size> _a;
+        std::array<T, N> _a;
 
       public:
 
@@ -26,12 +26,12 @@ namespace samurai
         {
         }
 
-        explicit StdArrayWrapper(const std::array<T, size>& a)
+        explicit StdArrayWrapper(const std::array<T, N>& a)
             : _a(a)
         {
         }
 
-        explicit StdArrayWrapper(std::array<T, size>&& a)
+        explicit StdArrayWrapper(std::array<T, N>&& a)
             : _a(std::move(a))
         {
         }
@@ -39,9 +39,9 @@ namespace samurai
         template <class T2>
         StdArrayWrapper(std::initializer_list<T2> list)
         {
-            assert(list.size() == size);
+            assert(list.size() == N);
             auto it = list.begin();
-            for (std::size_t i = 0; i < size; ++i)
+            for (std::size_t i = 0; i < N; ++i)
             {
                 _a[i] = *it;
                 it++;
@@ -51,7 +51,7 @@ namespace samurai
         template <class... T2>
         StdArrayWrapper(xt::xfunction<T2...> xt) // cppcheck-suppress noExplicitConstructor
         {
-            for (std::size_t i = 0; i < size; ++i)
+            for (std::size_t i = 0; i < N; ++i)
             {
                 this->_a[i] = xt(i);
             }
@@ -60,7 +60,7 @@ namespace samurai
         template <class... T2>
         StdArrayWrapper(xt::xview<T2...> xt) // cppcheck-suppress noExplicitConstructor
         {
-            for (std::size_t i = 0; i < size; ++i)
+            for (std::size_t i = 0; i < N; ++i)
             {
                 this->_a[i] = xt(i);
             }
@@ -70,7 +70,7 @@ namespace samurai
         template <class T2>
         StdArrayWrapper(const T2& eigen) // cppcheck-suppress noExplicitConstructor
         {
-            for (std::size_t i = 0; i < size; ++i)
+            for (std::size_t i = 0; i < N; ++i)
             {
                 this->_a[i] = eigen(static_cast<Eigen::Index>(i));
             }
@@ -85,6 +85,12 @@ namespace samurai
         auto& array()
         {
             return _a;
+        }
+
+        // Number of components, as in xtensor and Eigen containers.
+        constexpr std::size_t size() const
+        {
+            return N;
         }
 
         T& operator()(std::size_t i)
@@ -116,42 +122,42 @@ namespace samurai
         template <class xt>
         auto operator=(const xt& other)
         {
-            for (std::size_t i = 0; i < size; ++i)
+            for (std::size_t i = 0; i < N; ++i)
             {
                 _a[i] = other(i);
             }
         }
 
-        auto& operator+=(const StdArrayWrapper<T, size>& other)
+        auto& operator+=(const StdArrayWrapper<T, N>& other)
         {
-            for (std::size_t i = 0; i < size; ++i)
+            for (std::size_t i = 0; i < N; ++i)
             {
                 _a[i] += other._a[i];
             }
             return *this;
         }
 
-        auto& operator*=(const StdArrayWrapper<T, size>& other)
+        auto& operator*=(const StdArrayWrapper<T, N>& other)
         {
-            for (std::size_t i = 0; i < size; ++i)
+            for (std::size_t i = 0; i < N; ++i)
             {
                 _a[i] *= other._a[i];
             }
             return *this;
         }
 
-        auto& operator-=(const StdArrayWrapper<T, size>& other)
+        auto& operator-=(const StdArrayWrapper<T, N>& other)
         {
-            for (std::size_t i = 0; i < size; ++i)
+            for (std::size_t i = 0; i < N; ++i)
             {
                 _a[i] -= other._a[i];
             }
             return *this;
         }
 
-        auto& operator/=(const StdArrayWrapper<T, size>& other)
+        auto& operator/=(const StdArrayWrapper<T, N>& other)
         {
-            for (std::size_t i = 0; i < size; ++i)
+            for (std::size_t i = 0; i < N; ++i)
             {
                 _a[i] /= other._a[i];
             }
@@ -161,7 +167,7 @@ namespace samurai
         template <class NumberType, typename std::enable_if_t<std::is_arithmetic_v<NumberType>, bool> = true>
         auto& operator+=(NumberType scalar)
         {
-            for (std::size_t i = 0; i < size; ++i)
+            for (std::size_t i = 0; i < N; ++i)
             {
                 _a[i] += scalar;
             }
@@ -171,7 +177,7 @@ namespace samurai
         template <class NumberType, typename std::enable_if_t<std::is_arithmetic_v<NumberType>, bool> = true>
         auto& operator*=(NumberType scalar)
         {
-            for (std::size_t i = 0; i < size; ++i)
+            for (std::size_t i = 0; i < N; ++i)
             {
                 _a[i] *= scalar;
             }
@@ -181,7 +187,7 @@ namespace samurai
         template <class NumberType, typename std::enable_if_t<std::is_arithmetic_v<NumberType>, bool> = true>
         auto& operator-=(NumberType scalar)
         {
-            for (std::size_t i = 0; i < size; ++i)
+            for (std::size_t i = 0; i < N; ++i)
             {
                 _a[i] -= scalar;
             }
@@ -191,7 +197,7 @@ namespace samurai
         template <class NumberType, typename std::enable_if_t<std::is_arithmetic_v<NumberType>, bool> = true>
         auto& operator/=(NumberType scalar)
         {
-            for (std::size_t i = 0; i < size; ++i)
+            for (std::size_t i = 0; i < N; ++i)
             {
                 _a[i] /= scalar;
             }
