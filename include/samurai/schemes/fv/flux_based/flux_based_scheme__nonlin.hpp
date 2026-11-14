@@ -196,7 +196,6 @@ namespace samurai
             }
         }
 
-        using exact_memos_t   = std::array<exact_reconstruction_memo_t<dim, interval_value_t>, n_comp>;
         using recons_box_t    = detail::ra_box<dim, interval_value_t>;
         using recons_values_t = std::array<std::vector<double>, n_comp>;
 
@@ -206,7 +205,6 @@ namespace samurai
                                           const cell_indices_t& coarse_cell_indices,
                                           const cell_indices_t& fine_cell_indices,
                                           const FluxParameters<enable_finer_level_flux>& flux_params,
-                                          exact_memos_t& memos,
                                           const recons_box_t& box,
                                           const recons_values_t& box_values)
         {
@@ -225,56 +223,24 @@ namespace samurai
                     return;
                 }
 
-                // The whole finer stencil block was reconstructed at once into box_values (flat or
-                // exact, per component; see build_recons_box) - just read this cell from it.
+                // build_recons_box reconstructed every fine cell the flux reads (flat or exact, per
+                // component): just read this one from box_values.
                 std::array<interval_value_t, dim> g;
                 for (std::size_t k = 0; k < dim; ++k)
                 {
                     g[k] = (coarse_cell_indices[k] << delta_l) + fine_cell_indices[k];
                 }
-                if (box.contains(g))
-                {
-                    const std::size_t off = box.offset(g);
-                    if constexpr (input_field_t::is_scalar)
-                    {
-                        predicted_value = box_values[0][off];
-                    }
-                    else
-                    {
-                        for (std::size_t comp = 0; comp < n_comp; ++comp)
-                        {
-                            predicted_value(static_cast<size_type>(comp)) = box_values[comp][off];
-                        }
-                    }
-                    return;
-                }
-
-                // Safety fallback (should not trigger with a correctly-sized box): reconstruct this
-                // single cell, matching the flat / exact choice.
-                if (!flux_params.exact)
-                {
-                    portion(predicted_value, field, level, delta_l, coarse_cell_indices, fine_cell_indices);
-                    return;
-                }
-                static constexpr std::size_t r = mesh_t::config_t::prediction_stencil_radius;
-                constexpr auto tseq            = std::make_index_sequence<dim - 1>{};
-                auto reconstruct_component     = [&](std::size_t comp) -> field_value_type
-                {
-                    auto read = [&](std::size_t l, const std::array<interval_value_t, dim>& c) -> double
-                    {
-                        return read_field_cell(field, comp, l, c, tseq);
-                    };
-                    return reconstruct_exact<r>(level, delta_l, g, read, *flux_params.stored, memos[comp]);
-                };
+                assert(box.contains(g));
+                const std::size_t off = box.offset(g);
                 if constexpr (input_field_t::is_scalar)
                 {
-                    predicted_value = reconstruct_component(0);
+                    predicted_value = box_values[0][off];
                 }
                 else
                 {
                     for (std::size_t comp = 0; comp < n_comp; ++comp)
                     {
-                        predicted_value(static_cast<size_type>(comp)) = reconstruct_component(comp);
+                        predicted_value(static_cast<size_type>(comp)) = box_values[comp][off];
                     }
                 }
             }
@@ -401,11 +367,8 @@ namespace samurai
 
                     std::size_t moving_direction = flux_params.flux_direction == 0 ? 1 : 0; // first other direction
 
-                    // Per-component memos for the safety fallback only (see predict_value).
-                    exact_memos_t memos;
-
                     // Reconstruct the whole finer stencil block of this interface at once (flat or
-                    // exact), instead of one portion() per fine cell; predict_value just reads it.
+                    // exact), instead of one portion() per fine cell; predict_value only reads it.
                     recons_box_t box;
                     recons_values_t box_values;
                     build_recons_box(flux_params, cells, field, box, box_values);
@@ -435,7 +398,6 @@ namespace samurai
                                               left_coarse_cell_indices,
                                               left_fine_cell_indices,
                                               flux_params,
-                                              memos,
                                               box,
                                               box_values);
                                 left_fine_cell_indices[flux_direction]--;
@@ -452,7 +414,6 @@ namespace samurai
                                               right_coarse_cell_indices,
                                               right_fine_cell_indices,
                                               flux_params,
-                                              memos,
                                               box,
                                               box_values);
                                 right_fine_cell_indices[flux_direction]++;
