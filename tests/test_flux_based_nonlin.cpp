@@ -591,16 +591,16 @@ namespace samurai
         double max_error = 0;
         for (std::size_t f = 0; f < n_fine; ++f)
         {
-            // fine cell: row[d] along the flux direction, a child index in the others
-            std::array<std::size_t, dim> row;
+            // fine cell: fine_row[d] along the flux direction, a child index in the others
+            std::array<std::size_t, dim> fine_row;
             key_t fine;
             key_t coarse_shift;
             for (std::size_t k = 0, rest = f; k < dim; ++k)
             {
                 const std::size_t n = k == d ? stencil_size : static_cast<std::size_t>(n_children);
-                row[k]              = rest % n;
+                fine_row[k]         = rest % n;
                 rest /= n;
-                const int t     = (k == d ? -static_cast<int>(stencil_size / 2) : 0) + static_cast<int>(row[k]);
+                const int t     = (k == d ? -static_cast<int>(stencil_size / 2) : 0) + static_cast<int>(fine_row[k]);
                 fine[k]         = t & (n_children - 1);
                 coarse_shift[k] = t >> delta_l;
             }
@@ -617,11 +617,11 @@ namespace samurai
                 bool in_box          = true;
                 for (std::size_t k = 0; k < dim; ++k)
                 {
-                    cell[k]       = offset[k] + coarse_shift[k];
-                    const auto& m = k == d ? along : across;
-                    const int col = cell[k] - m.lo;
-                    in_box        = in_box && col >= 0 && col < static_cast<int>(m.n_cols);
-                    tensor_weight *= in_box ? m(row[k], static_cast<std::size_t>(col)) : 0.;
+                    cell[k]         = offset[k] + coarse_shift[k];
+                    const auto& m   = k == d ? along : across;
+                    const int i_col = cell[k] - m.lo;
+                    in_box          = in_box && i_col >= 0 && i_col < static_cast<int>(m.n_cols);
+                    tensor_weight *= in_box ? m(fine_row[k], static_cast<std::size_t>(i_col)) : 0.;
                 }
                 ASSERT_TRUE(in_box) << "portion() reads a cell out of the box";
                 portion_cells[cell] = true;

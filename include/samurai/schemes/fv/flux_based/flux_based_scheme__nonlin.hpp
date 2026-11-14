@@ -40,9 +40,9 @@ namespace samurai
             std::size_t n_cols = 0;
             std::vector<double> coeffs; // row-major
 
-            double operator()(std::size_t row, std::size_t col) const
+            double operator()(std::size_t i_row, std::size_t i_col) const
             {
-                return coeffs[row * n_cols + col];
+                return coeffs[i_row * n_cols + i_col];
             }
         };
 
@@ -58,25 +58,25 @@ namespace samurai
             const int mask = (1 << delta_l) - 1;
 
             // The coarse cells read by the fine cell t, with their weights.
-            auto map_of = [&](std::size_t row) -> const auto&
+            auto map_of = [&](std::size_t i_row) -> const auto&
             {
-                const int t = first + static_cast<int>(row);
+                const int t = first + static_cast<int>(i_row);
                 return prediction<prediction_stencil_radius>(delta_l, t & mask).coeff;
             };
-            auto coarse_cell = [&](std::size_t row, const auto& entry)
+            auto coarse_cell = [&](std::size_t i_row, const auto& entry)
             {
-                const int t = first + static_cast<int>(row);
+                const int t = first + static_cast<int>(i_row);
                 return entry.first[0] + (t >> delta_l);
             };
 
             int lo = std::numeric_limits<int>::max();
             int hi = std::numeric_limits<int>::min();
-            for (std::size_t row = 0; row < n_rows; ++row)
+            for (std::size_t i_row = 0; i_row < n_rows; ++i_row)
             {
-                for (const auto& entry : map_of(row))
+                for (const auto& entry : map_of(i_row))
                 {
-                    lo = std::min(lo, coarse_cell(row, entry));
-                    hi = std::max(hi, coarse_cell(row, entry));
+                    lo = std::min(lo, coarse_cell(i_row, entry));
+                    hi = std::max(hi, coarse_cell(i_row, entry));
                 }
             }
 
@@ -86,13 +86,13 @@ namespace samurai
             m.n_cols = static_cast<std::size_t>(hi - lo + 1);
             m.coeffs.assign(m.n_rows * m.n_cols, 0.);
             std::vector<bool> read(m.n_cols, false);
-            for (std::size_t row = 0; row < n_rows; ++row)
+            for (std::size_t i_row = 0; i_row < n_rows; ++i_row)
             {
-                for (const auto& entry : map_of(row))
+                for (const auto& entry : map_of(i_row))
                 {
-                    const auto col                 = static_cast<std::size_t>(coarse_cell(row, entry) - lo);
-                    m.coeffs[row * m.n_cols + col] = entry.second;
-                    read[col]                      = true;
+                    const auto i_col                   = static_cast<std::size_t>(coarse_cell(i_row, entry) - lo);
+                    m.coeffs[i_row * m.n_cols + i_col] = entry.second;
+                    read[i_col]                        = true;
                 }
             }
             // No gap: every column is read by some row.
@@ -262,10 +262,10 @@ namespace samurai
             box.resize(n_rows * n[0]);
 
             const interval_t row_interval{lo[0], lo[0] + static_cast<interval_value_t>(n[0])};
-            for (std::size_t row = 0; row < n_rows; ++row)
+            for (std::size_t i_row = 0; i_row < n_rows; ++i_row)
             {
                 std::array<interval_value_t, dim> index = lo;
-                for (std::size_t k = 1, rest = row; k < dim; ++k)
+                for (std::size_t k = 1, rest = i_row; k < dim; ++k)
                 {
                     index[k] += static_cast<interval_value_t>(rest % n[k]);
                     rest /= n[k];
@@ -274,7 +274,7 @@ namespace samurai
                 {
                     for (std::size_t i = 0; i < n[0]; ++i)
                     {
-                        box[row * n[0] + i] = values(i);
+                        box[i_row * n[0] + i] = values(i);
                     }
                 };
                 if constexpr (input_field_t::is_scalar)
