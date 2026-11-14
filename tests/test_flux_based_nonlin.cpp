@@ -12,6 +12,8 @@
 #include <array>
 #include <cmath>
 #include <map>
+#include <mutex>
+#include <set>
 #include <stdexcept>
 
 #include <gtest/gtest.h>
@@ -264,43 +266,77 @@ namespace samurai
             return inside(0.375, 0.625) ? 4 : (inside(0.25, 0.75) ? 3 : 2);
         }
 
-        // Non-periodic mesh of [0, 1]^dim with the levels of nested_level().
+        int process_rank()
+        {
+#ifdef SAMURAI_WITH_MPI
+            return boost::mpi::communicator().rank();
+#else
+            return 0;
+#endif
+        }
+
+        // Non-periodic mesh of [0, 1]^dim with the levels of nested_level(). The cells of level 2
+        // are dealt out to the processes in slabs, then each process refines its own.
         template <std::size_t dim>
         auto three_level_mesh()
         {
-            auto cfg   = mesh_config<dim>().min_level(flf_min_level).max_level(flf_max_level).max_stencil_size(4);
-            using Mesh = decltype(mra::make_empty_mesh(cfg));
-            typename Mesh::cl_type cl;
+            using Box     = samurai::Box<double, dim>;
+            using point_t = typename Box::point_t;
+            point_t corner1, corner2;
+            corner1.fill(0.);
+            corner2.fill(1.);
+            auto cfg  = mesh_config<dim>().min_level(flf_min_level).max_level(flf_max_level).max_stencil_size(4);
+            auto base = mra::make_mesh(Box(corner1, corner2), cfg); // gives the domain and the configuration
 
-            for (std::size_t level = flf_min_level; level <= flf_max_level; ++level)
+            const int n_coarse = 1 << flf_min_level;
+            int n_coarse_cells = 1;
+            for (std::size_t d = 0; d < dim; ++d)
             {
-                const int n = 1 << level;
-                int n_cells = 1;
-                for (std::size_t d = 0; d < dim; ++d)
+                n_coarse_cells *= n_coarse;
+            }
+
+            using Mesh = decltype(base);
+            typename Mesh::cl_type cl;
+            for (int coarse = 0; coarse < n_coarse_cells; ++coarse)
+            {
+                if (coarse * test::nb_processes() / n_coarse_cells != process_rank())
                 {
-                    n_cells *= n;
+                    continue;
                 }
-                for (int c = 0; c < n_cells; ++c)
+                for (std::size_t level = flf_min_level; level <= flf_max_level; ++level)
                 {
-                    std::array<int, dim> i;
-                    std::array<double, dim> center;
-                    for (std::size_t d = 0, r = static_cast<std::size_t>(c); d < dim; ++d, r /= static_cast<std::size_t>(n))
+                    const int r    = 1 << (level - flf_min_level); // children per direction
+                    int n_children = 1;
+                    for (std::size_t d = 0; d < dim; ++d)
                     {
-                        i[d]      = static_cast<int>(r % static_cast<std::size_t>(n));
-                        center[d] = (i[d] + 0.5) / n;
+                        n_children *= r;
                     }
-                    if (nested_level<dim>(center) == level)
+                    for (int child = 0; child < n_children; ++child)
                     {
-                        xt::xtensor_fixed<int, xt::xshape<dim - 1>> yz;
-                        for (std::size_t d = 1; d < dim; ++d)
+                        std::array<int, dim> i;
+                        std::array<double, dim> center;
+                        for (std::size_t d = 0, c = static_cast<std::size_t>(coarse), k = static_cast<std::size_t>(child); d < dim; ++d)
                         {
-                            yz[d - 1] = i[d];
+                            const auto nc = static_cast<std::size_t>(n_coarse);
+                            const auto nr = static_cast<std::size_t>(r);
+                            i[d]          = static_cast<int>((c % nc) * nr + k % nr);
+                            center[d]     = (i[d] + 0.5) / (n_coarse * r);
+                            c /= nc;
+                            k /= nr;
                         }
-                        cl[level][yz].add_interval({i[0], i[0] + 1});
+                        if (nested_level<dim>(center) == level)
+                        {
+                            xt::xtensor_fixed<int, xt::xshape<dim - 1>> yz;
+                            for (std::size_t d = 1; d < dim; ++d)
+                            {
+                                yz[d - 1] = i[d];
+                            }
+                            cl[level][yz].add_interval({i[0], i[0] + 1});
+                        }
                     }
                 }
             }
-            return mra::make_mesh(cl, cfg);
+            return Mesh(cl, base);
         }
 
         template <class Mesh>
@@ -308,12 +344,13 @@ namespace samurai
         {
             for (std::size_t level = flf_min_level; level <= flf_max_level; ++level)
             {
-                EXPECT_GT(mesh[Mesh::mesh_id_t::cells][level].nb_cells(), 0) << "no cell at level " << level;
+                EXPECT_GT(test::global_sum(mesh[Mesh::mesh_id_t::cells][level].nb_cells()), 0) << "no cell at level " << level;
             }
         }
 
         // Sets a field in every cell and ghost of its mesh, at every level, so that the scheme
-        // uses these values as they are. A boundary condition would spoil the corner ghosts.
+        // uses these values as they are, with no exchange between processes. A boundary
+        // condition would spoil the corner ghosts.
         template <class Field, class Func>
         void set_exactly(Field& field, Func&& set_cell)
         {
@@ -343,7 +380,8 @@ namespace samurai
     using flf_dims = ::testing::Types<std::integral_constant<std::size_t, 2>, std::integral_constant<std::size_t, 3>>;
     TYPED_TEST_SUITE(flux_based_nonlin_max_level_flux, flf_dims, );
 
-    // Every max_level face of every interface inside the domain gets exactly one flux evaluation.
+    // Every max_level face of every interface inside the domain gets exactly one flux evaluation
+    // on each process that holds a cell next to it.
     // The field holds the cell center, so the left value of a flux gives its fine cell.
     template <std::size_t stencil_size, std::size_t dim>
     void check_each_fine_face_once()
@@ -371,6 +409,7 @@ namespace samurai
         const int n_fine = 1 << flf_max_level;
         const double h   = 1. / n_fine;
         std::array<std::map<std::array<int, dim>, int>, dim> count;
+        std::mutex count_mutex; // with OpenMP, the scheme calls the flux function from several threads
 
         FluxDefinition<cfg> flux;
         static_for<0, dim>::apply(
@@ -392,6 +431,7 @@ namespace samurai
                     }
                     if (index[d] < n_fine - 1)
                     {
+                        std::lock_guard<std::mutex> lock(count_mutex);
                         ++count[d][index];
                     }
                 };
@@ -402,8 +442,8 @@ namespace samurai
         auto v = make_vector_field<double, dim>("v", mesh);
         v      = scheme(x);
 
-        // Expected: the max_level faces on the right side of every cell, inside the domain.
-        std::array<std::map<std::array<int, dim>, int>, dim> expected;
+        // Expected: the max_level faces on both sides of every local cell, inside the domain.
+        std::array<std::set<std::array<int, dim>>, dim> expected;
         for_each_cell(mesh,
                       [&](auto& cell)
                       {
@@ -420,17 +460,21 @@ namespace samurai
                                   std::array<int, dim> index;
                                   for (std::size_t k = 0, rest = static_cast<std::size_t>(m); k < dim; ++k)
                                   {
-                                      int child = r - 1;
+                                      index[k] = static_cast<int>(cell.indices[k]) * r;
                                       if (k != d)
                                       {
-                                          child = static_cast<int>(rest % static_cast<std::size_t>(r));
+                                          index[k] += static_cast<int>(rest % static_cast<std::size_t>(r));
                                           rest /= static_cast<std::size_t>(r);
                                       }
-                                      index[k] = static_cast<int>(cell.indices[k]) * r + child;
                                   }
-                                  if (index[d] < n_fine - 1)
+                                  // fine cell on the left of the left face, then of the right face
+                                  for (int left : {index[d] - 1, index[d] + r - 1})
                                   {
-                                      ++expected[d][index];
+                                      index[d] = left;
+                                      if (left >= 0 && left < n_fine - 1)
+                                      {
+                                          expected[d].insert(index);
+                                      }
                                   }
                               }
                           }
@@ -440,7 +484,7 @@ namespace samurai
         {
             std::size_t n_missing  = 0;
             std::size_t n_repeated = 0;
-            for (const auto& [index, n] : expected[d])
+            for (const auto& index : expected[d])
             {
                 auto it = count[d].find(index);
                 n_missing += (it == count[d].end());
@@ -455,10 +499,6 @@ namespace samurai
     TYPED_TEST(flux_based_nonlin_max_level_flux, each_fine_face_once)
     {
         static constexpr std::size_t dim = TypeParam::value;
-        if (test::nb_processes() > 1)
-        {
-            GTEST_SKIP() << "counts the faces of the whole mesh";
-        }
         check_each_fine_face_once<2, dim>();
         check_each_fine_face_once<4, dim>();
     }
@@ -512,7 +552,7 @@ namespace samurai
                           }
                           error = std::max(error, std::abs(v[cell] - expected));
                       });
-        EXPECT_LT(error, 1e-10 * expected);
+        EXPECT_LT(test::global_max(error), 1e-10 * expected);
     }
 
     TYPED_TEST(flux_based_nonlin_max_level_flux, linear_field_divergence)
