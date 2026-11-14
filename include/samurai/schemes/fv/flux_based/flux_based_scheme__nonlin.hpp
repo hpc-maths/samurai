@@ -1,4 +1,5 @@
 #pragma once
+#include "../../../arguments.hpp"
 #include "flux_based_scheme.hpp"
 
 #include <cassert>
@@ -58,7 +59,8 @@ namespace samurai
 
       private:
 
-        int m_finer_level_flux = args::finer_level_flux;
+        int m_finer_level_flux      = args::finer_level_flux;
+        bool m_exact_reconstruction = args::exact_reconstruction;
 
       public:
 
@@ -75,6 +77,20 @@ namespace samurai
         bool enable_finer_level_flux() const
         {
             return m_finer_level_flux != 0;
+        }
+
+        // When computing fluxes at a finer level, reconstruct the finer stencil values with the real
+        // finer cells across refinement boundaries instead of the flat prediction (see
+        // reconstruct_exact). Default: the global --exact-reconstruction option. Throws on an AMR mesh.
+        void set_exact_reconstruction(bool exact)
+        {
+            check_exact_reconstruction_supported<mesh_t>(exact);
+            m_exact_reconstruction = exact;
+        }
+
+        bool exact_reconstruction() const
+        {
+            return m_exact_reconstruction;
         }
 
         void enable_max_level_flux(bool enable)
@@ -115,21 +131,25 @@ namespace samurai
         /**
          * We store here everything that we compute only once per level
          */
+        using lca_t = LevelCellArray<dim, interval_t>;
+
         template <bool enable_finer_level_flux>
         struct FluxParameters
         {
-            std::size_t flux_direction      = 0;
-            std::size_t max_level           = 0;
-            std::size_t level               = 0;
-            std::size_t delta_l             = 0;
-            double left_factor              = 0;
-            double right_factor             = 0;
-            double cell_length              = 0; // cell length at the level where the flux is computed
-            int finer_level_flux            = 0; // this is the number of levels to go up to compute the flux
-            std::size_t n_fine_fluxes       = 0; // number of fluxes at max_level to sum up together, or 1 if enable_max_finer_flux=false
-            int n_children_at_max_level     = 0; // number of 1D children at max_level of one cell at the current level
-            std::size_t coarse_stencil_size = 0; // number of cells at the current level used to predict the required values at
-                                                 // max_level
+            std::size_t flux_direction       = 0;
+            std::size_t max_level            = 0;
+            std::size_t level                = 0;
+            std::size_t delta_l              = 0;
+            bool exact                       = false;   // exact reconstruction of the finer stencil values
+            const std::vector<lca_t>* stored = nullptr; // (cells U proj_cells) per level, only if exact
+            double left_factor               = 0;
+            double right_factor              = 0;
+            double cell_length               = 0; // cell length at the level where the flux is computed
+            int finer_level_flux             = 0; // this is the number of levels to go up to compute the flux
+            std::size_t n_fine_fluxes        = 0; // number of fluxes at max_level to sum up together, or 1 if enable_max_finer_flux=false
+            int n_children_at_max_level      = 0; // number of 1D children at max_level of one cell at the current level
+            std::size_t coarse_stencil_size  = 0; // number of cells at the current level used to predict the required values at
+                                                  // max_level
 
             void set_level(std::size_t l)
             {
@@ -156,14 +176,136 @@ namespace samurai
             }
         }
 
+        // Read one stored cell f(comp, level, coord) of the (possibly vector) input field, unpacking
+        // the transverse directions - the reader used by the exact reconstruction.
+        template <std::size_t... K>
+        static field_value_type read_field_cell(const input_field_t& field,
+                                                std::size_t comp,
+                                                std::size_t level,
+                                                const std::array<interval_value_t, dim>& c,
+                                                std::index_sequence<K...>)
+        {
+            if constexpr (input_field_t::is_scalar)
+            {
+                (void)comp;
+                return field(level, interval_t{c[0], c[0] + 1}, c[K + 1]...)[0];
+            }
+            else
+            {
+                return field(comp, level, interval_t{c[0], c[0] + 1}, c[K + 1]...)[0];
+            }
+        }
+
+        using recons_box_t    = detail::ra_box<dim, interval_value_t>;
+        using recons_values_t = std::array<std::vector<double>, n_comp>;
+
+        template <bool enable_finer_level_flux>
         SAMURAI_INLINE void predict_value(typename cfg::input_field_t::local_data_type& predicted_value,
                                           const input_field_t& field,
-                                          const std::size_t level,
-                                          const std::size_t delta_l,
                                           const cell_indices_t& coarse_cell_indices,
-                                          const cell_indices_t& fine_cell_indices)
+                                          const cell_indices_t& fine_cell_indices,
+                                          const FluxParameters<enable_finer_level_flux>& flux_params,
+                                          const recons_box_t& box,
+                                          const recons_values_t& box_values)
         {
-            portion(predicted_value, field, level, delta_l, coarse_cell_indices, fine_cell_indices);
+            const std::size_t level   = flux_params.level;
+            const std::size_t delta_l = flux_params.delta_l;
+
+            if constexpr (!enable_finer_level_flux)
+            {
+                portion(predicted_value, field, level, delta_l, coarse_cell_indices, fine_cell_indices);
+            }
+            else
+            {
+                if (delta_l == 0)
+                {
+                    portion(predicted_value, field, level, delta_l, coarse_cell_indices, fine_cell_indices);
+                    return;
+                }
+
+                // build_recons_box reconstructed every fine cell the flux reads (flat or exact, per
+                // component): just read this one from box_values.
+                std::array<interval_value_t, dim> g;
+                for (std::size_t k = 0; k < dim; ++k)
+                {
+                    g[k] = (coarse_cell_indices[k] << delta_l) + fine_cell_indices[k];
+                }
+                assert(box.contains(g));
+                const std::size_t off = box.offset(g);
+                if constexpr (input_field_t::is_scalar)
+                {
+                    predicted_value = box_values[0][off];
+                }
+                else
+                {
+                    for (std::size_t comp = 0; comp < n_comp; ++comp)
+                    {
+                        predicted_value(static_cast<size_type>(comp)) = box_values[comp][off];
+                    }
+                }
+            }
+        }
+
+        // Reconstruct the whole finer stencil block of one interface at once (flat via
+        // reconstruct_flat_box, or exact via reconstruct_exact_box), per component, into box_values.
+        // The block is exactly the stencil_size fine cells around the interface (flux direction)
+        // times the 2^{delta_l} children in each transverse direction: the cells predict_value reads.
+        // Its cascade then reads the same coarse cells as one portion() per fine cell. A wider box
+        // would read past them, where the mesh may store no cell (e.g. a corner near the boundary).
+        // This replaces the per-cell portion() with one dense cascade.
+        //
+        // Deliberately no interface band here, unlike LBMScheme::stream_exact_reconstruction. Such a
+        // band would be safe - away from any refinement, the exact and flat cascades are the same code
+        // up to the is_stored predicate, so they agree bit-for-bit, and over-inclusion would cost
+        // nothing at all - but it cannot pay for itself. Measured on the 2D WENO5 burgers case
+        // (min_level 2, max_level 8, --finer-level-flux -1): the whole cost of the is_stored lookups
+        // is 0.48 s out of 25.3 s (1.9%), while the finer-level flux machinery itself accounts for
+        // 14.6 s (59%). A band could only reclaim a fraction of that 1.9%, in exchange for a coverage
+        // invariant to keep correct. If this path ever needs to be faster, the 14.6 s is the target.
+        void build_recons_box(const FluxParameters<true>& flux_params,
+                              const StencilCells<cfg>& cells,
+                              const input_field_t& field,
+                              recons_box_t& box,
+                              recons_values_t& box_values) const
+        {
+            static constexpr std::size_t r = mesh_t::config_t::prediction_stencil_radius;
+            constexpr auto tseq            = std::make_index_sequence<dim - 1>{};
+            const std::size_t level        = flux_params.level;
+            const std::size_t delta_l      = flux_params.delta_l;
+            const auto flux_dir            = flux_params.flux_direction;
+            const auto half                = static_cast<interval_value_t>(stencil_size / 2);
+            const auto& right              = cells[stencil_size / 2]; // first coarse cell right of the interface
+
+            for (std::size_t k = 0; k < dim; ++k)
+            {
+                if (k == flux_dir)
+                {
+                    const interval_value_t interface = right.indices[k] << delta_l; // fine coord of the interface
+                    box.lo[k]                        = interface - half;
+                    box.hi[k]                        = interface + half;
+                }
+                else
+                {
+                    box.lo[k] = right.indices[k] << delta_l;
+                    box.hi[k] = (right.indices[k] + 1) << delta_l;
+                }
+            }
+
+            for (std::size_t comp = 0; comp < n_comp; ++comp)
+            {
+                auto read = [&](std::size_t l, const std::array<interval_value_t, dim>& c) -> double
+                {
+                    return read_field_cell(field, comp, l, c, tseq);
+                };
+                if (flux_params.exact)
+                {
+                    reconstruct_exact_box<r>(level, level + delta_l, box.lo, box.hi, read, *flux_params.stored, box_values[comp]);
+                }
+                else
+                {
+                    reconstruct_flat_box<r>(level, level + delta_l, box.lo, box.hi, read, box_values[comp]);
+                }
+            }
         }
 
         template <bool enable_finer_level_flux>
@@ -225,6 +367,12 @@ namespace samurai
 
                     std::size_t moving_direction = flux_params.flux_direction == 0 ? 1 : 0; // first other direction
 
+                    // Reconstruct the whole finer stencil block of this interface at once (flat or
+                    // exact), instead of one portion() per fine cell; predict_value only reads it.
+                    recons_box_t box;
+                    recons_values_t box_values;
+                    build_recons_box(flux_params, cells, field, box, box_values);
+
                     for (std::size_t fine_flux_index = 0; fine_flux_index < flux_params.n_fine_fluxes; ++fine_flux_index)
                     {
                         left_coarse_cell_indices  = left.indices;
@@ -247,10 +395,11 @@ namespace samurai
                             {
                                 predict_value(stencil_values_list[fine_flux_index][index_in_stencil - s],
                                               field,
-                                              flux_params.level,
-                                              flux_params.delta_l,
                                               left_coarse_cell_indices,
-                                              left_fine_cell_indices);
+                                              left_fine_cell_indices,
+                                              flux_params,
+                                              box,
+                                              box_values);
                                 left_fine_cell_indices[flux_direction]--;
                             }
 
@@ -262,10 +411,11 @@ namespace samurai
                             {
                                 predict_value(stencil_values_list[fine_flux_index][index_in_stencil + s],
                                               field,
-                                              flux_params.level,
-                                              flux_params.delta_l,
                                               right_coarse_cell_indices,
-                                              right_fine_cell_indices);
+                                              right_fine_cell_indices,
+                                              flux_params,
+                                              box,
+                                              box_values);
                                 right_fine_cell_indices[flux_direction]++;
                             }
 
@@ -380,6 +530,11 @@ namespace samurai
         template <Run run_type = Run::Sequential, bool enable_finer_level_flux, class Func>
         void for_each_interior_interface(std::size_t d, input_field_t& field, Func&& apply_contrib)
         {
+            if constexpr (enable_finer_level_flux)
+            {
+                check_exact_reconstruction_supported<mesh_t>(m_exact_reconstruction);
+            }
+
             auto& mesh = field.mesh();
 
             // The neighbor subdomain may have a finer level or a coarser level than the current subdomain.
@@ -400,6 +555,19 @@ namespace samurai
             flux_params.max_level        = mesh.max_level();
             flux_params.flux_direction   = d;
             flux_params.finer_level_flux = m_finer_level_flux;
+
+            // For the exact reconstruction of the finer stencil values: the (cells U proj_cells) set
+            // per level, built once (only when needed). Outlives the loops below.
+            std::vector<lca_t> stored;
+            if constexpr (enable_finer_level_flux)
+            {
+                flux_params.exact = m_exact_reconstruction;
+                if (m_exact_reconstruction)
+                {
+                    stored             = make_real_backed_lca(mesh);
+                    flux_params.stored = &stored;
+                }
+            }
 
             // Same level
             for (std::size_t level = min_level; level <= max_level; ++level)

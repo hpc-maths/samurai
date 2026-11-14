@@ -12,8 +12,10 @@
 #include <cmath>
 #include <limits>
 #include <span>
+#include <stdexcept>
 
 #include <samurai/algorithm.hpp>
+#include <samurai/amr/mesh.hpp>
 #include <samurai/bc.hpp>
 #include <samurai/field.hpp>
 #include <samurai/mr/adapt.hpp>
@@ -174,7 +176,8 @@ namespace samurai
         // ------------------------------------------------------------------ D2Q4 advection
         // diagonal == false: axial velocities {(1,0),(0,1),(-1,0),(0,-1)}
         // diagonal == true : rotated velocities {(1,1),(-1,1),(-1,-1),(1,-1)}
-        advection_result run_d2q4_advection(std::size_t max_level, double Tf, double ax, double ay, bool diagonal, bool adapt = false)
+        advection_result
+        run_d2q4_advection(std::size_t max_level, double Tf, double ax, double ay, bool diagonal, bool adapt = false, bool exact = false)
         {
             static constexpr std::size_t dim = 2;
             const double lambda = 1., l2 = 1., s1 = 1.5, s2 = 1.;
@@ -232,6 +235,7 @@ namespace samurai
 
             using field_t = decltype(f);
             auto scheme   = make_lbm_scheme<field_t>("D2Q4", lambda, velocity_scheme<dim, 4>(vel, M, invM, {0., s1, s1, s2}, eq));
+            scheme.set_exact_reconstruction(exact);
             scheme.init_equilibrium(f, m);
 
             const double dx = L / static_cast<double>(std::size_t{1} << max_level);
@@ -331,6 +335,37 @@ namespace samurai
         auto r = run_d2q4_advection(7, 0.4, 0.5, 0.5, /*diagonal*/ true, /*adapt*/ true);
         EXPECT_LT(r.mass_drift, 1e-11);
         EXPECT_LT(r.rel_l2_error, 0.1);
+    }
+
+    TEST(lbm_d2q4, exact_reconstruction_matches_flat_without_refinement)
+    {
+        // With no refinement anywhere, the exact-reconstruction reconstruction reduces to the flat one, so
+        // the whole run must match the flat stream (up to the rounding of a cascade vs a single
+        // flattened stencil). This pins down the exact-reconstruction wiring independently of the correction.
+        auto flat = run_d2q4_advection(6, 0.4, 0.5, 0.5, /*diagonal*/ true, /*adapt*/ false, /*exact*/ false);
+        auto ra   = run_d2q4_advection(6, 0.4, 0.5, 0.5, /*diagonal*/ true, /*adapt*/ false, /*exact*/ true);
+
+        EXPECT_LT(ra.mass_drift, 1e-11);
+        EXPECT_NEAR(ra.rel_l2_error, flat.rel_l2_error, 1e-10);
+        EXPECT_NEAR(ra.umin, flat.umin, 1e-10);
+        EXPECT_NEAR(ra.umax, flat.umax, 1e-10);
+    }
+
+    TEST(lbm_d2q4, exact_reconstruction_stays_accurate_and_changes_result)
+    {
+        // On an adaptive run the exact-reconstruction stream reconstructs across refinement boundaries with
+        // the real finer leaves: it stays accurate (mass bounded, error small) and produces a
+        // result that actually differs from the flat stream. This periodic pure-advection flat
+        // stream is already exactly mass-conserving by symmetry, so the exact-reconstruction variant only
+        // adds a little arithmetic round-off here (a mild drift bound is asserted); its conservation
+        // gain shows on interface-dominated cases (see the Rayleigh-Taylor demo, --exact-reconstruction).
+        auto flat = run_d2q4_advection(7, 0.4, 0.5, 0.5, /*diagonal*/ true, /*adapt*/ true, /*exact*/ false);
+        auto ra   = run_d2q4_advection(7, 0.4, 0.5, 0.5, /*diagonal*/ true, /*adapt*/ true, /*exact*/ true);
+
+        EXPECT_LT(ra.mass_drift, 1e-6);
+        EXPECT_LT(ra.rel_l2_error, 0.1);
+        // The correction is active at the refinement interfaces => a measurable difference.
+        EXPECT_GT(std::abs(ra.rel_l2_error - flat.rel_l2_error), 1e-9);
     }
 
     // ==================================================================== D1Q5 |c| > 1 stream
@@ -1592,5 +1627,62 @@ namespace samurai
         EXPECT_LT(r.u_solid_max, 1e-12);
         EXPECT_GT(r.cd, 0.);
         EXPECT_LT(r.cd, 10.);
+    }
+
+    // The exact-reconstruction stream reads cells U proj_cells as the levels backed by real data,
+    // the multiresolution convention of proj_cells. An AMR mesh stores proj_cells differently, so
+    // the scheme must reject the exact reconstruction there.
+    TEST(lbm_d1q2, exact_reconstruction_rejected_on_amr_mesh)
+    {
+        auto cfg = mesh_config<1>().min_level(2).max_level(4).max_stencil_radius(2);
+        CellList<1> cl;
+        cl[2][{}].add_interval({0, 1});
+        cl[3][{}].add_interval({2, 4});
+        cl[4][{}].add_interval({8, 16});
+        auto mesh = amr::make_mesh(CellArray<1>(cl), cfg);
+
+        auto m = make_vector_field<double, 2>("m", mesh);
+        auto f = make_vector_field<double, 2>("f", mesh);
+        m.fill(1.);
+        f.fill(0.);
+        make_bc<Neumann<1>>(f, 0., 0.);
+
+        const double lambda = 1.;
+        std::array<std::array<double, 2>, 2> M{
+            {{1., 1.}, {lambda, -lambda}}
+        };
+        std::array<std::array<double, 2>, 2> invM{
+            {{0.5, 0.5 / lambda}, {0.5, -0.5 / lambda}}
+        };
+        auto eq = [](std::array<double, 2>& meq, std::span<const double> mm)
+        {
+            meq[0] = mm[0];
+            meq[1] = 0.5 * mm[0];
+        };
+        auto make_scheme = [&]()
+        {
+            return make_lbm_scheme<decltype(f)>("D1Q2",
+                                                lambda,
+                                                velocity_scheme<1, 2>(
+                                                    {
+                                                        {{1}, {-1}}
+            },
+                                                    M,
+                                                    invM,
+                                                    {0., 1.5},
+                                                    eq));
+        };
+
+        // Early, in the setter ...
+        auto scheme = make_scheme();
+        EXPECT_THROW(scheme.set_exact_reconstruction(true), std::invalid_argument);
+
+        // ... and when the scheme runs with the global default.
+        const bool saved           = args::exact_reconstruction;
+        args::exact_reconstruction = true;
+        auto from_default          = make_scheme();
+        args::exact_reconstruction = saved;
+        from_default.init_equilibrium(f, m);
+        EXPECT_THROW(from_default(f, m), std::invalid_argument);
     }
 }
