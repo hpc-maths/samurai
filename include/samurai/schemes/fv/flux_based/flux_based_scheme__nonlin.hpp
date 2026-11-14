@@ -1,7 +1,12 @@
 #pragma once
 #include "flux_based_scheme.hpp"
 
+#include <algorithm>
+#include <array>
 #include <cassert>
+#include <limits>
+#include <utility>
+#include <vector>
 
 #include <fmt/format.h>
 #include <stdexcept>
@@ -21,6 +26,78 @@ namespace samurai
             {
                 return level;
             }
+        }
+
+        /**
+         * A 1D prediction as a dense matrix: row i predicts the fine cell `first + i`, delta_l levels
+         * finer, from the coarse cells [lo, lo + n_cols). Fine and coarse cells are numbered from the
+         * same coarse cell 0, so the fine cell t lies in the coarse cell t >> delta_l.
+         */
+        struct PredictionMatrix1D
+        {
+            int lo             = 0;
+            std::size_t n_rows = 0;
+            std::size_t n_cols = 0;
+            std::vector<double> coeffs; // row-major
+
+            double operator()(std::size_t i_row, std::size_t i_col) const
+            {
+                return coeffs[i_row * n_cols + i_col];
+            }
+        };
+
+        /**
+         * The rows [first, first + n_rows) of the 1D prediction of radius `prediction_stencil_radius`.
+         * The columns are exactly the coarse cells these rows read. A prediction map in dim > 1 is
+         * the tensor product of 1D maps, so it reads the cells of a box of such columns, the same
+         * cells as portion() reads.
+         */
+        template <std::size_t prediction_stencil_radius>
+        PredictionMatrix1D prediction_matrix_1d(std::size_t delta_l, int first, std::size_t n_rows)
+        {
+            const int mask = (1 << delta_l) - 1;
+
+            // The coarse cells read by the fine cell t, with their weights.
+            auto map_of = [&](std::size_t i_row) -> const auto&
+            {
+                const int t = first + static_cast<int>(i_row);
+                return prediction<prediction_stencil_radius>(delta_l, t & mask).coeff;
+            };
+            auto coarse_cell = [&](std::size_t i_row, const auto& entry)
+            {
+                const int t = first + static_cast<int>(i_row);
+                return entry.first[0] + (t >> delta_l);
+            };
+
+            int lo = std::numeric_limits<int>::max();
+            int hi = std::numeric_limits<int>::min();
+            for (std::size_t i_row = 0; i_row < n_rows; ++i_row)
+            {
+                for (const auto& entry : map_of(i_row))
+                {
+                    lo = std::min(lo, coarse_cell(i_row, entry));
+                    hi = std::max(hi, coarse_cell(i_row, entry));
+                }
+            }
+
+            PredictionMatrix1D m;
+            m.lo     = lo;
+            m.n_rows = n_rows;
+            m.n_cols = static_cast<std::size_t>(hi - lo + 1);
+            m.coeffs.assign(m.n_rows * m.n_cols, 0.);
+            std::vector<bool> read(m.n_cols, false);
+            for (std::size_t i_row = 0; i_row < n_rows; ++i_row)
+            {
+                for (const auto& entry : map_of(i_row))
+                {
+                    const auto i_col                   = static_cast<std::size_t>(coarse_cell(i_row, entry) - lo);
+                    m.coeffs[i_row * m.n_cols + i_col] = entry.second;
+                    read[i_col]                        = true;
+                }
+            }
+            // No gap: every column is read by some row.
+            assert(std::find(read.begin(), read.end(), false) == read.end());
+            return m;
         }
     }
 
@@ -48,7 +125,6 @@ namespace samurai
 
         using interval_t       = typename mesh_t::interval_t;
         using interval_value_t = typename interval_t::value_t;
-        using cell_indices_t   = typename mesh_t::cell_t::indices_t;
 
         static constexpr std::size_t stencil_size = cfg::stencil_size;
 
@@ -112,37 +188,49 @@ namespace samurai
 
       private:
 
+        // With a prediction stencil radius of 0 and at most 4 cells, the fine stencil values are copies of
+        // the coarse ones (see compute_stencil_values()).
+        static constexpr bool copies_coarse_values = mesh_t::config_t::prediction_stencil_radius == 0 && stencil_size <= 4;
+
         /**
          * We store here everything that we compute only once per level
          */
         template <bool enable_finer_level_flux>
         struct FluxParameters
         {
-            std::size_t flux_direction      = 0;
-            std::size_t max_level           = 0;
-            std::size_t level               = 0;
-            std::size_t delta_l             = 0;
-            double left_factor              = 0;
-            double right_factor             = 0;
-            double cell_length              = 0; // cell length at the level where the flux is computed
-            int finer_level_flux            = 0; // this is the number of levels to go up to compute the flux
-            std::size_t n_fine_fluxes       = 0; // number of fluxes at max_level to sum up together, or 1 if enable_max_finer_flux=false
-            int n_children_at_max_level     = 0; // number of 1D children at max_level of one cell at the current level
-            std::size_t coarse_stencil_size = 0; // number of cells at the current level used to predict the required values at
-                                                 // max_level
+            std::size_t flux_direction = 0;
+            std::size_t max_level      = 0;
+            std::size_t level          = 0;
+            std::size_t delta_l        = 0;
+            double left_factor         = 0;
+            double right_factor        = 0;
+            double cell_length         = 0; // cell length at the level where the flux is computed
+            int finer_level_flux       = 0; // this is the number of levels to go up to compute the flux
+            std::size_t n_fine_fluxes  = 0; // number of fluxes at max_level to sum up together, or 1 if enable_max_finer_flux=false
+            std::size_t n_children     = 0; // number of 1D children at level + delta_l of one cell at the current level
+
+            // 1D predictions to level + delta_l, set when delta_l > 0. Along the flux direction: the
+            // stencil_size fine cells around the interface. Across it: the children of one coarse cell.
+            detail::PredictionMatrix1D along;
+            detail::PredictionMatrix1D across;
 
             void set_level(std::size_t l)
             {
                 assert(l <= max_level);
                 level   = l;
                 delta_l = (finer_level_flux < 0) ? max_level - l : std::min(l + static_cast<std::size_t>(finer_level_flux), max_level) - l;
-                n_fine_fluxes           = (1 << ((dim - 1) * delta_l));
-                n_children_at_max_level = 1 << delta_l;
+                n_fine_fluxes = (1 << ((dim - 1) * delta_l));
+                n_children    = std::size_t{1} << delta_l;
 
-                coarse_stencil_size = 2;
-                while (stencil_size > static_cast<std::size_t>(n_children_at_max_level) * coarse_stencil_size)
+                if constexpr (enable_finer_level_flux && !copies_coarse_values)
                 {
-                    coarse_stencil_size += 2;
+                    if (delta_l > 0)
+                    {
+                        static constexpr auto radius = static_cast<std::size_t>(mesh_t::config_t::prediction_stencil_radius);
+                        // Fine cells are numbered from the first child of the cell right of the interface.
+                        along  = detail::prediction_matrix_1d<radius>(delta_l, -static_cast<int>(stencil_size / 2), stencil_size);
+                        across = detail::prediction_matrix_1d<radius>(delta_l, 0, n_children);
+                    }
                 }
             }
         };
@@ -156,27 +244,181 @@ namespace samurai
             }
         }
 
-        SAMURAI_INLINE void predict_value(typename cfg::input_field_t::local_data_type& predicted_value,
-                                          const input_field_t& field,
-                                          const std::size_t level,
-                                          const std::size_t delta_l,
-                                          const cell_indices_t& coarse_cell_indices,
-                                          const cell_indices_t& fine_cell_indices)
+        // Copy the coarse cells [lo, lo + n) of component `comp` into `box`, x fastest.
+        template <std::size_t... K>
+        static void read_coarse_box(const input_field_t& field,
+                                    [[maybe_unused]] std::size_t comp,
+                                    std::size_t level,
+                                    const std::array<interval_value_t, dim>& lo,
+                                    const std::array<std::size_t, dim>& n,
+                                    std::vector<field_value_type>& box,
+                                    std::index_sequence<K...>)
         {
-            portion(predicted_value, field, level, delta_l, coarse_cell_indices, fine_cell_indices);
+            std::size_t n_rows = 1;
+            for (std::size_t k = 1; k < dim; ++k)
+            {
+                n_rows *= n[k];
+            }
+            box.resize(n_rows * n[0]);
+
+            const interval_t row_interval{lo[0], lo[0] + static_cast<interval_value_t>(n[0])};
+            for (std::size_t i_row = 0; i_row < n_rows; ++i_row)
+            {
+                std::array<interval_value_t, dim> index = lo;
+                for (std::size_t k = 1, rest = i_row; k < dim; ++k)
+                {
+                    index[k] += static_cast<interval_value_t>(rest % n[k]);
+                    rest /= n[k];
+                }
+                auto copy_row = [&](const auto& values)
+                {
+                    for (std::size_t i = 0; i < n[0]; ++i)
+                    {
+                        box[i_row * n[0] + i] = values(i);
+                    }
+                };
+                if constexpr (input_field_t::is_scalar)
+                {
+                    copy_row(field(level, row_interval, index[K + 1]...));
+                }
+                else
+                {
+                    copy_row(field(comp, level, row_interval, index[K + 1]...));
+                }
+            }
+        }
+
+        // Stencil values of all the fine fluxes of an interface, for delta_l > 0.
+        // The prediction is a tensor product of 1D predictions: read the coarse box once, apply
+        // `along` in the flux direction, then `across` in each other direction. The fine flux
+        // c1 + n_children * c2 uses the children c1 and c2 in the other directions, lowest first.
+        template <bool enable_finer_level_flux>
+        void predict_stencil_values(const FluxParameters<enable_finer_level_flux>& flux_params,
+                                    const StencilCells<cfg>& cells,
+                                    const input_field_t& field,
+                                    std::vector<StencilValues<cfg>>& stencil_values_list) const
+        {
+            using fine_values_t = std::array<field_value_type, stencil_size>; // the fine values along the flux direction
+
+            const std::size_t d = flux_params.flux_direction;
+            const auto& along   = flux_params.along;
+            const auto& across  = flux_params.across;
+            const auto& right   = cells[stencil_size / 2].indices; // cell 0 of the matrices
+            assert(cells[stencil_size / 2 - 1].indices[d] + 1 == right[d]);
+
+            // The coarse box: along.n_cols cells in the flux direction, across.n_cols in the others.
+            std::array<interval_value_t, dim> lo;
+            std::array<std::size_t, dim> n;
+            std::array<std::size_t, dim> stride{}; // x fastest
+            std::array<std::size_t, dim> other_dirs{};
+            std::size_t n_coarse_across = 1; // coarse positions across the flux direction
+            for (std::size_t k = 0, o = 0; k < dim; ++k)
+            {
+                lo[k]     = right[k] + (k == d ? along.lo : across.lo);
+                n[k]      = k == d ? along.n_cols : across.n_cols;
+                stride[k] = k == 0 ? 1 : stride[k - 1] * n[k - 1];
+                if (k != d)
+                {
+                    other_dirs[o++] = k;
+                    n_coarse_across *= across.n_cols;
+                }
+            }
+
+            struct Buffers
+            {
+                std::vector<field_value_type> box;
+                std::vector<fine_values_t> in;
+                std::vector<fine_values_t> out;
+            };
+
+            thread_local Buffers buf;
+
+            for (std::size_t comp = 0; comp < n_comp; ++comp)
+            {
+                read_coarse_box(field, comp, flux_params.level, lo, n, buf.box, std::make_index_sequence<dim - 1>{});
+
+                // Along the flux direction: one fine_values_t per coarse position across, lowest direction fastest.
+                buf.in.resize(n_coarse_across);
+                for (std::size_t j = 0; j < n_coarse_across; ++j)
+                {
+                    std::size_t offset = 0;
+                    for (std::size_t o = 0, rest = j; o + 1 < dim; ++o)
+                    {
+                        offset += (rest % across.n_cols) * stride[other_dirs[o]];
+                        rest /= across.n_cols;
+                    }
+                    fine_values_t values{};
+                    for (std::size_t i = 0; i < along.n_cols; ++i)
+                    {
+                        const field_value_type u = buf.box[offset + i * stride[d]];
+                        for (std::size_t s = 0; s < stencil_size; ++s)
+                        {
+                            values[s] += along(s, i) * u;
+                        }
+                    }
+                    buf.in[j] = values;
+                }
+
+                // Across: one direction at a time. buf.in is [outer][coarse][inner]: the inner
+                // directions are already children, the outer ones still coarse.
+                std::size_t inner = 1;
+                std::size_t outer = n_coarse_across;
+                for (std::size_t o = 0; o + 1 < dim; ++o)
+                {
+                    outer /= across.n_cols;
+                    buf.out.resize(outer * across.n_rows * inner);
+                    for (std::size_t p = 0; p < outer; ++p)
+                    {
+                        for (std::size_t c = 0; c < across.n_rows; ++c)
+                        {
+                            for (std::size_t q = 0; q < inner; ++q)
+                            {
+                                fine_values_t values{};
+                                for (std::size_t j = 0; j < across.n_cols; ++j)
+                                {
+                                    const double coeff = across(c, j);
+                                    const auto& src    = buf.in[(p * across.n_cols + j) * inner + q];
+                                    for (std::size_t s = 0; s < stencil_size; ++s)
+                                    {
+                                        values[s] += coeff * src[s];
+                                    }
+                                }
+                                buf.out[(p * across.n_rows + c) * inner + q] = values;
+                            }
+                        }
+                    }
+                    std::swap(buf.in, buf.out);
+                    inner *= across.n_rows;
+                }
+
+                for (std::size_t f = 0; f < flux_params.n_fine_fluxes; ++f)
+                {
+                    for (std::size_t s = 0; s < stencil_size; ++s)
+                    {
+                        if constexpr (input_field_t::is_scalar)
+                        {
+                            stencil_values_list[f][s] = buf.in[f][s];
+                        }
+                        else
+                        {
+                            stencil_values_list[f][s](static_cast<size_type>(comp)) = buf.in[f][s];
+                        }
+                    }
+                }
+            }
         }
 
         template <bool enable_finer_level_flux>
         void compute_stencil_values(const FluxParameters<enable_finer_level_flux>& flux_params,
                                     const StencilCells<cfg>& cells,
                                     const input_field_t& field,
-                                    std::vector<StencilValues<cfg>>& stencil_values_list)
+                                    std::vector<StencilValues<cfg>>& stencil_values_list) const
         {
             if constexpr (!enable_finer_level_flux)
             {
                 copy_stencil_values(field, cells, stencil_values_list[0]);
             }
-            else if constexpr (mesh_t::config_t::prediction_stencil_radius == 0 && stencil_size <= 4)
+            else if constexpr (copies_coarse_values)
             {
                 for (std::size_t fine_flux_index = 0; fine_flux_index < flux_params.n_fine_fluxes; ++fine_flux_index)
                 {
@@ -193,111 +435,14 @@ namespace samurai
                 }
                 else
                 {
-                    // We need `stencil_size` cells at max_level, half to the left, half to the right of the interface.
-                    // WENO5 example with delta_l = 1:
+                    // We need `stencil_size` cells at level + delta_l, half to the left, half to the right of the
+                    // interface, for every child of the interface. WENO5 example with delta_l = 1:
                     //
-                    // We have a stencil of 3+3 coarse cells, and we want 3+3 cells at the upper level.
-                    //
-                    //                |___|___|___|___|___|___|
-                    //    |_______|_______|_______|_______|_______|_______|
-                    //                       left | right
-
-                    const auto& left  = cells[stencil_size / 2 - 1];
-                    const auto& right = cells[stencil_size / 2];
-
-                    // To get 3+3 children (x marks), we need to predict the children of 2+2 coarse cells (o marks).
-                    //
-                    //                  x   x   x   x   x   x
+                    //                  x   x   x | x   x   x
                     //            |___|___|___|___|___|___|___|___|
                     //    |_______|_______|_______|_______|_______|_______|
-                    //                o       o   |   o       o
-
-                    auto& flux_direction          = flux_params.flux_direction;
-                    auto& n_children_at_max_level = flux_params.n_children_at_max_level;
-
-                    cell_indices_t left_coarse_cell_indices;
-                    cell_indices_t right_coarse_cell_indices;
-
-                    cell_indices_t left_fine_cell_indices;
-                    cell_indices_t right_fine_cell_indices;
-                    left_fine_cell_indices.fill(0);
-                    right_fine_cell_indices.fill(0);
-
-                    std::size_t moving_direction = flux_params.flux_direction == 0 ? 1 : 0; // first other direction
-
-                    for (std::size_t fine_flux_index = 0; fine_flux_index < flux_params.n_fine_fluxes; ++fine_flux_index)
-                    {
-                        left_coarse_cell_indices  = left.indices;
-                        right_coarse_cell_indices = right.indices;
-
-                        // Compute the necessary stencil values for the current fine flux.
-                        // We need (stencil_size / 2) on each side of the interface.
-                        int remaining_values_to_compute = stencil_size / 2;
-
-                        for (std::size_t coarse_cell = 0; coarse_cell < flux_params.coarse_stencil_size / 2; ++coarse_cell)
-                        {
-                            int n_values_to_compute = std::min(remaining_values_to_compute, n_children_at_max_level);
-
-                            // left side of the interface: we fill from right to left
-                            std::size_t index_in_stencil = stencil_size / 2 - 1
-                                                         - coarse_cell * static_cast<std::size_t>(n_children_at_max_level);
-                            left_fine_cell_indices[flux_direction] = n_children_at_max_level - 1;
-
-                            for (std::size_t s = 0; s < static_cast<std::size_t>(n_values_to_compute); ++s)
-                            {
-                                predict_value(stencil_values_list[fine_flux_index][index_in_stencil - s],
-                                              field,
-                                              flux_params.level,
-                                              flux_params.delta_l,
-                                              left_coarse_cell_indices,
-                                              left_fine_cell_indices);
-                                left_fine_cell_indices[flux_direction]--;
-                            }
-
-                            // right side of the interface: we fill from left to right
-                            index_in_stencil = stencil_size / 2 + coarse_cell * static_cast<std::size_t>(n_children_at_max_level);
-                            right_fine_cell_indices[flux_direction] = 0;
-
-                            for (std::size_t s = 0; s < static_cast<std::size_t>(n_values_to_compute); ++s)
-                            {
-                                predict_value(stencil_values_list[fine_flux_index][index_in_stencil + s],
-                                              field,
-                                              flux_params.level,
-                                              flux_params.delta_l,
-                                              right_coarse_cell_indices,
-                                              right_fine_cell_indices);
-                                right_fine_cell_indices[flux_direction]++;
-                            }
-
-                            remaining_values_to_compute -= n_values_to_compute;
-
-                            left_coarse_cell_indices[flux_direction]--;
-                            right_coarse_cell_indices[flux_direction]++;
-                        }
-
-                        if constexpr (dim > 1)
-                        {
-                            // Move to next fine flux
-                            if (left_fine_cell_indices[moving_direction] < n_children_at_max_level - 1)
-                            {
-                                left_fine_cell_indices[moving_direction]++;
-                                right_fine_cell_indices[moving_direction]++;
-                            }
-                            else
-                            {
-                                // if moving_direction = 'y':
-                                // - reset 'y' indices
-                                // - start moving the fine cells according to the 'z' direction
-                                left_fine_cell_indices[moving_direction]  = 0;
-                                right_fine_cell_indices[moving_direction] = 0;
-                                moving_direction++;
-                                if (moving_direction == flux_direction)
-                                {
-                                    moving_direction++;
-                                }
-                            }
-                        }
-                    }
+                    //                       left | right
+                    predict_stencil_values(flux_params, cells, field, stencil_values_list);
                 }
             }
         }
@@ -310,8 +455,10 @@ namespace samurai
                                          const input_field_t& field,
                                          Func&& apply_contrib)
         {
-            std::vector<StencilValues<cfg>> stencil_values_list(flux_params.n_fine_fluxes);
+            thread_local std::vector<StencilValues<cfg>> stencil_values_list;
+            stencil_values_list.resize(flux_params.n_fine_fluxes);
             FluxValuePair<cfg> flux_values;
+            FluxValuePair<cfg> flux_sum;
             StencilData<cfg> data(comput_stencil_it.cells());
 
             data.cell_length = flux_params.cell_length;
@@ -320,14 +467,18 @@ namespace samurai
             {
                 compute_stencil_values<enable_finer_level_flux>(flux_params, comput_stencil_it.cells(), field, stencil_values_list);
 
-                for (std::size_t k = 0; k < flux_params.n_fine_fluxes; ++k)
+                // The fine fluxes of an interface all go to the same two cells: sum them first.
+                flux_function(flux_sum, data, stencil_values_list[0]);
+                for (std::size_t k = 1; k < flux_params.n_fine_fluxes; ++k)
                 {
                     flux_function(flux_values, data, stencil_values_list[k]);
-                    flux_values[0] *= flux_params.left_factor;
-                    flux_values[1] *= flux_params.right_factor;
-                    apply_contrib(interface_it.cells()[0], flux_values[0]);
-                    apply_contrib(interface_it.cells()[1], flux_values[1]);
+                    flux_sum[0] += flux_values[0];
+                    flux_sum[1] += flux_values[1];
                 }
+                flux_sum[0] *= flux_params.left_factor;
+                flux_sum[1] *= flux_params.right_factor;
+                apply_contrib(interface_it.cells()[0], flux_sum[0]);
+                apply_contrib(interface_it.cells()[1], flux_sum[1]);
 
                 interface_it.move_next();
                 comput_stencil_it.move_next();
