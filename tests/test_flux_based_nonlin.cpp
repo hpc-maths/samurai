@@ -9,12 +9,15 @@
 // scheme must still compile and run without that option, and throw when it is
 // enabled.
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <map>
 #include <mutex>
 #include <set>
 #include <stdexcept>
+#include <tuple>
+#include <utility>
 
 #include <gtest/gtest.h>
 
@@ -560,5 +563,340 @@ namespace samurai
         static constexpr std::size_t dim = TypeParam::value;
         check_linear_field_divergence<2, dim>();
         check_linear_field_divergence<4, dim>();
+    }
+}
+
+namespace samurai
+{
+    // The finer-level fluxes predict their stencil values with 1D matrices, one along the flux
+    // direction and one across it. Their tensor product must give the prediction maps of
+    // portion(), and must read the same coarse cells: no fewer (missing weights), no more (a
+    // cell that may not exist, e.g. near a subdomain boundary with MPI).
+    template <std::size_t radius, std::size_t dim>
+    void check_prediction_matrices(std::size_t delta_l, std::size_t stencil_size, std::size_t d)
+    {
+        using key_t = std::array<int, dim>;
+
+        const int n_children = 1 << delta_l;
+        const auto along     = detail::prediction_matrix_1d<radius>(delta_l, -static_cast<int>(stencil_size / 2), stencil_size);
+        const auto across    = detail::prediction_matrix_1d<radius>(delta_l, 0, static_cast<std::size_t>(n_children));
+
+        // Weights read by every fine cell of the interface, per (fine cell, coarse cell).
+        std::size_t n_fine = stencil_size;
+        for (std::size_t k = 1; k < dim; ++k)
+        {
+            n_fine *= static_cast<std::size_t>(n_children);
+        }
+        std::map<key_t, bool> portion_cells;
+        double max_error = 0;
+        for (std::size_t f = 0; f < n_fine; ++f)
+        {
+            // fine cell: row[d] along the flux direction, a child index in the others
+            std::array<std::size_t, dim> row;
+            key_t fine;
+            key_t coarse_shift;
+            for (std::size_t k = 0, rest = f; k < dim; ++k)
+            {
+                const std::size_t n = k == d ? stencil_size : static_cast<std::size_t>(n_children);
+                row[k]              = rest % n;
+                rest /= n;
+                const int t     = (k == d ? -static_cast<int>(stencil_size / 2) : 0) + static_cast<int>(row[k]);
+                fine[k]         = t & (n_children - 1);
+                coarse_shift[k] = t >> delta_l;
+            }
+            const auto& map = std::apply(
+                [&](auto... i) -> const auto&
+                {
+                    return prediction<radius>(delta_l, i...);
+                },
+                fine);
+            for (const auto& [offset, weight] : map.coeff)
+            {
+                key_t cell;
+                double tensor_weight = 1;
+                bool in_box          = true;
+                for (std::size_t k = 0; k < dim; ++k)
+                {
+                    cell[k]       = offset[k] + coarse_shift[k];
+                    const auto& m = k == d ? along : across;
+                    const int col = cell[k] - m.lo;
+                    in_box        = in_box && col >= 0 && col < static_cast<int>(m.n_cols);
+                    tensor_weight *= in_box ? m(row[k], static_cast<std::size_t>(col)) : 0.;
+                }
+                ASSERT_TRUE(in_box) << "portion() reads a cell out of the box";
+                portion_cells[cell] = true;
+                max_error           = std::max(max_error, std::abs(tensor_weight - weight));
+            }
+        }
+        EXPECT_LT(max_error, 1e-14);
+
+        // Every cell of the box is read by portion().
+        std::size_t n_box = 1;
+        for (std::size_t k = 0; k < dim; ++k)
+        {
+            n_box *= k == d ? along.n_cols : across.n_cols;
+        }
+        EXPECT_EQ(portion_cells.size(), n_box);
+    }
+
+    TEST(flux_based_nonlin_prediction_matrices, tensor_product_of_portion)
+    {
+        for (std::size_t stencil_size : std::array<std::size_t, 3>{2, 4, 6})
+        {
+            for (std::size_t delta_l = 1; delta_l <= 3; ++delta_l)
+            {
+                check_prediction_matrices<0, 2>(delta_l, stencil_size, 0);
+                check_prediction_matrices<1, 2>(delta_l, stencil_size, 0);
+                check_prediction_matrices<1, 2>(delta_l, stencil_size, 1);
+                check_prediction_matrices<2, 2>(delta_l, stencil_size, 1);
+                check_prediction_matrices<1, 3>(delta_l, stencil_size, 0);
+                check_prediction_matrices<1, 3>(delta_l, stencil_size, 2);
+                check_prediction_matrices<2, 3>(delta_l, stencil_size, 1);
+            }
+        }
+    }
+
+    // Every fine stencil value the flux function receives, compared to portion() cell by cell, on
+    // a mesh refined at the domain boundary.
+    namespace
+    {
+        // A field that varies sharply at the corner 0 of [0, 1]^dim, so the mesh is refined there.
+        template <std::size_t dim>
+        double corner_bump(const auto& x, std::size_t comp)
+        {
+            double r2 = 0;
+            for (std::size_t k = 0; k < dim; ++k)
+            {
+                r2 += x[k] * x[k];
+            }
+            return 2. + static_cast<double>(comp) + std::exp(-40 * r2) * (1. + static_cast<double>(comp) * x[0]);
+        }
+
+        // Prediction of the child `child` of the coarse cell `coarse`, delta_l levels finer.
+        template <class Field, std::size_t... K>
+        double predicted_value(const Field& u,
+                               [[maybe_unused]] std::size_t comp,
+                               std::size_t level,
+                               std::size_t delta_l,
+                               const std::array<int, Field::dim>& coarse,
+                               const std::array<int, Field::dim>& child,
+                               std::index_sequence<K...>)
+        {
+            using interval_t = typename Field::interval_t;
+            auto i           = std::make_tuple(interval_t{coarse[0], coarse[0] + 1}, coarse[K + 1]...);
+            auto ii          = std::make_tuple(child[0], child[K + 1]...);
+            if constexpr (Field::is_scalar)
+            {
+                return portion(u, level, delta_l, i, ii)(0);
+            }
+            else
+            {
+                return portion(u, comp, level, delta_l, i, ii)(0);
+            }
+        }
+    }
+
+    template <std::size_t stencil_size, std::size_t n_comp, std::size_t dim, int radius = 1>
+    void check_predicted_stencil_values(bool periodic, std::size_t max_level)
+    {
+        FinerLevelFluxGuard guard;
+        args::finer_level_flux = 0;
+
+        using Box     = samurai::Box<double, dim>;
+        using point_t = typename Box::point_t;
+        point_t corner1, corner2;
+        corner1.fill(0.);
+        corner2.fill(1.);
+        auto cfg  = mesh_config<dim, radius>().min_level(2).max_level(max_level).periodic(periodic).max_stencil_size(6);
+        auto mesh = mra::make_mesh(Box(corner1, corner2), cfg);
+
+        auto make_field = [&]()
+        {
+            if constexpr (n_comp == 1)
+            {
+                return make_scalar_field<double>("u", mesh);
+            }
+            else
+            {
+                return make_vector_field<double, n_comp>("u", mesh);
+            }
+        };
+        auto u      = make_field();
+        using Field = decltype(u);
+        auto init   = [&]()
+        {
+            for_each_cell(u.mesh(),
+                          [&](auto& cell)
+                          {
+                              for (std::size_t c = 0; c < n_comp; ++c)
+                              {
+                                  field_value(u, cell, c) = corner_bump<dim>(cell.center(), c);
+                              }
+                          });
+        };
+        init();
+        if (!periodic)
+        {
+            if constexpr (n_comp == 1)
+            {
+                make_bc<Dirichlet<1>>(u, 3.);
+            }
+            else
+            {
+                make_bc<Dirichlet<1>>(u, 3., 4.);
+            }
+        }
+        auto adapt = make_MRAdapt(u);
+        adapt(mra_config().epsilon(1e-4));
+        init();
+        u.ghosts_updated() = false;
+
+        // The mesh is refined at the boundary x = 0.
+        using mesh_id_t           = typename decltype(mesh)::mesh_id_t;
+        const std::size_t finest  = mesh[mesh_id_t::cells].max_level();
+        std::size_t n_finest_left = 0;
+        for_each_cell(mesh[mesh_id_t::cells][finest],
+                      [&](auto& cell)
+                      {
+                          n_finest_left += cell.indices[0] == 0;
+                      });
+        EXPECT_GT(test::global_max(finest), test::global_min(mesh[mesh_id_t::cells].min_level())) << "no level jump";
+        EXPECT_GT(test::global_sum(n_finest_left), 0) << "not refined at the boundary";
+
+        using cfg_t = FluxConfig<SchemeType::NonLinear, stencil_size, Field, Field>;
+
+        // The fine fluxes of an interface come one after the other, the transverse children
+        // counted like an odometer, the lowest direction first. One per thread: with OpenMP a
+        // thread handles whole interfaces.
+        struct Interface
+        {
+            std::size_t d     = 0;
+            std::size_t level = 0;
+            std::array<int, dim> right{};
+            std::size_t fine_flux = 0;
+        };
+
+        thread_local Interface current;
+
+        std::size_t n_checked = 0;
+        std::size_t n_wrong   = 0;
+        double max_error      = 0;
+        std::mutex result_mutex; // with OpenMP, the scheme calls the flux function from several threads
+
+        FluxDefinition<cfg_t> flux;
+        static_for<0, dim>::apply(
+            [&](auto integral_constant_d)
+            {
+                static constexpr std::size_t d = decltype(integral_constant_d)::value;
+                flux[d].cons_flux_function = [&](FluxValue<cfg_t>& f, const StencilData<cfg_t>& data, const StencilValues<cfg_t>& values)
+                {
+                    if constexpr (n_comp == 1)
+                    {
+                        f = 0;
+                    }
+                    else
+                    {
+                        f.fill(0);
+                    }
+
+                    const auto& right_cell    = data.cells[stencil_size / 2];
+                    const std::size_t level   = right_cell.level;
+                    const std::size_t delta_l = u.mesh().max_level() - level;
+                    const int n_children      = 1 << delta_l;
+                    std::size_t n_fine_fluxes = 1;
+                    std::array<int, dim> right;
+                    for (std::size_t k = 0; k < dim; ++k)
+                    {
+                        right[k] = right_cell.indices[k];
+                        n_fine_fluxes *= k == d ? 1 : static_cast<std::size_t>(n_children);
+                    }
+                    if (current.d != d || current.level != level || current.right != right || current.fine_flux == n_fine_fluxes)
+                    {
+                        current = {d, level, right, 0};
+                    }
+                    const std::size_t fine_flux = current.fine_flux++;
+
+                    std::size_t flux_n_wrong = 0;
+                    double flux_max_error    = 0;
+
+                    for (std::size_t s = 0; s < stencil_size; ++s)
+                    {
+                        std::array<int, dim> coarse = right;
+                        std::array<int, dim> child;
+                        for (std::size_t k = 0, rest = fine_flux; k < dim; ++k)
+                        {
+                            if (k == d)
+                            {
+                                const int t = static_cast<int>(s) - static_cast<int>(stencil_size / 2);
+                                coarse[k] += t >> delta_l;
+                                child[k] = t & (n_children - 1);
+                            }
+                            else
+                            {
+                                child[k] = static_cast<int>(rest % static_cast<std::size_t>(n_children));
+                                rest /= static_cast<std::size_t>(n_children);
+                            }
+                        }
+                        for (std::size_t c = 0; c < n_comp; ++c)
+                        {
+                            const double expected = predicted_value(u, c, level, delta_l, coarse, child, std::make_index_sequence<dim - 1>{});
+                            double value = 0;
+                            if constexpr (n_comp == 1)
+                            {
+                                value = values[s];
+                            }
+                            else
+                            {
+                                value = values[s](c);
+                            }
+                            const double error = std::abs(value - expected) / std::abs(expected);
+                            flux_max_error     = std::max(flux_max_error, error);
+                            flux_n_wrong += error > 1e-13;
+                        }
+                    }
+
+                    std::lock_guard<std::mutex> lock(result_mutex);
+                    n_checked += stencil_size * n_comp;
+                    n_wrong += flux_n_wrong;
+                    max_error = std::max(max_error, flux_max_error);
+                };
+            });
+        auto scheme = make_flux_based_scheme(flux);
+        scheme.include_boundary_fluxes(false); // the boundary fluxes are not computed at finer levels
+        scheme.finer_level_flux() = -1;
+
+        current = Interface{};
+        auto v  = make_field();
+        v       = scheme(u);
+
+        EXPECT_GT(test::global_sum(n_checked), 0);
+        EXPECT_EQ(test::global_sum(n_wrong), 0) << "max relative error " << max_error;
+    }
+
+    template <class T>
+    class flux_based_nonlin_predicted_stencil : public ::testing::Test
+    {
+    };
+
+    using predicted_stencil_dims = ::testing::
+        Types<std::integral_constant<std::size_t, 1>, std::integral_constant<std::size_t, 2>, std::integral_constant<std::size_t, 3>>;
+    TYPED_TEST_SUITE(flux_based_nonlin_predicted_stencil, predicted_stencil_dims, );
+
+    TYPED_TEST(flux_based_nonlin_predicted_stencil, matches_portion)
+    {
+        static constexpr std::size_t dim = TypeParam::value;
+        const std::size_t max_level      = dim == 3 ? 4 : 6;
+        for (bool periodic : {false, true})
+        {
+            SCOPED_TRACE(periodic ? "periodic" : "Dirichlet");
+            check_predicted_stencil_values<2, 1, dim>(periodic, max_level);
+            check_predicted_stencil_values<4, 1, dim>(periodic, max_level);
+            check_predicted_stencil_values<6, 1, dim>(periodic, max_level);
+            check_predicted_stencil_values<2, 2, dim>(periodic, max_level);
+            check_predicted_stencil_values<4, 2, dim>(periodic, max_level);
+            check_predicted_stencil_values<6, 2, dim>(periodic, max_level);
+        }
+        // A prediction stencil radius of 0 (with 4 cells or less, the coarse values are copied instead).
+        check_predicted_stencil_values<6, 1, dim, 0>(false, max_level);
     }
 }
