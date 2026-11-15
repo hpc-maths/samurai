@@ -10,6 +10,7 @@
 #include "../algorithm.hpp"
 #include "../bc/apply_field_bc.hpp"
 #include "../entry_table.hpp"
+#include "cell_block.hpp"
 
 #ifndef NDEBUG
 #include "../io/hdf5.hpp"
@@ -46,6 +47,9 @@ namespace samurai
             std::size_t direction;
             std::size_t layer;
             std::size_t n_bc_ghosts;
+
+            template <class Mesh, class Emit>
+            bool walk(const Mesh& mesh, Emit& emit) const;
 
             template <class Mesh, class Emit>
             void produce(const Mesh& mesh, Emit& emit) const
@@ -103,6 +107,61 @@ namespace samurai
                 }
             }
         };
+
+        // Same entries by walking the union cells on the face of a box domain,
+        // moved `layer` cells out.
+        template <std::size_t dim>
+        template <class Mesh, class Emit>
+        bool bc_projection_ghosts<dim>::walk(const Mesh& mesh, Emit& emit) const
+        {
+            using mesh_id_t = typename Mesh::mesh_id_t;
+
+            const auto domain = n_bc_ghosts == 0 ? box_domain_block(mesh, level, true) : std::nullopt;
+            if (!domain)
+            {
+                return false;
+            }
+            const auto dir                 = direction_from_code<dim>(direction);
+            const auto& ref                = mesh[mesh_id_t::reference];
+            const DirectionVector<dim> out = static_cast<int>(layer) * dir;
+            for_each_interval_in_block(mesh.get_union()[level],
+                                       face_layer(*domain, dir, 0),
+                                       [&](auto start, auto end, const auto& coords, auto)
+                                       {
+                                           for_each_interval_in_block(
+                                               ref[level],
+                                               translate(row_block(coords, start, end), out),
+                                               [&](auto ghost_start, auto ghost_end, const auto& ghost_coords, auto shift)
+                                               {
+                                                   auto ghost = ghost_coords;
+                                                   for (auto x = ghost_start; x < ghost_end; ++x)
+                                                   {
+                                                       ghost[0] = x;
+                                                       BcProjectionEntry entry{
+                                                           static_cast<std::size_t>(x + shift),
+                                                           {emit.pool().size(), 0}
+                                                       };
+                                                       // the children at level + 1 or, when there are none, at level + 2
+                                                       for (std::size_t delta_l = 1; delta_l <= 2 && entry.children.count == 0; ++delta_l)
+                                                       {
+                                                           for_each_interval_in_block(
+                                                               ref[level + delta_l],
+                                                               refine(cell_block(ghost), delta_l),
+                                                               [&](auto child_start, auto child_end, const auto&, auto child_shift)
+                                                               {
+                                                                   for (auto c = child_start; c < child_end; ++c)
+                                                                   {
+                                                                       emit.pool().push_back(static_cast<std::size_t>(c + child_shift));
+                                                                       ++entry.children.count;
+                                                                   }
+                                                               });
+                                                       }
+                                                       emit(entry);
+                                                   }
+                                               });
+                                       });
+            return true;
+        }
 
         // The sum of the children from 0, divided by their number.
         template <class Field>
@@ -205,74 +264,267 @@ namespace samurai
         project_bc(level, other_fields...);
     }
 
+    namespace detail
+    {
+        // The ghosts of `level` below the layer `layer` of B.C. ghosts at
+        // level - 1 outside the domain in `direction`, each after its parent:
+        // those predict_bc copies from their parent. The layers 1 to n together
+        // are the ghosts it fills with n B.C. ghosts. When the domain is not a
+        // box, the ghosts within n_bc_ghosts of the boundary in another
+        // direction are left out: the B.C. fills them (n_bc_ghosts is 0 on a box).
+        template <std::size_t dim>
+        struct bc_prediction_ghosts
+        {
+            using entry_type = Cells<2>;
+
+            std::size_t level;
+            std::size_t direction;
+            std::size_t layer;
+            std::size_t n_bc_ghosts;
+
+            template <class Mesh, class Emit>
+            void produce(const Mesh& mesh, Emit& emit) const
+            {
+                using mesh_id_t = typename Mesh::mesh_id_t;
+
+                const auto dir    = direction_from_code<dim>(direction);
+                const auto upto   = domain_boundary_outer_layer(mesh, level - 1, dir, static_cast<int>(layer));
+                const auto before = domain_boundary_outer_layer(mesh, level - 1, dir, static_cast<int>(layer) - 1);
+                auto ghosts       = intersection(difference(upto, before), mesh[mesh_id_t::reference][level]).on(level);
+
+                auto record = [&](const auto& i, const auto& index)
+                {
+                    for (auto ii = i.start; ii < i.end; ++ii)
+                    {
+                        emit(entry_type{memory_offset(mesh, {level - 1, ii >> 1, index >> 1}), memory_offset(mesh, {level, ii, index})});
+                    }
+                };
+                if (n_bc_ghosts == 0)
+                {
+                    ghosts(record);
+                }
+                else
+                {
+                    auto bc_ghosts_in_other_directions = domain_boundary_outer_layer(mesh, level, static_cast<int>(n_bc_ghosts));
+                    difference(ghosts, bc_ghosts_in_other_directions)(record);
+                }
+            }
+
+            // Same entries by walking the ghosts whose parent is a cell at
+            // level - 1 on the face of a box domain, moved `layer` cells out.
+            template <class Mesh, class Emit>
+            bool walk(const Mesh& mesh, Emit& emit) const
+            {
+                using mesh_id_t = typename Mesh::mesh_id_t;
+
+                const auto coarse_domain = n_bc_ghosts == 0 ? box_domain_block(mesh, level - 1, false) : std::nullopt;
+                if (!coarse_domain)
+                {
+                    return false;
+                }
+                const auto dir                  = direction_from_code<dim>(direction);
+                const auto& ref                 = mesh[mesh_id_t::reference];
+                const DirectionVector<dim> back = -static_cast<int>(layer) * dir;
+                bool found                      = true;
+                for_each_interval_in_block(
+                    ref[level],
+                    refine(face_layer(*coarse_domain, dir, static_cast<int>(layer)), 1),
+                    [&](auto start, auto end, const auto& coords, auto shift)
+                    {
+                        auto parent_coords = coords;
+                        std::transform(coords.begin(),
+                                       coords.end(),
+                                       parent_coords.begin(),
+                                       [](auto c)
+                                       {
+                                           return c >> 1;
+                                       });
+                        RowLookup parents(ref[level - 1], parent_coords);
+                        for_each_interval_in_block(
+                            mesh[mesh_id_t::cells][level - 1],
+                            translate(row_block(parent_coords, start >> 1, ((end - 1) >> 1) + 1), back),
+                            [&](auto cells_start, auto cells_end, const auto&, auto)
+                            {
+                                const auto first = std::max(start, (cells_start - back[0]) << 1);
+                                const auto last  = std::min(end, (cells_end - back[0]) << 1);
+                                for (auto x = first; x < last; ++x)
+                                {
+                                    const auto parent = parents(x >> 1);
+                                    found             = found && parent >= 0;
+                                    emit(entry_type{static_cast<std::size_t>(parent), static_cast<std::size_t>(x + shift)});
+                                }
+                            });
+                    });
+                return found;
+            }
+        };
+
+        // The corner ghosts at level - 1 and level - 2 below the corner ghosts
+        // of `level` in the diagonal `direction`, each after the cell it is
+        // copied from: its corner-most child at `level`, when it exists.
+        template <std::size_t dim>
+        struct corner_ghosts_below
+        {
+            using entry_type = Cells<2>;
+
+            std::size_t level;
+            std::size_t direction;
+
+            template <class Mesh, class Emit>
+            void produce(const Mesh& mesh, Emit& emit) const
+            {
+                using mesh_id_t = typename Mesh::mesh_id_t;
+                using coord_t   = typename Mesh::lca_type::all_coord_type;
+
+                if (level == 0)
+                {
+                    return;
+                }
+                const auto dir = direction_from_code<dim>(direction);
+                for (std::size_t delta_l = 1; delta_l <= 2; ++delta_l) // lower level (1 or 2)
+                {
+                    auto proj_level = level - delta_l;
+
+                    // The source is the corner ghost at `level`, whether the corner has cells at `level`
+                    // (ghost filled by polynomial extrapolation) or not (ghost filled by the projection
+                    // from level+1, which has already been done since the levels are processed from fine
+                    // to coarse). This cascade fills the corner ghosts at every level below the corner
+                    // cells, even when max_level - min_level > 2.
+                    auto fine_inner_corner = self(mesh.corner(dir)).on(level);
+                    auto fine_outer_corner = intersection(translate(fine_inner_corner, dir), mesh[mesh_id_t::reference][level]);
+                    auto projection_ghost  = intersection(fine_outer_corner.on(proj_level), mesh[mesh_id_t::reference][proj_level]);
+
+                    // Each coarse corner ghost is copied from its corner-most child at `level`, the cell at
+                    // the reconstructed fixed-parity position (ii << delta_l) + offset. projection_ghost keeps
+                    // a coarse ghost as soon as one of its children lies in the reference array, but on an
+                    // adapted mesh whose refinement reaches the domain boundary the corner-most child may be
+                    // absent while another child is present. The child is therefore looked up per cell and
+                    // copied only when it exists.
+                    const auto& ref_level = mesh[mesh_id_t::reference][level];
+                    projection_ghost(
+                        [&](const auto& i, const auto& index)
+                        {
+                            using index_t = std::decay_t<decltype(index)>;
+
+                            index_t index_child = index << delta_l;
+                            for (std::size_t d = 0; d < dim - 1; ++d)
+                            {
+                                index_child[d] += dir[d + 1] == -1 ? ((1 << delta_l) - 1) : 0;
+                            }
+
+                            coord_t child_coord;
+                            auto i_child = (i.start << delta_l) + (dir[0] == -1 ? ((1 << delta_l) - 1) : 0);
+                            for (auto ii = i.start; ii < i.end; ++ii, i_child += (1 << delta_l))
+                            {
+                                child_coord[0] = i_child;
+                                for (std::size_t d = 1; d < dim; ++d)
+                                {
+                                    child_coord[d] = index_child[d - 1];
+                                }
+                                if (find(ref_level, child_coord) >= 0)
+                                {
+                                    emit(entry_type{memory_offset(mesh, {level, i_child, index_child}),
+                                                    memory_offset(mesh, {proj_level, ii, index})});
+                                }
+                            }
+                        });
+                    if (proj_level == 0)
+                    {
+                        break;
+                    }
+                }
+            }
+
+            // Same entries by walking the reference mesh around the corner block.
+            template <class Mesh, class Emit>
+            bool walk(const Mesh& mesh, Emit& emit) const
+            {
+                using mesh_id_t = typename Mesh::mesh_id_t;
+
+                if (level == 0)
+                {
+                    return true;
+                }
+                const auto dir    = direction_from_code<dim>(direction);
+                const auto corner = corner_block(mesh, dir, level);
+                if (!corner)
+                {
+                    return false;
+                }
+                const auto& ref        = mesh[mesh_id_t::reference];
+                const auto outer_ghost = translate(*corner, dir);
+                for (std::size_t delta_l = 1; delta_l <= 2; ++delta_l)
+                {
+                    const auto proj_level = level - delta_l;
+                    for_each_interval_in_block(
+                        ref[proj_level],
+                        coarsen(outer_ghost, delta_l),
+                        [&](auto start, auto end, const auto& coords, auto shift)
+                        {
+                            auto ghost = coords;
+                            for (auto x = start; x < end; ++x)
+                            {
+                                ghost[0] = x;
+                                // a coarse ghost has a child in the outer corner ghosts at `level`
+                                bool has_child = false;
+                                for_each_interval_in_block(ref[level],
+                                                           intersect(refine(cell_block(ghost), delta_l), outer_ghost),
+                                                           [&](auto, auto, const auto&, auto)
+                                                           {
+                                                               has_child = true;
+                                                           });
+                                if (!has_child)
+                                {
+                                    continue;
+                                }
+                                // copied from its corner-most child when it exists
+                                auto child = ghost;
+                                for (std::size_t d = 0; d < dim; ++d)
+                                {
+                                    child[d] = (ghost[d] << delta_l) + (dir[d] == -1 ? ((1 << delta_l) - 1) : 0);
+                                }
+                                const auto src = cell_index(ref[level], child);
+                                if (src >= 0)
+                                {
+                                    emit(entry_type{static_cast<std::size_t>(src), static_cast<std::size_t>(x + shift)});
+                                }
+                            }
+                        });
+                    if (proj_level == 0)
+                    {
+                        break;
+                    }
+                }
+                return true;
+            }
+        };
+    }
+
+    // Prediction of order 0 of the B.C. ghosts at pred_level - 1 to their
+    // children at pred_level: each ghost takes the value of its parent.
     template <class Field>
     void predict_bc(std::size_t pred_level, const DirectionVector<Field::dim>& direction, Field& field)
     {
-        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
-
-        auto& mesh = field.mesh();
+        const auto& mesh = field.mesh();
 
         int n_bc_ghosts = mesh.max_stencil_radius();
         if (!field.get_bc().empty())
         {
             n_bc_ghosts = field.get_bc().front()->stencil_size() / 2;
         }
+        // On a domain with a hole, the ghosts the B.C. fills in other directions are not predicted.
+        const auto excluded = mesh.domain().is_box() ? std::size_t{0} : static_cast<std::size_t>(n_bc_ghosts);
+        const auto dir      = direction_code<Field::dim>(direction);
 
-        // auto& cells = mesh[mesh_id_t::cells][pred_level - 1];
-        //  auto cells                     = domain_boundary(mesh, pred_level - 1, direction);
-        // auto bc_ghosts = difference(translate(cells, n_bc_ghosts * direction), self(mesh.domain()).on(pred_level - 1));
-        auto bc_ghosts = domain_boundary_outer_layer(mesh, pred_level - 1, direction, n_bc_ghosts);
-
-        auto outside_prediction_ghosts = intersection(bc_ghosts, mesh[mesh_id_t::reference][pred_level]).on(pred_level);
-
-        if (mesh.domain().is_box())
+        for (int layer = 1; layer <= n_bc_ghosts; ++layer)
         {
-            predict_bc(outside_prediction_ghosts, pred_level, direction, field);
+            for_each_entry(mesh,
+                           detail::bc_prediction_ghosts<Field::dim>{pred_level, dir, static_cast<std::size_t>(layer), excluded},
+                           [&](const auto& cells)
+                           {
+                               detail::extrapolate_cells(field, cells);
+                           });
         }
-        else
-        {
-            // We don't want to fill by prediction the ghosts that have been/will be filled by the B.C. in other directions.
-            // This can happen when there is a hole in the domain.
-
-            auto bc_ghosts_in_other_directions  = domain_boundary_outer_layer(mesh, pred_level, n_bc_ghosts);
-            auto prediction_ghosts_no_bc_ghosts = difference(outside_prediction_ghosts, bc_ghosts_in_other_directions);
-
-            predict_bc(prediction_ghosts_no_bc_ghosts, pred_level, direction, field);
-        }
-    }
-
-    template <class Subset, class Field>
-    void
-    predict_bc(Subset& prediction_ghosts, std::size_t pred_level, [[maybe_unused]] const DirectionVector<Field::dim>& direction, Field& field)
-    {
-        using interval_t = typename Field::mesh_t::interval_t;
-
-        prediction_ghosts(
-            [&](const auto& i, const auto& index)
-            {
-                interval_t i_cell = {i.start, i.start + 1};
-                for (auto ii = i.start; ii < i.end; ++ii, i_cell += 1)
-                {
-#ifdef SAMURAI_CHECK_NAN
-                    if (xt::any(xt::isnan(field(pred_level - 1, i_cell >> 1, index >> 1))))
-                    {
-                        std::cerr << std::endl;
-#ifdef SAMURAI_WITH_MPI
-                        mpi::communicator world;
-                        std::cerr << "[" << world.rank() << "] ";
-#endif
-                        std::cerr << "NaN found in field(" << (pred_level - 1) << "," << (i_cell >> 1) << "," << (index >> 1)
-                                  << ") during prediction of the B.C. into the cell at (" << pred_level << ", " << ii << ", " << index
-                                  << ") " << std::endl;
-#ifndef NDEBUG
-                        samurai::save(fs::current_path(), "update_ghosts", {true, true}, field.mesh(), field);
-#endif
-                        std::exit(1);
-                    }
-#endif
-                    field(pred_level, i_cell, index) = field(pred_level - 1, i_cell >> 1, index >> 1);
-                }
-            });
     }
 
     /**
@@ -281,72 +533,12 @@ namespace samurai
     template <class Field>
     void project_corner_below(std::size_t level, const DirectionVector<Field::dim>& direction, Field& field)
     {
-        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
-        using coord_t   = typename Field::mesh_t::lca_type::all_coord_type;
-
-        static constexpr std::size_t dim = Field::dim;
-
-        if (level == 0)
-        {
-            return;
-        }
-
-        auto& mesh = field.mesh();
-
-        for (std::size_t delta_l = 1; delta_l <= 2; ++delta_l) // lower level (1 or 2)
-        {
-            auto proj_level = level - delta_l;
-
-            // The source is the corner ghost at `level`, whether the corner has cells at `level`
-            // (ghost filled by polynomial extrapolation) or not (ghost filled by the projection
-            // from level+1, which has already been done since the levels are processed from fine
-            // to coarse). This cascade fills the corner ghosts at every level below the corner
-            // cells, even when max_level - min_level > 2.
-            auto fine_inner_corner = self(mesh.corner(direction)).on(level);
-            auto fine_outer_corner = intersection(translate(fine_inner_corner, direction), mesh[mesh_id_t::reference][level]);
-            auto projection_ghost  = intersection(fine_outer_corner.on(proj_level), mesh[mesh_id_t::reference][proj_level]);
-
-            // Each coarse corner ghost is copied from its corner-most child at `level`, the cell at
-            // the reconstructed fixed-parity position (ii << delta_l) + offset. projection_ghost keeps
-            // a coarse ghost as soon as one of its children lies in the reference array, but on an
-            // adapted mesh whose refinement reaches the domain boundary the corner-most child may be
-            // absent while another child is present. Reading the absent child would index the cell
-            // array with the not-found offset (out of bounds). The child is therefore looked up per
-            // cell and copied only when it exists; where it exists it is the single relevant child, so
-            // the value matches the former unconditional read.
-            const auto& ref_level = mesh[mesh_id_t::reference][level];
-            projection_ghost(
-                [&](const auto& i, const auto& index)
-                {
-                    using index_t = std::decay_t<decltype(index)>;
-
-                    index_t index_child = index << delta_l;
-                    for (std::size_t d = 0; d < dim - 1; ++d)
-                    {
-                        index_child[d] += direction[d + 1] == -1 ? ((1 << delta_l) - 1) : 0;
-                    }
-
-                    coord_t child_coord;
-                    auto i_child = (i.start << delta_l) + (direction[0] == -1 ? ((1 << delta_l) - 1) : 0);
-                    for (auto ii = i.start; ii < i.end; ++ii, i_child += (1 << delta_l))
-                    {
-                        child_coord[0] = i_child;
-                        for (std::size_t d = 1; d < dim; ++d)
-                        {
-                            child_coord[d] = index_child[d - 1];
-                        }
-
-                        if (find(ref_level, child_coord) >= 0)
-                        {
-                            field(proj_level, {ii, ii + 1}, index) = field(level, {i_child, i_child + 1}, index_child);
-                        }
-                    }
-                });
-            if (proj_level == 0)
-            {
-                break;
-            }
-        }
+        for_each_entry(field.mesh(),
+                       detail::corner_ghosts_below<Field::dim>{level, direction_code<Field::dim>(direction)},
+                       [&](const auto& cells)
+                       {
+                           detail::extrapolate_cells(field, cells);
+                       });
     }
 
     // Field projection of the corner ghosts at `level` to level-1 and level-2,

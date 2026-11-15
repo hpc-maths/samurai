@@ -21,6 +21,7 @@
 #include <samurai/field.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
+#include <samurai/static_dispatch.hpp>
 
 namespace samurai
 {
@@ -552,6 +553,179 @@ namespace samurai
             // n_at_ghosts is 0 on these meshes: no inner ghost of the boundary has its whole stencil in the reference mesh
             static_cast<void>(n_at_ghosts);
         }
+    }
+
+    namespace
+    {
+        // The direct walk of a key gives the entries of its set expression, in
+        // the same order, and does not give up. Returns the number of entries.
+        template <class Mesh, class Key>
+        std::size_t expect_walk_matches_traversal(const Mesh& mesh, const Key& key, const char* what)
+        {
+            using entry_t = typename Key::entry_type;
+            EntryTable<entry_t> walked;
+            detail::EntryRecorder<entry_t> recorder(walked);
+            EXPECT_TRUE(key.walk(mesh, recorder)) << what << " gave up at level " << key.level;
+            const auto traversed = record_entries_by_traversal(mesh, key);
+            EXPECT_EQ(walked.entries.size(), traversed.entries.size()) << what << " at level " << key.level;
+            if (walked.entries.size() == traversed.entries.size() && !walked.entries.empty())
+            {
+                EXPECT_EQ(std::memcmp(walked.entries.data(), traversed.entries.data(), walked.entries.size() * sizeof(entry_t)), 0)
+                    << what << " at level " << key.level;
+            }
+            EXPECT_EQ(walked.pool, traversed.pool) << what << " at level " << key.level;
+            return traversed.entries.size();
+        }
+
+        template <std::size_t dim>
+        void check_walks(int stencil_radius)
+        {
+            const std::size_t max_level = dim == 3 ? 5 : 7;
+            auto config = mesh_config<dim>().min_level(2).max_level(max_level).max_stencil_radius(stencil_radius).disable_minimal_ghost_width();
+            auto mesh = mra::make_mesh(Box<double, dim>(xt::zeros<double>({dim}), xt::ones<double>({dim})), config);
+
+            // a blob that reaches a corner, so that the levels change along the boundary
+            auto u = make_scalar_field<double>("u", mesh);
+            for_each_cell(mesh,
+                          [&](const auto& cell)
+                          {
+                              double r2 = 0;
+                              for (std::size_t d = 0; d < dim; ++d)
+                              {
+                                  r2 += (cell.center(d) - 0.15) * (cell.center(d) - 0.15);
+                              }
+                              u[cell] = std::tanh(50 * (std::sqrt(r2) - 0.2));
+                          });
+            make_bc<Dirichlet<1>>(u, 0.);
+            make_MRAdapt(u)(mra_config().epsilon(1e-3));
+
+            const auto& adapted    = u.mesh();
+            const auto ghost_width = static_cast<std::size_t>(adapted.ghost_width());
+            ASSERT_GE(ghost_width, static_cast<std::size_t>(stencil_radius));
+
+            std::size_t n_projection      = 0;
+            std::size_t n_prediction      = 0;
+            std::size_t n_at_cells        = 0;
+            std::size_t n_corner_copies   = 0;
+            std::size_t n_corner_diagonal = 0;
+            std::size_t n_corner_others   = 0;
+            const std::size_t lowest      = adapted.min_level() - 1;
+            for (std::size_t level = lowest; level <= adapted.max_level(); ++level)
+            {
+                for_each_cartesian_direction<dim>(
+                    [&](const auto& direction)
+                    {
+                        const auto dir = direction_code<dim>(direction);
+                        for (std::size_t layer = 1; layer <= ghost_width; ++layer)
+                        {
+                            if (level < adapted.max_level() && layer <= (ghost_width + 1) / 2)
+                            {
+                                n_projection += expect_walk_matches_traversal(adapted,
+                                                                              detail::bc_projection_ghosts<dim>{level, dir, layer, 0},
+                                                                              "project_bc");
+                            }
+                            if (level > adapted.min_level())
+                            {
+                                n_prediction += expect_walk_matches_traversal(adapted,
+                                                                              detail::bc_prediction_ghosts<dim>{level, dir, layer, 0},
+                                                                              "predict_bc");
+                            }
+                            if (level < adapted.min_level())
+                            {
+                                continue;
+                            }
+                            detail::for_each_extrapolated_ghost_layer(
+                                static_cast<int>(layer),
+                                static_cast<int>(layer),
+                                [&](auto stencil_size_, std::size_t)
+                                {
+                                    static constexpr std::size_t size = decltype(stencil_size_)::value;
+                                    n_at_cells += expect_walk_matches_traversal(
+                                        adapted,
+                                        detail::extrapolated_ghosts_at_cells<dim, size>{level, dir, layer},
+                                        "extrapolation at cells");
+                                    if (layer > 1)
+                                    {
+                                        expect_walk_matches_traversal(
+                                            adapted,
+                                            detail::extrapolated_ghosts_at_inner_ghosts<dim, size>{level, dir, layer},
+                                            "extrapolation at inner ghosts");
+                                    }
+                                });
+                        }
+                    });
+                if constexpr (dim > 1)
+                {
+                    if (level < adapted.min_level())
+                    {
+                        continue;
+                    }
+                    for_each_diagonal_direction<dim>(
+                        [&](const auto& direction)
+                        {
+                            const auto dir = direction_code<dim>(direction);
+                            n_corner_copies += expect_walk_matches_traversal(adapted,
+                                                                             detail::corner_ghosts_below<dim>{level, dir},
+                                                                             "corner copies");
+                            n_corner_others += expect_walk_matches_traversal(adapted,
+                                                                             detail::corner_off_diagonal_ghosts<dim>{level, dir},
+                                                                             "off-diagonal corner ghosts");
+                            for (std::size_t layer = 1; layer <= ghost_width; ++layer)
+                            {
+                                if (2 * layer <= detail::max_stencil_size_implemented_PE)
+                                {
+                                    dispatch_static<1, detail::max_stencil_size_implemented_PE / 2>(
+                                        layer,
+                                        [&](auto layer_)
+                                        {
+                                            static constexpr std::size_t size = 2 * decltype(layer_)::value;
+                                            n_corner_diagonal += expect_walk_matches_traversal(
+                                                adapted,
+                                                detail::corner_diagonal_ghosts<dim, size>{level, dir, layer},
+                                                "diagonal corner ghosts");
+                                        });
+                                }
+                                else
+                                {
+                                    n_corner_diagonal += expect_walk_matches_traversal(
+                                        adapted,
+                                        detail::corner_diagonal_ghosts<dim, 2>{level, dir, layer},
+                                        "mirrored diagonal corner ghosts");
+                                }
+                            }
+                        });
+                }
+            }
+            // the comparisons above had entries to compare
+            EXPECT_GT(n_projection, 0u);
+            EXPECT_GT(n_at_cells, 0u);
+            // n_prediction is 0 on these meshes: no ghost below the B.C. ghosts of a coarser boundary cell
+            static_cast<void>(n_prediction);
+            if constexpr (dim > 1)
+            {
+                EXPECT_GT(n_corner_copies, 0u);
+                EXPECT_GT(n_corner_diagonal, 0u);
+                // with one ghost layer, the corner block is its diagonal ghost
+                EXPECT_EQ(n_corner_others > 0, ghost_width > 1);
+            }
+        }
+    }
+
+    TEST(entry_table, walks_same_entries_as_set_traversal_1d)
+    {
+        check_walks<1>(3);
+    }
+
+    TEST(entry_table, walks_same_entries_as_set_traversal_2d)
+    {
+        check_walks<2>(1);
+        check_walks<2>(3);
+        check_walks<2>(4); // the diagonal corner ghost of the layer 4 is mirrored
+    }
+
+    TEST(entry_table, walks_same_entries_as_set_traversal_3d)
+    {
+        check_walks<3>(2);
     }
 
     TEST(entry_table, outer_ghosts_same_with_and_without_tables_1d)

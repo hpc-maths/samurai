@@ -217,14 +217,41 @@ namespace samurai
         }
     }
 
-    // The entries of `key` on `mesh`, produced now and not kept.
+    // The entries of `key` on `mesh`, from its set expression, not kept.
     template <class Mesh, entry_table_key Key>
-    auto record_entries(const Mesh& mesh, const Key& key)
+    auto record_entries_by_traversal(const Mesh& mesh, const Key& key)
     {
         EntryTable<typename Key::entry_type> table;
         detail::EntryRecorder<typename Key::entry_type> recorder(table);
         key.produce(mesh, recorder);
         return table;
+    }
+
+    // A key can also give its entries by a direct walk of the mesh, cheaper
+    // than the set expression but allowed to give up:
+    //     bool walk(const Mesh& mesh, Emit& emit) const; // false: use produce()
+    // It must emit the entries of produce(), in the same order. It is only
+    // used to record a table.
+    template <class Key, class Mesh>
+    concept walkable_key = requires(const Key& key, const Mesh& mesh, detail::EntryRecorder<typename Key::entry_type>& recorder) {
+        { key.walk(mesh, recorder) } -> std::convertible_to<bool>;
+    };
+
+    // The entries of `key` on `mesh`, as a table records them: from the walk
+    // of the key when it has one that succeeds, from its set expression otherwise.
+    template <class Mesh, entry_table_key Key>
+    auto record_entries(const Mesh& mesh, const Key& key)
+    {
+        if constexpr (walkable_key<Key, Mesh>)
+        {
+            EntryTable<typename Key::entry_type> table;
+            detail::EntryRecorder<typename Key::entry_type> recorder(table);
+            if (key.walk(mesh, recorder))
+            {
+                return table;
+            }
+        }
+        return record_entries_by_traversal(mesh, key);
     }
 
     // The tables of one mesh, each recorded the first time it is asked for. A
