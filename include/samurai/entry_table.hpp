@@ -5,6 +5,7 @@
 
 #include <any>
 #include <array>
+#include <atomic>
 #include <concepts>
 #include <cstddef>
 #include <cstdlib>
@@ -14,12 +15,10 @@
 #include <span>
 #include <string_view>
 #include <type_traits>
-#include <typeindex>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
-#include "timers.hpp"
 #include "utils.hpp"
 
 // Entry tables: the traversal of a set expression kept as a flat list of
@@ -179,13 +178,14 @@ namespace samurai
             template <class Key>
             std::size_t operator()(const Key& key) const noexcept
             {
-                // FNV-1a
-                std::array<unsigned char, sizeof(Key)> bytes;
-                std::memcpy(bytes.data(), &key, sizeof(Key));
+                // FNV-1a over the words of the key, its last bytes zero padded
+                std::array<std::size_t, (sizeof(Key) + sizeof(std::size_t) - 1) / sizeof(std::size_t)> words{};
+                std::memcpy(words.data(), &key, sizeof(Key));
                 std::size_t h = 14695981039346656037ULL;
-                for (const auto b : bytes)
+                for (const auto w : words)
                 {
-                    h = (h ^ b) * 1099511628211ULL;
+                    h = (h ^ w) * 1099511628211ULL;
+                    h ^= h >> 29;
                 }
                 return h;
             }
@@ -320,11 +320,12 @@ namespace samurai
         const EntryTable<typename Key::entry_type>& get(const Key& key, const Mesh& mesh) const
         {
             using tables_t = std::unordered_map<Key, EntryTable<typename Key::entry_type>, detail::KeyBytesHash, detail::KeyBytesEqual>;
+            const std::size_t type = type_id<Key>();
             {
                 const std::shared_lock lock(m_mutex);
-                if (const auto it = m_tables.find(std::type_index(typeid(Key))); it != m_tables.end())
+                if (type < m_tables.size() && m_tables[type].has_value())
                 {
-                    const auto& tables = std::any_cast<const tables_t&>(it->second);
+                    const auto& tables = std::any_cast<const tables_t&>(m_tables[type]);
                     if (const auto found = tables.find(key); found != tables.end())
                     {
                         return found->second;
@@ -333,10 +334,17 @@ namespace samurai
             }
             // Recorded outside the lock: a producer may read other tables. When
             // two threads record the same table, the first one kept wins.
-            const ScopedTimer timer("entry tables");
             auto table = record_entries(mesh, key);
             const std::unique_lock lock(m_mutex);
-            auto& slot             = m_tables.try_emplace(std::type_index(typeid(Key)), std::in_place_type<tables_t>).first->second;
+            if (type >= m_tables.size())
+            {
+                m_tables.resize(type + 1);
+            }
+            auto& slot = m_tables[type];
+            if (!slot.has_value())
+            {
+                slot.emplace<tables_t>();
+            }
             const auto [it, added] = std::any_cast<tables_t&>(slot).try_emplace(key, std::move(table));
             m_size += added ? 1 : 0;
             return it->second;
@@ -345,7 +353,23 @@ namespace samurai
       private:
 
         mutable std::shared_mutex m_mutex;
-        mutable std::unordered_map<std::type_index, std::any> m_tables;
+
+        // One number per key type, in the order the types are first asked for.
+        template <class Key>
+        static std::size_t type_id()
+        {
+            static const std::size_t id = next_type_id()++;
+            return id;
+        }
+
+        static std::atomic<std::size_t>& next_type_id()
+        {
+            static std::atomic<std::size_t> next{0};
+            return next;
+        }
+
+        // m_tables[type_id<Key>()] holds the tables of the keys of type Key.
+        mutable std::vector<std::any> m_tables;
         mutable std::size_t m_size = 0;
     };
 
