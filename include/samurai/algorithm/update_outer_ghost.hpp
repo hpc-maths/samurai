@@ -7,6 +7,8 @@
 
 #include "../algorithm.hpp"
 #include "../bc/apply_field_bc.hpp"
+#include "outer_ghost_sets.hpp"
+#include "update_periodic.hpp" // detail::has_ghost_tables
 
 #ifndef NDEBUG
 #include "../io/hdf5.hpp"
@@ -19,6 +21,104 @@ namespace mpi = boost::mpi;
 
 namespace samurai
 {
+    namespace detail
+    {
+        // Calls f with the tables of the ghosts outside the (box) domain at `level`
+        // when the mesh holds them, and returns what f returns: true when the
+        // tables did the work.
+        template <class Mesh, class Func>
+        bool with_outer_ghost_tables(const Mesh& mesh, std::size_t level, Func&& f)
+        {
+            if constexpr (has_ghost_tables<Mesh>)
+            {
+                const auto& outer = mesh.ghost_tables().outer;
+                return level < outer.size() && f(outer[level]);
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        // project_bc on a field: the sum of the children from 0, divided by their number
+        template <class Field>
+        struct FieldBCProjection
+        {
+            using value_t = typename Field::interval_t::value_t;
+            using index_t = typename Field::mesh_t::lca_type::coord_type;
+
+            Field& field;
+            std::size_t proj_level;
+            value_t ii{};
+            index_t index{};
+
+            void ghost(value_t i, const auto& idx)
+            {
+                ii                                     = i;
+                index                                  = idx;
+                field(proj_level, {ii, ii + 1}, index) = 0;
+            }
+
+            void child(std::size_t children_level, value_t ii_child, const auto& index_child)
+            {
+#ifdef SAMURAI_CHECK_NAN
+                if (xt::any(xt::isnan(field(children_level, {ii_child, ii_child + 1}, index_child))))
+                {
+                    std::cerr << std::endl;
+#ifdef SAMURAI_WITH_MPI
+                    mpi::communicator world;
+                    std::cerr << "[" << world.rank() << "] ";
+#endif
+                    std::cerr << "NaN found in field(" << children_level << "," << ii_child << "," << index_child
+                              << ") during projection of the B.C. into the cell at (" << proj_level << ", " << ii << ", " << index << ")"
+                              << std::endl;
+#ifndef NDEBUG
+                    save(fs::current_path(), "update_ghosts", {true, true}, field.mesh(), field);
+#endif
+                    std::exit(1);
+                }
+#endif
+                field(proj_level, {ii, ii + 1}, index) += field(children_level, {ii_child, ii_child + 1}, index_child);
+            }
+
+            void end(int n_children)
+            {
+                if (n_children > 0)
+                {
+                    field(proj_level, {ii, ii + 1}, index) /= n_children;
+                }
+#ifndef NDEBUG
+#ifndef SAMURAI_WITH_MPI
+                else
+                {
+                    // It can happen in normal conditions if the domain has a hole, so only a box domain raises an error.
+                    if (field.mesh().domain().is_box())
+                    {
+                        std::cerr << "No children found for the ghost at level " << proj_level << ", i = " << ii << ", index = " << index
+                                  << " during projection of the B.C." << std::endl;
+                        save(fs::current_path(), "update_ghosts", {true, true}, field.mesh(), field);
+                        assert(false);
+                    }
+                }
+#endif
+#endif
+            }
+        };
+
+        // project_corner_below on a field
+        template <class Field>
+        struct FieldCornerCopy
+        {
+            Field& field;
+            std::size_t level;
+
+            void copy(std::size_t proj_level, auto ii, const auto& index, auto i_child, const auto& index_child)
+            {
+                field(proj_level, {ii, ii + 1}, index) = field(level, {i_child, i_child + 1}, index_child);
+            }
+        };
+    }
+
     template <class Field>
     void project_bc(std::size_t proj_level, const DirectionVector<Field::dim>& direction, int layer, Field& field)
     {
@@ -27,6 +127,22 @@ namespace samurai
         auto& mesh = field.mesh();
 
         assert(layer > 0 && layer <= mesh.max_stencil_radius());
+
+        if (detail::with_outer_ghost_tables(mesh,
+                                            proj_level,
+                                            [&](const auto& outer)
+                                            {
+                                                const auto& tables = outer.projection[detail::cartesian_direction_index(direction)];
+                                                if (static_cast<std::size_t>(layer) > tables.size())
+                                                {
+                                                    return false;
+                                                }
+                                                detail::run_bc_projection(field, tables[static_cast<std::size_t>(layer - 1)]);
+                                                return true;
+                                            }))
+        {
+            return;
+        }
 
         const auto& domain = mesh.domain(proj_level);
 
@@ -67,90 +183,8 @@ namespace samurai
                     [[maybe_unused]] int layer,
                     Field& field)
     {
-        using mesh_id_t  = typename Field::mesh_t::mesh_id_t;
-        using interval_t = typename Field::mesh_t::interval_t;
-        using lca_t      = typename Field::mesh_t::lca_type;
-
-        auto& mesh = field.mesh();
-        lca_t proj_ghost_lca(proj_level, mesh.origin_point(), mesh.scaling_factor());
-
-        projection_ghosts(
-            [&](const auto& i, const auto& index)
-            {
-                field(proj_level, i, index) = 0; // Initialize the sums to 0 to compute the average
-
-                interval_t i_cell = {i.start, i.start + 1};
-
-                for (auto ii = i.start; ii < i.end; ++ii, i_cell += 1)
-                {
-                    proj_ghost_lca.add_point_back(ii, index); // this LCA stores only the current ghost we need to fill
-                    int n_children = 0;
-
-                    // We loop over the upper levels to find children.
-                    // 99% of the time, children are found at level+1, but if there is no children there, we search at level+2
-                    // (this can actually happen in the lid-driven cavity)
-                    for (auto children_level = proj_level + 1; children_level <= proj_level + 2; ++children_level)
-                    {
-                        // We retrieve the children of the current ghost by intersecting it with the upper level
-                        auto children = intersection(self(proj_ghost_lca).on(children_level), mesh[mesh_id_t::reference][children_level]);
-                        // We iterate over the children and add their values to the current ghost in order to compute the average
-                        children(
-                            [&](const auto& i_child, const auto& index_child)
-                            {
-                                for (auto ii_child = i_child.start; ii_child < i_child.end; ++ii_child)
-                                {
-#ifdef SAMURAI_CHECK_NAN
-                                    if (xt::any(xt::isnan(field(children_level, {ii_child, ii_child + 1}, index_child))))
-                                    {
-                                        std::cerr << std::endl;
-#ifdef SAMURAI_WITH_MPI
-                                        mpi::communicator world;
-                                        std::cerr << "[" << world.rank() << "] ";
-#endif
-                                        std::cerr << "NaN found in field(" << children_level << "," << ii_child << "," << index_child
-                                                  << ") during projection of the B.C. into the cell at (" << proj_level << ", " << ii << ", "
-                                                  << index << ")   (dir = " << direction << ", layer = " << layer << ")" << std::endl;
-#ifndef NDEBUG
-                                        save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
-#endif
-                                        std::exit(1);
-                                    }
-#endif
-                                    field(proj_level, i_cell, index) += field(children_level, {ii_child, ii_child + 1}, index_child);
-                                    n_children++;
-                                }
-                            });
-                        // If we found children, we break the loop. Otherwise, we continue to search at the next level
-                        if (n_children > 0)
-                        {
-                            break;
-                        }
-                    }
-                    if (n_children > 0)
-                    {
-                        // We divide the sum by the number of children to get the average
-                        field(proj_level, i_cell, index) /= n_children;
-                    }
-#ifndef NDEBUG
-#ifndef SAMURAI_WITH_MPI
-                    else
-                    {
-                        // I'm not sure if this can happen in normal conditions, so I put this error message in debug mode only.
-                        // However, it can happen in normal conditions if the domain has a hole, so we don't raise an error in that case.
-                        if (mesh.domain().is_box())
-                        {
-                            std::cerr << "No children found for the ghost at level " << proj_level << ", i = " << ii
-                                      << ", index = " << index << " during projection of the B.C. into the cell at level " << proj_level
-                                      << ", i=" << i_cell << ", index=" << index << std::endl;
-                            save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
-                            assert(false);
-                        }
-                    }
-#endif
-#endif
-                    proj_ghost_lca.clear();
-                }
-            });
+        detail::FieldBCProjection<Field> visitor{field, proj_level};
+        detail::visit_bc_projection(field.mesh(), projection_ghosts, proj_level, visitor);
     }
 
     /**
@@ -204,6 +238,25 @@ namespace samurai
         if (!field.get_bc().empty())
         {
             n_bc_ghosts = field.get_bc().front()->stencil_size() / 2;
+        }
+
+        if (detail::with_outer_ghost_tables(mesh,
+                                            pred_level,
+                                            [&](const auto& outer)
+                                            {
+                                                const auto& tables = outer.prediction[detail::cartesian_direction_index(direction)];
+                                                if (static_cast<std::size_t>(n_bc_ghosts) > tables.size())
+                                                {
+                                                    return false;
+                                                }
+                                                for (int layer = 1; layer <= n_bc_ghosts; ++layer)
+                                                {
+                                                    detail::run_copies(field, tables[static_cast<std::size_t>(layer - 1)]);
+                                                }
+                                                return true;
+                                            }))
+        {
+            return;
         }
 
         // auto& cells = mesh[mesh_id_t::cells][pred_level - 1];
@@ -269,72 +322,8 @@ namespace samurai
     template <class Field>
     void project_corner_below(std::size_t level, const DirectionVector<Field::dim>& direction, Field& field)
     {
-        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
-        using coord_t   = typename Field::mesh_t::lca_type::all_coord_type;
-
-        static constexpr std::size_t dim = Field::dim;
-
-        if (level == 0)
-        {
-            return;
-        }
-
-        auto& mesh = field.mesh();
-
-        for (std::size_t delta_l = 1; delta_l <= 2; ++delta_l) // lower level (1 or 2)
-        {
-            auto proj_level = level - delta_l;
-
-            // The source is the corner ghost at `level`, whether the corner has cells at `level`
-            // (ghost filled by polynomial extrapolation) or not (ghost filled by the projection
-            // from level+1, which has already been done since the levels are processed from fine
-            // to coarse). This cascade fills the corner ghosts at every level below the corner
-            // cells, even when max_level - min_level > 2.
-            auto fine_inner_corner = self(mesh.corner(direction)).on(level);
-            auto fine_outer_corner = intersection(translate(fine_inner_corner, direction), mesh[mesh_id_t::reference][level]);
-            auto projection_ghost  = intersection(fine_outer_corner.on(proj_level), mesh[mesh_id_t::reference][proj_level]);
-
-            // Each coarse corner ghost is copied from its corner-most child at `level`, the cell at
-            // the reconstructed fixed-parity position (ii << delta_l) + offset. projection_ghost keeps
-            // a coarse ghost as soon as one of its children lies in the reference array, but on an
-            // adapted mesh whose refinement reaches the domain boundary the corner-most child may be
-            // absent while another child is present. Reading the absent child would index the cell
-            // array with the not-found offset (out of bounds). The child is therefore looked up per
-            // cell and copied only when it exists; where it exists it is the single relevant child, so
-            // the value matches the former unconditional read.
-            const auto& ref_level = mesh[mesh_id_t::reference][level];
-            projection_ghost(
-                [&](const auto& i, const auto& index)
-                {
-                    using index_t = std::decay_t<decltype(index)>;
-
-                    index_t index_child = index << delta_l;
-                    for (std::size_t d = 0; d < dim - 1; ++d)
-                    {
-                        index_child[d] += direction[d + 1] == -1 ? ((1 << delta_l) - 1) : 0;
-                    }
-
-                    coord_t child_coord;
-                    auto i_child = (i.start << delta_l) + (direction[0] == -1 ? ((1 << delta_l) - 1) : 0);
-                    for (auto ii = i.start; ii < i.end; ++ii, i_child += (1 << delta_l))
-                    {
-                        child_coord[0] = i_child;
-                        for (std::size_t d = 1; d < dim; ++d)
-                        {
-                            child_coord[d] = index_child[d - 1];
-                        }
-
-                        if (find(ref_level, child_coord) >= 0)
-                        {
-                            field(proj_level, {ii, ii + 1}, index) = field(level, {i_child, i_child + 1}, index_child);
-                        }
-                    }
-                });
-            if (proj_level == 0)
-            {
-                break;
-            }
-        }
+        detail::FieldCornerCopy<Field> visitor{field, level};
+        detail::visit_corner_copies(field.mesh(), level, direction, visitor);
     }
 
     // Field projection of the corner ghosts at `level` to level-1 and level-2,
@@ -348,6 +337,16 @@ namespace samurai
         {
             if (level <= mesh.max_level() && level >= mesh.min_level())
             {
+                if (detail::with_outer_ghost_tables(mesh,
+                                                    level,
+                                                    [&](const auto& outer)
+                                                    {
+                                                        detail::run_copies(field, outer.corners);
+                                                        return true;
+                                                    }))
+                {
+                    return;
+                }
                 for_each_diagonal_direction<dim>(
                     [&](auto& direction)
                     {
