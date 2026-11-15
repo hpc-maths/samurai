@@ -3,10 +3,13 @@
 
 #pragma once
 
+#include <cmath>
 #include <ranges>
+#include <span>
 
 #include "../algorithm.hpp"
 #include "../bc/apply_field_bc.hpp"
+#include "../entry_table.hpp"
 
 #ifndef NDEBUG
 #include "../io/hdf5.hpp"
@@ -19,138 +22,147 @@ namespace mpi = boost::mpi;
 
 namespace samurai
 {
-    template <class Field>
-    void project_bc(std::size_t proj_level, const DirectionVector<Field::dim>& direction, int layer, Field& field)
+    namespace detail
     {
-        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
-
-        auto& mesh = field.mesh();
-
-        assert(layer > 0 && layer <= mesh.max_stencil_radius());
-
-        const auto& domain = mesh.domain(proj_level);
-
-        auto& inner = mesh.get_union()[proj_level];
-        // auto inner = self(mesh[mesh_id_t::cells][proj_level + 1]).on(proj_level);
-
-        // We want only 1 layer (the further one),
-        // so we remove all closer layers by making the difference with the domain translated by (layer - 1) * direction
-        auto outside_layer     = difference(translate(inner, layer * direction), translate(domain, (layer - 1) * direction));
-        auto projection_ghosts = intersection(outside_layer, mesh[mesh_id_t::reference][proj_level]).on(proj_level);
-
-        if (mesh.domain().is_box())
+        // A ghost outside the domain and its children in the reference mesh.
+        struct BcProjectionEntry
         {
-            project_bc(projection_ghosts, proj_level, direction, layer, field);
-        }
-        else
-        {
-            // We don't want to fill by projection the ghosts that have been/will be filled by the B.C. in other directions.
-            // This can happen when there is a hole in the domain.
+            std::size_t ghost;
+            PoolRange children;
+        };
 
-            int n_bc_ghosts = mesh.max_stencil_radius();
-            if (!field.get_bc().empty())
+        // The ghosts of `level` in the layer `layer` outside the domain in
+        // `direction`, facing the union: those project_bc fills with the mean
+        // of their children, at level + 1 or, when they have none there, at
+        // level + 2. When the domain is not a box, the ghosts within
+        // n_bc_ghosts of the boundary in another direction are left out: the
+        // B.C. fills them (n_bc_ghosts is 0 on a box).
+        template <std::size_t dim>
+        struct bc_projection_ghosts
+        {
+            using entry_type = BcProjectionEntry;
+
+            std::size_t level;
+            std::size_t direction;
+            std::size_t layer;
+            std::size_t n_bc_ghosts;
+
+            template <class Mesh, class Emit>
+            void produce(const Mesh& mesh, Emit& emit) const
             {
-                n_bc_ghosts = field.get_bc().front()->stencil_size() / 2;
+                using mesh_id_t = typename Mesh::mesh_id_t;
+                using lca_t     = typename Mesh::lca_type;
+
+                const auto dir          = direction_from_code<dim>(direction);
+                const auto signed_layer = static_cast<int>(layer);
+                const auto& domain      = mesh.domain(level);
+                const auto& inner       = mesh.get_union()[level];
+
+                // only the layer `layer`: the closer ones are removed with the domain translated by (layer - 1) * direction
+                auto outside_layer     = difference(translate(inner, signed_layer * dir), translate(domain, (signed_layer - 1) * dir));
+                auto projection_ghosts = intersection(outside_layer, mesh[mesh_id_t::reference][level]).on(level);
+
+                lca_t ghost_lca(level, mesh.origin_point(), mesh.scaling_factor());
+                auto record = [&](const auto& i, const auto& index)
+                {
+                    const auto first = memory_offset(mesh, {level, i.start, index});
+                    for (auto ii = i.start; ii < i.end; ++ii)
+                    {
+                        BcProjectionEntry entry{
+                            first + static_cast<std::size_t>(ii - i.start),
+                            {emit.pool().size(), 0}
+                        };
+                        ghost_lca.add_point_back(ii, index); // only the current ghost
+                        for (auto children_level = level + 1; children_level <= level + 2 && entry.children.count == 0; ++children_level)
+                        {
+                            auto children = intersection(self(ghost_lca).on(children_level), mesh[mesh_id_t::reference][children_level]);
+                            children(
+                                [&](const auto& i_child, const auto& index_child)
+                                {
+                                    const auto first_child = memory_offset(mesh, {children_level, i_child.start, index_child});
+                                    for (std::size_t k = 0; k < i_child.size(); ++k)
+                                    {
+                                        emit.pool().push_back(first_child + k);
+                                        ++entry.children.count;
+                                    }
+                                });
+                        }
+                        ghost_lca.clear();
+                        emit(entry);
+                    }
+                };
+
+                if (n_bc_ghosts == 0)
+                {
+                    projection_ghosts(record);
+                }
+                else
+                {
+                    auto bc_ghosts_in_other_directions = domain_boundary_outer_layer(mesh, level, static_cast<int>(n_bc_ghosts));
+                    difference(projection_ghosts, bc_ghosts_in_other_directions)(record);
+                }
             }
+        };
 
-            auto bc_ghosts_in_other_directions  = domain_boundary_outer_layer(mesh, proj_level, n_bc_ghosts);
-            auto projection_ghosts_no_bc_ghosts = difference(projection_ghosts, bc_ghosts_in_other_directions);
-
-            project_bc(projection_ghosts_no_bc_ghosts, proj_level, direction, layer, field);
+        // The sum of the children from 0, divided by their number.
+        template <class Field>
+        void project_children(Field& field, const BcProjectionEntry& entry, std::span<const std::size_t> pool)
+        {
+            using value_t            = typename Field::value_type;
+            constexpr std::size_t nc = Field::n_comp;
+            auto* data               = field.data();
+            const auto children      = pool.subspan(entry.children.first, entry.children.count);
+            for (std::size_t c = 0; c < nc; ++c)
+            {
+                value_t sum = 0;
+                for (const auto child : children)
+                {
+#ifdef SAMURAI_CHECK_NAN
+                    if (std::isnan(data[child * nc + c]))
+                    {
+                        std::cerr << "NaN found in the cell of storage index " << child
+                                  << " during projection of the B.C. into the ghost of storage index " << entry.ghost << std::endl;
+                        std::exit(1);
+                    }
+#endif
+                    sum += data[child * nc + c];
+                }
+                if (!children.empty())
+                {
+                    sum /= static_cast<int>(children.size());
+                }
+                data[entry.ghost * nc + c] = sum;
+            }
         }
     }
 
-    template <class Subset, class Field>
-    void project_bc(Subset& projection_ghosts,
-                    std::size_t proj_level,
-                    [[maybe_unused]] const DirectionVector<Field::dim>& direction,
-                    [[maybe_unused]] int layer,
-                    Field& field)
+    template <class Field>
+    void project_bc(std::size_t proj_level, const DirectionVector<Field::dim>& direction, int layer, Field& field)
     {
-        using mesh_id_t  = typename Field::mesh_t::mesh_id_t;
-        using interval_t = typename Field::mesh_t::interval_t;
-        using lca_t      = typename Field::mesh_t::lca_type;
+        const auto& mesh = field.mesh();
 
-        auto& mesh = field.mesh();
-        lca_t proj_ghost_lca(proj_level, mesh.origin_point(), mesh.scaling_factor());
+        assert(layer > 0 && layer <= mesh.max_stencil_radius());
 
-        projection_ghosts(
-            [&](const auto& i, const auto& index)
-            {
-                field(proj_level, i, index) = 0; // Initialize the sums to 0 to compute the average
+        // On a domain with a hole, the ghosts the B.C. fills in other directions are not projected.
+        int n_bc_ghosts = 0;
+        if (!mesh.domain().is_box())
+        {
+            n_bc_ghosts = field.get_bc().empty() ? mesh.max_stencil_radius() : field.get_bc().front()->stencil_size() / 2;
+        }
 
-                interval_t i_cell = {i.start, i.start + 1};
-
-                for (auto ii = i.start; ii < i.end; ++ii, i_cell += 1)
-                {
-                    proj_ghost_lca.add_point_back(ii, index); // this LCA stores only the current ghost we need to fill
-                    int n_children = 0;
-
-                    // We loop over the upper levels to find children.
-                    // 99% of the time, children are found at level+1, but if there is no children there, we search at level+2
-                    // (this can actually happen in the lid-driven cavity)
-                    for (auto children_level = proj_level + 1; children_level <= proj_level + 2; ++children_level)
-                    {
-                        // We retrieve the children of the current ghost by intersecting it with the upper level
-                        auto children = intersection(self(proj_ghost_lca).on(children_level), mesh[mesh_id_t::reference][children_level]);
-                        // We iterate over the children and add their values to the current ghost in order to compute the average
-                        children(
-                            [&](const auto& i_child, const auto& index_child)
-                            {
-                                for (auto ii_child = i_child.start; ii_child < i_child.end; ++ii_child)
-                                {
-#ifdef SAMURAI_CHECK_NAN
-                                    if (xt::any(xt::isnan(field(children_level, {ii_child, ii_child + 1}, index_child))))
-                                    {
-                                        std::cerr << std::endl;
-#ifdef SAMURAI_WITH_MPI
-                                        mpi::communicator world;
-                                        std::cerr << "[" << world.rank() << "] ";
+        for_each_entry(mesh,
+                       detail::bc_projection_ghosts<Field::dim>{proj_level,
+                                                                direction_code<Field::dim>(direction),
+                                                                static_cast<std::size_t>(layer),
+                                                                static_cast<std::size_t>(n_bc_ghosts)},
+                       [&](const auto& entry, std::span<const std::size_t> pool)
+                       {
+#if !defined(NDEBUG) && !defined(SAMURAI_WITH_MPI)
+                           // It can happen in normal conditions if the domain has a hole, so only a box domain raises an error.
+                           assert(entry.children.count > 0 || !mesh.domain().is_box());
 #endif
-                                        std::cerr << "NaN found in field(" << children_level << "," << ii_child << "," << index_child
-                                                  << ") during projection of the B.C. into the cell at (" << proj_level << ", " << ii << ", "
-                                                  << index << ")   (dir = " << direction << ", layer = " << layer << ")" << std::endl;
-#ifndef NDEBUG
-                                        save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
-#endif
-                                        std::exit(1);
-                                    }
-#endif
-                                    field(proj_level, i_cell, index) += field(children_level, {ii_child, ii_child + 1}, index_child);
-                                    n_children++;
-                                }
-                            });
-                        // If we found children, we break the loop. Otherwise, we continue to search at the next level
-                        if (n_children > 0)
-                        {
-                            break;
-                        }
-                    }
-                    if (n_children > 0)
-                    {
-                        // We divide the sum by the number of children to get the average
-                        field(proj_level, i_cell, index) /= n_children;
-                    }
-#ifndef NDEBUG
-#ifndef SAMURAI_WITH_MPI
-                    else
-                    {
-                        // I'm not sure if this can happen in normal conditions, so I put this error message in debug mode only.
-                        // However, it can happen in normal conditions if the domain has a hole, so we don't raise an error in that case.
-                        if (mesh.domain().is_box())
-                        {
-                            std::cerr << "No children found for the ghost at level " << proj_level << ", i = " << ii
-                                      << ", index = " << index << " during projection of the B.C. into the cell at level " << proj_level
-                                      << ", i=" << i_cell << ", index=" << index << std::endl;
-                            save(fs::current_path(), "update_ghosts", {true, true}, mesh, field);
-                            assert(false);
-                        }
-                    }
-#endif
-#endif
-                    proj_ghost_lca.clear();
-                }
-            });
+                           detail::project_children(field, entry, pool);
+                       });
     }
 
     /**

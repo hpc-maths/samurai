@@ -461,6 +461,114 @@ namespace samurai
         }
     }
 
+    namespace
+    {
+        // The ghosts outside the domain filled through entries (project_bc and
+        // the polynomial extrapolation of the further layers): the same bits
+        // with and without tables, and tables that are not empty.
+        template <std::size_t dim>
+        void check_outer_ghost_entries()
+        {
+            const std::size_t max_level = dim == 3 ? 5 : 7;
+            auto config = mesh_config<dim>().min_level(2).max_level(max_level).max_stencil_radius(3).disable_minimal_ghost_width();
+            auto mesh   = mra::make_mesh(Box<double, dim>(xt::zeros<double>({dim}), xt::ones<double>({dim})), config);
+
+            // a blob that reaches the boundary, so that its levels change along it
+            auto u = make_scalar_field<double>("u", mesh);
+            for_each_cell(mesh,
+                          [&](const auto& cell)
+                          {
+                              double r2 = 0;
+                              for (std::size_t d = 0; d < dim; ++d)
+                              {
+                                  r2 += (cell.center(d) - 0.15) * (cell.center(d) - 0.15);
+                              }
+                              u[cell] = std::tanh(50 * (std::sqrt(r2) - 0.2));
+                          });
+            make_bc<Dirichlet<1>>(u, 0.);
+            make_MRAdapt(u)(mra_config().epsilon(1e-3));
+
+            const auto& adapted = u.mesh();
+            auto s              = make_scalar_field<double>("s", u.mesh());
+            auto v              = make_vector_field<double, 3>("v", u.mesh());
+            make_bc<Dirichlet<1>>(s, 0.);
+            make_bc<Dirichlet<1>>(v, 0., 0., 0.);
+            fill_all(s, 0.1);
+            fill_all(v, 0.7);
+
+            std::vector<std::vector<double>> whole_s;
+            std::vector<std::vector<double>> whole_v;
+            for (const bool tables : {true, false})
+            {
+                const WithEntryTables with(tables);
+                auto s_all = s;
+                auto v_all = v;
+                update_outer_ghosts(s_all, v_all);
+                whole_s.emplace_back(s_all.data(), s_all.data() + s_all.array().size());
+                whole_v.emplace_back(v_all.data(), v_all.data() + v_all.array().size());
+            }
+            EXPECT_EQ(whole_s[0], whole_s[1]);
+            EXPECT_EQ(whole_v[0], whole_v[1]);
+
+            // what the comparison went through
+            std::size_t n_projected = 0;
+            std::size_t n_children  = 0;
+            std::size_t n_at_cells  = 0;
+            std::size_t n_at_ghosts = 0;
+            const auto ghost_width  = static_cast<std::size_t>(adapted.ghost_width());
+            for (std::size_t level = adapted.min_level(); level <= adapted.max_level(); ++level)
+            {
+                for_each_cartesian_direction<dim>(
+                    [&](const auto& direction)
+                    {
+                        const auto dir   = direction_code<dim>(direction);
+                        const auto table = record_entries(adapted, detail::bc_projection_ghosts<dim>{level, dir, 1, 0});
+                        n_projected += table.entries.size();
+                        n_children += table.pool.size();
+                        for (std::size_t layer = 2; layer <= ghost_width; ++layer)
+                        {
+                            // layers 2 and 3: stencils of 4 and 6 cells
+                            if (layer == 2)
+                            {
+                                n_at_cells += record_entries(adapted, detail::extrapolated_ghosts_at_cells<dim, 4>{level, dir, layer})
+                                                  .entries.size();
+                                n_at_ghosts += record_entries(adapted, detail::extrapolated_ghosts_at_inner_ghosts<dim, 4>{level, dir, layer})
+                                                   .entries.size();
+                            }
+                            else if (layer == 3)
+                            {
+                                n_at_cells += record_entries(adapted, detail::extrapolated_ghosts_at_cells<dim, 6>{level, dir, layer})
+                                                  .entries.size();
+                                n_at_ghosts += record_entries(adapted, detail::extrapolated_ghosts_at_inner_ghosts<dim, 6>{level, dir, layer})
+                                                   .entries.size();
+                            }
+                        }
+                    });
+            }
+            EXPECT_GE(ghost_width, 3u);
+            EXPECT_GT(n_projected, 0u);
+            EXPECT_GT(n_children, n_projected); // several children per ghost
+            EXPECT_GT(n_at_cells, 0u);
+            // n_at_ghosts is 0 on these meshes: no inner ghost of the boundary has its whole stencil in the reference mesh
+            static_cast<void>(n_at_ghosts);
+        }
+    }
+
+    TEST(entry_table, outer_ghosts_same_with_and_without_tables_1d)
+    {
+        check_outer_ghost_entries<1>();
+    }
+
+    TEST(entry_table, outer_ghosts_same_with_and_without_tables_2d)
+    {
+        check_outer_ghost_entries<2>();
+    }
+
+    TEST(entry_table, outer_ghosts_same_with_and_without_tables_3d)
+    {
+        check_outer_ghost_entries<3>();
+    }
+
     TEST(entry_table, ghosts_same_as_field_operators_1d)
     {
         check_ghost_entries<1>(false);
