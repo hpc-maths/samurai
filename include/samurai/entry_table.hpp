@@ -44,7 +44,7 @@
 //             auto set = ...; // depends on mesh and level only
 //             set([&](const auto& i, const auto& index)
 //                 {
-//                     emit(samurai::rows(mesh, i.size(), {{level, i.start, index}, {level, i.start + 1, index}}));
+//                     emit(samurai::make_rows(mesh, i.size(), {{level, i.start, index}, {level, i.start + 1, index}}));
 //                 });
 //         }
 //     };
@@ -417,9 +417,10 @@ namespace samurai
     }
 
     // The runs of `len` cells along x from each of the given cells:
-    //     rows(mesh, i.size(), {{level, i.start, index}, {level + 1, 2 * i.start, 2 * index}})
+    //     make_rows(mesh, i.size(), {{level, i.start, index}, {level + 1, 2 * i.start, 2 * index}})
     template <class Mesh, std::size_t N>
-    auto rows(const Mesh& mesh, std::size_t len, const detail::CellCoord<Mesh::dim, typename Mesh::interval_t::value_t> (&first_cells)[N])
+    auto
+    make_rows(const Mesh& mesh, std::size_t len, const detail::CellCoord<Mesh::dim, typename Mesh::interval_t::value_t> (&first_cells)[N])
     {
         Rows<N> run{len, {}};
         for (std::size_t k = 0; k < N; ++k)

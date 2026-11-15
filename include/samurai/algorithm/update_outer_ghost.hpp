@@ -4,6 +4,7 @@
 #pragma once
 
 #include <cmath>
+#include <numeric>
 #include <ranges>
 #include <span>
 
@@ -173,19 +174,24 @@ namespace samurai
             const auto children      = pool.subspan(entry.children.first, entry.children.count);
             for (std::size_t c = 0; c < nc; ++c)
             {
-                value_t sum = 0;
+#ifdef SAMURAI_CHECK_NAN
                 for (const auto child : children)
                 {
-#ifdef SAMURAI_CHECK_NAN
                     if (std::isnan(data[child * nc + c]))
                     {
                         std::cerr << "NaN found in the cell of storage index " << child
                                   << " during projection of the B.C. into the ghost of storage index " << entry.ghost << std::endl;
                         std::exit(1);
                     }
-#endif
-                    sum += data[child * nc + c];
                 }
+#endif
+                value_t sum = std::accumulate(children.begin(),
+                                              children.end(),
+                                              value_t{0},
+                                              [&](value_t partial, std::size_t child)
+                                              {
+                                                  return partial + data[child * nc + c];
+                                              });
                 if (!children.empty())
                 {
                     sum /= static_cast<int>(children.size());

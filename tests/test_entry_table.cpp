@@ -125,11 +125,11 @@ namespace samurai
                                             level,
                                             [&](const auto& i, const auto& index)
                                             {
-                                                emit(rows(mesh,
-                                                          i.size(),
-                                                          {
-                                                              {level, i.start,     index},
-                                                              {level, i.start + 1, index}
+                                                emit(make_rows(mesh,
+                                                               i.size(),
+                                                               {
+                                                                   {level, i.start,     index},
+                                                                   {level, i.start + 1, index}
                                                 }));
                                             });
             }
