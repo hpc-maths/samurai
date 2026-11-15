@@ -92,15 +92,18 @@ namespace samurai
         std::vector<std::size_t> pool;
     };
 
+    // What a value of the environment variable SAMURAI_ENTRY_TABLES asks for:
+    // tables, unless it is "0". nullptr is an unset variable.
+    inline bool entry_tables_enabled_by(const char* value)
+    {
+        return value == nullptr || std::string_view(value) != "0";
+    }
+
     // Whether meshes keep tables. Set SAMURAI_ENTRY_TABLES=0 to always traverse
     // the set expressions.
     inline bool& entry_tables_enabled()
     {
-        static bool enabled = []
-        {
-            const char* env = std::getenv("SAMURAI_ENTRY_TABLES");
-            return env == nullptr || std::string_view(env) != "0";
-        }();
+        static bool enabled = entry_tables_enabled_by(std::getenv("SAMURAI_ENTRY_TABLES"));
         return enabled;
     }
 
@@ -278,17 +281,17 @@ namespace samurai
         }
 
         EntryTableStore(EntryTableStore&& other) noexcept
-            : m_tables(std::move(other.m_tables))
-            , m_size(std::exchange(other.m_size, 0))
         {
-            other.m_tables.clear();
+            swap(other);
         }
 
         EntryTableStore& operator=(EntryTableStore&& other) noexcept
         {
-            m_tables = std::move(other.m_tables);
-            m_size   = std::exchange(other.m_size, 0);
-            other.m_tables.clear();
+            if (this != &other)
+            {
+                clear();
+                swap(other);
+            }
             return *this;
         }
 
@@ -296,8 +299,12 @@ namespace samurai
 
         void swap(EntryTableStore& other) noexcept
         {
-            m_tables.swap(other.m_tables);
-            std::swap(m_size, other.m_size);
+            if (this != &other)
+            {
+                const std::scoped_lock lock(m_mutex, other.m_mutex);
+                m_tables.swap(other.m_tables);
+                std::swap(m_size, other.m_size);
+            }
         }
 
         void clear() noexcept

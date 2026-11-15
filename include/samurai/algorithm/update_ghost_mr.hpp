@@ -197,7 +197,19 @@ namespace samurai::detail
     {
         constexpr std::size_t dim        = Field::dim;
         constexpr std::size_t pred_order = Field::mesh_t::config_t::prediction_stencil_radius;
-        PredictionKernel<dim, pred_order> predict;
+        PredictionKernel<dim, pred_order> prediction;
+
+        // the kernels, on every field
+        auto project = [&](const auto& run)
+        {
+            project_run(field, run);
+            (project_run(other_fields, run), ...);
+        };
+        auto predict = [&](const auto& entry)
+        {
+            prediction(field, entry);
+            (prediction(other_fields, entry), ...);
+        };
 
         const auto& mesh      = field.mesh();
         auto max_level        = mesh.max_level();
@@ -224,25 +236,13 @@ namespace samurai::detail
 
             if (level > min_level)
             {
-                for_each_entry(mesh,
-                               projection_ghosts<dim>{level - 1},
-                               [&](const auto& run)
-                               {
-                                   project_run(field, run);
-                                   (project_run(other_fields, run), ...);
-                               });
+                for_each_entry(mesh, projection_ghosts<dim>{level - 1}, project);
             }
         }
 
         for (std::size_t level = min_level + 1; level <= max_level; ++level)
         {
-            for_each_entry(mesh,
-                           prediction_ghosts<dim, pred_order>{level},
-                           [&](const auto& entry)
-                           {
-                               predict(field, entry);
-                               (predict(other_fields, entry), ...);
-                           });
+            for_each_entry(mesh, prediction_ghosts<dim, pred_order>{level}, predict);
             exchange_subdomains_merged(level, field, other_fields...);
             update_ghost_periodic(level, field, other_fields...);
         }

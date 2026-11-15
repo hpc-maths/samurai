@@ -17,6 +17,7 @@
 
 #include <samurai/algorithm/update.hpp>
 #include <samurai/bc.hpp>
+#include <samurai/domain_builder.hpp>
 #include <samurai/entry_table.hpp>
 #include <samurai/field.hpp>
 #include <samurai/mr/adapt.hpp>
@@ -468,17 +469,26 @@ namespace samurai
         // the polynomial extrapolation of the further layers): the same bits
         // with and without tables, and tables that are not empty.
         template <std::size_t dim>
-        void check_outer_ghost_entries()
+        void check_outer_ghost_entries(bool front = false)
         {
             const std::size_t max_level = dim == 3 ? 5 : 7;
-            auto config = mesh_config<dim>().min_level(2).max_level(max_level).max_stencil_radius(3).disable_minimal_ghost_width();
-            auto mesh   = mra::make_mesh(Box<double, dim>(xt::zeros<double>({dim}), xt::ones<double>({dim})), config);
+            auto config                 = mesh_config<dim>().min_level(2).max_level(max_level).max_stencil_radius(3);
+            if (!front)
+            {
+                config.disable_minimal_ghost_width();
+            }
+            auto mesh = mra::make_mesh(Box<double, dim>(xt::zeros<double>({dim}), xt::ones<double>({dim})), config);
 
-            // a blob that reaches the boundary, so that its levels change along it
+            // a blob that reaches the boundary, or a front that crosses it: the levels change along it
             auto u = make_scalar_field<double>("u", mesh);
             for_each_cell(mesh,
                           [&](const auto& cell)
                           {
+                              if (front)
+                              {
+                                  u[cell] = std::tanh(100 * (cell.center(0) - 0.5));
+                                  return;
+                              }
                               double r2 = 0;
                               for (std::size_t d = 0; d < dim; ++d)
                               {
@@ -577,18 +587,34 @@ namespace samurai
             return traversed.entries.size();
         }
 
+        // What the adapted mesh is refined around.
+        enum class Refined
+        {
+            corner_blob, // a blob that reaches a corner of the domain
+            front,       // a front normal to x, that crosses the boundaries along x
+        };
+
         template <std::size_t dim>
-        void check_walks(int stencil_radius)
+        void check_walks(int stencil_radius, Refined refined = Refined::corner_blob)
         {
             const std::size_t max_level = dim == 3 ? 5 : 7;
-            auto config = mesh_config<dim>().min_level(2).max_level(max_level).max_stencil_radius(stencil_radius).disable_minimal_ghost_width();
+            auto config                 = mesh_config<dim>().min_level(2).max_level(max_level).max_stencil_radius(stencil_radius);
+            if (refined == Refined::corner_blob)
+            {
+                config.disable_minimal_ghost_width();
+            }
             auto mesh = mra::make_mesh(Box<double, dim>(xt::zeros<double>({dim}), xt::ones<double>({dim})), config);
 
-            // a blob that reaches a corner, so that the levels change along the boundary
+            // in both cases, the levels change along the boundary
             auto u = make_scalar_field<double>("u", mesh);
             for_each_cell(mesh,
                           [&](const auto& cell)
                           {
+                              if (refined == Refined::front)
+                              {
+                                  u[cell] = std::tanh(100 * (cell.center(0) - 0.5));
+                                  return;
+                              }
                               double r2 = 0;
                               for (std::size_t d = 0; d < dim; ++d)
                               {
@@ -596,7 +622,7 @@ namespace samurai
                               }
                               u[cell] = std::tanh(50 * (std::sqrt(r2) - 0.2));
                           });
-            make_bc<Dirichlet<1>>(u, 0.);
+            make_bc<Neumann<1>>(u, 0.);
             make_MRAdapt(u)(mra_config().epsilon(1e-3));
 
             const auto& adapted    = u.mesh();
@@ -699,8 +725,11 @@ namespace samurai
             // the comparisons above had entries to compare
             EXPECT_GT(n_projection, 0u);
             EXPECT_GT(n_at_cells, 0u);
-            // n_prediction is 0 on these meshes: no ghost below the B.C. ghosts of a coarser boundary cell
-            static_cast<void>(n_prediction);
+            // predict_bc has ghosts to fill where a front crosses the boundary: next to a coarser boundary cell
+            if (dim > 1 && refined == Refined::front)
+            {
+                EXPECT_GT(n_prediction, 0u);
+            }
             if constexpr (dim > 1)
             {
                 EXPECT_GT(n_corner_copies, 0u);
@@ -721,11 +750,129 @@ namespace samurai
         check_walks<2>(1);
         check_walks<2>(3);
         check_walks<2>(4); // the diagonal corner ghost of the layer 4 is mirrored
+        check_walks<2>(2, Refined::front);
+        check_walks<2>(3, Refined::front);
     }
 
     TEST(entry_table, walks_same_entries_as_set_traversal_3d)
     {
         check_walks<3>(2);
+        check_walks<3>(2, Refined::front);
+    }
+
+    // The keys where there is nothing to emit, and the walks that give up.
+    TEST(entry_table, empty_and_refused_walks)
+    {
+        static constexpr std::size_t dim = 2;
+        auto config                      = mesh_config<dim>().min_level(3).max_level(3).max_stencil_radius(2);
+        const auto mesh                  = mra::make_mesh(Box<double, dim>({0., 0.}, {1., 1.}), config);
+        using mesh_t                     = std::remove_cvref_t<decltype(mesh)>;
+        using mesh_id_t                  = typename mesh_t::mesh_id_t;
+        using lca_t                      = typename mesh_t::lca_type;
+        const DirectionVector<dim> diagonal{1, 1};
+        const DirectionVector<dim> cartesian{1, 0};
+
+        // no corner ghost below the level 0
+        const detail::corner_ghosts_below<dim> below_level_0{0, direction_code<dim>(diagonal)};
+        EXPECT_TRUE(record_entries_by_traversal(mesh, below_level_0).entries.empty());
+        EXPECT_TRUE(record_entries(mesh, below_level_0).entries.empty());
+
+        // a cartesian direction has no off-diagonal ghost
+        std::size_t n_offsets = 0;
+        detail::for_each_off_diagonal_offset<dim>(cartesian,
+                                                  2,
+                                                  [&](int, const auto&)
+                                                  {
+                                                      ++n_offsets;
+                                                  });
+        EXPECT_EQ(n_offsets, 0u);
+        detail::for_each_off_diagonal_offset<dim>(diagonal,
+                                                  2,
+                                                  [&](int, const auto&)
+                                                  {
+                                                      ++n_offsets;
+                                                  });
+        EXPECT_EQ(n_offsets, 2u); // one per layer
+
+        // blocks: an empty array is not a block, and a block does not hold what sticks out of it
+        EXPECT_FALSE(detail::as_block(lca_t(2)).has_value());
+        const auto& cells = mesh[mesh_id_t::cells][3]; // the uniform mesh
+        const auto block  = detail::as_block(cells);
+        ASSERT_TRUE(block.has_value());
+        EXPECT_TRUE(detail::block_holds(*block, cells));
+        EXPECT_FALSE(detail::block_holds(detail::translate(*block, cartesian), cells));
+        EXPECT_FALSE(detail::cell_index(cells, {block->hi[0], block->lo[1]}) >= 0);
+        EXPECT_TRUE(detail::cell_index(cells, {block->lo[0], block->lo[1]}) >= 0);
+
+        // the corner is only known up to its own level
+        EXPECT_TRUE(detail::corner_block(mesh, diagonal, mesh.corner(diagonal).level()).has_value());
+        EXPECT_FALSE(detail::corner_block(mesh, diagonal, mesh.corner(diagonal).level() + 1).has_value());
+
+        // so the walks of the corner keys give up there
+        const auto too_fine = mesh.corner(diagonal).level() + 1;
+        const auto dir      = direction_code<dim>(diagonal);
+        EntryTable<Cells<2>> walked;
+        detail::EntryRecorder<Cells<2>> recorder(walked);
+        EXPECT_FALSE((detail::corner_ghosts_below<dim>{too_fine, dir}).walk(mesh, recorder));
+        EXPECT_FALSE((detail::corner_diagonal_ghosts<dim, 2>{too_fine, dir, 1}).walk(mesh, recorder));
+        EXPECT_FALSE((detail::corner_off_diagonal_ghosts<dim>{too_fine, dir}).walk(mesh, recorder));
+        EXPECT_TRUE(walked.entries.empty());
+    }
+
+    // SAMURAI_ENTRY_TABLES=0 is the only value that turns the tables off.
+    TEST(entry_table, environment_switch)
+    {
+        EXPECT_TRUE(entry_tables_enabled_by(nullptr));
+        EXPECT_TRUE(entry_tables_enabled_by("1"));
+        EXPECT_TRUE(entry_tables_enabled_by(""));
+        EXPECT_FALSE(entry_tables_enabled_by("0"));
+    }
+
+    // A store keeps its tables when moved or swapped, and never copies them.
+    TEST(entry_table, store_copy_move_swap)
+    {
+        with_adapted_field<2>(false,
+                              [](auto& u)
+                              {
+                                  const WithEntryTables on(true);
+                                  const auto& mesh  = u.mesh();
+                                  const auto level  = mesh.max_level();
+                                  const auto values = seen(mesh, cell_and_next{level});
+
+                                  EntryTableStore store;
+                                  store.get(cell_and_next{level}, mesh);
+                                  store.get(weighted_cell_and_next{level}, mesh);
+                                  ASSERT_EQ(store.size(), 2u);
+
+                                  EntryTableStore copy(store);
+                                  EXPECT_EQ(copy.size(), 0u);
+                                  copy.get(cell_and_next{level}, mesh);
+                                  copy = store; // drops its own table, takes none
+                                  EXPECT_EQ(copy.size(), 0u);
+                                  auto& same = store;
+                                  store      = same;
+                                  EXPECT_EQ(store.size(), 2u);
+
+                                  EntryTableStore moved(std::move(store));
+                                  EXPECT_EQ(moved.size(), 2u);
+                                  EntryTableStore assigned;
+                                  assigned.get(grouped_cells{level}, mesh);
+                                  assigned = std::move(moved);
+                                  EXPECT_EQ(assigned.size(), 2u);
+                                  assigned.swap(assigned);
+                                  EXPECT_EQ(assigned.size(), 2u);
+                                  auto& itself = assigned;
+                                  assigned     = std::move(itself);
+                                  EXPECT_EQ(assigned.size(), 2u);
+
+                                  // the table it kept is still the one of the key
+                                  const auto& table = assigned.get(cell_and_next{level}, mesh);
+                                  EXPECT_EQ(assigned.size(), 2u);
+                                  EXPECT_EQ(table.entries.size() * 3, values.size());
+
+                                  assigned.clear();
+                                  EXPECT_EQ(assigned.size(), 0u);
+                              });
     }
 
     TEST(entry_table, outer_ghosts_same_with_and_without_tables_1d)
@@ -736,11 +883,78 @@ namespace samurai
     TEST(entry_table, outer_ghosts_same_with_and_without_tables_2d)
     {
         check_outer_ghost_entries<2>();
+        check_outer_ghost_entries<2>(true);
     }
 
     TEST(entry_table, outer_ghosts_same_with_and_without_tables_3d)
     {
         check_outer_ghost_entries<3>();
+        check_outer_ghost_entries<3>(true);
+    }
+
+    // On a domain with a hole, no walk applies and the ghosts the B.C. fills in
+    // other directions are left out of project_bc and predict_bc: the tables,
+    // recorded from the set expressions, give the same bits as no table.
+    TEST(entry_table, outer_ghosts_same_with_and_without_tables_hole)
+    {
+#ifdef SAMURAI_WITH_MPI
+        GTEST_SKIP() << "DomainBuilder is not implemented with MPI";
+#endif
+        static constexpr std::size_t dim = 2;
+        DomainBuilder<dim> domain({0., 0.}, {1., 1.});
+        domain.remove({0.25, 0.25}, {0.75, 0.75});
+        auto config = mesh_config<dim>().min_level(4).max_level(6).max_stencil_radius(1).scaling_factor(1.).disable_args_parse();
+        auto mesh   = mra::make_mesh(domain, config);
+
+        auto u = make_scalar_field<double>("u", mesh);
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          u[cell] = std::tanh(100 * (cell.center(0) - 0.85));
+                      });
+        make_bc<Neumann<1>>(u, 0.);
+        make_MRAdapt(u)(mra_config().epsilon(1e-3));
+
+        const auto& adapted = u.mesh();
+        ASSERT_FALSE(adapted.domain().is_box());
+        EXPECT_FALSE(detail::box_domain_block(adapted, adapted.max_level(), false).has_value());
+
+        auto s = make_scalar_field<double>("s", u.mesh());
+        auto v = make_vector_field<double, 3>("v", u.mesh());
+        make_bc<Dirichlet<1>>(s, 0.);
+        make_bc<Dirichlet<1>>(v, 0., 0., 0.);
+        fill_all(s, 0.1);
+        fill_all(v, 0.7);
+
+        std::vector<std::vector<double>> whole_s;
+        std::vector<std::vector<double>> whole_v;
+        for (const bool tables : {true, false})
+        {
+            const WithEntryTables with(tables);
+            auto s_all = s;
+            auto v_all = v;
+            update_outer_ghosts(s_all, v_all);
+            whole_s.emplace_back(s_all.data(), s_all.data() + s_all.array().size());
+            whole_v.emplace_back(v_all.data(), v_all.data() + v_all.array().size());
+        }
+        EXPECT_EQ(whole_s[0], whole_s[1]);
+        EXPECT_EQ(whole_v[0], whole_v[1]);
+
+        // the keys carry the B.C. ghosts left out, and their walks give up
+        std::size_t n_projection = 0;
+        for (std::size_t level = adapted.min_level() - 1; level < adapted.max_level(); ++level)
+        {
+            for_each_cartesian_direction<dim>(
+                [&](const auto& direction)
+                {
+                    const detail::bc_projection_ghosts<dim> key{level, direction_code<dim>(direction), 1, 1};
+                    EntryTable<detail::BcProjectionEntry> walked;
+                    detail::EntryRecorder<detail::BcProjectionEntry> recorder(walked);
+                    EXPECT_FALSE(key.walk(adapted, recorder));
+                    n_projection += record_entries(adapted, key).entries.size();
+                });
+        }
+        EXPECT_GT(n_projection, 0u);
     }
 
     TEST(entry_table, ghosts_same_as_field_operators_1d)

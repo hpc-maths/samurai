@@ -186,18 +186,17 @@ namespace samurai
         mpi::communicator world;
         const auto& neighbours = mesh.mpi_neighbourhood();
 #endif
+        auto copy = [&](const auto& run)
+        {
+            std::copy(data + run.at[1] * nc, data + (run.at[1] + run.len) * nc, data + run.at[0] * nc);
+        };
         for (std::size_t d = 0; d < Field::dim; ++d)
         {
             if (!mesh.is_periodic(d))
             {
                 continue;
             }
-            for_each_entry(mesh,
-                           detail::periodic_copies{level, d},
-                           [&](const auto& run)
-                           {
-                               std::copy(data + run.at[1] * nc, data + (run.at[1] + run.len) * nc, data + run.at[0] * nc);
-                           });
+            for_each_entry(mesh, detail::periodic_copies{level, d}, copy);
 #ifdef SAMURAI_WITH_MPI
             if (neighbours.empty())
             {
