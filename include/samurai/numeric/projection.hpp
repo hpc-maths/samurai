@@ -33,11 +33,11 @@ namespace samurai
             {
                 std::array<double, n_comp> sum;
                 sum.fill(0);
-                for (const auto row : src_rows)
+                for (const auto src_row : src_rows)
                 {
                     for (std::size_t n = 0; n < n_comp; ++n)
                     {
-                        sum[n] += src[(row + i_f) * n_comp + n] + src[(row + i_f + 1) * n_comp + n];
+                        sum[n] += src[(src_row + i_f) * n_comp + n] + src[(src_row + i_f + 1) * n_comp + n];
                     }
                 }
                 for (std::size_t n = 0; n < n_comp; ++n)
