@@ -6,6 +6,7 @@
 #include <any>
 #include <array>
 #include <atomic>
+#include <bit>
 #include <concepts>
 #include <cstddef>
 #include <cstdlib>
@@ -223,17 +224,10 @@ namespace samurai
             template <class Key>
             std::size_t operator()(const Key& key) const noexcept
             {
-                // The words of the key, its last bytes zero padded, mixed one
-                // after the other: xor, multiply by the FNV prime, shift.
-                std::array<std::size_t, (sizeof(Key) + sizeof(std::size_t) - 1) / sizeof(std::size_t)> words{};
-                std::memcpy(words.data(), &key, sizeof(Key));
-                std::size_t h = 14695981039346656037ULL;
-                for (const auto w : words)
-                {
-                    h = (h ^ w) * 1099511628211ULL;
-                    h ^= h >> 29;
-                }
-                return h;
+                // A key has no padding (see check_entry_table_key), so its bytes
+                // are its value: hashed as a string of bytes by the standard library.
+                const auto bytes = std::bit_cast<std::array<char, sizeof(Key)>>(key);
+                return std::hash<std::string_view>{}(std::string_view(bytes.data(), bytes.size()));
             }
         };
 
