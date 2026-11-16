@@ -26,6 +26,7 @@ cmake
 - {doc}`mesh`: create a uniform, multiresolution or adaptive mesh refinement (AMR) mesh, and set its levels and ghosts.
 - {doc}`field`: create a scalar or vector field on a mesh and give it initial values.
 - {doc}`loop`: visit the cells of a mesh one cell or one interval at a time.
+- {doc}`entry_tables`: keep the cells a set expression selects in a table, for a computation that runs many times on the same mesh.
 
 ```{toctree}
 :caption: Mesh and data
@@ -36,6 +37,7 @@ geometry
 mesh
 field
 loop
+entry_tables
 ```
 
 ## Adaptation and solvers
