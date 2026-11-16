@@ -7,10 +7,14 @@
 // change; and the ghosts update_ghost_mr fills through them hold the same bits
 // as with the field operators they replace.
 
+#include <atomic>
 #include <cmath>
 #include <cstddef>
 #include <cstring>
 #include <span>
+#include <sstream>
+#include <string>
+#include <thread>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -185,35 +189,30 @@ namespace samurai
                                             [&](const auto& i, const auto& index)
                                             {
                                                 const auto first = memory_offset(mesh, {level, i.start, index});
-                                                CellGroup group{
-                                                    first,
-                                                    {emit.pool().size(), 0}
-                                                };
+                                                CellGroup group{first, emit.new_range()};
                                                 for (std::size_t k = 1; k < i.size(); ++k)
                                                 {
-                                                    emit.pool().push_back(first + k);
-                                                    ++group.others.count;
+                                                    emit.add(group.others, first + k);
                                                 }
                                                 emit(group);
                                             });
             }
         };
 
-        // A key that refuses to be kept.
-        struct never_kept
+        // Counts the traversals of its set expression: one per table recorded,
+        // or one per call without tables.
+        struct counted_cells
         {
             using entry_type = Rows<2>;
 
             std::size_t level;
 
+            inline static std::atomic<std::size_t> traversals{0};
+
             void produce(const auto& mesh, auto& emit) const
             {
+                ++traversals;
                 cell_and_next{level}.produce(mesh, emit);
-            }
-
-            bool keep(const auto&) const
-            {
-                return false;
             }
         };
 
@@ -231,11 +230,11 @@ namespace samurai
             {
                 for_each_entry(mesh,
                                key,
-                               [&](const auto& run)
+                               [&](const auto& rows)
                                {
-                                   push(run.len);
-                                   push(run.at[0]);
-                                   push(run.at[1]);
+                                   push(rows.len);
+                                   push(rows.at[0]);
+                                   push(rows.at[1]);
                                });
             }
             else if constexpr (std::same_as<entry_t, WeightedPair>)
@@ -256,7 +255,7 @@ namespace samurai
                                [&](const CellGroup& group, std::span<const std::size_t> pool)
                                {
                                    push(group.first_cell);
-                                   for (const auto cell : pool.subspan(group.others.first, group.others.count))
+                                   for (const auto cell : cells_of(pool, group.others))
                                    {
                                        push(cell);
                                    }
@@ -309,48 +308,92 @@ namespace samurai
                               [](auto& u)
                               {
                                   const WithEntryTables on(true);
-                                  auto& mesh             = u.mesh();
-                                  const auto level       = mesh.max_level();
-                                  const auto& store      = mesh.entry_tables();
-                                  const std::size_t base = store.size(); // the tables of the ghost updates of the adaptation
+                                  auto& mesh          = u.mesh();
+                                  const auto level    = mesh.max_level();
+                                  const auto expected = seen(mesh, cell_and_next{level});
+                                  auto& traversals    = counted_cells::traversals;
+                                  traversals          = 0;
 
-                                  seen(mesh, cell_and_next{level});
-                                  EXPECT_EQ(store.size(), base + 1);
-                                  seen(mesh, cell_and_next{level});
-                                  EXPECT_EQ(store.size(), base + 1); // recorded once
-
-                                  // same set expression, other entries: a table of its own
-                                  seen(mesh, weighted_cell_and_next{level});
-                                  EXPECT_EQ(store.size(), base + 2);
+                                  EXPECT_EQ(seen(mesh, counted_cells{level}), expected);
+                                  EXPECT_EQ(seen(mesh, counted_cells{level}), expected);
+                                  EXPECT_EQ(traversals, 1u); // recorded once
 
                                   // same key type, other member values: another table
-                                  seen(mesh, cell_and_next{level - 1});
-                                  EXPECT_EQ(store.size(), base + 3);
+                                  seen(mesh, counted_cells{level - 1});
+                                  EXPECT_EQ(traversals, 2u);
 
-                                  // a key that refuses, and disabled tables: nothing kept
-                                  EXPECT_FALSE(has_entry_table(mesh, never_kept{level}));
-                                  EXPECT_EQ(seen(mesh, never_kept{level}), seen(mesh, cell_and_next{level}));
-                                  EXPECT_EQ(store.size(), base + 3);
+                                  // without tables, the set expression is traversed at each call
                                   {
                                       const WithEntryTables off(false);
-                                      EXPECT_FALSE(has_entry_table(mesh, grouped_cells{level}));
-                                      seen(mesh, grouped_cells{level});
-                                      EXPECT_EQ(store.size(), base + 3);
+                                      EXPECT_EQ(seen(mesh, counted_cells{level}), expected);
+                                      EXPECT_EQ(seen(mesh, counted_cells{level}), expected);
+                                      EXPECT_EQ(traversals, 4u);
                                   }
+                                  seen(mesh, counted_cells{level});
+                                  EXPECT_EQ(traversals, 4u); // the table is still there
 
                                   // a copy records its own tables
                                   auto copy = mesh;
-                                  EXPECT_EQ(copy.entry_tables().size(), 0u);
-                                  EXPECT_EQ(seen(copy, cell_and_next{level}), seen(mesh, cell_and_next{level}));
-                                  EXPECT_EQ(copy.entry_tables().size(), 1u);
+                                  EXPECT_EQ(seen(copy, counted_cells{level}), expected);
+                                  seen(copy, counted_cells{level});
+                                  EXPECT_EQ(traversals, 5u);
 
                                   // the tables follow the cells they were recorded on
                                   std::remove_cvref_t<decltype(mesh)> other;
                                   mesh.swap(other);
-                                  EXPECT_EQ(mesh.entry_tables().size(), 0u);
-                                  EXPECT_EQ(other.entry_tables().size(), base + 3);
+                                  EXPECT_EQ(seen(other, counted_cells{level}), expected);
                                   mesh.swap(other);
-                                  EXPECT_EQ(mesh.entry_tables().size(), base + 3);
+                                  EXPECT_EQ(seen(mesh, counted_cells{level}), expected);
+                                  EXPECT_EQ(traversals, 5u);
+                              });
+    }
+
+    // Several threads can read the tables of one mesh, recorded on first use.
+    TEST(entry_table, tables_read_from_several_threads)
+    {
+        with_adapted_field<2>(false,
+                              [](auto& u)
+                              {
+                                  const auto& adapted = u.mesh();
+                                  std::vector<std::vector<double>> expected;
+                                  {
+                                      const WithEntryTables off(false);
+                                      for (std::size_t level = adapted.min_level(); level <= adapted.max_level(); ++level)
+                                      {
+                                          expected.push_back(seen(adapted, cell_and_next{level}));
+                                          expected.push_back(seen(adapted, weighted_cell_and_next{level}));
+                                      }
+                                  }
+
+                                  const WithEntryTables on(true);
+                                  const auto mesh                 = adapted; // a copy: no table yet
+                                  constexpr std::size_t n_threads = 8;
+                                  std::array<bool, n_threads> same{};
+                                  {
+                                      std::vector<std::jthread> threads;
+                                      for (std::size_t t = 0; t < n_threads; ++t)
+                                      {
+                                          threads.emplace_back(
+                                              [&, t]
+                                              {
+                                                  bool ok = true;
+                                                  for (std::size_t repeat = 0; repeat < 20; ++repeat)
+                                                  {
+                                                      std::size_t k = 0;
+                                                      for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
+                                                      {
+                                                          ok = ok && seen(mesh, cell_and_next{level}) == expected[k++];
+                                                          ok = ok && seen(mesh, weighted_cell_and_next{level}) == expected[k++];
+                                                      }
+                                                  }
+                                                  same[t] = ok;
+                                              });
+                                      }
+                                  }
+                                  for (const bool ok : same)
+                                  {
+                                      EXPECT_TRUE(ok);
+                                  }
                               });
     }
 
@@ -394,10 +437,10 @@ namespace samurai
                                 .apply_op(variadic_projection(s_ref, v_ref));
                             for_each_entry(mesh,
                                            detail::projection_ghosts<dim>{level - 1},
-                                           [&](const auto& run)
+                                           [&](const auto& rows)
                                            {
-                                               detail::project_run(s_new, run);
-                                               detail::project_run(v_new, run);
+                                               detail::project_entry(s_new, rows);
+                                               detail::project_entry(v_new, rows);
                                                ++n_projected;
                                            });
                             EXPECT_TRUE(same_bits(s_ref, s_new) && same_bits(v_ref, v_new))
@@ -412,13 +455,12 @@ namespace samurai
                             intersection(pred_ghosts, mesh.subdomain(level), mesh[mesh_id_t::all_cells][level - 1])
                                 .on(level)
                                 .apply_op(variadic_prediction<radius, false>(s_ref, v_ref));
-                            detail::PredictionKernel<dim, radius> predict;
                             for_each_entry(mesh,
                                            detail::prediction_ghosts<dim, radius>{level},
                                            [&](const auto& entry)
                                            {
-                                               predict(s_new, entry);
-                                               predict(v_new, entry);
+                                               detail::predict_entry<radius>(s_new, entry);
+                                               detail::predict_entry<radius>(v_new, entry);
                                                ++n_predicted;
                                            });
                             EXPECT_TRUE(same_bits(s_ref, s_new) && same_bits(v_ref, v_new))
@@ -533,7 +575,7 @@ namespace samurai
                     [&](const auto& direction)
                     {
                         const auto dir   = direction_code<dim>(direction);
-                        const auto table = record_entries(adapted, detail::bc_projection_ghosts<dim>{level, dir, 1, 0});
+                        const auto table = detail::record_entries(adapted, detail::bc_projection_ghosts<dim>{level, dir, 1, 0});
                         n_projected += table.entries.size();
                         n_children += table.pool.size();
                         for (std::size_t layer = 2; layer <= ghost_width; ++layer)
@@ -541,16 +583,18 @@ namespace samurai
                             // layers 2 and 3: stencils of 4 and 6 cells
                             if (layer == 2)
                             {
-                                n_at_cells += record_entries(adapted, detail::extrapolated_ghosts_at_cells<dim, 4>{level, dir, layer})
+                                n_at_cells += detail::record_entries(adapted, detail::extrapolated_ghosts_at_cells<dim, 4>{level, dir, layer})
                                                   .entries.size();
-                                n_at_ghosts += record_entries(adapted, detail::extrapolated_ghosts_at_inner_ghosts<dim, 4>{level, dir, layer})
+                                n_at_ghosts += detail::record_entries(adapted,
+                                                                      detail::extrapolated_ghosts_at_inner_ghosts<dim, 4>{level, dir, layer})
                                                    .entries.size();
                             }
                             else if (layer == 3)
                             {
-                                n_at_cells += record_entries(adapted, detail::extrapolated_ghosts_at_cells<dim, 6>{level, dir, layer})
+                                n_at_cells += detail::record_entries(adapted, detail::extrapolated_ghosts_at_cells<dim, 6>{level, dir, layer})
                                                   .entries.size();
-                                n_at_ghosts += record_entries(adapted, detail::extrapolated_ghosts_at_inner_ghosts<dim, 6>{level, dir, layer})
+                                n_at_ghosts += detail::record_entries(adapted,
+                                                                      detail::extrapolated_ghosts_at_inner_ghosts<dim, 6>{level, dir, layer})
                                                    .entries.size();
                             }
                         }
@@ -573,10 +617,10 @@ namespace samurai
         std::size_t expect_walk_matches_traversal(const Mesh& mesh, const Key& key, const char* what)
         {
             using entry_t = typename Key::entry_type;
-            EntryTable<entry_t> walked;
+            detail::EntryTable<entry_t> walked;
             detail::EntryRecorder<entry_t> recorder(walked);
             EXPECT_TRUE(key.walk(mesh, recorder)) << what << " gave up at level " << key.level;
-            const auto traversed = record_entries_by_traversal(mesh, key);
+            const auto traversed = detail::record_entries(mesh, key, false);
             EXPECT_EQ(walked.entries.size(), traversed.entries.size()) << what << " at level " << key.level;
             if (walked.entries.size() == traversed.entries.size() && !walked.entries.empty())
             {
@@ -774,8 +818,8 @@ namespace samurai
 
         // no corner ghost below the level 0
         const detail::corner_ghosts_below<dim> below_level_0{0, direction_code<dim>(diagonal)};
-        EXPECT_TRUE(record_entries_by_traversal(mesh, below_level_0).entries.empty());
-        EXPECT_TRUE(record_entries(mesh, below_level_0).entries.empty());
+        EXPECT_TRUE(detail::record_entries(mesh, below_level_0, false).entries.empty());
+        EXPECT_TRUE(detail::record_entries(mesh, below_level_0).entries.empty());
 
         // a cartesian direction has no off-diagonal ghost
         std::size_t n_offsets = 0;
@@ -811,7 +855,7 @@ namespace samurai
         // so the walks of the corner keys give up there
         const auto too_fine = mesh.corner(diagonal).level() + 1;
         const auto dir      = direction_code<dim>(diagonal);
-        EntryTable<Cells<2>> walked;
+        detail::EntryTable<Cells<2>> walked;
         detail::EntryRecorder<Cells<2>> recorder(walked);
         EXPECT_FALSE((detail::corner_ghosts_below<dim>{too_fine, dir}).walk(mesh, recorder));
         EXPECT_FALSE((detail::corner_diagonal_ghosts<dim, 2>{too_fine, dir, 1}).walk(mesh, recorder));
@@ -819,13 +863,34 @@ namespace samurai
         EXPECT_TRUE(walked.entries.empty());
     }
 
-    // SAMURAI_ENTRY_TABLES=0 is the only value that turns the tables off.
-    TEST(entry_table, environment_switch)
+    // The NaN checks of project_bc and predict_bc name a cell by its level and
+    // its coordinates, found back from its storage index.
+    TEST(entry_table, cell_described_from_its_storage_index)
     {
-        EXPECT_TRUE(entry_tables_enabled_by(nullptr));
-        EXPECT_TRUE(entry_tables_enabled_by("1"));
-        EXPECT_TRUE(entry_tables_enabled_by(""));
-        EXPECT_FALSE(entry_tables_enabled_by("0"));
+        with_adapted_field<2>(
+            false,
+            [](auto& u)
+            {
+                const auto& mesh    = u.mesh();
+                std::size_t n_cells = 0;
+                for_each_cell(mesh,
+                              [&](const auto& cell)
+                              {
+                                  if (n_cells++ % 97 != 0)
+                                  {
+                                      return;
+                                  }
+                                  std::ostringstream expected;
+                                  expected << "storage index " << cell.index << " (level " << cell.level << ", i = " << cell.indices[0]
+                                           << ", index = ";
+                                  const auto described = detail::describe_cell(mesh, static_cast<std::size_t>(cell.index));
+                                  EXPECT_EQ(described.substr(0, expected.str().size()), expected.str());
+                                  EXPECT_NE(described.find(std::to_string(cell.indices[1])), std::string::npos);
+                              });
+                EXPECT_GT(n_cells, 97u);
+                // an index that is no cell of the mesh
+                EXPECT_EQ(detail::describe_cell(mesh, u.array().size() + 1), "storage index " + std::to_string(u.array().size() + 1));
+            });
     }
 
     // A store keeps its tables when moved or swapped, and never copies them.
@@ -834,44 +899,42 @@ namespace samurai
         with_adapted_field<2>(false,
                               [](auto& u)
                               {
-                                  const WithEntryTables on(true);
-                                  const auto& mesh  = u.mesh();
-                                  const auto level  = mesh.max_level();
-                                  const auto values = seen(mesh, cell_and_next{level});
+                                  const auto& mesh = u.mesh();
+                                  const counted_cells key{mesh.max_level()};
+                                  auto& traversals = counted_cells::traversals;
+                                  traversals       = 0;
 
-                                  EntryTableStore store;
-                                  store.get(cell_and_next{level}, mesh);
-                                  store.get(weighted_cell_and_next{level}, mesh);
-                                  ASSERT_EQ(store.size(), 2u);
+                                  detail::EntryTableStore store;
+                                  const auto* table = &store.get(key, mesh);
+                                  EXPECT_EQ(&store.get(key, mesh), table);
+                                  EXPECT_EQ(traversals, 1u);
 
-                                  EntryTableStore copy(store);
-                                  EXPECT_EQ(copy.size(), 0u);
-                                  copy.get(cell_and_next{level}, mesh);
-                                  copy = store; // drops its own table, takes none
-                                  EXPECT_EQ(copy.size(), 0u);
+                                  detail::EntryTableStore copy(store);
+                                  copy.get(key, mesh);
+                                  EXPECT_EQ(traversals, 2u); // the copy had no table
+                                  copy = store;
+                                  copy.get(key, mesh);
+                                  EXPECT_EQ(traversals, 3u); // it dropped its own, and took none
                                   auto& same = store;
                                   store      = same;
-                                  EXPECT_EQ(store.size(), 2u);
+                                  EXPECT_EQ(&store.get(key, mesh), table);
 
-                                  EntryTableStore moved(std::move(store));
-                                  EXPECT_EQ(moved.size(), 2u);
-                                  EntryTableStore assigned;
-                                  assigned.get(grouped_cells{level}, mesh);
+                                  detail::EntryTableStore moved(std::move(store));
+                                  EXPECT_EQ(&moved.get(key, mesh), table);
+                                  detail::EntryTableStore assigned;
+                                  assigned.get(key, mesh);
+                                  EXPECT_EQ(traversals, 4u);
                                   assigned = std::move(moved);
-                                  EXPECT_EQ(assigned.size(), 2u);
+                                  EXPECT_EQ(&assigned.get(key, mesh), table);
                                   assigned.swap(assigned);
-                                  EXPECT_EQ(assigned.size(), 2u);
                                   auto& itself = assigned;
                                   assigned     = std::move(itself);
-                                  EXPECT_EQ(assigned.size(), 2u);
-
-                                  // the table it kept is still the one of the key
-                                  const auto& table = assigned.get(cell_and_next{level}, mesh);
-                                  EXPECT_EQ(assigned.size(), 2u);
-                                  EXPECT_EQ(table.entries.size() * 3, values.size());
+                                  EXPECT_EQ(&assigned.get(key, mesh), table);
+                                  EXPECT_EQ(traversals, 4u);
 
                                   assigned.clear();
-                                  EXPECT_EQ(assigned.size(), 0u);
+                                  assigned.get(key, mesh);
+                                  EXPECT_EQ(traversals, 5u);
                               });
     }
 
@@ -948,10 +1011,10 @@ namespace samurai
                 [&](const auto& direction)
                 {
                     const detail::bc_projection_ghosts<dim> key{level, direction_code<dim>(direction), 1, 1};
-                    EntryTable<detail::BcProjectionEntry> walked;
+                    detail::EntryTable<detail::BcProjectionEntry> walked;
                     detail::EntryRecorder<detail::BcProjectionEntry> recorder(walked);
                     EXPECT_FALSE(key.walk(adapted, recorder));
-                    n_projection += record_entries(adapted, key).entries.size();
+                    n_projection += detail::record_entries(adapted, key).entries.size();
                 });
         }
         EXPECT_GT(n_projection, 0u);

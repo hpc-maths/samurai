@@ -195,8 +195,9 @@ namespace samurai
         void swap(Mesh_base& mesh) noexcept;
 
         // The entry tables recorded on this mesh (see entry_table.hpp). They
-        // are emptied whenever the cells or the neighbour meshes change.
-        const EntryTableStore& entry_tables() const;
+        // are emptied each time the meshes of the neighbours are updated, which
+        // every construction of the cells ends with (see finalize_mesh).
+        const detail::EntryTableStore& entry_tables() const;
 
         template <typename... T, typename = std::enable_if_t<std::conjunction_v<std::is_convertible<T, value_t>...>, void>>
         const interval_t& get_interval(std::size_t level, const interval_t& interval, T... index) const;
@@ -293,7 +294,7 @@ namespace samurai
 
         config_t m_config;
 
-        EntryTableStore m_entry_tables;
+        detail::EntryTableStore m_entry_tables;
 
 #ifdef SAMURAI_WITH_MPI
         friend class boost::serialization::access;
@@ -459,7 +460,6 @@ namespace samurai
     template <class D, class Config>
     SAMURAI_INLINE void Mesh_base<D, Config>::finalize_mesh(const coords_t& origin_point, double scaling_factor)
     {
-        m_entry_tables.clear();
         construct_union();
         update_meshid_neighbour(mesh_id_t::cells);
         update_sub_mesh();
@@ -978,7 +978,7 @@ namespace samurai
     }
 
     template <class D, class Config>
-    SAMURAI_INLINE const EntryTableStore& Mesh_base<D, Config>::entry_tables() const
+    SAMURAI_INLINE const detail::EntryTableStore& Mesh_base<D, Config>::entry_tables() const
     {
         return m_entry_tables;
     }

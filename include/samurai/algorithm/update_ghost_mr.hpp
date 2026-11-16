@@ -197,18 +197,16 @@ namespace samurai::detail
     {
         constexpr std::size_t dim        = Field::dim;
         constexpr std::size_t pred_order = Field::mesh_t::config_t::prediction_stencil_radius;
-        PredictionKernel<dim, pred_order> prediction_kernel;
-
         // the kernels, on every field
-        auto project = [&](const auto& run)
+        auto project = [&](const auto& rows)
         {
-            project_run(field, run);
-            (project_run(other_fields, run), ...);
+            project_entry(field, rows);
+            (project_entry(other_fields, rows), ...);
         };
         auto predict = [&](const auto& entry)
         {
-            prediction_kernel(field, entry);
-            (prediction_kernel(other_fields, entry), ...);
+            predict_entry<pred_order>(field, entry);
+            (predict_entry<pred_order>(other_fields, entry), ...);
         };
 
         const auto& mesh      = field.mesh();

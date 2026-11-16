@@ -4,28 +4,96 @@
 #pragma once
 
 #include <cmath>
+#include <cstdlib>
+#include <iostream>
 #include <numeric>
 #include <ranges>
 #include <span>
+#include <sstream>
+#include <string>
 
 #include "../algorithm.hpp"
 #include "../bc/apply_field_bc.hpp"
 #include "../entry_table.hpp"
 #include "cell_block.hpp"
 
-#ifndef NDEBUG
-#include "../io/hdf5.hpp"
-#endif
-
-#ifdef SAMURAI_WITH_MPI
-#include <boost/mpi.hpp>
-namespace mpi = boost::mpi;
-#endif
-
 namespace samurai
 {
     namespace detail
     {
+        // The number of ghost layers the B.C. of `field` fills.
+        template <class Field>
+        int bc_ghost_layers(Field& field)
+        {
+            return field.get_bc().empty() ? field.mesh().max_stencil_radius() : static_cast<int>(field.get_bc().front()->stencil_size()) / 2;
+        }
+
+        // On a domain with a hole, project_bc and predict_bc leave to the B.C.
+        // the ghosts it fills in other directions: the number of layers left
+        // out, 0 on a box domain.
+        template <class Field>
+        std::size_t bc_ghost_layers_left_out(Field& field)
+        {
+            return field.mesh().domain().is_box() ? std::size_t{0} : static_cast<std::size_t>(bc_ghost_layers(field));
+        }
+
+        // Calls f(i, index) on the intervals of `ghosts`, without those within
+        // `n_left_out` cells of the boundary of `level` in any direction.
+        template <class Mesh, class Set, class Func>
+        void for_each_ghost_interval(const Mesh& mesh, std::size_t level, std::size_t n_left_out, Set& ghosts, Func&& f)
+        {
+            if (n_left_out == 0)
+            {
+                ghosts(f);
+            }
+            else
+            {
+                auto bc_ghosts_in_other_directions = domain_boundary_outer_layer(mesh, level, static_cast<int>(n_left_out));
+                difference(ghosts, bc_ghosts_in_other_directions)(f);
+            }
+        }
+
+        // The level and the coordinates of the cell stored at `storage_index`, for an error message.
+        template <class Mesh>
+        std::string describe_cell(const Mesh& mesh, std::size_t storage_index)
+        {
+            using mesh_id_t = typename Mesh::mesh_id_t;
+            std::ostringstream where;
+            where << "storage index " << storage_index;
+            for_each_interval(mesh[mesh_id_t::reference],
+                              [&](std::size_t level, const auto& i, const auto& index)
+                              {
+                                  const auto first = static_cast<std::size_t>(i.index + i.start);
+                                  if (storage_index >= first && storage_index < first + i.size())
+                                  {
+                                      where << " (level " << level
+                                            << ", i = " << i.start + static_cast<decltype(i.start)>(storage_index - first)
+                                            << ", index = " << index << ")";
+                                  }
+                              });
+            return where.str();
+        }
+
+        // Stops on a NaN read in `source` to fill `ghost`, under SAMURAI_CHECK_NAN.
+        template <class Field>
+        void stop_on_nan([[maybe_unused]] const Field& field,
+                         [[maybe_unused]] std::size_t source,
+                         [[maybe_unused]] std::size_t ghost,
+                         [[maybe_unused]] const char* what)
+        {
+#ifdef SAMURAI_CHECK_NAN
+            for (std::size_t c = 0; c < Field::n_comp; ++c)
+            {
+                if (std::isnan(field.data()[source * Field::n_comp + c]))
+                {
+                    std::cerr << "NaN found in the cell of " << describe_cell(field.mesh(), source) << " during the " << what
+                              << " of the B.C. into the ghost of " << describe_cell(field.mesh(), ghost) << std::endl;
+                    std::exit(1);
+                }
+            }
+#endif
+        }
+
         // A ghost outside the domain and its children in the reference mesh.
         struct BcProjectionEntry
         {
@@ -36,9 +104,7 @@ namespace samurai
         // The ghosts of `level` in the layer `layer` outside the domain in
         // `direction`, facing the union: those project_bc fills with the mean
         // of their children, at level + 1 or, when they have none there, at
-        // level + 2. When the domain is not a box, the ghosts within
-        // n_bc_ghosts of the boundary in another direction are left out: the
-        // B.C. fills them (n_bc_ghosts is 0 on a box).
+        // level + 2, without the n_left_out layers of bc_ghost_layers_left_out.
         template <std::size_t dim>
         struct bc_projection_ghosts
         {
@@ -47,10 +113,7 @@ namespace samurai
             std::size_t level;
             std::size_t direction;
             std::size_t layer;
-            std::size_t n_bc_ghosts;
-
-            template <class Mesh, class Emit>
-            bool walk(const Mesh& mesh, Emit& emit) const;
+            std::size_t n_left_out;
 
             template <class Mesh, class Emit>
             void produce(const Mesh& mesh, Emit& emit) const
@@ -68,101 +131,88 @@ namespace samurai
                 auto projection_ghosts = intersection(outside_layer, mesh[mesh_id_t::reference][level]).on(level);
 
                 lca_t ghost_lca(level, mesh.origin_point(), mesh.scaling_factor());
-                auto record = [&](const auto& i, const auto& index)
-                {
-                    const auto first = memory_offset(mesh, {level, i.start, index});
-                    for (auto ii = i.start; ii < i.end; ++ii)
+                for_each_ghost_interval(
+                    mesh,
+                    level,
+                    n_left_out,
+                    projection_ghosts,
+                    [&](const auto& i, const auto& index)
                     {
-                        BcProjectionEntry entry{
-                            first + static_cast<std::size_t>(ii - i.start),
-                            {emit.pool().size(), 0}
-                        };
-                        ghost_lca.add_point_back(ii, index); // only the current ghost
-                        for (auto children_level = level + 1; children_level <= level + 2 && entry.children.count == 0; ++children_level)
+                        const auto first = memory_offset(mesh, {level, i.start, index});
+                        for (auto ii = i.start; ii < i.end; ++ii)
                         {
-                            auto children = intersection(self(ghost_lca).on(children_level), mesh[mesh_id_t::reference][children_level]);
-                            children(
-                                [&](const auto& i_child, const auto& index_child)
-                                {
-                                    const auto first_child = memory_offset(mesh, {children_level, i_child.start, index_child});
-                                    for (std::size_t k = 0; k < i_child.size(); ++k)
+                            BcProjectionEntry entry{first + static_cast<std::size_t>(ii - i.start), emit.new_range()};
+                            ghost_lca.add_point_back(ii, index); // only the current ghost
+                            for (auto children_level = level + 1; children_level <= level + 2 && entry.children.count == 0; ++children_level)
+                            {
+                                auto children = intersection(self(ghost_lca).on(children_level), mesh[mesh_id_t::reference][children_level]);
+                                children(
+                                    [&](const auto& i_child, const auto& index_child)
                                     {
-                                        emit.pool().push_back(first_child + k);
-                                        ++entry.children.count;
-                                    }
-                                });
+                                        const auto first_child = memory_offset(mesh, {children_level, i_child.start, index_child});
+                                        for (std::size_t k = 0; k < i_child.size(); ++k)
+                                        {
+                                            emit.add(entry.children, first_child + k);
+                                        }
+                                    });
+                            }
+                            ghost_lca.clear();
+                            emit(entry);
                         }
-                        ghost_lca.clear();
-                        emit(entry);
-                    }
-                };
+                    });
+            }
 
-                if (n_bc_ghosts == 0)
+            // Same entries by walking the union cells on the face of a box
+            // domain, moved `layer` cells out.
+            template <class Mesh, class Emit>
+            bool walk(const Mesh& mesh, Emit& emit) const
+            {
+                using mesh_id_t = typename Mesh::mesh_id_t;
+
+                const auto domain = n_left_out == 0 ? box_domain_block(mesh, level, true) : std::nullopt;
+                if (!domain)
                 {
-                    projection_ghosts(record);
+                    return false;
                 }
-                else
-                {
-                    auto bc_ghosts_in_other_directions = domain_boundary_outer_layer(mesh, level, static_cast<int>(n_bc_ghosts));
-                    difference(projection_ghosts, bc_ghosts_in_other_directions)(record);
-                }
+                const auto dir                 = direction_from_code<dim>(direction);
+                const auto& ref                = mesh[mesh_id_t::reference];
+                const DirectionVector<dim> out = static_cast<int>(layer) * dir;
+                for_each_interval_in_block(
+                    mesh.get_union()[level],
+                    face_layer(*domain, dir, 0),
+                    [&](auto start, auto end, const auto& coords, auto)
+                    {
+                        for_each_interval_in_block(
+                            ref[level],
+                            translate(row_block(coords, start, end), out),
+                            [&](auto ghost_start, auto ghost_end, const auto& ghost_coords, auto shift)
+                            {
+                                auto ghost = ghost_coords;
+                                for (auto x = ghost_start; x < ghost_end; ++x)
+                                {
+                                    ghost[0] = x;
+                                    BcProjectionEntry entry{static_cast<std::size_t>(x + shift), emit.new_range()};
+                                    // the children at level + 1 or, when there are none, at level + 2
+                                    for (std::size_t delta_l = 1; delta_l <= 2 && entry.children.count == 0; ++delta_l)
+                                    {
+                                        for_each_interval_in_block(
+                                            ref[level + delta_l],
+                                            refine(cell_block(ghost), delta_l),
+                                            [&](auto child_start, auto child_end, const auto&, auto child_shift)
+                                            {
+                                                for (auto c = child_start; c < child_end; ++c)
+                                                {
+                                                    emit.add(entry.children, static_cast<std::size_t>(c + child_shift));
+                                                }
+                                            });
+                                    }
+                                    emit(entry);
+                                }
+                            });
+                    });
+                return true;
             }
         };
-
-        // Same entries by walking the union cells on the face of a box domain,
-        // moved `layer` cells out.
-        template <std::size_t dim>
-        template <class Mesh, class Emit>
-        bool bc_projection_ghosts<dim>::walk(const Mesh& mesh, Emit& emit) const
-        {
-            using mesh_id_t = typename Mesh::mesh_id_t;
-
-            const auto domain = n_bc_ghosts == 0 ? box_domain_block(mesh, level, true) : std::nullopt;
-            if (!domain)
-            {
-                return false;
-            }
-            const auto dir                 = direction_from_code<dim>(direction);
-            const auto& ref                = mesh[mesh_id_t::reference];
-            const DirectionVector<dim> out = static_cast<int>(layer) * dir;
-            for_each_interval_in_block(mesh.get_union()[level],
-                                       face_layer(*domain, dir, 0),
-                                       [&](auto start, auto end, const auto& coords, auto)
-                                       {
-                                           for_each_interval_in_block(
-                                               ref[level],
-                                               translate(row_block(coords, start, end), out),
-                                               [&](auto ghost_start, auto ghost_end, const auto& ghost_coords, auto shift)
-                                               {
-                                                   auto ghost = ghost_coords;
-                                                   for (auto x = ghost_start; x < ghost_end; ++x)
-                                                   {
-                                                       ghost[0] = x;
-                                                       BcProjectionEntry entry{
-                                                           static_cast<std::size_t>(x + shift),
-                                                           {emit.pool().size(), 0}
-                                                       };
-                                                       // the children at level + 1 or, when there are none, at level + 2
-                                                       for (std::size_t delta_l = 1; delta_l <= 2 && entry.children.count == 0; ++delta_l)
-                                                       {
-                                                           for_each_interval_in_block(
-                                                               ref[level + delta_l],
-                                                               refine(cell_block(ghost), delta_l),
-                                                               [&](auto child_start, auto child_end, const auto&, auto child_shift)
-                                                               {
-                                                                   for (auto c = child_start; c < child_end; ++c)
-                                                                   {
-                                                                       emit.pool().push_back(static_cast<std::size_t>(c + child_shift));
-                                                                       ++entry.children.count;
-                                                                   }
-                                                               });
-                                                       }
-                                                       emit(entry);
-                                                   }
-                                               });
-                                       });
-            return true;
-        }
 
         // The sum of the children from 0, divided by their number.
         template <class Field>
@@ -171,20 +221,13 @@ namespace samurai
             using value_t            = typename Field::value_type;
             constexpr std::size_t nc = Field::n_comp;
             auto* data               = field.data();
-            const auto children      = pool.subspan(entry.children.first, entry.children.count);
+            const auto children      = cells_of(pool, entry.children);
+            for (const auto child : children)
+            {
+                stop_on_nan(field, child, entry.ghost, "projection");
+            }
             for (std::size_t c = 0; c < nc; ++c)
             {
-#ifdef SAMURAI_CHECK_NAN
-                for (const auto child : children)
-                {
-                    if (std::isnan(data[child * nc + c]))
-                    {
-                        std::cerr << "NaN found in the cell of storage index " << child
-                                  << " during projection of the B.C. into the ghost of storage index " << entry.ghost << std::endl;
-                        std::exit(1);
-                    }
-                }
-#endif
                 value_t sum = std::accumulate(children.begin(),
                                               children.end(),
                                               value_t{0},
@@ -194,7 +237,7 @@ namespace samurai
                                               });
                 if (!children.empty())
                 {
-                    sum /= static_cast<int>(children.size());
+                    sum /= static_cast<value_t>(children.size());
                 }
                 data[entry.ghost * nc + c] = sum;
             }
@@ -208,21 +251,14 @@ namespace samurai
 
         assert(layer > 0 && layer <= mesh.max_stencil_radius());
 
-        // On a domain with a hole, the ghosts the B.C. fills in other directions are not projected.
-        int n_bc_ghosts = 0;
-        if (!mesh.domain().is_box())
-        {
-            n_bc_ghosts = field.get_bc().empty() ? mesh.max_stencil_radius() : field.get_bc().front()->stencil_size() / 2;
-        }
-
         for_each_entry(mesh,
                        detail::bc_projection_ghosts<Field::dim>{proj_level,
                                                                 direction_code<Field::dim>(direction),
                                                                 static_cast<std::size_t>(layer),
-                                                                static_cast<std::size_t>(n_bc_ghosts)},
+                                                                detail::bc_ghost_layers_left_out(field)},
                        [&](const auto& entry, std::span<const std::size_t> pool)
                        {
-#if !defined(NDEBUG) && !defined(SAMURAI_WITH_MPI)
+#ifndef SAMURAI_WITH_MPI
                            // It can happen in normal conditions if the domain has a hole, so only a box domain raises an error.
                            assert(entry.children.count > 0 || !mesh.domain().is_box());
 #endif
@@ -272,12 +308,10 @@ namespace samurai
 
     namespace detail
     {
-        // The ghosts of `level` below the layer `layer` of B.C. ghosts at
+        // The ghosts of `level` below the n_layers layers of B.C. ghosts at
         // level - 1 outside the domain in `direction`, each after its parent:
-        // those predict_bc copies from their parent. The layers 1 to n together
-        // are the ghosts it fills with n B.C. ghosts. When the domain is not a
-        // box, the ghosts within n_bc_ghosts of the boundary in another
-        // direction are left out: the B.C. fills them (n_bc_ghosts is 0 on a box).
+        // those predict_bc copies from their parent, without the n_left_out
+        // layers of bc_ghost_layers_left_out.
         template <std::size_t dim>
         struct bc_prediction_ghosts
         {
@@ -285,56 +319,65 @@ namespace samurai
 
             std::size_t level;
             std::size_t direction;
-            std::size_t layer;
-            std::size_t n_bc_ghosts;
+            std::size_t n_layers;
+            std::size_t n_left_out;
 
             template <class Mesh, class Emit>
             void produce(const Mesh& mesh, Emit& emit) const
             {
                 using mesh_id_t = typename Mesh::mesh_id_t;
 
-                const auto dir    = direction_from_code<dim>(direction);
-                const auto upto   = domain_boundary_outer_layer(mesh, level - 1, dir, static_cast<int>(layer));
-                const auto before = domain_boundary_outer_layer(mesh, level - 1, dir, static_cast<int>(layer) - 1);
-                auto ghosts       = intersection(difference(upto, before), mesh[mesh_id_t::reference][level]).on(level);
-
-                auto record = [&](const auto& i, const auto& index)
-                {
-                    for (auto ii = i.start; ii < i.end; ++ii)
+                const auto dir       = direction_from_code<dim>(direction);
+                const auto bc_ghosts = domain_boundary_outer_layer(mesh, level - 1, dir, static_cast<int>(n_layers));
+                auto ghosts          = intersection(bc_ghosts, mesh[mesh_id_t::reference][level]).on(level);
+                for_each_ghost_interval(
+                    mesh,
+                    level,
+                    n_left_out,
+                    ghosts,
+                    [&](const auto& i, const auto& index)
                     {
-                        emit(entry_type{memory_offset(mesh, {level - 1, ii >> 1, index >> 1}), memory_offset(mesh, {level, ii, index})});
-                    }
-                };
-                if (n_bc_ghosts == 0)
-                {
-                    ghosts(record);
-                }
-                else
-                {
-                    auto bc_ghosts_in_other_directions = domain_boundary_outer_layer(mesh, level, static_cast<int>(n_bc_ghosts));
-                    difference(ghosts, bc_ghosts_in_other_directions)(record);
-                }
+                        for (auto ii = i.start; ii < i.end; ++ii)
+                        {
+                            emit(entry_type{memory_offset(mesh, {level - 1, ii >> 1, index >> 1}), memory_offset(mesh, {level, ii, index})});
+                        }
+                    });
             }
 
-            // Same entries by walking the ghosts whose parent is a cell at
-            // level - 1 on the face of a box domain, moved `layer` cells out.
+            // Same entries by walking the ghosts in the n_layers layers outside
+            // the face of a box domain: those whose parent, brought back onto
+            // the face, is a cell at level - 1.
             template <class Mesh, class Emit>
             bool walk(const Mesh& mesh, Emit& emit) const
             {
                 using mesh_id_t = typename Mesh::mesh_id_t;
 
-                const auto coarse_domain = n_bc_ghosts == 0 ? box_domain_block(mesh, level - 1, false) : std::nullopt;
+                const auto coarse_domain = n_left_out == 0 ? box_domain_block(mesh, level - 1, false) : std::nullopt;
                 if (!coarse_domain)
                 {
                     return false;
                 }
-                const auto dir                  = direction_from_code<dim>(direction);
-                const auto& ref                 = mesh[mesh_id_t::reference];
-                const DirectionVector<dim> back = -static_cast<int>(layer) * dir;
-                bool found                      = true;
+                const auto dir = direction_from_code<dim>(direction);
+                // the layers 1 to n_layers outside the face, and the cells on the face
+                auto layers      = face_layer(*coarse_domain, dir, 1);
+                std::size_t axis = 0;
+                for (std::size_t d = 0; d < dim; ++d)
+                {
+                    if (dir[d] != 0)
+                    {
+                        axis = d;
+                    }
+                }
+                const auto further = static_cast<typename Mesh::interval_t::value_t>(n_layers) - 1;
+                (dir[axis] > 0 ? layers.hi[axis] : layers.lo[axis]) += dir[axis] > 0 ? further : -further;
+                const auto face = dir[axis] > 0 ? coarse_domain->hi[axis] - 1 : coarse_domain->lo[axis];
+
+                const auto& ref   = mesh[mesh_id_t::reference];
+                const auto& cells = mesh[mesh_id_t::cells][level - 1];
+                bool found        = true;
                 for_each_interval_in_block(
                     ref[level],
-                    refine(face_layer(*coarse_domain, dir, static_cast<int>(layer)), 1),
+                    refine(layers, 1),
                     [&](auto start, auto end, const auto& coords, auto shift)
                     {
                         auto parent_coords = coords;
@@ -345,21 +388,24 @@ namespace samurai
                                        {
                                            return c >> 1;
                                        });
+                        auto on_face  = parent_coords;
+                        on_face[axis] = face;
                         RowLookup parents(ref[level - 1], parent_coords);
-                        for_each_interval_in_block(
-                            mesh[mesh_id_t::cells][level - 1],
-                            translate(row_block(parent_coords, start >> 1, ((end - 1) >> 1) + 1), back),
-                            [&](auto cells_start, auto cells_end, const auto&, auto)
+                        RowLookup boundary_cells(cells, on_face);
+                        for (auto x = start; x < end && found; ++x)
+                        {
+                            const auto coarse_x = x >> 1;
+                            if (boundary_cells(axis == 0 ? face : coarse_x) < 0)
                             {
-                                const auto first = std::max(start, (cells_start - back[0]) << 1);
-                                const auto last  = std::min(end, (cells_end - back[0]) << 1);
-                                for (auto x = first; x < last; ++x)
-                                {
-                                    const auto parent = parents(x >> 1);
-                                    found             = found && parent >= 0;
-                                    emit(entry_type{static_cast<std::size_t>(parent), static_cast<std::size_t>(x + shift)});
-                                }
-                            });
+                                continue;
+                            }
+                            const auto parent = parents(coarse_x);
+                            found             = parent >= 0;
+                            if (found)
+                            {
+                                emit(entry_type{static_cast<std::size_t>(parent), static_cast<std::size_t>(x + shift)});
+                            }
+                        }
                     });
                 return found;
             }
@@ -511,26 +557,18 @@ namespace samurai
     template <class Field>
     void predict_bc(std::size_t pred_level, const DirectionVector<Field::dim>& direction, Field& field)
     {
-        const auto& mesh = field.mesh();
+        const auto& mesh      = field.mesh();
+        const auto dir        = direction_code<Field::dim>(direction);
+        const auto n_left_out = detail::bc_ghost_layers_left_out(field);
+        const auto n_layers   = static_cast<std::size_t>(detail::bc_ghost_layers(field));
 
-        int n_bc_ghosts = mesh.max_stencil_radius();
-        if (!field.get_bc().empty())
-        {
-            n_bc_ghosts = field.get_bc().front()->stencil_size() / 2;
-        }
-        // On a domain with a hole, the ghosts the B.C. fills in other directions are not predicted.
-        const auto excluded = mesh.domain().is_box() ? std::size_t{0} : static_cast<std::size_t>(n_bc_ghosts);
-        const auto dir      = direction_code<Field::dim>(direction);
-
-        for (int layer = 1; layer <= n_bc_ghosts; ++layer)
-        {
-            for_each_entry(mesh,
-                           detail::bc_prediction_ghosts<Field::dim>{pred_level, dir, static_cast<std::size_t>(layer), excluded},
-                           [&](const auto& cells)
-                           {
-                               detail::extrapolate_cells(field, cells);
-                           });
-        }
+        for_each_entry(mesh,
+                       detail::bc_prediction_ghosts<Field::dim>{pred_level, dir, n_layers, n_left_out},
+                       [&](const auto& cells)
+                       {
+                           detail::stop_on_nan(field, cells[0], cells[1], "prediction");
+                           detail::extrapolate_cells(field, cells);
+                       });
     }
 
     /**
@@ -541,10 +579,7 @@ namespace samurai
     {
         for_each_entry(field.mesh(),
                        detail::corner_ghosts_below<Field::dim>{level, direction_code<Field::dim>(direction)},
-                       [&](const auto& cells)
-                       {
-                           detail::extrapolate_cells(field, cells);
-                       });
+                       detail::extrapolation_of(field));
     }
 
     // Field projection of the corner ghosts at `level` to level-1 and level-2,
@@ -639,12 +674,8 @@ namespace samurai
                         // - the B.C. is projected onto the lower ghosts
                         // - those lower ghosts are projected onto the even lower ghosts
 
-                        int n_bc_ghosts = mesh.max_stencil_radius();
-                        if (!field.get_bc().empty())
-                        {
-                            n_bc_ghosts = static_cast<int>(field.get_bc().front()->stencil_size()) / 2;
-                        }
-                        int max_coarse_layer = n_bc_ghosts % 2 == 0 ? n_bc_ghosts / 2 : (n_bc_ghosts + 1) / 2;
+                        const int n_bc_ghosts = detail::bc_ghost_layers(field);
+                        int max_coarse_layer  = n_bc_ghosts % 2 == 0 ? n_bc_ghosts / 2 : (n_bc_ghosts + 1) / 2;
                         for (int layer = 1; layer <= max_coarse_layer; ++layer)
                         {
                             project_bc(level, direction, layer, field); // project from level+1 to level

@@ -692,13 +692,25 @@ namespace samurai
                 return 2 * layer > max_stencil_size_implemented_PE;
             }
 
+            // From the mirrored inner cell to the ghost.
+            DirectionVector<dim> to_ghost(const DirectionVector<dim>& dir) const
+            {
+                return (2 * static_cast<int>(layer) - 1) * dir;
+            }
+
+            // From the corner cell to the mirrored inner cell.
+            DirectionVector<dim> to_inner_cell(const DirectionVector<dim>& dir) const
+            {
+                return (1 - static_cast<int>(layer)) * dir;
+            }
+
             // The stencil of the mirror: the inner cell, then the ghost.
             Stencil<2, dim> mirror_stencil(const DirectionVector<dim>& dir) const
             {
-                const DirectionVector<dim> to_ghost = (2 * static_cast<int>(layer) - 1) * dir;
+                const auto ghost = to_ghost(dir);
                 Stencil<2, dim> stencil;
                 xt::view(stencil, 0) = 0;
-                xt::view(stencil, 1) = to_ghost;
+                xt::view(stencil, 1) = ghost;
                 return stencil;
             }
 
@@ -715,14 +727,11 @@ namespace samurai
                     {
                         // The inner cell has to be a cell of this level, and the ghost has to exist in the mesh:
                         // the same two conditions as the extrapolation.
-                        const auto stencil            = mirror_stencil(dir);
-                        const auto signed_layer       = static_cast<int>(layer);
-                        DirectionVector<dim> to_ghost = (2 * signed_layer - 1) * dir;
-                        auto mirrored_cells           = intersection(translate(corner, (1 - signed_layer) * dir),
+                        auto mirrored_cells = intersection(translate(corner, to_inner_cell(dir)),
                                                            mesh[mesh_id_t::cells][level],
-                                                           translate(mesh[mesh_id_t::reference][level], -to_ghost))
+                                                           translate(mesh[mesh_id_t::reference][level], -to_ghost(dir)))
                                                   .on(level);
-                        emit_stencils(mesh, mirrored_cells, stencil, emit);
+                        emit_stencils(mesh, mirrored_cells, mirror_stencil(dir), emit);
                         return;
                     }
                 }
@@ -743,8 +752,12 @@ namespace samurai
                 {
                     if (mirrored())
                     {
-                        const DirectionVector<dim> to_cell = (1 - static_cast<int>(layer)) * dir;
-                        return emit_block_stencils(mesh, level, translate(*corner, to_cell), stencil_offsets(mirror_stencil(dir)), checked, emit);
+                        return emit_block_stencils(mesh,
+                                                   level,
+                                                   translate(*corner, to_inner_cell(dir)),
+                                                   stencil_offsets(mirror_stencil(dir)),
+                                                   checked,
+                                                   emit);
                     }
                 }
                 return emit_block_stencils(mesh, level, *corner, stencil_offsets(extrapolation_stencil<stencil_size>(layer, dir)), checked, emit);
@@ -879,6 +892,16 @@ namespace samurai
                     });
             }
         }
+
+        // The kernel that extrapolates the entries of a key into `field`.
+        template <class Field>
+        auto extrapolation_of(Field& field)
+        {
+            return [&field](const auto& cells)
+            {
+                extrapolate_cells(field, cells);
+            };
+        }
     }
 
     // Fills the corner ghosts of `level` in the diagonal `direction`: the diagonal ones layer by layer, by
@@ -894,10 +917,7 @@ namespace samurai
             const auto dir        = direction_code<dim>(direction);
             const int ghost_width = mesh.ghost_width();
 
-            auto extrapolate = [&](const auto& cells)
-            {
-                detail::extrapolate_cells(field, cells);
-            };
+            const auto extrapolate = detail::extrapolation_of(field);
 
             for (int ghost_layer = 1; ghost_layer <= ghost_width; ++ghost_layer)
             {
@@ -963,10 +983,7 @@ namespace samurai
 
         detail::check_ghost_width_for_polynomial_extrapolation(ghost_width, detail::max_ghost_layers_implemented_PE);
 
-        auto extrapolate = [&](const auto& cells)
-        {
-            detail::extrapolate_cells(field, cells);
-        };
+        const auto extrapolate = detail::extrapolation_of(field);
 
         // 1. We fill the ghosts that are further than those filled by the B.C. (where there are boundary cells)
 

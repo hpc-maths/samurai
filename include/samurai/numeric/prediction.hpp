@@ -38,13 +38,13 @@ namespace samurai
          * - @c n_par = 2: all the child rows of the coarse row at once, which share the work.
          *
          * Preconditions:
-         * - every coarse cell of the stencil exists in @a lca;
+         * - @a stencil_rows gives every coarse row of the stencil;
          * - the fields store the @a n_comp components of a cell next to each other.
          */
-        template <std::size_t n_par, std::size_t radius, std::size_t n_comp, class LCA, class Value>
+        template <std::size_t n_par, std::size_t radius, std::size_t n_comp, std::size_t dim_, class StencilRows>
         struct stencil_contraction
         {
-            static constexpr std::size_t dim = LCA::dim;
+            static constexpr std::size_t dim = dim_;
             /// Number of 1D weights, 2r+1.
             static constexpr std::size_t size = PredictionCoefficients<radius>::size;
             /// Number of fine rows predicted together.
@@ -55,14 +55,13 @@ namespace samurai
             /// Distance, in doubles, between two rows of a buffer.
             static constexpr std::size_t stride = (chunk + 2 * radius) * n_comp;
 
-            using value_t = typename LCA::interval_t::value_t;
+            using value_t = typename StencilRows::value_t;
+            using range_t = typename StencilRows::range_t;
             /// Coordinates above x: element d is direction d+1.
             using row_t = std::array<value_t, dim - 1>;
 
-            /// The coarse cells (reference mesh at the parent level).
-            const LCA& lca;
-            /// The source field values.
-            const Value* src;
+            /// Where the coarse rows of the stencil are read (see lca_stencil_rows and listed_stencil_rows).
+            const StencilRows& stencil_rows;
             /// The 1D weights of the low child (c[0]) and of the high child (c[1]).
             const std::array<std::array<double, size>, 2>& c;
             /// The coarse row: parent of the first fine row.
@@ -76,19 +75,17 @@ namespace samurai
 
             /**
              * Sums directions 1 to N of the stencil over the columns [x_lo, x_hi) and returns
-             * the resulting rows. [start, end) is the range of intervals of lca[N] to search.
+             * the resulting rows. @a range is where stencil_rows looks for the rows of direction N.
              * The n_par^N rows go to @a out, @ref stride doubles apart; the parity in
              * direction N changes slowest. N == 0 sums nothing: it returns a pointer into the
-             * source row, which must be one interval over [x_lo, x_hi).
+             * source row, which must hold the columns [x_lo, x_hi) next to each other.
              */
             template <std::size_t N>
-            SAMURAI_INLINE const auto* contract(std::size_t start, std::size_t end, double* out) const
+            SAMURAI_INLINE const auto* contract(const range_t& range, double* out) const
             {
                 if constexpr (N == 0)
                 {
-                    const auto& x_interval = find(0, start, end, x_lo);
-                    assert(x_interval.contains(x_hi - 1) && "prediction: a row of the stencil is not contiguous");
-                    return src + static_cast<std::size_t>(x_interval.index + x_lo) * n_comp;
+                    return stencil_rows.row(range, x_lo, x_hi, n_comp);
                 }
                 else
                 {
@@ -99,8 +96,7 @@ namespace samurai
                     for (std::size_t k = 0; k < size; ++k)
                     {
                         const value_t y  = parent[N - 1] + static_cast<value_t>(k) - static_cast<value_t>(radius);
-                        const auto off   = static_cast<std::size_t>(find(N, start, end, y).index + y);
-                        const auto* rows = contract<N - 1>(lca.offsets(N)[off], lca.offsets(N)[off + 1], sub.data());
+                        const auto* rows = contract<N - 1>(stencil_rows.down(N, range, y, k), sub.data());
 
                         for (std::size_t q = 0; q < n_par; ++q)
                         {
@@ -119,23 +115,163 @@ namespace samurai
                     return static_cast<const double*>(out);
                 }
             }
+        };
 
-            /// The interval of lca[d] in [start, end) that contains @a v; it must exist.
-            SAMURAI_INLINE const auto& find(std::size_t d, std::size_t start, std::size_t end, value_t v) const
+        /// The coarse rows of a prediction stencil, found in a level cell array: every coarse
+        /// cell of the stencil must exist in @a lca.
+        template <class LCA, class Value>
+        struct lca_stencil_rows
+        {
+            using value_t = typename LCA::interval_t::value_t;
+
+            /// A range of intervals of lca[d].
+            struct range_t
+            {
+                std::size_t start;
+                std::size_t end;
+            };
+
+            const LCA& lca;
+            const Value* src;
+
+            /// Where to look for the rows of the last direction.
+            range_t all() const
+            {
+                return {0, lca[LCA::dim - 1].size()};
+            }
+
+            /// Where to look for the rows of direction N - 1, in the row @a y of direction N.
+            SAMURAI_INLINE range_t down(std::size_t N, const range_t& range, value_t y, std::size_t) const
+            {
+                const auto off = static_cast<std::size_t>(find(N, range, y).index + y);
+                return {lca.offsets(N)[off], lca.offsets(N)[off + 1]};
+            }
+
+            /// The values of the row from the column @a x_lo: one interval over [x_lo, x_hi).
+            SAMURAI_INLINE const Value* row(const range_t& range, value_t x_lo, [[maybe_unused]] value_t x_hi, std::size_t n_comp) const
+            {
+                const auto& x_interval = find(0, range, x_lo);
+                assert(x_interval.contains(x_hi - 1) && "prediction: a row of the stencil is not contiguous");
+                return src + static_cast<std::size_t>(x_interval.index + x_lo) * n_comp;
+            }
+
+            /// The interval of lca[d] in @a range that contains @a v; it must exist.
+            SAMURAI_INLINE const auto& find(std::size_t d, const range_t& range, value_t v) const
             {
                 const auto first = lca[d].cbegin();
-                const auto pos   = interval_search(first + static_cast<std::ptrdiff_t>(start), first + static_cast<std::ptrdiff_t>(end), v);
+                const auto pos   = interval_search(first + static_cast<std::ptrdiff_t>(range.start),
+                                                 first + static_cast<std::ptrdiff_t>(range.end),
+                                                 v);
                 assert(pos >= 0 && "prediction: a cell of the stencil is missing");
-                return lca[d][start + static_cast<std::size_t>(pos)];
+                return lca[d][range.start + static_cast<std::size_t>(pos)];
+            }
+        };
+
+        /// The coarse rows of a prediction stencil, listed beforehand: the storage index of the
+        /// column @a x0 of each row, the last direction changing slowest.
+        template <std::size_t size, class Value>
+        struct listed_stencil_rows
+        {
+            using value_t = std::ptrdiff_t;
+
+            /// Position of a row, or of the first of a group of rows, in the list.
+            struct range_t
+            {
+                std::size_t first;
+            };
+
+            const std::size_t* list;
+            const Value* src;
+            value_t x0;
+
+            range_t all() const
+            {
+                return {0};
+            }
+
+            /// The k-th row of the stencil in direction N, whatever its coordinate.
+            SAMURAI_INLINE range_t down(std::size_t, const range_t& range, value_t, std::size_t k) const
+            {
+                return {range.first * size + k};
+            }
+
+            SAMURAI_INLINE const Value* row(const range_t& range, value_t x_lo, value_t, std::size_t n_comp) const
+            {
+                return src + (list[range.first] + static_cast<std::size_t>(x_lo - x0)) * n_comp;
             }
         };
 
         /**
+         * Predicts the fine cells [f_lo, f_hi) of n_par^(dim-1) fine rows from the coarse rows
+         * @a stencil_rows gives. Works in passes of at most @c chunk parents along x: contract()
+         * sums the directions above x, then each fine cell sums the 2r+1 columns around its
+         * parent with the x weights of its parity.
+         *
+         * @param dest         values written
+         * @param dest_rows    storage index of the cell f_lo of each fine row, in the order contract() writes them
+         * @param stencil_rows the coarse rows read
+         * @param f_lo         first fine column
+         * @param f_hi         one past the last fine column
+         * @param parent       the coarse row, parent of the first fine row
+         * @param parity       parity of the first fine row in each direction above x
+         */
+        template <std::size_t n_par, std::size_t radius, std::size_t n_comp, std::size_t dim, class Dest, class StencilRows>
+        SAMURAI_INLINE void predict_rows_from(Dest* dest,
+                                              const std::array<std::size_t, ce_pow(n_par, dim - 1)>& dest_rows,
+                                              const StencilRows& stencil_rows,
+                                              typename StencilRows::value_t f_lo,
+                                              typename StencilRows::value_t f_hi,
+                                              const std::array<typename StencilRows::value_t, dim - 1>& parent,
+                                              const std::array<typename StencilRows::value_t, dim - 1>& parity)
+        {
+            using contraction_t   = stencil_contraction<n_par, radius, n_comp, dim, StencilRows>;
+            using value_t         = typename contraction_t::value_t;
+            constexpr auto stride = contraction_t::stride;
+            constexpr auto chunk  = static_cast<value_t>(contraction_t::chunk);
+
+            const std::array<std::array<double, contraction_t::size>, 2> c = {
+                {prediction_coefficients<radius>(0, 0).c, prediction_coefficients<radius>(1, 0).c}
+            };
+
+            contraction_t contraction{stencil_rows, c, parent, parity};
+
+            // Output of contract(); unused in 1D, where contract() points into the source.
+            std::array<double, contraction_t::n_rows * stride> rows;
+            const value_t c_lo = f_lo >> 1;
+            const value_t c_hi = ((f_hi - 1) >> 1) + 1;
+            for (value_t a = c_lo; a < c_hi; a += chunk)
+            {
+                const value_t b   = std::min(c_hi, a + chunk);
+                contraction.x_lo  = a - static_cast<value_t>(radius);
+                contraction.x_hi  = b + static_cast<value_t>(radius);
+                const auto* above = contraction.template contract<dim - 1>(stencil_rows.all(), rows.data());
+
+                // x last: fine cell f uses the 2r+1 columns centred on its parent.
+                for (std::size_t q = 0; q < dest_rows.size(); ++q)
+                {
+                    for (value_t f = std::max(f_lo, 2 * a); f < std::min(f_hi, 2 * b); ++f)
+                    {
+                        const auto& cf = c[static_cast<std::size_t>(f & 1)];
+                        const auto* t  = above + q * stride + static_cast<std::size_t>((f >> 1) - a) * n_comp;
+                        auto* d        = dest + (dest_rows[q] + static_cast<std::size_t>(f - f_lo)) * n_comp;
+                        for (std::size_t n = 0; n < n_comp; ++n)
+                        {
+                            double v = 0.;
+                            for (std::size_t s = 0; s < contraction_t::size; ++s)
+                            {
+                                v += cf[s] * t[s * n_comp + n];
+                            }
+                            d[n] = v;
+                        }
+                    }
+                }
+            }
+        }
+
+        /**
          * Predicts the fine cells [f_lo, f_hi) of the fine row @a first (n_par = 1), or of all
-         * the child rows of its coarse row (n_par = 2), from their parents at fine_level - 1.
-         * Works in passes of at most @c chunk parents along x: contract() sums the directions
-         * above x, then each fine cell sums the 2r+1 columns around its parent with the x weights
-         * of its parity.
+         * the child rows of its coarse row (n_par = 2), from their parents at fine_level - 1,
+         * found in the reference mesh.
          *
          * @param dest       field written at @a fine_level (can be @a src)
          * @param src        field read at @a fine_level - 1
@@ -155,28 +291,23 @@ namespace samurai
             using mesh_id_t       = typename SRC::mesh_t::mesh_id_t;
             constexpr auto n_comp = SRC::n_comp;
             const auto& lca       = src.mesh()[mesh_id_t::reference][fine_level - 1];
-            using contraction_t = stencil_contraction<n_par, radius, n_comp, std::decay_t<decltype(lca)>, std::decay_t<decltype(*src.data())>>;
-            using value_t         = typename contraction_t::value_t;
-            constexpr auto dim    = contraction_t::dim;
-            constexpr auto stride = contraction_t::stride;
-            constexpr auto chunk  = static_cast<value_t>(contraction_t::chunk);
+            constexpr auto dim    = std::decay_t<decltype(lca)>::dim;
+            using stencil_rows_t  = lca_stencil_rows<std::decay_t<decltype(lca)>, std::decay_t<decltype(*src.data())>>;
+            using value_t         = typename stencil_rows_t::value_t;
 
-            const std::array<std::array<double, contraction_t::size>, 2> c = {
-                {prediction_coefficients<radius>(0, 0).c, prediction_coefficients<radius>(1, 0).c}
-            };
-
-            contraction_t contraction{lca, src.data(), c, {}, {}};
+            std::array<value_t, dim - 1> parent;
+            std::array<value_t, dim - 1> parity;
             for (std::size_t d = 0; d < dim - 1; ++d)
             {
-                contraction.parent[d] = first[d] >> 1;
-                contraction.parity[d] = first[d] & 1;
+                parent[d] = first[d] >> 1;
+                parity[d] = first[d] & 1;
             }
 
             // Storage index of cell f_lo in each fine row, in the order contract() writes them.
-            std::array<std::size_t, contraction_t::n_rows> dest_rows;
+            std::array<std::size_t, ce_pow(n_par, dim - 1)> dest_rows;
             for (std::size_t q = 0; q < dest_rows.size(); ++q)
             {
-                typename contraction_t::row_t fine_row;
+                std::array<value_t, dim - 1> fine_row;
                 for (std::size_t d = 0, digits = q; d < dim - 1; ++d, digits /= n_par)
                 {
                     fine_row[d] = first[d] + static_cast<value_t>(digits % n_par);
@@ -184,37 +315,7 @@ namespace samurai
                 dest_rows[q] = memory_offset(dest.mesh(), {fine_level, f_lo, fine_row});
             }
 
-            // Output of contract(); unused in 1D, where contract() points into src.
-            std::array<double, contraction_t::n_rows * stride> rows;
-            const value_t c_lo = f_lo >> 1;
-            const value_t c_hi = ((f_hi - 1) >> 1) + 1;
-            for (value_t a = c_lo; a < c_hi; a += chunk)
-            {
-                const value_t b   = std::min(c_hi, a + chunk);
-                contraction.x_lo  = a - static_cast<value_t>(radius);
-                contraction.x_hi  = b + static_cast<value_t>(radius);
-                const auto* above = contraction.template contract<dim - 1>(0, lca[dim - 1].size(), rows.data());
-
-                // x last: fine cell f uses the 2r+1 columns centred on its parent.
-                for (std::size_t q = 0; q < dest_rows.size(); ++q)
-                {
-                    for (value_t f = std::max(f_lo, 2 * a); f < std::min(f_hi, 2 * b); ++f)
-                    {
-                        const auto& cf = c[static_cast<std::size_t>(f & 1)];
-                        const auto* t  = above + q * stride + static_cast<std::size_t>((f >> 1) - a) * n_comp;
-                        auto* d        = dest.data() + (dest_rows[q] + static_cast<std::size_t>(f - f_lo)) * n_comp;
-                        for (std::size_t n = 0; n < n_comp; ++n)
-                        {
-                            double v = 0.;
-                            for (std::size_t s = 0; s < contraction_t::size; ++s)
-                            {
-                                v += cf[s] * t[s * n_comp + n];
-                            }
-                            d[n] = v;
-                        }
-                    }
-                }
-            }
+            predict_rows_from<n_par, radius, n_comp, dim>(dest.data(), dest_rows, stencil_rows_t{lca, src.data()}, f_lo, f_hi, parent, parity);
         }
     }
 

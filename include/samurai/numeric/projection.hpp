@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <span>
+
 #include "../operators_base.hpp"
 #include "../static_algorithm.hpp"
 
@@ -11,6 +13,40 @@ namespace samurai
     /////////////////////////
     // projection operator //
     /////////////////////////
+
+    namespace detail
+    {
+        // Field projection of `len` cells of a row: the cell k of the row that
+        // starts at the storage index `dest_row` gets the mean of its 2^dim
+        // children, the cells 2k and 2k + 1 of each of the 2^(dim-1) rows that
+        // start at `src_rows`. The n_comp components of a cell are next to each other.
+        template <std::size_t dim, std::size_t n_comp, class Dest, class Src>
+        SAMURAI_INLINE void project_rows(Dest* dest,
+                                         std::size_t dest_row,
+                                         const Src* src,
+                                         std::span<const std::size_t, std::size_t{1} << (dim - 1)> src_rows,
+                                         std::size_t len)
+        {
+            constexpr double inv = 1.0 / static_cast<double>(1ULL << dim);
+
+            for (std::size_t ii = 0, i_f = 0; ii < len; ++ii, i_f += 2)
+            {
+                std::array<double, n_comp> sum;
+                sum.fill(0);
+                for (const auto row : src_rows)
+                {
+                    for (std::size_t n = 0; n < n_comp; ++n)
+                    {
+                        sum[n] += src[(row + i_f) * n_comp + n] + src[(row + i_f + 1) * n_comp + n];
+                    }
+                }
+                for (std::size_t n = 0; n < n_comp; ++n)
+                {
+                    dest[(dest_row + ii) * n_comp + n] = sum[n] * inv;
+                }
+            }
+        }
+    }
 
     template <std::size_t dim, class TInterval>
     class projection_op_ : public field_operator_base<dim, TInterval>
@@ -41,26 +77,7 @@ namespace samurai
                     });
             }
 
-            const auto* src_data = src.data();
-            auto* dest_data      = dest.data();
-            constexpr double inv = 1.0 / static_cast<double>(1ULL << dim);
-
-            for (std::size_t ii = 0, i_f = 0; ii < i.size(); ++ii, i_f += 2)
-            {
-                std::array<double, SRC::n_comp> sum;
-                sum.fill(0);
-                for (std::size_t s = 0; s < src_offsets.size(); ++s)
-                {
-                    for (std::size_t n = 0; n < SRC::n_comp; ++n)
-                    {
-                        sum[n] += src_data[(src_offsets[s] + i_f) * SRC::n_comp + n] + src_data[(src_offsets[s] + i_f + 1) * SRC::n_comp + n];
-                    }
-                }
-                for (std::size_t n = 0; n < SRC::n_comp; ++n)
-                {
-                    dest_data[(dst_offsets + ii) * SRC::n_comp + n] = sum[n] * inv;
-                }
-            }
+            detail::project_rows<dim, SRC::n_comp>(dest.data(), dst_offsets, src.data(), src_offsets, i.size());
         }
     };
 

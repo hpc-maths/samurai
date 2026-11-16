@@ -29,7 +29,9 @@
 // - gives the type of the entries: `using entry_type = ...;`, any trivially
 //   copyable struct (Rows and Cells below cover the usual cases);
 // - holds, as members, everything the traversal depends on besides the mesh
-//   (level, direction, layer...);
+//   (level, direction, layer...). Two keys are the same when their bytes are, so
+//   a key is trivially copyable and has no padding: members of one integer
+//   type, std::size_t for instance, and direction_code() for a direction;
 // - knows how to produce the entries, by traversing the set expression:
 //       template <class Mesh, class Emit>
 //       void produce(const Mesh& mesh, Emit& emit) const; // calls emit(entry)
@@ -49,11 +51,27 @@
 //         }
 //     };
 //
-//     samurai::for_each_entry(mesh, my_key{level}, [&](const auto& run) { ... });
+//     samurai::for_each_entry(mesh, my_key{level}, [&](const auto& rows) { ... });
 //
 // for_each_entry runs the kernel on the entries of the table when the mesh
 // keeps one, and on the entries produce() emits otherwise: the kernel is the
 // same, only where the entries come from changes.
+//
+// An entry with a variable number of cells holds a PoolRange:
+//     auto cells = emit.new_range();
+//     emit.add(cells, index); // as many times as needed
+//     emit(my_entry{..., cells});
+// and its kernel takes the pool as second argument:
+//     [&](const auto& entry, std::span<const std::size_t> pool)
+//     {
+//         for (const auto index : samurai::cells_of(pool, entry.cells)) { ... }
+//     }
+//
+// A key can also give its entries by a direct walk of the mesh, cheaper than
+// the set expression but allowed to give up:
+//     bool walk(const Mesh& mesh, Emit& emit) const; // false: use produce()
+// It must emit the entries of produce(), in the same order. It is only used to
+// record a table.
 namespace samurai
 {
     // N rows of `len` consecutive cells, each given by the storage index of its first cell.
@@ -68,47 +86,50 @@ namespace samurai
     template <std::size_t N>
     using Cells = std::array<std::size_t, N>;
 
-    // For entries with a variable number of cells: `count` storage indices from
-    // `first` in the pool of the table. A producer fills it with
-    //     PoolRange range{emit.pool().size(), 0};
-    //     emit.pool().push_back(...); ++range.count;
-    // and the kernel takes the pool as second argument:
-    //     [&](const auto& entry, std::span<const std::size_t> pool) { ... }
+    // `count` storage indices from `first` in the pool of the table.
     struct PoolRange
     {
         std::size_t first;
         std::size_t count;
     };
 
-    // A key is compared and hashed through its bytes: it must not have padding.
-    template <class Key>
-    concept entry_table_key = requires { typename Key::entry_type; } && std::is_trivially_copyable_v<typename Key::entry_type>
-                           && std::is_trivially_copyable_v<Key> && std::has_unique_object_representations_v<Key>;
-
-    template <class Entry>
-    struct EntryTable
+    // The storage indices of `range`.
+    inline std::span<const std::size_t> cells_of(std::span<const std::size_t> pool, const PoolRange& range)
     {
-        std::vector<Entry> entries;
-        std::vector<std::size_t> pool;
-    };
-
-    // What a value of the environment variable SAMURAI_ENTRY_TABLES asks for:
-    // tables, unless it is "0". nullptr is an unset variable.
-    inline bool entry_tables_enabled_by(const char* value)
-    {
-        return value == nullptr || std::string_view(value) != "0";
+        return pool.subspan(range.first, range.count);
     }
 
-    // Whether meshes keep tables. Set SAMURAI_ENTRY_TABLES=0 to always traverse
-    // the set expressions.
+    // Whether meshes keep tables. Set the environment variable
+    // SAMURAI_ENTRY_TABLES to 0 to always traverse the set expressions.
     inline bool& entry_tables_enabled()
     {
-        static bool enabled = entry_tables_enabled_by(std::getenv("SAMURAI_ENTRY_TABLES"));
+        static bool enabled = []
+        {
+            const char* value = std::getenv("SAMURAI_ENTRY_TABLES");
+            return value == nullptr || std::string_view(value) != "0";
+        }();
         return enabled;
     }
 
     namespace detail
     {
+        template <class Key>
+        constexpr void check_entry_table_key()
+        {
+            static_assert(requires { typename Key::entry_type; }, "an entry table key gives the type of its entries: using entry_type = ...;");
+            static_assert(std::is_trivially_copyable_v<typename Key::entry_type>, "the entries of an entry table are trivially copyable");
+            static_assert(
+                std::is_trivially_copyable_v<Key> && std::has_unique_object_representations_v<Key>,
+                "an entry table key is compared through its bytes: trivially copyable, without padding (members of one integer type)");
+        }
+
+        template <class Entry>
+        struct EntryTable
+        {
+            std::vector<Entry> entries;
+            std::vector<std::size_t> pool;
+        };
+
         template <class Kernel, class Entry>
         void call_kernel(Kernel& kernel, const Entry& entry, std::span<const std::size_t> pool)
         {
@@ -122,14 +143,42 @@ namespace samurai
             }
         }
 
+        // The ranges a producer opens and fills in a pool.
+        class PoolWriter
+        {
+          public:
+
+            explicit PoolWriter(std::vector<std::size_t>& pool)
+                : m_pool(pool)
+            {
+            }
+
+            PoolRange new_range() const
+            {
+                return {m_pool.size(), 0};
+            }
+
+            // Appends to the range opened last.
+            void add(PoolRange& range, std::size_t index)
+            {
+                m_pool.push_back(index);
+                ++range.count;
+            }
+
+          private:
+
+            std::vector<std::size_t>& m_pool;
+        };
+
         // What produce() emits to when the entries are kept.
         template <class Entry>
-        class EntryRecorder
+        class EntryRecorder : public PoolWriter
         {
           public:
 
             explicit EntryRecorder(EntryTable<Entry>& table)
-                : m_table(table)
+                : PoolWriter(table.pool)
+                , m_table(table)
             {
             }
 
@@ -138,24 +187,22 @@ namespace samurai
                 m_table.entries.push_back(entry);
             }
 
-            std::vector<std::size_t>& pool()
-            {
-                return m_table.pool;
-            }
-
           private:
 
             EntryTable<Entry>& m_table;
         };
 
-        // What produce() emits to when they are not: each entry goes straight to the kernel.
+        // What produce() emits to when they are not: each entry goes straight
+        // to the kernel, with the pool of that entry alone.
         template <class Entry, class Kernel>
-        class EntryForwarder
+        class EntryForwarder : public PoolWriter
         {
           public:
 
-            explicit EntryForwarder(Kernel& kernel)
-                : m_kernel(kernel)
+            EntryForwarder(Kernel& kernel, std::vector<std::size_t>& pool)
+                : PoolWriter(pool)
+                , m_kernel(kernel)
+                , m_pool(pool)
             {
             }
 
@@ -165,15 +212,10 @@ namespace samurai
                 m_pool.clear();
             }
 
-            std::vector<std::size_t>& pool()
-            {
-                return m_pool;
-            }
-
           private:
 
             Kernel& m_kernel;
-            std::vector<std::size_t> m_pool;
+            std::vector<std::size_t>& m_pool;
         };
 
         struct KeyBytesHash
@@ -181,7 +223,8 @@ namespace samurai
             template <class Key>
             std::size_t operator()(const Key& key) const noexcept
             {
-                // FNV-1a over the words of the key, its last bytes zero padded
+                // The words of the key, its last bytes zero padded, mixed one
+                // after the other: xor, multiply by the FNV prime, shift.
                 std::array<std::size_t, (sizeof(Key) + sizeof(std::size_t) - 1) / sizeof(std::size_t)> words{};
                 std::memcpy(words.data(), &key, sizeof(Key));
                 std::size_t h = 14695981039346656037ULL;
@@ -203,212 +246,162 @@ namespace samurai
             }
         };
 
-        // A key can refuse to be kept on a mesh: bool keep(const Mesh&) const.
         template <class Key, class Mesh>
-        bool keeps_table(const Key& key, const Mesh& mesh)
-        {
-            if constexpr (requires {
-                              { key.keep(mesh) } -> std::convertible_to<bool>;
-                          })
-            {
-                return key.keep(mesh);
-            }
-            else
-            {
-                return true;
-            }
-        }
-    }
+        concept walkable_key = requires(const Key& key, const Mesh& mesh, EntryRecorder<typename Key::entry_type>& recorder) {
+            { key.walk(mesh, recorder) } -> std::convertible_to<bool>;
+        };
 
-    // The entries of `key` on `mesh`, from its set expression, not kept.
-    template <class Mesh, entry_table_key Key>
-    auto record_entries_by_traversal(const Mesh& mesh, const Key& key)
-    {
-        EntryTable<typename Key::entry_type> table;
-        detail::EntryRecorder<typename Key::entry_type> recorder(table);
-        key.produce(mesh, recorder);
-        return table;
-    }
-
-    // A key can also give its entries by a direct walk of the mesh, cheaper
-    // than the set expression but allowed to give up:
-    //     bool walk(const Mesh& mesh, Emit& emit) const; // false: use produce()
-    // It must emit the entries of produce(), in the same order. It is only
-    // used to record a table.
-    template <class Key, class Mesh>
-    concept walkable_key = requires(const Key& key, const Mesh& mesh, detail::EntryRecorder<typename Key::entry_type>& recorder) {
-        { key.walk(mesh, recorder) } -> std::convertible_to<bool>;
-    };
-
-    // The entries of `key` on `mesh`, as a table records them: from the walk
-    // of the key when it has one that succeeds, from its set expression otherwise.
-    template <class Mesh, entry_table_key Key>
-    auto record_entries(const Mesh& mesh, const Key& key)
-    {
-        if constexpr (walkable_key<Key, Mesh>)
+        // The entries of `key` on `mesh`: from the walk of the key when it has
+        // one, `by_walk` allows it and it succeeds, from its set expression otherwise.
+        template <class Mesh, class Key>
+        auto record_entries(const Mesh& mesh, const Key& key, bool by_walk = true)
         {
             EntryTable<typename Key::entry_type> table;
-            detail::EntryRecorder<typename Key::entry_type> recorder(table);
-            if (key.walk(mesh, recorder))
+            EntryRecorder<typename Key::entry_type> recorder(table);
+            if constexpr (walkable_key<Key, Mesh>)
             {
-                return table;
+                if (by_walk && key.walk(mesh, recorder))
+                {
+                    return table;
+                }
+                table = {};
             }
-        }
-        return record_entries_by_traversal(mesh, key);
-    }
-
-    // The tables of one mesh, each recorded the first time it is asked for. A
-    // mesh owns one and empties it whenever its cells change, so a table it
-    // holds is never stale. It knows nothing of the keys.
-    class EntryTableStore
-    {
-      public:
-
-        EntryTableStore() = default;
-
-        // The tables are not copied: the copy records its own on first use.
-        EntryTableStore(const EntryTableStore&) noexcept
-        {
+            key.produce(mesh, recorder);
+            return table;
         }
 
-        EntryTableStore& operator=(const EntryTableStore& other) noexcept
+        // The tables of one mesh, each recorded the first time it is asked for.
+        // It knows nothing of the keys. A mesh owns one and empties it each
+        // time it rebuilds its cells or the meshes of its neighbours (see
+        // Mesh_base): a table is valid as long as the mesh is not modified
+        // behind its back, through its non-const accessors.
+        //
+        // Recording behind a const mesh makes it safe to read the tables of one
+        // mesh from several threads, as the prediction caches are.
+        class EntryTableStore
         {
-            if (this != &other)
+          public:
+
+            EntryTableStore() = default;
+
+            // The tables are not copied: the copy records its own on first use.
+            EntryTableStore(const EntryTableStore&) noexcept
             {
-                clear();
             }
-            return *this;
-        }
 
-        EntryTableStore(EntryTableStore&& other) noexcept
-        {
-            swap(other);
-        }
-
-        EntryTableStore& operator=(EntryTableStore&& other) noexcept
-        {
-            if (this != &other)
+            EntryTableStore& operator=(const EntryTableStore& other) noexcept
             {
-                clear();
+                if (this != &other)
+                {
+                    clear();
+                }
+                return *this;
+            }
+
+            EntryTableStore(EntryTableStore&& other) noexcept
+            {
                 swap(other);
             }
-            return *this;
-        }
 
-        ~EntryTableStore() = default;
-
-        void swap(EntryTableStore& other) noexcept
-        {
-            if (this != &other)
+            EntryTableStore& operator=(EntryTableStore&& other) noexcept
             {
-                const std::scoped_lock lock(m_mutex, other.m_mutex);
-                m_tables.swap(other.m_tables);
-                std::swap(m_size, other.m_size);
-            }
-        }
-
-        void clear() noexcept
-        {
-            const std::unique_lock lock(m_mutex);
-            m_tables.clear();
-            m_size = 0;
-        }
-
-        // Number of tables recorded.
-        std::size_t size() const
-        {
-            const std::shared_lock lock(m_mutex);
-            return m_size;
-        }
-
-        // The table of `key`, recorded on `mesh` the first time. Safe to call
-        // from several threads: the reference stays valid until clear().
-        template <entry_table_key Key, class Mesh>
-        const EntryTable<typename Key::entry_type>& get(const Key& key, const Mesh& mesh) const
-        {
-            using tables_t = std::unordered_map<Key, EntryTable<typename Key::entry_type>, detail::KeyBytesHash, detail::KeyBytesEqual>;
-            const std::size_t type = type_id<Key>();
-            {
-                const std::shared_lock lock(m_mutex);
-                if (type < m_tables.size() && m_tables[type].has_value())
+                if (this != &other)
                 {
-                    const auto& tables = std::any_cast<const tables_t&>(m_tables[type]);
-                    if (const auto found = tables.find(key); found != tables.end())
-                    {
-                        return found->second;
-                    }
+                    clear();
+                    swap(other);
+                }
+                return *this;
+            }
+
+            ~EntryTableStore() = default;
+
+            void swap(EntryTableStore& other) noexcept
+            {
+                if (this != &other)
+                {
+                    const std::scoped_lock lock(m_mutex, other.m_mutex);
+                    m_tables.swap(other.m_tables);
                 }
             }
-            // Recorded outside the lock: a producer may read other tables. When
-            // two threads record the same table, the first one kept wins.
-            auto table = record_entries(mesh, key);
-            const std::unique_lock lock(m_mutex);
-            if (type >= m_tables.size())
+
+            void clear() noexcept
             {
-                m_tables.resize(type + 1);
+                const std::unique_lock lock(m_mutex);
+                m_tables.clear();
             }
-            auto& slot = m_tables[type];
-            if (!slot.has_value())
+
+            // The table of `key`, recorded on `mesh` the first time. The
+            // reference stays valid until clear().
+            template <class Key, class Mesh>
+            const EntryTable<typename Key::entry_type>& get(const Key& key, const Mesh& mesh) const
             {
-                slot.emplace<tables_t>();
+                using tables_t         = std::unordered_map<Key, EntryTable<typename Key::entry_type>, KeyBytesHash, KeyBytesEqual>;
+                const std::size_t type = type_id<Key>();
+                {
+                    const std::shared_lock lock(m_mutex);
+                    if (type < m_tables.size() && m_tables[type].has_value())
+                    {
+                        const auto& tables = std::any_cast<const tables_t&>(m_tables[type]);
+                        if (const auto found = tables.find(key); found != tables.end())
+                        {
+                            return found->second;
+                        }
+                    }
+                }
+                // Recorded outside the lock: a producer may read other tables. When
+                // two threads record the same table, the first one kept wins.
+                auto table = record_entries(mesh, key);
+                const std::unique_lock lock(m_mutex);
+                if (type >= m_tables.size())
+                {
+                    m_tables.resize(type + 1);
+                }
+                auto& slot = m_tables[type];
+                if (!slot.has_value())
+                {
+                    slot.emplace<tables_t>();
+                }
+                return std::any_cast<tables_t&>(slot).try_emplace(key, std::move(table)).first->second;
             }
-            const auto [it, added] = std::any_cast<tables_t&>(slot).try_emplace(key, std::move(table));
-            m_size += added ? 1 : 0;
-            return it->second;
-        }
 
-      private:
+          private:
 
-        mutable std::shared_mutex m_mutex;
+            // One number per key type, in the order the types are first asked for.
+            template <class Key>
+            static std::size_t type_id()
+            {
+                static const std::size_t id = next_type_id()++;
+                return id;
+            }
 
-        // One number per key type, in the order the types are first asked for.
-        template <class Key>
-        static std::size_t type_id()
-        {
-            static const std::size_t id = next_type_id()++;
-            return id;
-        }
+            static std::atomic<std::size_t>& next_type_id()
+            {
+                static std::atomic<std::size_t> next{0};
+                return next;
+            }
 
-        static std::atomic<std::size_t>& next_type_id()
-        {
-            static std::atomic<std::size_t> next{0};
-            return next;
-        }
+            mutable std::shared_mutex m_mutex;
 
-        // m_tables[type_id<Key>()] holds the tables of the keys of type Key.
-        mutable std::vector<std::any> m_tables;
-        mutable std::size_t m_size = 0;
-    };
+            // m_tables[type_id<Key>()] holds the tables of the keys of type Key.
+            mutable std::vector<std::any> m_tables;
+        };
 
-    template <class Mesh>
-    concept has_entry_tables = requires(const Mesh& mesh) {
-        { mesh.entry_tables() } -> std::same_as<const EntryTableStore&>;
-    };
-
-    // Whether for_each_entry reads the entries of `key` from a table of `mesh`.
-    template <class Mesh, entry_table_key Key>
-    bool has_entry_table(const Mesh& mesh, const Key& key)
-    {
-        if constexpr (has_entry_tables<Mesh>)
-        {
-            return entry_tables_enabled() && detail::keeps_table(key, mesh);
-        }
-        else
-        {
-            return false;
-        }
+        template <class Mesh>
+        concept has_entry_tables = requires(const Mesh& mesh) {
+            { mesh.entry_tables() } -> std::same_as<const EntryTableStore&>;
+        };
     }
 
     // Calls kernel(entry), or kernel(entry, pool), for each entry of `key` on
     // `mesh`, in the order produce() emits them: from the table of the mesh when
-    // it keeps one, by traversing the set expression otherwise.
-    template <class Mesh, entry_table_key Key, class Kernel>
+    // it keeps tables, by traversing the set expression otherwise.
+    template <class Mesh, class Key, class Kernel>
     void for_each_entry(const Mesh& mesh, const Key& key, Kernel&& kernel)
     {
-        using entry_t = typename Key::entry_type;
-        if constexpr (has_entry_tables<Mesh>)
+        detail::check_entry_table_key<Key>();
+        if constexpr (detail::has_entry_tables<Mesh>)
         {
-            if (has_entry_table(mesh, key))
+            if (entry_tables_enabled())
             {
                 const auto& table = mesh.entry_tables().get(key, mesh);
                 const std::span<const std::size_t> pool(table.pool);
@@ -419,21 +412,22 @@ namespace samurai
                 return;
             }
         }
-        detail::EntryForwarder<entry_t, std::remove_reference_t<Kernel>> forwarder(kernel);
+        std::vector<std::size_t> pool;
+        detail::EntryForwarder<typename Key::entry_type, std::remove_reference_t<Kernel>> forwarder(kernel, pool);
         key.produce(mesh, forwarder);
     }
 
-    // The runs of `len` cells along x from each of the given cells:
+    // The rows of `len` cells along x from each of the given cells:
     //     make_rows(mesh, i.size(), {{level, i.start, index}, {level + 1, 2 * i.start, 2 * index}})
     template <class Mesh, std::size_t N>
     auto
     make_rows(const Mesh& mesh, std::size_t len, const detail::CellCoord<Mesh::dim, typename Mesh::interval_t::value_t> (&first_cells)[N])
     {
-        Rows<N> run{len, {}};
+        Rows<N> rows{len, {}};
         for (std::size_t k = 0; k < N; ++k)
         {
-            run.at[k] = memory_offset(mesh, first_cells[k]);
+            rows.at[k] = memory_offset(mesh, first_cells[k]);
         }
-        return run;
+        return rows;
     }
 }
