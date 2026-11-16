@@ -223,8 +223,6 @@ namespace samurai
                     left_fine_cell_indices.fill(0);
                     right_fine_cell_indices.fill(0);
 
-                    std::size_t moving_direction = flux_params.flux_direction == 0 ? 1 : 0; // first other direction
-
                     for (std::size_t fine_flux_index = 0; fine_flux_index < flux_params.n_fine_fluxes; ++fine_flux_index)
                     {
                         left_coarse_cell_indices  = left.indices;
@@ -275,27 +273,22 @@ namespace samurai
                             right_coarse_cell_indices[flux_direction]++;
                         }
 
-                        if constexpr (dim > 1)
+                        // Move to the next fine flux: count through the transverse children like an odometer,
+                        // the first direction other than flux_direction changing fastest.
+                        for (std::size_t d = 0; d < dim; ++d)
                         {
-                            // Move to next fine flux
-                            if (left_fine_cell_indices[moving_direction] < n_children_at_max_level - 1)
+                            if (d == flux_direction)
                             {
-                                left_fine_cell_indices[moving_direction]++;
-                                right_fine_cell_indices[moving_direction]++;
+                                continue;
                             }
-                            else
+                            if (left_fine_cell_indices[d] < n_children_at_max_level - 1)
                             {
-                                // if moving_direction = 'y':
-                                // - reset 'y' indices
-                                // - start moving the fine cells according to the 'z' direction
-                                left_fine_cell_indices[moving_direction]  = 0;
-                                right_fine_cell_indices[moving_direction] = 0;
-                                moving_direction++;
-                                if (moving_direction == flux_direction)
-                                {
-                                    moving_direction++;
-                                }
+                                left_fine_cell_indices[d]++;
+                                right_fine_cell_indices[d]++;
+                                break;
                             }
+                            left_fine_cell_indices[d]  = 0;
+                            right_fine_cell_indices[d] = 0;
                         }
                     }
                 }
