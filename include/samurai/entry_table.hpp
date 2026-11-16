@@ -11,8 +11,6 @@
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
-#include <mutex>
-#include <shared_mutex>
 #include <span>
 #include <string_view>
 #include <type_traits>
@@ -56,7 +54,9 @@
 //
 // for_each_entry runs the kernel on the entries of the table when the mesh
 // keeps one, and on the entries produce() emits otherwise: the kernel is the
-// same, only where the entries come from changes.
+// same, only where the entries come from changes. It is not thread safe: the
+// first call for a key records its table in the mesh, so the same mesh must not
+// be given to for_each_entry by several threads at once.
 //
 // An entry with a variable number of cells holds a PoolRange:
 //     auto cells = emit.new_range();
@@ -268,63 +268,23 @@ namespace samurai
         // It knows nothing of the keys. A mesh owns one and empties it each
         // time it rebuilds its cells or the meshes of its neighbours (see
         // Mesh_base): a table is valid as long as the mesh is not modified
-        // behind its back, through its non-const accessors.
+        // behind its back, through its non-const accessors. A copy of a mesh
+        // copies its tables, which hold storage indices only.
         //
-        // Recording behind a const mesh makes it safe to read the tables of one
-        // mesh from several threads, as the prediction caches are.
+        // Not thread safe: get() records a missing table behind a const mesh,
+        // so two threads must not ask the store of the same mesh for tables at
+        // the same time. Stores of different meshes are independent.
         class EntryTableStore
         {
           public:
 
-            EntryTableStore() = default;
-
-            // A copy starts empty and records its tables again on first use: they
-            // are a cache, and std::shared_mutex is not copyable, so the copy of a
-            // mesh would be deleted without this constructor.
-            EntryTableStore(const EntryTableStore&) noexcept
-            {
-            }
-
-            // Same for an assignment: the store assigned to is emptied, not
-            // filled with the tables of `other`.
-            EntryTableStore& operator=(const EntryTableStore& other) noexcept
-            {
-                if (this != &other)
-                {
-                    clear();
-                }
-                return *this;
-            }
-
-            EntryTableStore(EntryTableStore&& other) noexcept
-            {
-                swap(other);
-            }
-
-            EntryTableStore& operator=(EntryTableStore&& other) noexcept
-            {
-                if (this != &other)
-                {
-                    clear();
-                    swap(other);
-                }
-                return *this;
-            }
-
-            ~EntryTableStore() = default;
-
             void swap(EntryTableStore& other) noexcept
             {
-                if (this != &other)
-                {
-                    const std::scoped_lock lock(m_mutex, other.m_mutex);
-                    m_tables.swap(other.m_tables);
-                }
+                m_tables.swap(other.m_tables);
             }
 
             void clear() noexcept
             {
-                const std::unique_lock lock(m_mutex);
                 m_tables.clear();
             }
 
@@ -335,21 +295,17 @@ namespace samurai
             {
                 using tables_t         = std::unordered_map<Key, EntryTable<typename Key::entry_type>, KeyBytesHash, KeyBytesEqual>;
                 const std::size_t type = type_id<Key>();
+                if (type < m_tables.size() && m_tables[type].has_value())
                 {
-                    const std::shared_lock lock(m_mutex);
-                    if (type < m_tables.size() && m_tables[type].has_value())
+                    const auto& tables = std::any_cast<const tables_t&>(m_tables[type]);
+                    if (const auto found = tables.find(key); found != tables.end())
                     {
-                        const auto& tables = std::any_cast<const tables_t&>(m_tables[type]);
-                        if (const auto found = tables.find(key); found != tables.end())
-                        {
-                            return found->second;
-                        }
+                        return found->second;
                     }
                 }
-                // Recorded outside the lock: a producer may read other tables. When
-                // two threads record the same table, the first one kept wins.
+                // Recorded before the slot is looked up: a producer may itself
+                // ask for other tables, which can grow m_tables.
                 auto table = record_entries(mesh, key);
-                const std::unique_lock lock(m_mutex);
                 if (type >= m_tables.size())
                 {
                     m_tables.resize(type + 1);
@@ -365,6 +321,8 @@ namespace samurai
           private:
 
             // One number per key type, in the order the types are first asked for.
+            // Shared by all the stores, hence atomic: meshes used by different
+            // threads stay independent.
             template <class Key>
             static std::size_t type_id()
             {
@@ -377,8 +335,6 @@ namespace samurai
                 static std::atomic<std::size_t> next{0};
                 return next;
             }
-
-            mutable std::shared_mutex m_mutex;
 
             // m_tables[type_id<Key>()] holds the tables of the keys of type Key.
             mutable std::vector<std::any> m_tables;
@@ -393,6 +349,10 @@ namespace samurai
     // Calls kernel(entry), or kernel(entry, pool), for each entry of `key` on
     // `mesh`, in the order produce() emits them: from the table of the mesh when
     // it keeps tables, by traversing the set expression otherwise.
+    //
+    // Not thread safe: the first call for a key records its table in the mesh,
+    // even though the mesh is const. Do not call for_each_entry on the same mesh
+    // from several threads at once: parallelize inside the kernel instead.
     template <class Mesh, class Key, class Kernel>
     void for_each_entry(const Mesh& mesh, const Key& key, Kernel&& kernel)
     {

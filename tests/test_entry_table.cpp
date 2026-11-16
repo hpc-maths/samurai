@@ -14,7 +14,6 @@
 #include <span>
 #include <sstream>
 #include <string>
-#include <thread>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -332,11 +331,10 @@ namespace samurai
                                   seen(mesh, counted_cells{level});
                                   EXPECT_EQ(traversals, 4u); // the table is still there
 
-                                  // a copy records its own tables
+                                  // a copy has the same cells, so it keeps the tables
                                   auto copy = mesh;
                                   EXPECT_EQ(seen(copy, counted_cells{level}), expected);
-                                  seen(copy, counted_cells{level});
-                                  EXPECT_EQ(traversals, 5u);
+                                  EXPECT_EQ(traversals, 4u);
 
                                   // the tables follow the cells they were recorded on
                                   std::remove_cvref_t<decltype(mesh)> other;
@@ -344,56 +342,7 @@ namespace samurai
                                   EXPECT_EQ(seen(other, counted_cells{level}), expected);
                                   mesh.swap(other);
                                   EXPECT_EQ(seen(mesh, counted_cells{level}), expected);
-                                  EXPECT_EQ(traversals, 5u);
-                              });
-    }
-
-    // Several threads can read the tables of one mesh, recorded on first use.
-    TEST(entry_table, tables_read_from_several_threads)
-    {
-        with_adapted_field<2>(false,
-                              [](auto& u)
-                              {
-                                  const auto& adapted = u.mesh();
-                                  std::vector<std::vector<double>> expected;
-                                  {
-                                      const WithEntryTables off(false);
-                                      for (std::size_t level = adapted.min_level(); level <= adapted.max_level(); ++level)
-                                      {
-                                          expected.push_back(seen(adapted, cell_and_next{level}));
-                                          expected.push_back(seen(adapted, weighted_cell_and_next{level}));
-                                      }
-                                  }
-
-                                  const WithEntryTables on(true);
-                                  const auto mesh                 = adapted; // a copy: no table yet
-                                  constexpr std::size_t n_threads = 8;
-                                  std::array<bool, n_threads> same{};
-                                  {
-                                      std::vector<std::jthread> threads;
-                                      for (std::size_t t = 0; t < n_threads; ++t)
-                                      {
-                                          threads.emplace_back(
-                                              [&, t]
-                                              {
-                                                  bool ok = true;
-                                                  for (std::size_t repeat = 0; repeat < 20; ++repeat)
-                                                  {
-                                                      std::size_t k = 0;
-                                                      for (std::size_t level = mesh.min_level(); level <= mesh.max_level(); ++level)
-                                                      {
-                                                          ok = ok && seen(mesh, cell_and_next{level}) == expected[k++];
-                                                          ok = ok && seen(mesh, weighted_cell_and_next{level}) == expected[k++];
-                                                      }
-                                                  }
-                                                  same[t] = ok;
-                                              });
-                                      }
-                                  }
-                                  for (const bool ok : same)
-                                  {
-                                      EXPECT_TRUE(ok);
-                                  }
+                                  EXPECT_EQ(traversals, 4u);
                               });
     }
 
@@ -893,7 +842,19 @@ namespace samurai
             });
     }
 
-    // A store keeps its tables when moved or swapped, and never copies them.
+    namespace
+    {
+        // Whether two tables hold the same entries and the same pool: entries
+        // are compared through their bytes, as keys are.
+        template <class Entry>
+        bool same_table(const detail::EntryTable<Entry>& a, const detail::EntryTable<Entry>& b)
+        {
+            return a.pool == b.pool && a.entries.size() == b.entries.size()
+                && std::memcmp(a.entries.data(), b.entries.data(), a.entries.size() * sizeof(Entry)) == 0;
+        }
+    }
+
+    // A store keeps its tables when copied, moved or swapped, and drops them when cleared.
     TEST(entry_table, store_copy_move_swap)
     {
         with_adapted_field<2>(false,
@@ -910,31 +871,27 @@ namespace samurai
                                   EXPECT_EQ(traversals, 1u);
 
                                   detail::EntryTableStore copy(store);
-                                  copy.get(key, mesh);
-                                  EXPECT_EQ(traversals, 2u); // the copy had no table
-                                  copy = store;
-                                  copy.get(key, mesh);
-                                  EXPECT_EQ(traversals, 3u); // it dropped its own, and took none
-                                  auto& same = store;
-                                  store      = same;
-                                  EXPECT_EQ(&store.get(key, mesh), table);
+                                  EXPECT_TRUE(same_table(copy.get(key, mesh), *table));
+                                  EXPECT_NE(&copy.get(key, mesh), table); // its own table
+                                  detail::EntryTableStore assigned_copy;
+                                  assigned_copy = store;
+                                  EXPECT_TRUE(same_table(assigned_copy.get(key, mesh), *table));
+                                  EXPECT_EQ(traversals, 1u); // no copy traversed the set again
 
                                   detail::EntryTableStore moved(std::move(store));
                                   EXPECT_EQ(&moved.get(key, mesh), table);
                                   detail::EntryTableStore assigned;
                                   assigned.get(key, mesh);
-                                  EXPECT_EQ(traversals, 4u);
+                                  EXPECT_EQ(traversals, 2u);
                                   assigned = std::move(moved);
                                   EXPECT_EQ(&assigned.get(key, mesh), table);
                                   assigned.swap(assigned);
-                                  auto& itself = assigned;
-                                  assigned     = std::move(itself);
                                   EXPECT_EQ(&assigned.get(key, mesh), table);
-                                  EXPECT_EQ(traversals, 4u);
+                                  EXPECT_EQ(traversals, 2u);
 
                                   assigned.clear();
                                   assigned.get(key, mesh);
-                                  EXPECT_EQ(traversals, 5u);
+                                  EXPECT_EQ(traversals, 3u);
                               });
     }
 
