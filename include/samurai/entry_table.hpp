@@ -278,11 +278,15 @@ namespace samurai
 
             EntryTableStore() = default;
 
-            // The tables are not copied: the copy records its own on first use.
+            // A copy starts empty and records its tables again on first use: they
+            // are a cache, and std::shared_mutex is not copyable, so the copy of a
+            // mesh would be deleted without this constructor.
             EntryTableStore(const EntryTableStore&) noexcept
             {
             }
 
+            // Same for an assignment: the store assigned to is emptied, not
+            // filled with the tables of `other`.
             EntryTableStore& operator=(const EntryTableStore& other) noexcept
             {
                 if (this != &other)
