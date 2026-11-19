@@ -230,7 +230,7 @@ namespace samurai
         }
     }
 
-    // The outer ghosts the solver reads are all filled, with a prediction of radius 1 and 2: in the corners
+    // The outer ghosts the solver reads are all filled, with a prediction of radius 1 to 3: in the corners
     // refined below their level, above the coarse cells along the walls, below min_level, and before the
     // field has any boundary condition (the initial adaptation of a solver).
     TEST(ghost_update, outer_ghosts_read_by_the_solver_are_filled)
@@ -239,6 +239,7 @@ namespace samurai
         {
             EXPECT_EQ(count_wrong_outer_ghosts<1>(outer_bc), 0) << "radius 1, B.C. " << static_cast<int>(outer_bc);
             EXPECT_EQ(count_wrong_outer_ghosts<2>(outer_bc), 0) << "radius 2, B.C. " << static_cast<int>(outer_bc);
+            EXPECT_EQ(count_wrong_outer_ghosts<3>(outer_bc), 0) << "radius 3, B.C. " << static_cast<int>(outer_bc);
         }
     }
 }
