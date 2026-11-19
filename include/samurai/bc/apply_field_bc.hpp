@@ -350,6 +350,38 @@ namespace samurai
         return stencil_origins_in_reference_impl(mesh, level, stencil, std::make_index_sequence<stencil_size>{});
     }
 
+    template <class Mesh, std::size_t stencil_size, std::size_t... Is>
+    auto stencil_origins_with_known_cells_impl(const Mesh& mesh,
+                                               std::size_t level,
+                                               const Stencil<stencil_size, Mesh::dim>& stencil,
+                                               std::index_sequence<Is...>)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+
+        // Known values: the cells, and the projections of the finer cells.
+        auto known = union_(mesh[mesh_id_t::cells][level], mesh.get_union()[level]);
+        if constexpr (sizeof...(Is) == 1)
+        {
+            return translate(known, DirectionVector<Mesh::dim>(-xt::view(stencil, 0)));
+        }
+        else
+        {
+            return intersection(translate(known, DirectionVector<Mesh::dim>(-xt::view(stencil, Is)))...);
+        }
+    }
+
+    /**
+     * The cells of @a level on which the first @a n_known cells of @a stencil hold known values: cells of @a level, or
+     * projections of finer cells. The other ghosts of the level are filled by prediction after the outer ghosts.
+     */
+    template <std::size_t n_known, class Mesh, std::size_t stencil_size>
+    auto stencil_origins_with_known_cells(const Mesh& mesh, std::size_t level, const Stencil<stencil_size, Mesh::dim>& stencil)
+    {
+        static_assert(n_known >= 1 && n_known <= stencil_size);
+
+        return stencil_origins_with_known_cells_impl(mesh, level, stencil, std::make_index_sequence<n_known>{});
+    }
+
     /**
      * Apply polynomial extrapolation on the outside ghosts close to inner ghosts at the boundary
      * (i.e. inner ghosts in the boundary region that have neighbouring ghosts outside the domain)
@@ -378,8 +410,11 @@ namespace samurai
         auto stencil          = convert_for_direction(stencil_in_x, direction);
         auto stencil_analyzer = make_stencil_analyzer(stencil);
 
-        auto stencil_origins                  = stencil_origins_in_reference(mesh, level, stencil);
-        auto potential_inner_cells_and_ghosts = intersection(stencil_origins, inner_ghosts_location).on(level);
+        auto stencil_origins = stencil_origins_in_reference(mesh, level, stencil);
+        // The stencil reads the stencil_size - ghost_layer cells inside the domain. Inside the domain, a ghost that is not
+        // the projection of finer cells is predicted after the outer ghosts: it does not hold its value yet.
+        auto inner_cells_known                = stencil_origins_with_known_cells<stencil_size - ghost_layer>(mesh, level, stencil);
+        auto potential_inner_cells_and_ghosts = intersection(stencil_origins, inner_cells_known, inner_ghosts_location).on(level);
         auto inner_cells_and_ghosts           = intersection(potential_inner_cells_and_ghosts, mesh.get_union()[level]).on(level);
         // auto inner_cells_and_ghosts        = intersection(potential_inner_cells_and_ghosts, mesh[mesh_id_t::cells][level + 1]).on(level);
         auto inner_ghosts_with_outer_nghbr = difference(inner_cells_and_ghosts, mesh[mesh_id_t::cells][level]).on(level);
@@ -623,10 +658,10 @@ namespace samurai
         //     query intervals that are not in the cell array, which is an out-of-bounds access
         //     (get_interval() returns m_cells[0][size_t(-1)]) and a crash in practice.
         //
-        // The corner ghosts at the levels where the corner has no cells are not filled here:
-        // they are filled by projecting the value from the finer levels, level by level from
-        // fine to coarse (see project_corner_below() in algorithm/update.hpp, called right
-        // after this function in update_outer_ghosts()).
+        // The corner ghosts at the levels where the corner has no cells are not filled here: the
+        // diagonal ghost of the first layer is projected from the finer levels, level by level from
+        // fine to coarse (see project_corner_below() in algorithm/update_outer_ghost.hpp), and
+        // update_refined_outer_corner() fills the rest of the corner block.
         using mesh_id_t   = typename Field::mesh_t::mesh_id_t;
         auto corner_cells = intersection(corner_at_level, field.mesh()[mesh_id_t::cells][level]).on(level);
 
@@ -669,6 +704,113 @@ namespace samurai
                                  {
                                      field[cells[1]] = field[cells[0]];
                                  });
+            }
+        }
+    }
+
+    /**
+     * Fill the corner block @a direction at a level where the corner cell is refined: it is not a
+     * cell of @a level, but its children are cells of the finer levels, so that its value is known
+     * by projection.
+     *
+     * Where the corner is a cell, the corner block is the mirror image of the inner diagonal: the
+     * ghost whose offset from the corner cell is k along the first direction gets the value of the
+     * inner diagonal cell at the offset 1 - k (see @c update_outer_corners_by_polynomial_extrapolation).
+     * The same values are written here, read on the inner cells that are cells or projections of
+     * finer cells, except for the first layer: it copies the diagonal ghost of the first layer, which
+     * comes from the finer levels (see project_corner_below()). Each ghost is read from its source
+     * directly, so that the block may lack its diagonal ghosts in the reference mesh.
+     *
+     * With a prediction of radius 1, the details only read the diagonal ghost of the first layer.
+     * A larger radius reads the rest of the corner block.
+     */
+    template <class Field>
+    void update_refined_outer_corner(std::size_t level, const DirectionVector<Field::dim>& direction, Field& field)
+    {
+        static constexpr std::size_t dim = Field::dim;
+
+        if constexpr (dim > 1)
+        {
+            using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+
+            auto& mesh            = field.mesh();
+            const int ghost_width = mesh.ghost_width();
+
+            const auto& cells     = mesh[mesh_id_t::cells][level];
+            const auto& reference = mesh[mesh_id_t::reference][level];
+            const auto& refined   = mesh.get_union()[level];
+
+            auto refined_corner = difference(intersection(self(mesh.corner(direction)).on(level), refined, reference), cells).on(level);
+            // Inner cells whose value is known at this point: the cells, and the projections of the finer cells.
+            auto known_cells = intersection(union_(cells, refined), reference);
+
+            // The non-zero directions of the corner, the first one sets the layer.
+            std::size_t num_nonzero = 0;
+            std::array<std::size_t, dim> nonzero_dirs;
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                if (direction[d] != 0)
+                {
+                    nonzero_dirs[num_nonzero++] = d;
+                }
+            }
+
+            // Every ghost of the block: an offset in {1, ..., ghost_width} along each non-zero direction.
+            std::size_t num_ghosts = 1;
+            for (std::size_t p = 0; p < num_nonzero; ++p)
+            {
+                num_ghosts *= static_cast<std::size_t>(ghost_width);
+            }
+
+            for (std::size_t g = 0; g < num_ghosts; ++g)
+            {
+                DirectionVector<dim> to_ghost; // from the corner cell
+                to_ghost.fill(0);
+                int layer = 0;
+                for (std::size_t p = 0, rest = g; p < num_nonzero; ++p, rest /= static_cast<std::size_t>(ghost_width))
+                {
+                    const int offset          = static_cast<int>(rest % static_cast<std::size_t>(ghost_width)) + 1;
+                    to_ghost[nonzero_dirs[p]] = offset * direction[nonzero_dirs[p]];
+                    if (p == 0)
+                    {
+                        layer = offset;
+                    }
+                }
+
+                Stencil<2, dim> stencil_copy;
+                xt::view(stencil_copy, 0) = 0;
+                auto copy                 = [&](const auto& sources)
+                {
+                    auto analyzer_copy = make_stencil_analyzer(stencil_copy);
+                    for_each_stencil(mesh,
+                                     sources,
+                                     analyzer_copy,
+                                     [&](const auto& stencil_cells)
+                                     {
+                                         field[stencil_cells[1]] = field[stencil_cells[0]];
+                                     });
+                };
+
+                // The source: for the first layer, the diagonal ghost filled from the finer levels; beyond, the
+                // inner diagonal cell it mirrors.
+                const bool first_layer               = layer == 1;
+                const DirectionVector<dim> to_source = first_layer ? DirectionVector<dim>(direction)
+                                                                   : DirectionVector<dim>((1 - layer) * direction);
+                const DirectionVector<dim> delta     = to_ghost - to_source;
+                if (xt::all(xt::equal(delta, 0)))
+                {
+                    continue;
+                }
+                xt::view(stencil_copy, 1)              = delta;
+                const DirectionVector<dim> minus_delta = -delta;
+                if (first_layer)
+                {
+                    copy(intersection(translate(refined_corner, to_source), reference, translate(reference, minus_delta)).on(level));
+                }
+                else
+                {
+                    copy(intersection(translate(refined_corner, to_source), known_cells, translate(reference, minus_delta)).on(level));
+                }
             }
         }
     }

@@ -193,23 +193,58 @@ namespace samurai
         project_bc(level, other_fields...);
     }
 
+    /**
+     * Number of outer ghost layers the B.C. of @a field fills at the level of the cells.
+     */
     template <class Field>
-    void predict_bc(std::size_t pred_level, const DirectionVector<Field::dim>& direction, Field& field)
+    int bc_ghost_layers(const Field& field)
+    {
+        if (!field.get_bc().empty())
+        {
+            return static_cast<int>(field.get_bc().front()->stencil_size()) / 2;
+        }
+        return field.mesh().max_stencil_radius();
+    }
+
+    /**
+     * Number of outer ghost layers the B.C. of @a field fill at the level of the cells, 0 without B.C.: then the
+     * polynomial extrapolation fills them all.
+     */
+    template <class Field>
+    int bc_filled_ghost_layers(const Field& field)
+    {
+        return field.get_bc().empty() ? 0 : bc_ghost_layers(field);
+    }
+
+    /**
+     * Number of outer ghost layers at level - 1 that cover the ghost_width outer layers of level.
+     */
+    template <class Mesh>
+    int coarse_ghost_layers(const Mesh& mesh)
+    {
+        return (mesh.ghost_width() + 1) / 2;
+    }
+
+    /**
+     * Predicts (order 0) the outer ghosts of @a pred_level lying in the coarse outer layers
+     * [first_coarse_layer, last_coarse_layer] of pred_level - 1, in @a direction.
+     */
+    template <class Field>
+    void
+    predict_bc(std::size_t pred_level, const DirectionVector<Field::dim>& direction, Field& field, int first_coarse_layer, int last_coarse_layer)
     {
         using mesh_id_t = typename Field::mesh_t::mesh_id_t;
 
         auto& mesh = field.mesh();
 
-        int n_bc_ghosts = mesh.max_stencil_radius();
-        if (!field.get_bc().empty())
+        if (first_coarse_layer > last_coarse_layer)
         {
-            n_bc_ghosts = field.get_bc().front()->stencil_size() / 2;
+            return;
         }
 
-        // auto& cells = mesh[mesh_id_t::cells][pred_level - 1];
-        //  auto cells                     = domain_boundary(mesh, pred_level - 1, direction);
-        // auto bc_ghosts = difference(translate(cells, n_bc_ghosts * direction), self(mesh.domain()).on(pred_level - 1));
-        auto bc_ghosts = domain_boundary_outer_layer(mesh, pred_level - 1, direction, n_bc_ghosts);
+        const int n_bc_ghosts = bc_ghost_layers(field);
+
+        auto bc_ghosts = domain_boundary_outer_layer(mesh, pred_level - 1, direction, first_coarse_layer, last_coarse_layer);
 
         auto outside_prediction_ghosts = intersection(bc_ghosts, mesh[mesh_id_t::reference][pred_level]).on(pred_level);
 
@@ -227,6 +262,15 @@ namespace samurai
 
             predict_bc(prediction_ghosts_no_bc_ghosts, pred_level, direction, field);
         }
+    }
+
+    /**
+     * Predicts (order 0) the outer ghosts of @a pred_level that the B.C. fills at pred_level - 1.
+     */
+    template <class Field>
+    void predict_bc(std::size_t pred_level, const DirectionVector<Field::dim>& direction, Field& field)
+    {
+        predict_bc(pred_level, direction, field, 1, bc_filled_ghost_layers(field));
     }
 
     template <class Subset, class Field>
@@ -339,6 +383,11 @@ namespace samurai
 
     // Field projection of the corner ghosts at `level` to level-1 and level-2,
     // in every non-periodic diagonal direction.
+    //
+    // The cascade goes on below min_level: the corner ghosts there are filled by the projection
+    // from the finer levels only, and the details of the cells read them up to two levels below.
+    // Where a corner ghost two levels below is also reachable directly, both paths copy the same
+    // corner-most child.
     template <class Field>
     void project_outer_corners_below(std::size_t level, Field& field)
     {
@@ -346,7 +395,7 @@ namespace samurai
         auto& mesh                = field.mesh();
         if constexpr (dim > 1)
         {
-            if (level <= mesh.max_level() && level >= mesh.min_level())
+            if (level <= mesh.max_level())
             {
                 for_each_diagonal_direction<dim>(
                     [&](auto& direction)
@@ -374,8 +423,6 @@ namespace samurai
     template <class Field>
     void update_outer_ghosts(std::size_t level, Field& field)
     {
-        static_assert(Field::mesh_t::config_t::prediction_stencil_radius <= 1);
-
         constexpr std::size_t dim = Field::dim;
 
         auto& mesh = field.mesh();
@@ -383,7 +430,7 @@ namespace samurai
         // Project outer corners two levels down
         if constexpr (dim > 1)
         {
-            if (level <= mesh.max_level() && level >= mesh.min_level())
+            if (level <= mesh.max_level())
             {
                 for_each_diagonal_direction<dim>(
                     [&](auto& direction)
@@ -399,7 +446,11 @@ namespace samurai
                                 break;
                             }
                         }
-                        if (!any_periodic)
+                        if (any_periodic)
+                        {
+                            return;
+                        }
+                        if (level >= mesh.min_level())
                         {
                             update_outer_corners_by_polynomial_extrapolation(level, direction, field);
                             // A boundary condition that owns the diagonal directions overwrites the
@@ -408,6 +459,9 @@ namespace samurai
                             // value carried down to the coarser levels is the corrected one.
                             apply_field_bc_diagonal(level, direction, field);
                         }
+                        // Below min_level too: the details of the cells at min_level read the corner
+                        // ghosts of min_level - 1.
+                        update_refined_outer_corner(level, direction, field);
                     });
             }
         }
@@ -429,11 +483,7 @@ namespace samurai
                         // - the B.C. is projected onto the lower ghosts
                         // - those lower ghosts are projected onto the even lower ghosts
 
-                        int n_bc_ghosts = mesh.max_stencil_radius();
-                        if (!field.get_bc().empty())
-                        {
-                            n_bc_ghosts = static_cast<int>(field.get_bc().front()->stencil_size()) / 2;
-                        }
+                        int n_bc_ghosts      = bc_ghost_layers(field);
                         int max_coarse_layer = n_bc_ghosts % 2 == 0 ? n_bc_ghosts / 2 : (n_bc_ghosts + 1) / 2;
                         for (int layer = 1; layer <= max_coarse_layer; ++layer)
                         {
@@ -458,8 +508,9 @@ namespace samurai
             });
 
         // If the B.C. doesn't fill all the ghost layers, we use polynomial extrapolation
-        // to fill the remaining layers
-        if (level >= mesh.min_level())
+        // to fill the remaining layers. Below min_level, there are no cells, but the ghosts
+        // beyond the projected ones are read by the details of the cells two levels above.
+        if (level <= mesh.max_level())
         {
             for_each_cartesian_direction<dim>(
                 [&](auto direction_index, const auto& direction)
@@ -467,6 +518,21 @@ namespace samurai
                     if (!mesh.is_periodic(direction_index))
                     {
                         update_further_ghosts_by_polynomial_extrapolation(level, direction, field);
+                    }
+                });
+        }
+
+        // Predict the outer layers of level+1 that the B.C. does not cover (prediction of order 0, as above).
+        // They read the coarse layers that the polynomial extrapolation has just filled. With a prediction
+        // of radius 1 and B.C., the B.C. ghosts already cover the ghost width, and nothing is left to do.
+        if (level < mesh.max_level() && level >= mesh.min_level())
+        {
+            for_each_cartesian_direction<dim>(
+                [&](auto direction_index, const auto& direction)
+                {
+                    if (!mesh.is_periodic(direction_index))
+                    {
+                        predict_bc(level + 1, direction, field, bc_filled_ghost_layers(field) + 1, coarse_ghost_layers(mesh));
                     }
                 });
         }
