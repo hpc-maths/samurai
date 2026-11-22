@@ -400,7 +400,7 @@ namespace samurai
                                              ? 0
                                              : domain[domain.max_level()].max_indices()[d] - domain[domain.max_level()].min_indices()[d];
             }
-            F[max_level] = ca[max_level];
+            F[max_level] = round_and_clip(ca[max_level], max_level);
             extend_boundary(max_level);
             for (std::size_t l = max_level; l-- > min_level;)
             {
@@ -615,6 +615,48 @@ namespace samurai
             expect_same_as_reference<3>(box, {false, false, false}, seed);
             expect_same_as_reference<3>(box, {false, true, true}, seed);
             expect_same_as_reference<3>(hole, {false, false, false}, seed);
+        }
+    }
+
+    // make_graduation completes the finest level of its input like every coarser level, whatever
+    // the stencil radius: a missing sibling is added (no hole in the mesh) and the cells outside
+    // the domain are dropped (they force no refinement along the boundary either).
+    TEST(graduation, finest_level_closed_for_every_radius)
+    {
+        struct NoMesh
+        {
+        };
+
+        using lca_t = LevelCellArray<1>;
+        const std::vector<MPI_Subdomain<NoMesh>> no_neighbours;
+        const lca_t reference(4, Box<int, 1>({0}, {16}));
+        CellArray<1> domain;
+        for (std::size_t l = 0; l <= 4; ++l)
+        {
+            domain[l] = lca_t(self(reference).on(l));
+        }
+
+        CellArray<1> missing_sibling;
+        missing_sibling[3]                    = lca_t(union_(lca_t(3, Box<int, 1>({0}, {4})), lca_t(3, Box<int, 1>({5}, {8}))));
+        missing_sibling[4]                    = lca_t(4, Box<int, 1>({8}, {9}));
+        CellArray<1> expected_missing_sibling = missing_sibling;
+        expected_missing_sibling[4]           = lca_t(4, Box<int, 1>({8}, {10}));
+
+        CellArray<1> outside;
+        outside[3] = lca_t(3, Box<int, 1>({0}, {8}));
+        outside[4] = lca_t(4, Box<int, 1>({16}, {18}));
+        CellArray<1> expected_outside;
+        expected_outside[3] = outside[3];
+
+        for (const int radius : {1, 2, 3})
+        {
+            auto graded = missing_sibling;
+            make_graduation(graded, domain, no_neighbours, std::array<bool, 1>{false}, 1, radius);
+            EXPECT_TRUE(graded == expected_missing_sibling) << "missing sibling, radius " << radius;
+
+            graded = outside;
+            make_graduation(graded, domain, no_neighbours, std::array<bool, 1>{false}, 1, radius);
+            EXPECT_TRUE(graded == expected_outside) << "outside the domain, radius " << radius;
         }
     }
 }

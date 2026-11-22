@@ -548,8 +548,8 @@ namespace samurai
             const lca_t parents(self(x).on(l - 1));
             return clip(self(parents).on(l));
         };
-        // Whether round_and_clip(x) == x: x holds whole parents (rounding adds no cell) and
-        // lies in the clip region. Nothing is built.
+        // A sufficient condition for round_and_clip(x) == x: x holds whole parents (rounding adds
+        // no cell) and lies in the clip region. Nothing is built.
         const auto is_round_and_clipped = [&](const lca_t& x, size_t l)
         {
             if (l > min_level)
@@ -600,7 +600,7 @@ namespace samurai
                 //    small R (2, 3) the 2*(R-2) term collapses to 0/2, so this floor takes over.
                 // The two terms cross at R=4; below it R wins, above it 2*(R-2) (slope 2R-4) wins.
                 const int n_contig = std::max(max_stencil_radius, 2 * (max_stencil_radius - 2));
-                if (max_stencil_radius > 1 && !domain.empty() && n_contig > 1)
+                if (!domain.empty())
                 {
                     // sources[0] is graded[l] on this rank, the others are the neighbours' ones.
                     std::vector<lca_t> sources;
@@ -616,25 +616,13 @@ namespace samurai
                             std::move(nbr.begin(), nbr.end(), std::back_inserter(sources));
                         }
                     };
-                    // Each boundary step sets F[l] = round_and_clip(F[l] U cells). round_and_clip
-                    // distributes over unions and is idempotent, so once F[l] is closed under it this
-                    // is F[l] U round_and_clip(cells missing from F[l]): only that small set is
-                    // rounded. Below max_level F[l] comes from round_and_clip; at max_level it is the
-                    // input level, closed by the first step. Returns whether F[l] changed.
-                    bool closed     = l < max_level;
+                    // Each boundary step sets F[l] = round_and_clip(F[l] U cells). F[l] is closed under
+                    // round_and_clip, which distributes over unions, so this is F[l] U
+                    // round_and_clip(cells missing from F[l]): only that small set is rounded.
+                    // Returns whether F[l] changed.
                     const auto grow = [&](const lca_t& missing)
                     {
                         bool changed = false;
-                        if (!closed)
-                        {
-                            closed = true;
-                            if (!is_round_and_clipped(F[l], l))
-                            {
-                                lca_t closure = round_and_clip(F[l], l);
-                                changed       = !(closure == F[l]);
-                                F[l]          = std::move(closure);
-                            }
-                        }
                         if (!missing.empty())
                         {
                             const lca_t added = round_and_clip(missing, l);
@@ -687,7 +675,8 @@ namespace samurai
         };
 
         std::array<std::vector<lca_t>, max_size> neighbour_F;
-        F[max_level] = ca[max_level];
+        // F[max_level] is closed like every coarser F[l]: whole parents, inside the clip region.
+        F[max_level] = is_round_and_clipped(ca[max_level], max_level) ? ca[max_level] : round_and_clip(ca[max_level], max_level);
         extend_boundary(max_level);
         if (has_neighbour)
         {
