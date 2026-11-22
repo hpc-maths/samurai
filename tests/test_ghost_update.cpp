@@ -7,6 +7,7 @@
 
 #include <samurai/algorithm/update_outer_ghost.hpp>
 #include <samurai/bc.hpp>
+#include <samurai/domain_builder.hpp>
 #include <samurai/field.hpp>
 #include <samurai/mr/adapt.hpp>
 #include <samurai/mr/mesh.hpp>
@@ -350,6 +351,79 @@ namespace samurai
             EXPECT_EQ(count_wrong_outer_ghosts<2>(outer_bc), 0) << "radius 2, B.C. " << static_cast<int>(outer_bc);
             EXPECT_EQ(count_wrong_outer_ghosts<3>(outer_bc), 0) << "radius 3, B.C. " << static_cast<int>(outer_bc);
         }
+    }
+
+    // Below min_level, the first outer layer of every face holds the projection of the B.C. of the level above. In a
+    // hole a few cells wide, the polynomial extrapolation of the further layers of a face runs over the first layer of
+    // the perpendicular faces: it must not overwrite it. The hole [0, 0.4]^2 of the linear convection demo is 4 cells
+    // wide at min_level - 1, where the 3 layers of the B.C. of a face reach the first layer of the faces on both sides.
+    TEST(ghost_update, first_outer_layer_below_min_level_holds_the_projection_of_the_bc)
+    {
+#ifdef SAMURAI_WITH_MPI
+        GTEST_SKIP() << "DomainBuilder is not implemented with MPI";
+#endif
+        static constexpr std::size_t dim = 2;
+
+        DomainBuilder<dim> domain({-1., -1.}, {1., 1.});
+        domain.remove({0., 0.}, {0.4, 0.4});
+        auto config     = mesh_config<dim>().min_level(1).max_level(3).max_stencil_size(6).disable_args_parse();
+        auto mesh       = mra::make_mesh(domain, config);
+        using mesh_id_t = typename decltype(mesh)::mesh_id_t;
+
+        // A flat field: the mesh is coarsened down to min_level, whose details read the outer ghosts of min_level - 1.
+        auto u = make_scalar_field<double>("u", mesh, 1.);
+        make_bc<Dirichlet<3>>(u, 1.);
+        auto adapt = make_MRAdapt(u);
+        adapt(mra_config().epsilon(1e-3));
+
+        auto f = make_scalar_field<double>("f", mesh);
+        f.fill(std::numeric_limits<double>::quiet_NaN());
+        for_each_cell(mesh,
+                      [&](auto& cell)
+                      {
+                          auto c  = cell.center();
+                          f[cell] = std::sin(3 * c[0]) * std::cos(5 * c[1]) + c[0] * c[1];
+                      });
+        make_bc<Dirichlet<3>>(f, 0.);
+        update_ghost_mr(f);
+
+        const auto& reference = mesh[mesh_id_t::reference];
+        std::size_t n_checked = 0;
+        std::size_t n_wrong   = 0;
+        for (std::size_t level = 0; level < mesh.min_level(); ++level)
+        {
+            const auto& domain_at_level = mesh.domain(level);
+            for_each_cartesian_direction<dim>(
+                [&](const auto& face_direction)
+                {
+                    auto first_outer_layer = intersection(difference(translate(domain_at_level, face_direction), domain_at_level),
+                                                          reference[level]);
+                    first_outer_layer(
+                        [&](const auto& i, const auto& index)
+                        {
+                            for (auto ii = i.start; ii < i.end; ++ii)
+                            {
+                                double mean = 0;
+                                for (int dy = 0; dy < 2; ++dy)
+                                {
+                                    for (int dx = 0; dx < 2; ++dx)
+                                    {
+                                        mean += f(level + 1, {2 * ii + dx, 2 * ii + dx + 1}, 2 * index + dy)[0];
+                                    }
+                                }
+                                mean /= 4;
+                                const double projection = f(level, {ii, ii + 1}, index)[0];
+                                ++n_checked;
+                                if (!(std::abs(projection - mean) <= 1e-12 * (1 + std::abs(mean))))
+                                {
+                                    ++n_wrong;
+                                }
+                            }
+                        });
+                });
+        }
+        EXPECT_GT(n_checked, 0);
+        EXPECT_EQ(n_wrong, 0);
     }
 
     // The same around a hole: the corner ghosts are those of the corners of the domain at each level, and the outer

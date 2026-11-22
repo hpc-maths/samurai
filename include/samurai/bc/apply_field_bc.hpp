@@ -344,6 +344,10 @@ namespace samurai
          *   finer cells. The other ghosts of the level are filled by prediction after the outer ghosts.
          * - The ghost to fill is not in the domain. Across a hole narrower than @a ghost_layer, it is a cell on the other
          *   side: it holds an inner value, which the extrapolation must not overwrite.
+         * - Below min_level, the ghost to fill is not in the first outer layer of any face of the domain. There, the
+         *   projection of the B.C. has filled it, and in a hole a few cells wide the further layers of a face run over the
+         *   first layer of the perpendicular faces. A prediction of radius 1 only reads that first layer below min_level, so
+         *   that its values stay those of the projection.
          *
          * The stencil is a runtime value, and the origins are narrowed down one stencil cell at a time: the set expressions
          * do not depend on the stencil size, the ghost layer or the field, so that they are compiled once per mesh type.
@@ -366,6 +370,16 @@ namespace samurai
 
             auto boundary_ghosts = intersection(difference(domain, translate(domain, -direction)), refined);
             auto origins         = difference(boundary_ghosts, cells, translate(domain, -ghost_layer * direction)).to_lca();
+
+            if (level < mesh.min_level())
+            {
+                for_each_cartesian_direction<Mesh::dim>(
+                    [&](const auto& face_direction)
+                    {
+                        auto first_outer_layer = difference(translate(domain, face_direction), domain);
+                        origins                = difference(origins, translate(first_outer_layer, -ghost_layer * direction)).to_lca();
+                    });
+            }
 
             for (int k = ghost_layer - stencil_size + 1; k <= ghost_layer && !origins.empty(); ++k)
             {
