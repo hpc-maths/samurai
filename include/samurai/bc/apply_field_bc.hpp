@@ -8,6 +8,7 @@
 #include "../static_dispatch.hpp"
 #include "polynomial_extrapolation.hpp"
 #include <algorithm>
+#include <numeric>
 
 #include <fmt/format.h>
 #include <stdexcept>
@@ -443,13 +444,17 @@ namespace samurai
         auto domain      = self(mesh.domain(level));
         auto on_boundary = difference(domain, translate(domain, -direction));
 
-        LevelCellArray<Mesh::dim, typename Mesh::interval_t> origins(intersection(prediction_ghosts, on_boundary, region));
-        for (const auto& offset : offsets)
-        {
-            origins = LevelCellArray<Mesh::dim, typename Mesh::interval_t>(
-                intersection(origins, translate(mesh[mesh_id_t::reference][level], DirectionVector<Mesh::dim>(-offset))));
-        }
-        return origins;
+        using lca_t = LevelCellArray<Mesh::dim, typename Mesh::interval_t>;
+
+        // Narrow the origins one stencil cell at a time, materializing after each step.
+        return std::accumulate(
+            offsets.begin(),
+            offsets.end(),
+            lca_t(intersection(prediction_ghosts, on_boundary, region)),
+            [&](lca_t origins, const DirectionVector<Mesh::dim>& offset)
+            {
+                return lca_t(intersection(origins, translate(mesh[mesh_id_t::reference][level], DirectionVector<Mesh::dim>(-offset))));
+            });
     }
 
     template <class Field, std::size_t stencil_size>
