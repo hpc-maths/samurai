@@ -317,7 +317,11 @@ namespace samurai
         else
         {
             auto translated_outer_nghbr = translate(mesh[mesh_id_t::reference][level], -ghost_layer * direction); // can be removed?
-            auto cells                  = intersection(translated_outer_nghbr, mesh[mesh_id_t::cells][level], bdry_cells).on(level);
+            // Across a hole narrower than ghost_layer, the ghost of that layer is a cell of the domain on the other side:
+            // it holds an inner value, which the extrapolation must not overwrite.
+            auto cells = difference(intersection(translated_outer_nghbr, mesh[mesh_id_t::cells][level], bdry_cells),
+                                    translate(mesh.domain(level), -ghost_layer * direction))
+                             .on(level);
 
             apply_bc_on_subset(bc, field, cells, stencil_analyzer, direction);
         }
@@ -417,7 +421,12 @@ namespace samurai
         auto potential_inner_cells_and_ghosts = intersection(stencil_origins, inner_cells_known, inner_ghosts_location).on(level);
         auto inner_cells_and_ghosts           = intersection(potential_inner_cells_and_ghosts, mesh.get_union()[level]).on(level);
         // auto inner_cells_and_ghosts        = intersection(potential_inner_cells_and_ghosts, mesh[mesh_id_t::cells][level + 1]).on(level);
-        auto inner_ghosts_with_outer_nghbr = difference(inner_cells_and_ghosts, mesh[mesh_id_t::cells][level]).on(level);
+        // Across a hole narrower than ghost_layer, the ghost of that layer is in the domain on the other side: it holds an
+        // inner value, which the extrapolation must not overwrite.
+        auto inner_ghosts_with_outer_nghbr = difference(inner_cells_and_ghosts,
+                                                        mesh[mesh_id_t::cells][level],
+                                                        translate(mesh.domain(level), -static_cast<int>(ghost_layer) * direction))
+                                                 .on(level);
         apply_bc_on_subset(bc, field, inner_ghosts_with_outer_nghbr, stencil_analyzer, direction);
     }
 
