@@ -236,6 +236,8 @@ namespace samurai::detail
             expr.apply_op(variadic_prediction<pred_order, false>(field, other_fields...));
             exchange_subdomains_merged(level, field, other_fields...);
             update_ghost_periodic(level, field, other_fields...);
+            // The outer ghosts of the prediction ghosts on the boundary, from the predicted values
+            apply_field_bc_on_prediction_ghosts(level, field, other_fields...);
         }
 
         field.ghosts_updated() = true;
