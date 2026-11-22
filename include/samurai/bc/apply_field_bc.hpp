@@ -8,6 +8,7 @@
 #include "../static_dispatch.hpp"
 #include "polynomial_extrapolation.hpp"
 #include <algorithm>
+#include <optional>
 
 #include <fmt/format.h>
 #include <stdexcept>
@@ -670,7 +671,7 @@ namespace samurai
         // The corner ghosts at the levels where the corner has no cells are not filled here: the
         // diagonal ghost of the first layer is projected from the finer levels, level by level from
         // fine to coarse (see project_corner_below() in algorithm/update_outer_ghost.hpp), and
-        // update_refined_outer_corner() fills the rest of the corner block.
+        // update_refined_outer_corners() fills the rest of the corner block.
         using mesh_id_t   = typename Field::mesh_t::mesh_id_t;
         auto corner_cells = intersection(corner_at_level, field.mesh()[mesh_id_t::cells][level]).on(level);
 
@@ -717,30 +718,75 @@ namespace samurai
         }
     }
 
-    /**
-     * Fill the corner block @a direction at a level where the corner cell is refined: it is not a
-     * cell of @a level, but its children are cells of the finer levels, so that its value is known
-     * by projection.
-     *
-     * Where the corner is a cell, the corner block is the mirror image of the inner diagonal: the
-     * ghost whose offset from the corner cell is k along the first direction gets the value of the
-     * inner diagonal cell at the offset 1 - k (see @c update_outer_corners_by_polynomial_extrapolation).
-     * The same values are written here, read on the inner cells that are cells or projections of
-     * finer cells, except for the first layer: it copies the diagonal ghost of the first layer, which
-     * comes from the finer levels (see project_corner_below()). Each ghost is read from its source
-     * directly, so that the block may lack its diagonal ghosts in the reference mesh.
-     *
-     * With a prediction of radius 1, the details only read the diagonal ghost of the first layer.
-     * A larger radius reads the rest of the corner block.
-     */
-    template <class Field>
-    void update_refined_outer_corner(std::size_t level, const DirectionVector<Field::dim>& direction, Field& field)
+    namespace detail
     {
-        static constexpr std::size_t dim = Field::dim;
-
-        if constexpr (dim > 1)
+        /**
+         * The domain at @a level and the outer ghosts that a face of the domain reaches within the ghost width along
+         * a Cartesian direction. The B.C., the field projection of the B.C. and the polynomial extrapolation fill
+         * those ghosts.
+         */
+        template <class Mesh>
+        auto domain_and_face_ghosts(const Mesh& mesh, std::size_t level)
         {
-            using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+            static constexpr std::size_t dim = Mesh::dim;
+
+            const auto& domain = mesh.domain(level);
+            auto covered       = domain;
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                for (const int sign : {-1, 1})
+                {
+                    for (int layer = 1; layer <= mesh.ghost_width(); ++layer)
+                    {
+                        DirectionVector<dim> shift;
+                        shift.fill(0);
+                        shift[d] = sign * layer;
+                        covered  = union_(covered, translate(domain, shift)).to_lca();
+                    }
+                }
+            }
+            return covered;
+        }
+
+        /**
+         * The convex corners of the domain at @a level in @a direction: the cells of domain(level) whose neighbours
+         * along every non-zero component of @a direction are outside domain(level).
+         *
+         * Unlike Mesh::corner(), which holds the corners of the finest level, they are computed at @a level: once the
+         * domain has a hole, a corner of the finest level is in general not a corner of a coarser level.
+         */
+        template <class Mesh>
+        auto convex_corners(const Mesh& mesh, std::size_t level, const DirectionVector<Mesh::dim>& direction)
+        {
+            static constexpr std::size_t dim = Mesh::dim;
+
+            const auto& domain = mesh.domain(level);
+            auto corner        = domain;
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                if (direction[d] != 0)
+                {
+                    DirectionVector<dim> inward;
+                    inward.fill(0);
+                    inward[d] = -direction[d];
+                    corner    = difference(corner, translate(domain, inward)).to_lca();
+                }
+            }
+            return corner;
+        }
+
+        /**
+         * Fills the corner ghosts of the corners of @a level refined below it, in @a direction (see
+         * update_refined_outer_corners()). @a domain_and_face_ghosts is computed on demand, at most once per level.
+         */
+        template <class Field, class LazyCovered>
+        void update_refined_outer_corner(std::size_t level,
+                                         const DirectionVector<Field::dim>& direction,
+                                         Field& field,
+                                         LazyCovered& domain_and_face_ghosts)
+        {
+            static constexpr std::size_t dim = Field::dim;
+            using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
 
             auto& mesh            = field.mesh();
             const int ghost_width = mesh.ghost_width();
@@ -749,9 +795,44 @@ namespace samurai
             const auto& reference = mesh[mesh_id_t::reference][level];
             const auto& refined   = mesh.get_union()[level];
 
-            auto refined_corner = difference(intersection(self(mesh.corner(direction)).on(level), refined, reference), cells).on(level);
+            auto refined_corner = difference(intersection(convex_corners(mesh, level, direction), refined, reference), cells).to_lca();
+            if (refined_corner.empty())
+            {
+                return;
+            }
+
+            const auto& face_ghosts = domain_and_face_ghosts();
+            // The diagonal ghosts that project_corner_below() fills from the finer levels.
+            auto projected_diagonal = intersection(translate(self(mesh.corner(direction)).on(level), direction), reference).to_lca();
+            // Never written here: the domain, the ghosts the faces reach, and the projected diagonal ghosts.
+            auto not_corner_ghosts = union_(face_ghosts, projected_diagonal).to_lca();
             // Inner cells whose value is known at this point: the cells, and the projections of the finer cells.
             auto known_cells = intersection(union_(cells, refined), reference);
+
+            // The first layer copies the projected diagonal ghost of the corner where there is one that no face
+            // overwrites, and the corner cell elsewhere.
+            auto projected_sources = difference(intersection(translate(refined_corner, direction), projected_diagonal), face_ghosts).to_lca();
+            auto corner_sources = intersection(difference(refined_corner, translate(projected_sources, -direction)), known_cells).to_lca();
+
+            Stencil<2, dim> stencil_copy;
+            xt::view(stencil_copy, 0) = 0;
+            // Copies each source to source + delta where that target is a corner ghost of the reference mesh.
+            auto copy_to_ghosts = [&](const auto& sources, const DirectionVector<dim>& delta)
+            {
+                xt::view(stencil_copy, 1)              = delta;
+                const DirectionVector<dim> minus_delta = -delta;
+                auto analyzer_copy                     = make_stencil_analyzer(stencil_copy);
+                auto sources_of_corner_ghosts          = difference(intersection(sources, translate(reference, minus_delta)),
+                                                           translate(not_corner_ghosts, minus_delta))
+                                                    .on(level);
+                for_each_stencil(mesh,
+                                 sources_of_corner_ghosts,
+                                 analyzer_copy,
+                                 [&](const auto& stencil_cells)
+                                 {
+                                     field[stencil_cells[1]] = field[stencil_cells[0]];
+                                 });
+            };
 
             // The non-zero directions of the corner, the first one sets the layer.
             std::size_t num_nonzero = 0;
@@ -786,42 +867,81 @@ namespace samurai
                     }
                 }
 
-                Stencil<2, dim> stencil_copy;
-                xt::view(stencil_copy, 0) = 0;
-                auto copy_to_ghosts       = [&](const auto& sources)
+                if (layer == 1)
                 {
-                    auto analyzer_copy = make_stencil_analyzer(stencil_copy);
-                    for_each_stencil(mesh,
-                                     sources,
-                                     analyzer_copy,
-                                     [&](const auto& stencil_cells)
-                                     {
-                                         field[stencil_cells[1]] = field[stencil_cells[0]];
-                                     });
-                };
-
-                // The source: for the first layer, the diagonal ghost filled from the finer levels; beyond, the
-                // inner diagonal cell it mirrors.
-                const bool first_layer               = layer == 1;
-                const DirectionVector<dim> to_source = first_layer ? DirectionVector<dim>(direction)
-                                                                   : DirectionVector<dim>((1 - layer) * direction);
-                const DirectionVector<dim> delta     = to_ghost - to_source;
-                if (xt::all(xt::equal(delta, 0)))
-                {
-                    continue;
-                }
-                xt::view(stencil_copy, 1)              = delta;
-                const DirectionVector<dim> minus_delta = -delta;
-                if (first_layer)
-                {
-                    copy_to_ghosts(intersection(translate(refined_corner, to_source), reference, translate(reference, minus_delta)).on(level));
+                    const DirectionVector<dim> from_diagonal = to_ghost - direction;
+                    if (!xt::all(xt::equal(from_diagonal, 0)))
+                    {
+                        copy_to_ghosts(self(projected_sources), from_diagonal);
+                    }
+                    copy_to_ghosts(self(corner_sources), to_ghost);
                 }
                 else
                 {
-                    copy_to_ghosts(
-                        intersection(translate(refined_corner, to_source), known_cells, translate(reference, minus_delta)).on(level));
+                    // The inner diagonal cell that the ghost mirrors.
+                    const DirectionVector<dim> to_source = (1 - layer) * direction;
+                    copy_to_ghosts(intersection(translate(refined_corner, to_source), known_cells),
+                                   DirectionVector<dim>(to_ghost - to_source));
                 }
             }
+        }
+    }
+
+    /**
+     * Fills the corner ghosts of the corners of @a level that are refined below it: they are not cells of @a level,
+     * but their children are cells of the finer levels, so that their value is known by projection.
+     *
+     * The corners are the convex corners of domain(level), computed at @a level. Only the corner ghosts are written:
+     * the ghosts of the corner block outside domain(level) that no face of the domain reaches within the ghost width
+     * along a Cartesian direction, and that project_corner_below() does not fill. The ghosts the faces reach are filled
+     * by the B.C., its field projection and the polynomial extrapolation; around a hole they cover most of the block.
+     *
+     * Where the corner is a cell, the corner block is the mirror image of the inner diagonal: the ghost whose offset
+     * from the corner cell is k along the first direction gets the value of the inner diagonal cell at the offset
+     * 1 - k (see @c update_outer_corners_by_polynomial_extrapolation). The same values are written here, read on the
+     * inner cells that are cells or projections of finer cells. The first layer copies the diagonal ghost of the first
+     * layer where project_corner_below() has filled it from the finer levels, and the corner cell elsewhere, which is
+     * the value the extrapolation gives that ghost where the corner is a cell. A value is only ever copied from a cell,
+     * a projection of finer cells, or a ghost that project_corner_below() has filled.
+     *
+     * It must run after the B.C. and the extrapolation of @a level.
+     *
+     * With a prediction of radius 1, the details only read the diagonal ghost of the first layer. A larger radius reads
+     * the rest of the corner block.
+     */
+    template <class Field>
+    void update_refined_outer_corners(std::size_t level, Field& field)
+    {
+        static constexpr std::size_t dim = Field::dim;
+
+        if constexpr (dim > 1)
+        {
+            using lca_t = typename Field::mesh_t::lca_type;
+
+            auto& mesh = field.mesh();
+
+            std::optional<lca_t> covered;
+            auto domain_and_face_ghosts = [&]() -> const lca_t&
+            {
+                if (!covered)
+                {
+                    covered = detail::domain_and_face_ghosts(mesh, level);
+                }
+                return *covered;
+            };
+
+            for_each_diagonal_direction<dim>(
+                [&](const auto& direction)
+                {
+                    for (std::size_t d = 0; d < dim; ++d)
+                    {
+                        if (direction[d] != 0 && mesh.is_periodic(d))
+                        {
+                            return;
+                        }
+                    }
+                    detail::update_refined_outer_corner(level, direction, field, domain_and_face_ghosts);
+                });
         }
     }
 

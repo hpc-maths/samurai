@@ -459,9 +459,6 @@ namespace samurai
                             // value carried down to the coarser levels is the corrected one.
                             apply_field_bc_diagonal(level, direction, field);
                         }
-                        // Below min_level too: the details of the cells at min_level read the corner
-                        // ghosts of min_level - 1.
-                        update_refined_outer_corner(level, direction, field);
                     });
             }
         }
@@ -520,6 +517,14 @@ namespace samurai
                         update_further_ghosts_by_polynomial_extrapolation(level, direction, field);
                     }
                 });
+        }
+
+        // The corner ghosts of the corners refined below this level, once the B.C. and the extrapolation have filled
+        // the ghosts the faces reach. Below min_level too: the details of the cells at min_level read the corner
+        // ghosts of min_level - 1.
+        if (level <= mesh.max_level())
+        {
+            update_refined_outer_corners(level, field);
         }
 
         // Predict the outer layers of level+1 that the B.C. does not cover (prediction of order 0, as above).
