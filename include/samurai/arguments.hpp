@@ -19,29 +19,29 @@ namespace samurai
     namespace args
     {
         // Mesh arguments
-        static std::size_t min_level        = std::numeric_limits<std::size_t>::max();
-        static std::size_t max_level        = std::numeric_limits<std::size_t>::max();
-        static std::size_t start_level      = std::numeric_limits<std::size_t>::max();
-        static std::size_t graduation_width = std::numeric_limits<std::size_t>::max();
-        static int max_stencil_radius       = std::numeric_limits<int>::max();
+        inline std::size_t min_level        = std::numeric_limits<std::size_t>::max();
+        inline std::size_t max_level        = std::numeric_limits<std::size_t>::max();
+        inline std::size_t start_level      = std::numeric_limits<std::size_t>::max();
+        inline std::size_t graduation_width = std::numeric_limits<std::size_t>::max();
+        inline int max_stencil_radius       = std::numeric_limits<int>::max();
 
-        static bool timers = false;
-        static bool info   = false;
+        inline bool timers = false;
+        inline bool info   = false;
 #ifdef SAMURAI_WITH_MPI
-        static bool dont_redirect_output = false;
+        inline bool dont_redirect_output = false;
 #endif
-        static int finer_level_flux       = 0;
-        static bool refine_boundary       = false;
-        static bool save_debug_fields     = false;
-        static bool print_petsc_numbering = false;
-        static int sleep_at_startup       = 0;
+        inline int finer_level_flux       = 0;
+        inline bool refine_boundary       = false;
+        inline bool save_debug_fields     = false;
+        inline bool print_petsc_numbering = false;
+        inline int sleep_at_startup       = 0;
 
-        static uint32_t load_balancing_at = 0;
+        inline uint32_t load_balancing_at = 0;
 
         // MRA arguments
-        static double epsilon    = std::numeric_limits<double>::infinity();
-        static double regularity = std::numeric_limits<double>::infinity();
-        static bool rel_detail   = false;
+        inline double epsilon    = std::numeric_limits<double>::infinity();
+        inline double regularity = std::numeric_limits<double>::infinity();
+        inline bool rel_detail   = false;
     }
 
     /**
