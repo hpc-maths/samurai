@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -6,6 +7,15 @@
 #include <xtensor/containers/xfixed.hpp>
 
 #include <samurai/arguments.hpp>
+#include <samurai/samurai.hpp>
+
+namespace samurai_test
+{
+    // Defined in arguments_other_translation_unit.cpp.
+    std::size_t max_level_in_other_translation_unit();
+    int finer_level_flux_in_other_translation_unit();
+    const CLI::App* app_in_other_translation_unit();
+}
 
 namespace samurai
 {
@@ -69,5 +79,32 @@ namespace samurai
         App too_many;
         too_many.add_option("--point", point);
         EXPECT_THROW(parse(too_many, {"--point", "4", "5", "6"}), CLI::ParseError);
+    }
+
+    // The command-line options are one set of variables for the whole program: what
+    // the translation unit that parses the command line reads must be seen by the others.
+    TEST(arguments, command_line_options_are_shared_between_translation_units)
+    {
+        const auto max_level        = args::max_level;
+        const auto finer_level_flux = args::finer_level_flux;
+
+        App cli;
+        std::vector<std::string> options = {"program", "--max-level", "7", "--finer-level-flux", "1"};
+        std::vector<char*> argv;
+        for (auto& option : options)
+        {
+            argv.push_back(option.data());
+        }
+        int argc    = static_cast<int>(argv.size());
+        char** data = argv.data();
+        read_samurai_arguments(cli, argc, data);
+
+        EXPECT_EQ(args::max_level, 7U);
+        EXPECT_EQ(samurai_test::max_level_in_other_translation_unit(), 7U);
+        EXPECT_EQ(samurai_test::finer_level_flux_in_other_translation_unit(), 1);
+        EXPECT_EQ(samurai_test::app_in_other_translation_unit(), &app);
+
+        args::max_level        = max_level;
+        args::finer_level_flux = finer_level_flux;
     }
 }

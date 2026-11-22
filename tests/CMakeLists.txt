@@ -29,6 +29,10 @@ set(COMMON_BASE
 )
 
 # Helper translation units, compiled next to the test file that uses them.
+set(TEST_ARGUMENTS_HELPERS
+    arguments_other_translation_unit.cpp
+)
+
 set(TEST_TIMERS_HELPERS
     timers_other_translation_unit.cpp
 )
@@ -99,7 +103,9 @@ if (SPLIT_TESTS)
     foreach(filename IN LISTS SAMURAI_TESTS)
         string(REPLACE ".cpp" "" targetname ${filename})
         set(helpers)
-        if(targetname STREQUAL "test_timers")
+        if(targetname STREQUAL "test_arguments")
+            set(helpers ${TEST_ARGUMENTS_HELPERS})
+        elseif(targetname STREQUAL "test_timers")
             set(helpers ${TEST_TIMERS_HELPERS})
         elseif(targetname STREQUAL "test_statistics")
             set(helpers ${TEST_STATISTICS_HELPERS})
@@ -119,7 +125,7 @@ if (SPLIT_TESTS)
     endforeach()
 endif()
 
-add_executable(test_samurai_lib ${COMMON_BASE} ${SAMURAI_TESTS} ${TEST_TIMERS_HELPERS} ${TEST_STATISTICS_HELPERS} ${SAMURAI_HEADERS})
+add_executable(test_samurai_lib ${COMMON_BASE} ${SAMURAI_TESTS} ${TEST_ARGUMENTS_HELPERS} ${TEST_TIMERS_HELPERS} ${TEST_STATISTICS_HELPERS} ${SAMURAI_HEADERS})
 target_include_directories(test_samurai_lib PRIVATE ${SAMURAI_INCLUDE_DIR})
 
 if(MSVC)
