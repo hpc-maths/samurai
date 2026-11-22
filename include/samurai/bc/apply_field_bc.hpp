@@ -779,7 +779,7 @@ namespace samurai
 
                 Stencil<2, dim> stencil_copy;
                 xt::view(stencil_copy, 0) = 0;
-                auto copy                 = [&](const auto& sources)
+                auto copy_to_ghosts       = [&](const auto& sources)
                 {
                     auto analyzer_copy = make_stencil_analyzer(stencil_copy);
                     for_each_stencil(mesh,
@@ -805,11 +805,12 @@ namespace samurai
                 const DirectionVector<dim> minus_delta = -delta;
                 if (first_layer)
                 {
-                    copy(intersection(translate(refined_corner, to_source), reference, translate(reference, minus_delta)).on(level));
+                    copy_to_ghosts(intersection(translate(refined_corner, to_source), reference, translate(reference, minus_delta)).on(level));
                 }
                 else
                 {
-                    copy(intersection(translate(refined_corner, to_source), known_cells, translate(reference, minus_delta)).on(level));
+                    copy_to_ghosts(
+                        intersection(translate(refined_corner, to_source), known_cells, translate(reference, minus_delta)).on(level));
                 }
             }
         }
