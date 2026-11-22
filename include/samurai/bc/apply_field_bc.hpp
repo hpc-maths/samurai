@@ -418,10 +418,43 @@ namespace samurai
      *
      * Only the prediction ghosts whose whole B.C. stencil is in the reference mesh are filled.
      */
+    /**
+     * The prediction ghosts of @a level that touch the domain boundary in @a direction, inside @a region, and whose
+     * stencil (the cells at @a offsets from them) is entirely in the reference mesh.
+     *
+     * The result is materialized in a LevelCellArray and the stencil is walked at run time, so that this code, which
+     * does not depend on the stencil size, is instantiated once per mesh type and not once per stencil size.
+     */
+    template <class Mesh, class Lca>
+    auto prediction_ghosts_on_boundary(const Mesh& mesh,
+                                       std::size_t level,
+                                       const DirectionVector<Mesh::dim>& direction,
+                                       const std::vector<DirectionVector<Mesh::dim>>& offsets,
+                                       const Lca& region)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+
+        // The prediction ghosts of update_ghost_mr: the cells of the level that are neither leaves nor
+        // projection cells, and that have a parent.
+        auto prediction_ghosts = intersection(
+            difference(mesh[mesh_id_t::all_cells][level], union_(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::proj_cells][level])),
+            mesh.subdomain(level),
+            mesh[mesh_id_t::all_cells][level - 1]);
+        auto domain      = self(mesh.domain(level));
+        auto on_boundary = difference(domain, translate(domain, -direction));
+
+        LevelCellArray<Mesh::dim, typename Mesh::interval_t> origins(intersection(prediction_ghosts, on_boundary, region));
+        for (const auto& offset : offsets)
+        {
+            origins = LevelCellArray<Mesh::dim, typename Mesh::interval_t>(
+                intersection(origins, translate(mesh[mesh_id_t::reference][level], DirectionVector<Mesh::dim>(-offset))));
+        }
+        return origins;
+    }
+
     template <class Field, std::size_t stencil_size>
     void apply_bc_on_prediction_ghosts_impl(Bc<Field>& bc, std::size_t level, const DirectionVector<Field::dim>& direction, Field& field)
     {
-        using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
         static constexpr std::size_t dim = Field::dim;
 
         if constexpr (stencil_size >= 2)
@@ -445,23 +478,26 @@ namespace samurai
             auto stencil            = convert_for_direction(bc.get_stencil(std::integral_constant<std::size_t, stencil_size>()), direction);
             auto stencil_analyzer   = make_stencil_analyzer(stencil);
 
+            std::vector<DirectionVector<dim>> offsets;
+            offsets.reserve(stencil_size);
+            for (std::size_t k = 0; k < stencil_size; ++k)
+            {
+                offsets.emplace_back(xt::view(stencil, k));
+            }
+
             for (std::size_t d = 0; d < region_directions.size(); ++d)
             {
                 if (region_directions[d] != direction)
                 {
                     continue;
                 }
-                // The prediction ghosts of update_ghost_mr: the cells of the level that are neither leaves nor
-                // projection cells, and that have a parent.
-                auto prediction_ghosts = intersection(
-                    difference(mesh[mesh_id_t::all_cells][level], union_(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::proj_cells][level])),
-                    mesh.subdomain(level),
-                    mesh[mesh_id_t::all_cells][level - 1]);
-                auto domain      = self(mesh.domain(level));
-                auto on_boundary = difference(domain, translate(domain, -direction));
-                auto origins     = stencil_origins_in_reference(mesh, level, stencil);
-                auto bdry_ghosts = intersection(prediction_ghosts, on_boundary, origins, region_lca[d]).on(level);
-                apply_bc_on_subset(bc, field, bdry_ghosts, stencil_analyzer, direction);
+                auto bdry_ghosts = prediction_ghosts_on_boundary(mesh, level, direction, offsets, region_lca[d]);
+                if (bdry_ghosts.empty())
+                {
+                    continue;
+                }
+                auto subset = self(bdry_ghosts).on(level);
+                apply_bc_on_subset(bc, field, subset, stencil_analyzer, direction);
             }
         }
     }
