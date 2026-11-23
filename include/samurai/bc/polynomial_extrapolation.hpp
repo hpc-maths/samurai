@@ -11,7 +11,7 @@ namespace samurai
     {
         INIT_BC(PolynomialExtrapolation, stencil_size_)
 
-        static constexpr std::size_t max_stencil_size_implemented_PE = 6;
+        static constexpr std::size_t max_stencil_size_implemented_PE = 8;
 
         /**
          * Deepest outer ghost layer the extrapolation reaches, over all the implemented
@@ -81,6 +81,11 @@ namespace samurai
                 else if constexpr (stencil_size_ == 6)
                 {
                     u[ghost] = u[cells[0]] - u[cells[1]] * 5.0 + u[cells[2]] * 1.0E+1 - u[cells[3]] * 1.0E+1 + u[cells[4]] * 5.0;
+                }
+                else if constexpr (stencil_size_ == 8)
+                {
+                    u[ghost] = u[cells[0]] - u[cells[1]] * 7.0 + u[cells[2]] * 2.1E+1 - u[cells[3]] * 3.5E+1 + u[cells[4]] * 3.5E+1
+                             - u[cells[5]] * 2.1E+1 + u[cells[6]] * 7.0;
                 }
             };
         }

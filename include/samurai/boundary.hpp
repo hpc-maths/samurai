@@ -77,8 +77,12 @@ namespace samurai
         return lca_t(outer_boundary_lcl);
     }
 
+    /**
+     * The outer layers [first_layer, last_layer] of the domain at @a level, in @a direction, facing the boundary cells.
+     */
     template <class Mesh>
-    auto domain_boundary_outer_layer(const Mesh& mesh, std::size_t level, const DirectionVector<Mesh::dim>& direction, int layer_width)
+    auto
+    domain_boundary_outer_layer(const Mesh& mesh, std::size_t level, const DirectionVector<Mesh::dim>& direction, int first_layer, int last_layer)
     {
         using lca_t = typename Mesh::lca_type;
         using lcl_t = typename Mesh::lcl_type;
@@ -88,7 +92,7 @@ namespace samurai
         lcl_t outer_boundary_lcl(level, mesh.origin_point(), mesh.scaling_factor());
 
         auto inner_boundary = domain_boundary(mesh, level, direction);
-        for (int layer = 1; layer <= layer_width; ++layer)
+        for (int layer = first_layer; layer <= last_layer; ++layer)
         {
             auto outer_layer = difference(translate(inner_boundary, layer * direction), domain);
             outer_layer(
@@ -98,6 +102,12 @@ namespace samurai
                 });
         }
         return lca_t(outer_boundary_lcl);
+    }
+
+    template <class Mesh>
+    auto domain_boundary_outer_layer(const Mesh& mesh, std::size_t level, const DirectionVector<Mesh::dim>& direction, int layer_width)
+    {
+        return domain_boundary_outer_layer(mesh, level, direction, 1, layer_width);
     }
 
     template <class Mesh, class Subset, std::size_t stencil_size, class Equation, std::size_t nb_equations, class Func>

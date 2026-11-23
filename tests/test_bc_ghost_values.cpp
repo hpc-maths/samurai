@@ -1323,6 +1323,13 @@ namespace samurai
         run_further<2, 1, false>(mesh, 5);
     }
 
+    // The deepest layer the extrapolation reaches: a prediction of radius 3 needs 6 layers.
+    TEST(bc_ghost_values, further_ghosts_dirichlet1_uniform_2d_ghost_width_7)
+    {
+        auto mesh = uniform_mesh<2>(4, 7);
+        run_further<2, 1, false>(mesh, 7);
+    }
+
     TEST(bc_ghost_values, further_ghosts_dirichlet1_uniform_3d_ghost_width_4)
     {
         auto mesh = uniform_mesh<3>(4, 4);
@@ -1347,8 +1354,8 @@ namespace samurai
     // The extrapolation says so, rather than leaving that layer unfilled.
     TEST(bc_ghost_values, further_ghosts_ghost_width_above_the_limit_throws)
     {
-        auto mesh = uniform_mesh<2>(4, 6);
-        ASSERT_EQ(mesh.ghost_width(), 6);
+        auto mesh = uniform_mesh<2>(4, 8);
+        ASSERT_EQ(mesh.ghost_width(), 8);
 
         auto u = make_scalar_field<double>("u", mesh);
         u.fill(0.);
