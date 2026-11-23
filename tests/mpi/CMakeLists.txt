@@ -75,6 +75,7 @@ endforeach()
 
 # Graph construction test (always built with MPI; no external library needed)
 add_mpi_gtest(test_lb_graph)
+add_mpi_gtest(test_mesh_neighbourhood)
 
 # PETSc block solvers in parallel (only if PETSc is enabled)
 if(WITH_PETSC)
