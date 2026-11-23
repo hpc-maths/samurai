@@ -10,6 +10,33 @@ namespace samurai
     template <std::size_t dim>
     using DirectionVector = xt::xtensor_fixed<int, xt::xshape<dim>>;
 
+    // A direction, components in {-1, 0, 1}, as one integer, and back: what an
+    // entry table key holds in place of the vector.
+    template <std::size_t dim>
+    std::size_t direction_code(const DirectionVector<dim>& direction)
+    {
+        std::size_t code = 0;
+        std::size_t base = 1;
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            code += static_cast<std::size_t>(direction[d] + 1) * base;
+            base *= 3;
+        }
+        return code;
+    }
+
+    template <std::size_t dim>
+    DirectionVector<dim> direction_from_code(std::size_t code)
+    {
+        DirectionVector<dim> direction;
+        for (std::size_t d = 0; d < dim; ++d)
+        {
+            direction[d] = static_cast<int>(code % 3) - 1;
+            code /= 3;
+        }
+        return direction;
+    }
+
     template <std::size_t stencil_size, std::size_t dim>
     struct StencilAnalyzer
     {

@@ -18,6 +18,7 @@
 #include "cell_array.hpp"
 #include "cell_list.hpp"
 #include "domain_builder.hpp"
+#include "entry_table.hpp"
 #include "mesh_config.hpp"
 #include "petsc/cell_ownership.hpp"
 #include "static_algorithm.hpp"
@@ -193,6 +194,11 @@ namespace samurai
 
         void swap(Mesh_base& mesh) noexcept;
 
+        // The entry tables recorded on this mesh (see entry_table.hpp). They
+        // are emptied each time the meshes of the neighbours are updated, which
+        // every construction of the cells ends with (see finalize_mesh).
+        const detail::EntryTableStore& entry_tables() const;
+
         template <typename... T, typename = std::enable_if_t<std::conjunction_v<std::is_convertible<T, value_t>...>, void>>
         const interval_t& get_interval(std::size_t level, const interval_t& interval, T... index) const;
         template <class E>
@@ -287,6 +293,8 @@ namespace samurai
         coords_t m_gravity_center;
 
         config_t m_config;
+
+        detail::EntryTableStore m_entry_tables;
 
 #ifdef SAMURAI_WITH_MPI
         friend class boost::serialization::access;
@@ -966,6 +974,13 @@ namespace samurai
         swap(m_union, mesh.m_union);
         swap(m_corners, mesh.m_corners);
         swap(m_config, mesh.m_config);
+        m_entry_tables.swap(mesh.m_entry_tables);
+    }
+
+    template <class D, class Config>
+    SAMURAI_INLINE const detail::EntryTableStore& Mesh_base<D, Config>::entry_tables() const
+    {
+        return m_entry_tables;
     }
 
     template <class D, class Config>
@@ -1136,6 +1151,7 @@ namespace samurai
     template <class D, class Config>
     SAMURAI_INLINE void Mesh_base<D, Config>::update_mesh_neighbour()
     {
+        m_entry_tables.clear();
         ScopedTimer timer("update_mesh_neighbour");
 #ifdef SAMURAI_WITH_MPI
         // No neighbouring subdomain (e.g. single rank): nothing to exchange.
@@ -1182,6 +1198,7 @@ namespace samurai
     template <class D, class Config>
     SAMURAI_INLINE void Mesh_base<D, Config>::update_neighbour_subdomain()
     {
+        m_entry_tables.clear();
 #ifdef SAMURAI_WITH_MPI
         // No neighbouring subdomain (e.g. single rank): nothing to exchange.
         if (m_mpi_neighbourhood.empty())
@@ -1221,6 +1238,7 @@ namespace samurai
     template <class D, class Config>
     SAMURAI_INLINE void Mesh_base<D, Config>::update_meshid_neighbour([[maybe_unused]] const mesh_id_t& mesh_id)
     {
+        m_entry_tables.clear();
         ScopedTimer timer("update_meshid_neighbour");
 #ifdef SAMURAI_WITH_MPI
         // No neighbouring subdomain (e.g. single rank): nothing to exchange.

@@ -73,6 +73,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <map>
 #include <set>
@@ -464,29 +465,14 @@ namespace
         return cells;
     }
 
-    // The mesh adaptation must give the same cells whatever the decomposition
-    // and whatever the ghosts held before the update. The detail computation
-    // reads the edge and corner ghosts outside the domain (outside in several
-    // directions); next to a subdomain interface they used to be neither
-    // computed nor received, so leftover memory decided the refinement.
+    // The cells gathered with the reference decomposition and with a tangled
+    // one are the same, with the same values.
     template <std::size_t Dim>
-    void expect_adaptation_decomposition_independent(Geometry geom, int stencil_size, Decomp decomp, const std::string& ctx)
+    void expect_same_cells(const std::map<std::array<long, Dim + 1>, double>& ref,
+                           const std::map<std::array<long, Dim + 1>, double>& tst,
+                           const std::string& ctx)
     {
         mpi::communicator world;
-
-        auto run = [&](Decomp d)
-        {
-            auto mesh = build_mesh<Dim>(geom, stencil_size, /*periodic=*/false);
-            auto u    = samurai::make_scalar_field<double>("u", mesh);
-            fill_affine<Dim>(u, /*periodic=*/false);
-            apply_decomposition<Dim>(d, u);
-            poison_ghosts<Dim>(u, 1e30);
-            samurai::make_MRAdapt(u)(samurai::mra_config().epsilon(1e-3));
-            return gather_cells<Dim>(u);
-        };
-
-        const auto ref = run(Decomp::None);
-        const auto tst = run(decomp);
 
         bool ok = true;
         if (world.rank() == 0)
@@ -513,6 +499,30 @@ namespace
         }
         mpi::broadcast(world, ok, 0);
         EXPECT_TRUE_ALL_RANKS(ok);
+    }
+
+    // The mesh adaptation must give the same cells whatever the decomposition
+    // and whatever the ghosts held before the update. The detail computation
+    // reads the edge and corner ghosts outside the domain (outside in several
+    // directions); next to a subdomain interface they used to be neither
+    // computed nor received, so leftover memory decided the refinement.
+    template <std::size_t Dim>
+    void expect_adaptation_decomposition_independent(Geometry geom, int stencil_size, Decomp decomp, const std::string& ctx)
+    {
+        mpi::communicator world;
+
+        auto run = [&](Decomp d)
+        {
+            auto mesh = build_mesh<Dim>(geom, stencil_size, /*periodic=*/false);
+            auto u    = samurai::make_scalar_field<double>("u", mesh);
+            fill_affine<Dim>(u, /*periodic=*/false);
+            apply_decomposition<Dim>(d, u);
+            poison_ghosts<Dim>(u, 1e30);
+            samurai::make_MRAdapt(u)(samurai::mra_config().epsilon(1e-3));
+            return gather_cells<Dim>(u);
+        };
+
+        expect_same_cells<Dim>(run(Decomp::None), run(decomp), ctx);
     }
 
     struct ACase
@@ -563,6 +573,59 @@ namespace
     }
 
     INSTANTIATE_TEST_SUITE_P(all, adaptation_independence_2d, testing::ValuesIn(make_acases()), acase_name);
+
+    // The tags a periodic ghost and its image share (update_tag_periodic) do
+    // not depend on the decomposition: every cell ends with the union of its
+    // tag and of those of its periodic ghosts, held by this rank or by another.
+    template <std::size_t Dim>
+    void expect_periodic_tags_decomposition_independent(Geometry geom, int stencil_size, Decomp decomp, const std::string& ctx)
+    {
+        using mesh_id_t = typename config<Dim>::mesh_id_t;
+
+        auto run = [&](Decomp d)
+        {
+            auto mesh = build_mesh<Dim>(geom, stencil_size, /*periodic=*/true);
+            auto u    = samurai::make_scalar_field<double>("u", mesh);
+            fill_affine<Dim>(u, /*periodic=*/true);
+            apply_decomposition<Dim>(d, u);
+
+            // a tag per cell and per ghost, read from its level and its coordinates:
+            // the same on every rank that holds it, and not the one of its periodic image
+            auto tag = samurai::make_scalar_field<std::uint8_t>("tag", u.mesh());
+            tag.fill(0);
+            samurai::for_each_cell(u.mesh()[mesh_id_t::reference],
+                                   [&](const auto& cell)
+                                   {
+                                       std::size_t h = cell.level * 7919;
+                                       for (std::size_t k = 0; k < Dim; ++k)
+                                       {
+                                           h = h * 1099511628211ULL + static_cast<std::size_t>(cell.indices[k] + 100000);
+                                       }
+                                       tag[cell] = static_cast<std::uint8_t>((h % 1000003) % 7);
+                                   });
+            const auto& ref = u.mesh()[mesh_id_t::reference];
+            for (std::size_t level = ref.min_level(); level <= ref.max_level(); ++level)
+            {
+                samurai::update_tag_periodic(level, tag);
+            }
+            return gather_cells<Dim>(tag);
+        };
+
+        expect_same_cells<Dim>(run(Decomp::None), run(decomp), ctx);
+    }
+
+    class periodic_tags_independence_2d : public samurai_test::MpiTest,
+                                          public testing::WithParamInterface<ACase>
+    {
+    };
+
+    TEST_P(periodic_tags_independence_2d, same_tags_as_reference)
+    {
+        const ACase c = GetParam();
+        expect_periodic_tags_decomposition_independent<2>(c.geom, c.stencil_size, c.decomp, "2d_periodic_tags_" + acase_label(c));
+    }
+
+    INSTANTIATE_TEST_SUITE_P(all, periodic_tags_independence_2d, testing::ValuesIn(make_acases()), acase_name);
 
     class adaptation_independence_3d : public samurai_test::MpiTest,
                                        public testing::WithParamInterface<ACase>

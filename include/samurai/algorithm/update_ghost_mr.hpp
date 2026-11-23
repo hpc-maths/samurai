@@ -43,6 +43,7 @@
 #include "../numeric/projection.hpp"
 #include "../timers.hpp"
 
+#include "ghost_entries.hpp"      // projection_ghosts, prediction_ghosts
 #include "update_outer_ghost.hpp" // update_outer_ghosts
 #include "update_periodic.hpp"    // update_ghost_periodic
 #include "update_subdomain.hpp"   // outer_subdomain_corner
@@ -194,10 +195,21 @@ namespace samurai::detail
     template <class Field, class... Fields>
     void update_ghost_mr_aggregated(Field& field, Fields&... other_fields)
     {
-        using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
+        constexpr std::size_t dim        = Field::dim;
         constexpr std::size_t pred_order = Field::mesh_t::config_t::prediction_stencil_radius;
+        // the kernels, on every field
+        auto project = [&](const auto& rows)
+        {
+            project_entry(field, rows);
+            (project_entry(other_fields, rows), ...);
+        };
+        auto predict = [&](const auto& entry)
+        {
+            predict_entry<pred_order>(field, entry);
+            (predict_entry<pred_order>(other_fields, entry), ...);
+        };
 
-        auto& mesh            = field.mesh();
+        const auto& mesh      = field.mesh();
         auto max_level        = mesh.max_level();
         std::size_t min_level = 0;
 
@@ -222,18 +234,13 @@ namespace samurai::detail
 
             if (level > min_level)
             {
-                auto set_at_levelm1 = intersection(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::proj_cells][level - 1]).on(level - 1);
-                set_at_levelm1.apply_op(variadic_projection(field, other_fields...));
+                for_each_entry(mesh, projection_ghosts<dim>{level - 1}, project);
             }
         }
 
         for (std::size_t level = min_level + 1; level <= max_level; ++level)
         {
-            auto pred_ghosts = difference(mesh[mesh_id_t::all_cells][level],
-                                          union_(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::proj_cells][level]));
-            auto expr        = intersection(pred_ghosts, mesh.subdomain(level), mesh[mesh_id_t::all_cells][level - 1]).on(level);
-
-            expr.apply_op(variadic_prediction<pred_order, false>(field, other_fields...));
+            for_each_entry(mesh, prediction_ghosts<dim, pred_order>{level}, predict);
             exchange_subdomains_merged(level, field, other_fields...);
             update_ghost_periodic(level, field, other_fields...);
         }

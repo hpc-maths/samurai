@@ -49,6 +49,7 @@ set(SAMURAI_TESTS
     test_cell_list.cpp
     test_corner_projection.cpp
     test_domain_with_hole.cpp
+    test_entry_table.cpp
     test_field.cpp
     test_find.cpp
     test_flux_based_nonlin.cpp
