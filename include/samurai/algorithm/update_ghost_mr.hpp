@@ -191,12 +191,73 @@ namespace samurai::detail
     // field-merged and non-blocking. The periodic exchange keeps its
     // per-dimension ordering (see header note) by delegating to
     // update_ghost_periodic.
+    // Field projection of the ghosts at level - 1 from their children at level,
+    // by traversing the set expression.
     template <class Field, class... Fields>
-    void update_ghost_mr_aggregated(Field& field, Fields&... other_fields)
+    void project_ghosts_with_sets(std::size_t level, Field& field, Fields&... other_fields)
+    {
+        using mesh_id_t = typename Field::mesh_t::mesh_id_t;
+        auto& mesh      = field.mesh();
+        auto set        = intersection(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::proj_cells][level - 1]).on(level - 1);
+        set.apply_op(variadic_projection(field, other_fields...));
+    }
+
+    // Prediction of the ghosts at level from their parents, by traversing the set
+    // expression.
+    template <class Field, class... Fields>
+    void predict_ghosts_with_sets(std::size_t level, Field& field, Fields&... other_fields)
     {
         using mesh_id_t                  = typename Field::mesh_t::mesh_id_t;
         constexpr std::size_t pred_order = Field::mesh_t::config_t::prediction_stencil_radius;
+        auto& mesh                       = field.mesh();
+        auto pred_ghosts                 = difference(mesh[mesh_id_t::all_cells][level],
+                                      union_(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::proj_cells][level]));
+        auto set = intersection(pred_ghosts, mesh.subdomain(level), mesh[mesh_id_t::all_cells][level - 1]).on(level);
+        set.apply_op(variadic_prediction<pred_order, false>(field, other_fields...));
+    }
 
+    template <class Mesh>
+    concept has_ghost_tables = requires(const Mesh& mesh) { mesh.ghost_tables(); };
+
+    // Same values as project_ghosts_with_sets, from the tables of the mesh when it has them.
+    template <class Field, class... Fields>
+    void project_ghosts(std::size_t level, Field& field, Fields&... other_fields)
+    {
+        if constexpr (has_ghost_tables<typename Field::mesh_t>)
+        {
+            const auto& tables = field.mesh().ghost_tables();
+            if (!tables.empty())
+            {
+                const auto& table = tables.projection[level - 1];
+                project_ghosts_with_table(field, table);
+                (project_ghosts_with_table(other_fields, table), ...);
+                return;
+            }
+        }
+        project_ghosts_with_sets(level, field, other_fields...);
+    }
+
+    // Same values as predict_ghosts_with_sets, from the tables of the mesh when it has them.
+    template <class Field, class... Fields>
+    void predict_ghosts(std::size_t level, Field& field, Fields&... other_fields)
+    {
+        if constexpr (has_ghost_tables<typename Field::mesh_t>)
+        {
+            const auto& tables = field.mesh().ghost_tables();
+            if (!tables.empty())
+            {
+                const auto& table = tables.prediction[level];
+                predict_ghosts_with_table(field, table);
+                (predict_ghosts_with_table(other_fields, table), ...);
+                return;
+            }
+        }
+        predict_ghosts_with_sets(level, field, other_fields...);
+    }
+
+    template <class Field, class... Fields>
+    void update_ghost_mr_aggregated(Field& field, Fields&... other_fields)
+    {
         auto& mesh            = field.mesh();
         auto max_level        = mesh.max_level();
         std::size_t min_level = 0;
@@ -222,18 +283,13 @@ namespace samurai::detail
 
             if (level > min_level)
             {
-                auto set_at_levelm1 = intersection(mesh[mesh_id_t::reference][level], mesh[mesh_id_t::proj_cells][level - 1]).on(level - 1);
-                set_at_levelm1.apply_op(variadic_projection(field, other_fields...));
+                project_ghosts(level, field, other_fields...);
             }
         }
 
         for (std::size_t level = min_level + 1; level <= max_level; ++level)
         {
-            auto pred_ghosts = difference(mesh[mesh_id_t::all_cells][level],
-                                          union_(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::proj_cells][level]));
-            auto expr        = intersection(pred_ghosts, mesh.subdomain(level), mesh[mesh_id_t::all_cells][level - 1]).on(level);
-
-            expr.apply_op(variadic_prediction<pred_order, false>(field, other_fields...));
+            predict_ghosts(level, field, other_fields...);
             exchange_subdomains_merged(level, field, other_fields...);
             update_ghost_periodic(level, field, other_fields...);
         }
