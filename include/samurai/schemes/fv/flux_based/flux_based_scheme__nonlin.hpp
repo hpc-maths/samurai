@@ -228,8 +228,11 @@ namespace samurai
                     {
                         static constexpr auto radius = static_cast<std::size_t>(mesh_t::config_t::prediction_stencil_radius);
                         // Fine cells are numbered from the first child of the cell right of the interface.
-                        along  = detail::prediction_matrix_1d<radius>(delta_l, -static_cast<int>(stencil_size / 2), stencil_size);
-                        across = detail::prediction_matrix_1d<radius>(delta_l, 0, n_children);
+                        along = detail::prediction_matrix_1d<radius>(delta_l, -static_cast<int>(stencil_size / 2), stencil_size);
+                        if constexpr (dim > 1) // 1D has no transverse direction
+                        {
+                            across = detail::prediction_matrix_1d<radius>(delta_l, 0, n_children);
+                        }
                     }
                 }
             }
