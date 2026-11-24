@@ -11,6 +11,10 @@ concurrency:
 # driver randomly fails to initialize (UCX ERROR ... mana_0 ... failed: Operation not supported),
 # which aborts MPI_Init (used by PETSc even for single-rank runs) and kills the process with
 # exit code 143. Restricting UCX to shared-memory/TCP transports avoids probing that NIC.
+# TEMPORARY (2026-11-24): the PETSc installs below pin "yaml<0.2.6". conda-forge yaml 0.2.6
+# ships libyaml-0.so.1, but petsc 3.26.1 links libyaml-0.so.2 (libyaml-0.2.dylib on macOS),
+# so every PETSc binary fails to link on Linux and aborts at load time on macOS.
+# Remove the pin (grep 'yaml<0.2.6') once conda-forge ships a yaml or petsc build that agrees.
 env:
     UCX_TLS: self,sm,tcp
 
@@ -204,7 +208,7 @@ jobs:
             - name: Petsc installation
               shell: bash -l {0}
               run: |
-                  micromamba install -y petsc pkg-config
+                  micromamba install -y petsc "yaml<0.2.6" pkg-config
 
             # nlohmann_json is only needed by WITH_STATS (samurai/statistics.hpp).
             - name: nlohmann_json installation
@@ -312,7 +316,7 @@ jobs:
             - name: Petsc installation
               shell: micromamba-shell {0}
               run: |
-                  micromamba install -y petsc pkg-config cxx-compiler ccache
+                  micromamba install -y petsc "yaml<0.2.6" pkg-config cxx-compiler ccache
                   # Self-hosted runner: ccache dir persists on disk across runs,
                   # so no actions/cache step is needed here.
                   ccache --max-size=5G
@@ -604,7 +608,7 @@ jobs:
             - name: Petsc installation
               shell: bash -l {0}
               run: |
-                  micromamba install -y petsc mpich pkg-config
+                  micromamba install -y petsc "yaml<0.2.6" mpich pkg-config
 
             - name: Install cxx compiler
               shell: bash -l {0}
@@ -690,7 +694,7 @@ jobs:
             - name: Petsc installation
               shell: bash -l {0}
               run: |
-                  micromamba install -y petsc pkg-config cxx-compiler ccache
+                  micromamba install -y petsc "yaml<0.2.6" pkg-config cxx-compiler ccache
                   ccache --max-size=2G
                   ccache --zero-stats
 
@@ -842,7 +846,7 @@ jobs:
             - name: Petsc installation
               shell: bash -l {0}
               run: |
-                  micromamba install -y petsc pkg-config cxx-compiler ccache
+                  micromamba install -y petsc "yaml<0.2.6" pkg-config cxx-compiler ccache
                   ccache --max-size=2G
                   ccache --zero-stats
 
@@ -944,7 +948,7 @@ jobs:
             - name: Compiler installation
               shell: bash -l {0}
               run: |
-                  micromamba install -y cxx-compiler ccache petsc pkg-config
+                  micromamba install -y cxx-compiler ccache petsc "yaml<0.2.6" pkg-config
                   ccache --max-size=2G
                   ccache --zero-stats
 

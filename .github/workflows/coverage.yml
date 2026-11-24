@@ -9,6 +9,10 @@ name: coverage
 # main need the CODECOV_TOKEN secret, unless token authentication for public
 # repositories is disabled in the Codecov settings of the organization. A
 # failed upload never fails the job.
+# TEMPORARY (2026-11-24): the PETSc installs below pin "yaml<0.2.6". conda-forge yaml 0.2.6
+# ships libyaml-0.so.1, but petsc 3.26.1 links libyaml-0.so.2 (libyaml-0.2.dylib on macOS),
+# so every PETSc binary fails to link on Linux and aborts at load time on macOS.
+# Remove the pin (grep 'yaml<0.2.6') once conda-forge ships a yaml or petsc build that agrees.
 on:
     workflow_call:
         secrets:
@@ -57,7 +61,7 @@ jobs:
             # counted once per template instance unless --merge-lines is given.
             - name: Compiler, PETSc and coverage tools installation
               run: |
-                  micromamba install -y cxx-compiler ccache petsc pkg-config gcovr=8.3 pytest-cov yt
+                  micromamba install -y cxx-compiler ccache petsc "yaml<0.2.6" pkg-config gcovr=8.3 pytest-cov yt
                   ccache --max-size=2G
                   ccache --zero-stats
 
