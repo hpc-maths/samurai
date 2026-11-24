@@ -10,6 +10,7 @@
 
 #include "algorithm/update_ghost_if_needed.hpp"
 #include "field.hpp"
+#include "field/concepts.hpp"
 #include "numeric/prediction.hpp"
 #include "samurai_config.hpp"
 #include "subset/node.hpp"
@@ -607,7 +608,7 @@ namespace samurai
 
         auto make_field_like = [](const std::string& name, auto& mesh)
         {
-            if constexpr (Field::is_scalar)
+            if constexpr (scalar_field<Field>)
             {
                 return make_scalar_field<typename Field::value_type>(name, mesh);
             }
@@ -951,7 +952,7 @@ namespace samurai
 
         auto get_f = [&](std::size_t lvl, const auto&... indices)
         {
-            if constexpr (Field::is_scalar)
+            if constexpr (scalar_field<Field>)
             {
                 return f(lvl, indices...);
             }

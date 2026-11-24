@@ -18,10 +18,16 @@ namespace samurai
         using xt::placeholders::_;
     }
 
-    template <class value_t, std::size_t size, bool can_collapse = true>
+    /**
+     * The values of a field: one per cell for a scalar field, an array of shape {cells, size} for a
+     * vector field, whatever its number of components.
+     */
+    template <class value_t, std::size_t size, bool is_scalar>
     struct xtensor_container
     {
-        using container_t = xt::xtensor<value_t, ((size == 1) && can_collapse) ? 1 : 2, xt::layout_type::row_major>;
+        static_assert(!is_scalar || size == 1, "a scalar field has one component");
+
+        using container_t = xt::xtensor<value_t, is_scalar ? 1 : 2, xt::layout_type::row_major>;
         using size_type   = std::size_t;
 
         xtensor_container() = default;
@@ -44,20 +50,13 @@ namespace samurai
 
         void resize(std::size_t dynamic_size)
         {
-            if constexpr ((size == 1) && can_collapse)
+            if constexpr (is_scalar)
             {
                 m_data.resize({dynamic_size});
             }
             else
             {
-                if constexpr (size == 1 && !can_collapse)
-                {
-                    m_data.resize({size, dynamic_size});
-                }
-                else
-                {
-                    m_data.resize({dynamic_size, size});
-                }
+                m_data.resize({dynamic_size, size});
             }
         }
 
@@ -71,11 +70,11 @@ namespace samurai
         template <class T>
         struct xtensor_container_traits;
 
-        template <class value_t, std::size_t size_, bool can_collapse_>
-        struct xtensor_container_traits<xtensor_container<value_t, size_, can_collapse_>>
+        template <class value_t, std::size_t size_, bool is_scalar_>
+        struct xtensor_container_traits<xtensor_container<value_t, size_, is_scalar_>>
         {
-            static constexpr std::size_t size  = size_;
-            static constexpr bool can_collapse = can_collapse_;
+            static constexpr std::size_t size = size_;
+            static constexpr bool is_scalar   = is_scalar_;
         };
     }
 
@@ -85,6 +84,12 @@ namespace samurai
     template <class T>
     concept xtensor_container_like = requires { detail::xtensor_container_traits<std::remove_const_t<T>>::size; };
 
+    /**
+     * The xtensor_container of a scalar field: it has no component axis.
+     */
+    template <class T>
+    concept xtensor_scalar_container = xtensor_container_like<T> && detail::xtensor_container_traits<std::remove_const_t<T>>::is_scalar;
+
     //////////
     // VIEW //
     //////////
@@ -93,62 +98,30 @@ namespace samurai
     auto view(Container& container, const range_t<long long>& range)
     {
         using traits = detail::xtensor_container_traits<std::remove_const_t<Container>>;
-        if constexpr (traits::size == 1 && !traits::can_collapse)
-        {
-            return xt::view(container.data(), xt::all(), xt::range(range.start, range.end, range.step));
-        }
-        else
-        {
-            return xt::view(container.data(), xt::range(range.start, range.end, range.step));
-        }
+        return xt::view(container.data(), xt::range(range.start, range.end, range.step));
     }
 
     template <xtensor_container_like Container>
     auto view(Container& container, const range_t<std::size_t>& range_item, const range_t<long long>& range)
     {
-        using traits = detail::xtensor_container_traits<std::remove_const_t<Container>>;
-        static_assert(traits::size > 1, "size must be greater than 1");
-        if constexpr (traits::size == 1 && !traits::can_collapse)
-        {
-            return xt::view(container.data(),
-                            xt::range(range_item.start, range_item.end, range_item.step),
-                            xt::range(range.start, range.end, range.step));
-        }
-        else
-        {
-            return xt::view(container.data(),
-                            xt::range(range.start, range.end, range.step),
-                            xt::range(range_item.start, range_item.end, range_item.step));
-        }
+        static_assert(!xtensor_scalar_container<Container>, "a scalar field has no component axis");
+        return xt::view(container.data(),
+                        xt::range(range.start, range.end, range.step),
+                        xt::range(range_item.start, range_item.end, range_item.step));
     }
 
     template <xtensor_container_like Container>
     auto view(Container& container, std::size_t item, const range_t<long long>& range)
     {
-        using traits = detail::xtensor_container_traits<std::remove_const_t<Container>>;
-        static_assert(traits::size > 1, "size must be greater than 1");
-        if constexpr (traits::size == 1 && !traits::can_collapse)
-        {
-            return xt::view(container.data(), item, xt::range(range.start, range.end, range.step));
-        }
-        else
-        {
-            return xt::view(container.data(), xt::range(range.start, range.end, range.step), item);
-        }
+        static_assert(!xtensor_scalar_container<Container>, "a scalar field has no component axis");
+        return xt::view(container.data(), xt::range(range.start, range.end, range.step), item);
     }
 
     template <xtensor_container_like Container>
     auto view(Container& container, std::size_t index)
     {
         using traits = detail::xtensor_container_traits<std::remove_const_t<Container>>;
-        if constexpr (traits::size == 1 && !traits::can_collapse)
-        {
-            return xt::view(container.data(), xt::all(), index);
-        }
-        else
-        {
-            return xt::view(container.data(), index);
-        }
+        return xt::view(container.data(), index);
     }
 
     template <class D>

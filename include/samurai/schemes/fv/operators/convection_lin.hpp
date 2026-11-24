@@ -1,4 +1,5 @@
 #pragma once
+#include "../../../field/concepts.hpp"
 #include "../flux_based/flux_based_scheme__lin_het.hpp"
 #include "../flux_based/flux_based_scheme__lin_hom.hpp"
 #include "weno_impl.hpp"
@@ -40,7 +41,7 @@ namespace samurai
                     {
                         // Return type: 2 matrices (left, right) of size output_n_comp x n_comp.
                         // In this case, of size n_comp x n_comp.
-                        if constexpr (Field::is_scalar)
+                        if constexpr (scalar_field<Field>)
                         {
                             coeffs[left]  = velocity(d);
                             coeffs[right] = 0;
@@ -63,7 +64,7 @@ namespace samurai
                 {
                     upwind[d].cons_flux_function = [velocity](FluxStencilCoeffs<cfg>& coeffs, double)
                     {
-                        if constexpr (Field::is_scalar)
+                        if constexpr (scalar_field<Field>)
                         {
                             coeffs[left]  = 0;
                             coeffs[right] = velocity(d);
@@ -131,7 +132,7 @@ namespace samurai
                         f *= velocity(d);
 
                         std::array<decltype(&jac[0]), 5> jacobians({&jac[0], &jac[1], &jac[2], &jac[3], &jac[4]});
-                        if constexpr (Field::is_scalar)
+                        if constexpr (scalar_field<Field>)
                         {
                             jac[5] = 0; // the last one is not used
                         }
@@ -159,7 +160,7 @@ namespace samurai
                         f *= velocity(d);
 
                         std::array<decltype(&jac[0]), 5> jacobians({&jac[5], &jac[4], &jac[3], &jac[2], &jac[1]});
-                        if constexpr (Field::is_scalar)
+                        if constexpr (scalar_field<Field>)
                         {
                             jac[0] = 0; // the first one is not used
                         }
@@ -378,7 +379,7 @@ namespace samurai
 
                     auto lambda = smooth_abs(0.5 * (vL + vR));
 
-                    if constexpr (Field::is_scalar)
+                    if constexpr (scalar_field<Field>)
                     {
                         jac[left]  = 0.5 * (vL + lambda);
                         jac[right] = 0.5 * (vR - lambda);
@@ -405,7 +406,7 @@ namespace samurai
     auto make_dual_convection_smooth_rusanov_incompressible(Field& u)
     {
         static_assert(Field::dim == VelocityField::dim && VelocityField::n_comp == VelocityField::dim);
-        static_assert(Field::is_scalar, "The field in parameter must be scalar");
+        static_assert(scalar_field<Field>, "The field in parameter must be scalar");
 
         static constexpr std::size_t dim          = VelocityField::dim;
         static constexpr std::size_t stencil_size = 2;

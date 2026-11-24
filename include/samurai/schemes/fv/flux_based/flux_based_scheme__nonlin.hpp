@@ -1,4 +1,5 @@
 #pragma once
+#include "../../../field/concepts.hpp"
 #include "flux_based_scheme.hpp"
 
 #include <cassert>
@@ -100,7 +101,7 @@ namespace samurai
 
         SAMURAI_INLINE field_value_type flux_value_cmpnent(const FluxValue<cfg>& flux_value, [[maybe_unused]] size_type field_i) const
         {
-            if constexpr (output_field_t::is_scalar)
+            if constexpr (scalar_field<output_field_t>)
             {
                 return flux_value;
             }

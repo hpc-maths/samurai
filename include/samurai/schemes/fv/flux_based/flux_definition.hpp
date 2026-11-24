@@ -1,4 +1,5 @@
 #pragma once
+#include "../../../field/concepts.hpp"
 #include "../utils.hpp"
 #include <functional>
 
@@ -67,7 +68,7 @@ namespace samurai
     //----------------------------------//
 
     template <class cfg>
-    using FluxValue = CollapsFluxArray<typename cfg::input_field_t::value_type, cfg::output_field_t::n_comp, cfg::output_field_t::is_scalar>;
+    using FluxValue = CollapsFluxArray<typename cfg::input_field_t::value_type, cfg::output_field_t::n_comp, scalar_field<typename cfg::output_field_t>>;
 
     template <class cfg>
     using FluxValuePair = StdArrayWrapper<FluxValue<cfg>, 2>;

@@ -30,23 +30,26 @@ namespace samurai
     // Field container //
     //-----------------//
 
+    // field_data_storage_t holds the values of a field on all its cells, local_field_data_t on one cell:
+    // a value_type for a scalar field (is_scalar = true), an array of size values for a vector field.
+
 #if defined(SAMURAI_FIELD_CONTAINER_EIGEN3)
 
-    template <class value_type, std::size_t size = 1, bool can_collapse = true>
+    template <class value_type, std::size_t size, bool is_scalar>
     using field_data_storage_t = eigen_container<value_type, size>;
 
-    template <class value_type, std::size_t size, bool can_collapse = true>
-    using local_field_data_t = eigen_collapsable_static_array<value_type, size, can_collapse>;
+    template <class value_type, std::size_t size, bool is_scalar>
+    using local_field_data_t = eigen_collapsable_static_array<value_type, size, is_scalar>;
 
     template <class T>
     using default_view_t = Eigen::IndexedView<T, Eigen::internal::ArithmeticSequenceRange<16777215, -1, 16777215>, Eigen::internal::SingleRange<0>>;
 #else // SAMURAI_FIELD_CONTAINER_XTENSOR
 
-    template <class value_type, std::size_t size = 1, bool can_collapse = true>
-    using field_data_storage_t = xtensor_container<value_type, size, can_collapse>;
+    template <class value_type, std::size_t size, bool is_scalar>
+    using field_data_storage_t = xtensor_container<value_type, size, is_scalar>;
 
-    template <class value_type, std::size_t size, bool can_collapse = true>
-    using local_field_data_t = xtensor_collapsable_static_array<value_type, size, can_collapse>;
+    template <class value_type, std::size_t size, bool is_scalar>
+    using local_field_data_t = xtensor_collapsable_static_array<value_type, size, is_scalar>;
 
     template <class T>
     using default_view_t = xt::xview<T&, xt::xstepped_range<long>>;

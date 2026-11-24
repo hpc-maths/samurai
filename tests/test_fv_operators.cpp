@@ -1505,7 +1505,7 @@ namespace samurai
                           {
                               if (is_interior(cell, nx, half_width))
                               {
-                                  if constexpr (out_field_t::is_scalar)
+                                  if constexpr (scalar_field<out_field_t>)
                                   {
                                       explicit_values.push_back(expl[cell]);
                                   }
@@ -1557,7 +1557,7 @@ namespace samurai
                                   k += out_field_t::n_comp;
                                   return;
                               }
-                              if constexpr (out_field_t::is_scalar)
+                              if constexpr (scalar_field<out_field_t>)
                               {
                                   EXPECT_NEAR(impl[cell], explicit_values[k++], 1e-10);
                               }

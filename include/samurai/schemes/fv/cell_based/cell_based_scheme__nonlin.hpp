@@ -1,4 +1,5 @@
 #pragma once
+#include "../../../field/concepts.hpp"
 #include "cell_based_scheme.hpp"
 
 #include <fmt/format.h>
@@ -142,7 +143,7 @@ namespace samurai
 
         SAMURAI_INLINE field_value_type contrib_cmpnent(const SchemeValue<cfg>& coeffs, [[maybe_unused]] size_type field_i) const
         {
-            if constexpr (output_field_t::is_scalar)
+            if constexpr (scalar_field<output_field_t>)
             {
                 return coeffs;
             }

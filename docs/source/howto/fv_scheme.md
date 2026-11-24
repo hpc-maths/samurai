@@ -100,7 +100,7 @@ The example `fv_gradient.cpp` computes the gradient of a scalar field, with the 
   `samurai::static_for<0, dim>` gives the direction `d` as a compile-time constant, which the flux function uses as an index.
 
 For a divergence, the input field has `dim` components and the output field one: `c[i]` is a 1 x `dim` matrix and the coefficient goes in column `d` instead of row `d`.
-Code that must work for scalar and vector fields tests `Field::is_scalar` with `if constexpr`, because a scalar `c[i]` has no `fill` and no `(row, col)` access.
+Code that must work for scalar and vector fields tests the concept `samurai::scalar_field<Field>` with `if constexpr`, because a scalar `c[i]` has no `fill` and no `(row, col)` access.
 
 The program compares the result with `samurai::make_gradient_order2`:
 

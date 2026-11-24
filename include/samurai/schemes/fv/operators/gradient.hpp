@@ -1,4 +1,5 @@
 #pragma once
+#include "../../../field/concepts.hpp"
 #include "../flux_based/flux_based_scheme__lin_hom.hpp"
 
 namespace samurai
@@ -31,7 +32,7 @@ namespace samurai
 
                     // Return value: 2 matrices (left, right) of size output_n_comp x n_comp.
                     // In this case, of size dim x 1, i.e. a column vector of size dim.
-                    if constexpr (output_field_t::is_scalar)
+                    if constexpr (scalar_field<output_field_t>)
                     {
                         coeffs[left]  = 0.5;
                         coeffs[right] = 0.5;

@@ -1,4 +1,5 @@
 #pragma once
+#include "../field/concepts.hpp"
 #include "fv/cell_based_scheme_assembly.hpp"
 #include "fv/flux_based_scheme_assembly.hpp"
 #include "fv/operator_sum_assembly.hpp"
@@ -329,7 +330,7 @@ namespace samurai
                 // Copy the Jacobian coefficients into the PETSc matrix (careful: the dense matrices are stored in column-major order)
                 PetscScalar* array;
                 MatDenseGetArray(B, &array);
-                if constexpr (field_t::is_scalar)
+                if constexpr (scalar_field<field_t>)
                 {
                     array[0] = jac_coeffs; // the Jacobian of a scalar field is a scalar
                 }

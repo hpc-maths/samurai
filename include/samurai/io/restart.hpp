@@ -24,6 +24,7 @@ namespace mpi = boost::mpi;
 
 #include "../cell_array.hpp"
 #include "../concepts.hpp"
+#include "../field/concepts.hpp"
 #include "../interval.hpp"
 #include "../level_cell_array.hpp"
 #include "../load_balancing/load_balancer.hpp"
@@ -552,7 +553,7 @@ namespace samurai
             std::size_t k    = 0;
             auto copy_values = [&](size_type cell_index)
             {
-                if constexpr (Field::is_scalar)
+                if constexpr (scalar_field<Field>)
                 {
                     field[cell_index] = data.values[k++];
                 }

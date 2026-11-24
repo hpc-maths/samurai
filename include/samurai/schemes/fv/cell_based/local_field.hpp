@@ -1,6 +1,8 @@
 #pragma once
 #include <xtensor/containers/xadapt.hpp>
 
+#include "../../../field/concepts.hpp"
+
 namespace samurai
 {
     template <class field_t, class enable = void>
@@ -12,7 +14,7 @@ namespace samurai
      * Implementation when number of components of field = 1
      */
     template <class field_t>
-    class LocalField<field_t, std::enable_if_t<field_t::is_scalar>>
+    class LocalField<field_t, std::enable_if_t<scalar_field<field_t>>>
     {
         using field_value_type = typename field_t::value_type;
         using cell_t           = typename field_t::cell_t;
@@ -41,7 +43,7 @@ namespace samurai
      * Implementation when number of components of field > 1
      */
     template <class field_t>
-    class LocalField<field_t, std::enable_if_t<!field_t::is_scalar>>
+    class LocalField<field_t, std::enable_if_t<vector_field<field_t>>>
     {
         using field_value_type    = typename field_t::value_type;
         using cell_t              = typename field_t::cell_t;

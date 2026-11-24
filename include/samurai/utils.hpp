@@ -16,6 +16,7 @@
 #include <xtensor/containers/xfixed.hpp>
 
 #include "assert_log_trace.hpp"
+#include "field/concepts.hpp"
 #include "samurai_config.hpp"
 
 namespace samurai
@@ -476,7 +477,7 @@ namespace samurai
     template <class Field, class index_t>
     SAMURAI_INLINE auto& field_value(Field& f, const typename Field::size_type& cell_index, [[maybe_unused]] index_t field_i)
     {
-        if constexpr (Field::is_scalar)
+        if constexpr (scalar_field<Field>)
         {
             return f[cell_index];
         }

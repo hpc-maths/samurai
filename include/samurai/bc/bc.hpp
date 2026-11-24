@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "../cell.hpp"
+#include "../field/concepts.hpp"
 #include "../samurai_config.hpp"
 #include "../static_algorithm.hpp"
 #include "../stencil.hpp"
@@ -92,7 +93,7 @@ namespace samurai
     struct BcValue
     {
         static constexpr std::size_t dim = Field::dim;
-        using value_t                    = CollapsArray<typename Field::value_type, Field::n_comp, Field::is_scalar>;
+        using value_t                    = CollapsArray<typename Field::value_type, Field::n_comp, scalar_field<Field>>;
         using coords_t                   = xt::xtensor_fixed<double, xt::xshape<dim>>;
         using direction_t                = DirectionVector<dim>;
         using cell_t                     = typename Field::cell_t;

@@ -15,6 +15,7 @@
 #include "../arguments.hpp"
 #include "../boundary.hpp"
 #include "../field.hpp"
+#include "../field/concepts.hpp"
 #include "../load_balancing/load_balancer.hpp"
 #include "../load_balancing/strategies/sfc.hpp"
 #include "../load_balancing/weight.hpp"
@@ -89,7 +90,7 @@ namespace samurai
         {
             using fields_t = TField&;
             using mesh_t   = typename TField::mesh_t;
-            using detail_t = std::conditional_t<TField::is_scalar,
+            using detail_t = std::conditional_t<scalar_field<TField>,
                                                 ScalarField<mesh_t, typename TField::value_type>,
                                                 VectorField<mesh_t, typename TField::value_type, TField::n_comp>>;
         };

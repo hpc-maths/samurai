@@ -1,4 +1,5 @@
 #pragma once
+#include "../../../field/concepts.hpp"
 #include "../flux_based/flux_based_scheme__lin_het.hpp"
 #include "../flux_based/flux_based_scheme__lin_hom.hpp"
 #include "diffusion_bc.hpp"
@@ -91,7 +92,7 @@ namespace samurai
                         // It contains 2 matrices (left, right) of size output_n_comp x input_n_comp.
                         // In this case, of size n_comp x n_comp.
 
-                        if constexpr (Field::is_scalar)
+                        if constexpr (scalar_field<Field>)
                         {
                             coeffs[left]  = -1 / h;
                             coeffs[right] = 1 / h;
@@ -141,7 +142,7 @@ namespace samurai
                 static constexpr std::size_t left  = 0;
                 static constexpr std::size_t right = 1;
 
-                if constexpr (Field::is_scalar)
+                if constexpr (scalar_field<Field>)
                 {
                     coeffs[left] *= -K(0);
                     coeffs[right] *= -K(0);
@@ -183,7 +184,8 @@ namespace samurai
 
     template <class field_t,
               class DiffTensorField,
-              std::enable_if_t<DiffTensorField::is_scalar && std::is_same_v<typename DiffTensorField::value_type, DiffCoeff<field_t::dim>>, bool> = true>
+              std::enable_if_t<scalar_field<DiffTensorField> && std::is_same_v<typename DiffTensorField::value_type, DiffCoeff<field_t::dim>>,
+                               bool> = true>
     auto make_diffusion_order2(const DiffTensorField& K)
     {
         static constexpr std::size_t dim    = field_t::dim;
@@ -214,7 +216,7 @@ namespace samurai
 
                     // `coeffs`: 2 matrices (left, right) of size output_n_comp x n_comp.
                     // In this case, of size n_comp x n_comp.
-                    if constexpr (field_t::is_scalar)
+                    if constexpr (scalar_field<field_t>)
                     {
                         coeffs[left]  = -k_left(d) / h;
                         coeffs[right] = k_left(d) / h;
