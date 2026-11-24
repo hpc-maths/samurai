@@ -285,4 +285,57 @@ namespace samurai
                       });
     }
 
+    // A VectorField has the same layout whatever its number of components, one included: an
+    // interval view has shape (cells, components), and a component is read like a scalar field.
+    template <class T>
+    class vector_field_layout : public ::testing::Test
+    {
+    };
+
+    using n_comps = ::testing::Types<std::integral_constant<std::size_t, 1>, std::integral_constant<std::size_t, 3>>;
+    TYPED_TEST_SUITE(vector_field_layout, n_comps, );
+
+    TYPED_TEST(vector_field_layout, interval_views)
+    {
+        static constexpr std::size_t n_comp = TypeParam::value;
+        static constexpr std::size_t level  = 3;
+
+        Box<double, 1> box{{0}, {1}};
+        auto mesh = mra::make_mesh(box, mesh_config<1>().min_level(level).max_level(level));
+        auto v    = make_vector_field<double, n_comp>("v", mesh, 1.);
+        auto s    = make_scalar_field<double>("s", mesh, 2.);
+
+        using interval_t = typename decltype(v)::interval_t;
+        const interval_t i{0, 1 << level};
+        const auto n_cells = static_cast<std::size_t>(i.size());
+
+        auto all = v(level, i);
+        ASSERT_EQ(all.dimension(), 2);
+        EXPECT_EQ(all.shape()[0], n_cells);
+        EXPECT_EQ(all.shape()[1], n_comp);
+
+        auto first = v(0, n_comp, level, i);
+        ASSERT_EQ(first.dimension(), 2);
+        EXPECT_EQ(first.shape()[0], n_cells);
+        EXPECT_EQ(first.shape()[1], n_comp);
+
+        for (std::size_t c = 0; c < n_comp; ++c)
+        {
+            auto comp = v(c, level, i);
+            ASSERT_EQ(comp.dimension(), 1);
+            EXPECT_EQ(comp.size(), n_cells);
+
+            v(c, level, i) = (static_cast<double>(c) + 1.) * s(level, i);
+            s(level, i)    = v(c, level, i) / (static_cast<double>(c) + 1.);
+        }
+        for_each_cell(mesh,
+                      [&](const auto& cell)
+                      {
+                          EXPECT_EQ(s[cell], 2.);
+                          for (std::size_t c = 0; c < n_comp; ++c)
+                          {
+                              EXPECT_EQ(v[cell][c], 2. * (static_cast<double>(c) + 1.));
+                          }
+                      });
+    }
 }
