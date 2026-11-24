@@ -26,6 +26,16 @@ namespace samurai
     template <class T>
     concept field_like = field_like_helper<std::remove_cvref_t<T>>;
 
+    // A field with one value per cell and no component axis: a ScalarField, or any field-like
+    // quantity (a CellQuantity to save, a detail range, ...) that declares is_scalar = true.
+    template <class T>
+    concept scalar_field = bool(std::remove_cvref_t<T>::is_scalar);
+
+    // A field with a component axis, whatever its number of components, one included: a VectorField,
+    // or any field-like quantity that declares is_scalar = false.
+    template <class T>
+    concept vector_field = requires { std::remove_cvref_t<T>::is_scalar; } && !scalar_field<T>;
+
     namespace detail
     {
         template <class Field>

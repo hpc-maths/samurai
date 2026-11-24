@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../../field/concepts.hpp"
 #include "../../storage/containers.hpp"
 
 namespace samurai
@@ -15,13 +16,13 @@ namespace samurai
     using StencilCells = CollapsStdArray<typename cfg::input_field_t::cell_t, cfg::stencil_size, true>;
 
     template <class cfg>
-    using StencilValues = CollapsStdArray<typename cfg::input_field_t::local_data_type, cfg::stencil_size, cfg::input_field_t::is_scalar>;
+    using StencilValues = CollapsStdArray<typename cfg::input_field_t::local_data_type, cfg::stencil_size, scalar_field<typename cfg::input_field_t>>;
 
     template <class cfg>
     using JacobianMatrix = CollapsMatrix<typename cfg::input_field_t::value_type,
                                          cfg::output_field_t::n_comp,
                                          cfg::input_field_t::n_comp,
-                                         cfg::input_field_t::is_scalar && cfg::output_field_t::is_scalar>;
+                                         scalar_field<typename cfg::input_field_t> && scalar_field<typename cfg::output_field_t>>;
 
     template <class cfg>
     using StencilJacobian = collapsable_algebraic_std_array<JacobianMatrix<cfg>, cfg::stencil_size, true>;

@@ -1,4 +1,5 @@
 #pragma once
+#include "../../../field/concepts.hpp"
 #include "../cell_based/cell_based_scheme__lin_hom.hpp"
 
 namespace samurai
@@ -15,7 +16,7 @@ namespace samurai
 
         identity.coefficients_func() = [](StencilCoeffs<cfg>& sc, double)
         {
-            sc = eye<field_value_type, n_comp, n_comp, Field::is_scalar>();
+            sc = eye<field_value_type, n_comp, n_comp, scalar_field<Field>>();
         };
         identity.is_symmetric(true);
         identity.is_spd(true);

@@ -1,4 +1,5 @@
 #pragma once
+#include "../../../field/concepts.hpp"
 #include "cell_based_scheme.hpp"
 
 namespace samurai
@@ -153,7 +154,7 @@ namespace samurai
         using stencil_cells_t = typename CellBasedScheme<nonlin_cfg, bdry_cfg>::stencil_cells_t;
         using input_field_t   = typename CellBasedScheme<nonlin_cfg, bdry_cfg>::input_field_t;
 
-        static constexpr bool can_collapse = lin_cfg::input_field_t::is_scalar && lin_cfg::output_field_t::is_scalar;
+        static constexpr bool can_collapse = scalar_field<typename lin_cfg::input_field_t> && scalar_field<typename lin_cfg::output_field_t>;
 
         CellBasedScheme<nonlin_cfg, bdry_cfg> addition_scheme(nonlin_scheme); // copy
 

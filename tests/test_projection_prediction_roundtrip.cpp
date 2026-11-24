@@ -86,7 +86,7 @@ namespace samurai
                               {
                                   const double expected = static_cast<double>(c + 1) * base;
                                   double actual;
-                                  if constexpr (Field::is_scalar)
+                                  if constexpr (scalar_field<Field>)
                                   {
                                       actual = u[cell];
                                   }
@@ -111,7 +111,7 @@ namespace samurai
             for_each_cell(mesh[mesh_id_t::cells][L],
                           [&](const auto& cell)
                           {
-                              if constexpr (Field::is_scalar)
+                              if constexpr (scalar_field<Field>)
                               {
                                   u[cell] = std::numeric_limits<double>::quiet_NaN();
                               }

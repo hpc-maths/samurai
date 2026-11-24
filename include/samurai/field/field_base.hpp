@@ -19,6 +19,7 @@
 #include "../field_expression.hpp"
 #include "../storage/containers.hpp"
 #include "../timers.hpp"
+#include "concepts.hpp"
 #include "field_iterator.hpp"
 
 namespace samurai
@@ -459,7 +460,7 @@ namespace samurai
                       {
                           if constexpr (std::is_integral_v<typename Field::value_type>)
                           {
-                              if constexpr (Field::is_scalar)
+                              if constexpr (scalar_field<Field>)
                               {
                                   if (field1[cell] != field2[cell])
                                   {
@@ -479,7 +480,7 @@ namespace samurai
                           }
                           else
                           {
-                              if constexpr (Field::is_scalar)
+                              if constexpr (scalar_field<Field>)
                               {
                                   if (std::abs(field1[cell] - field2[cell]) > 1e-15)
                                   {

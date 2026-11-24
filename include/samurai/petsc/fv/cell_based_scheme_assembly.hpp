@@ -1,4 +1,5 @@
 #pragma once
+#include "../../field/concepts.hpp"
 #include "../../schemes/fv/cell_based/cell_based_scheme__lin_hom.hpp"
 #include "../../utils.hpp"
 #include "FV_scheme_assembly.hpp"
@@ -36,7 +37,7 @@ namespace samurai
             using field_t                             = typename Scheme::field_t;
             using field_value_type                    = typename field_t::value_type; // double
             static constexpr std::size_t stencil_size = cfg_t::stencil_size;
-            using local_matrix_t                      = CollapsMatrix<field_value_type, output_n_comp, input_n_comp, field_t::is_scalar>;
+            using local_matrix_t                      = CollapsMatrix<field_value_type, output_n_comp, input_n_comp, scalar_field<field_t>>;
 
             using stencil_t         = Stencil<stencil_size, dim>;
             using get_coeffs_func_t = std::function<std::array<local_matrix_t, stencil_size>(double)>;
@@ -51,7 +52,7 @@ namespace samurai
             // Data index in the given stencil
             SAMURAI_INLINE auto stencil_col_index(unsigned int cell_local_index, [[maybe_unused]] unsigned int field_j) const
             {
-                if constexpr (field_t::is_scalar)
+                if constexpr (scalar_field<field_t>)
                 {
                     return cell_local_index;
                 }
@@ -197,7 +198,7 @@ namespace samurai
                         //     field_j (Grad_y) |  |  |  |-1| 1|
 
                         // Coefficient insertion
-                        if constexpr (field_t::is_scalar)
+                        if constexpr (scalar_field<field_t>)
                         {
                             // A scalar field has a single component, so
                             // field_i == field_j == 0 and each row corresponds

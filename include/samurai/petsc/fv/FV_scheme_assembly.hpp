@@ -1,6 +1,7 @@
 #pragma once
 #include "../../algorithm/update.hpp"
 #include "../../boundary.hpp"
+#include "../../field/concepts.hpp"
 #include "../../numeric/prediction.hpp"
 #include "../../schemes/fv/FV_scheme.hpp"
 #include "../../schemes/fv/scheme_operators.hpp"
@@ -577,7 +578,7 @@ namespace samurai
             SAMURAI_INLINE double
             rhs_coeff(const Coeffs& coeffs, [[maybe_unused]] unsigned int field_i, [[maybe_unused]] unsigned int field_j) const
             {
-                if constexpr (field_t::is_scalar && output_field_t::is_scalar)
+                if constexpr (scalar_field<field_t> && scalar_field<output_field_t>)
                 {
                     return coeffs;
                 }
@@ -1063,7 +1064,7 @@ namespace samurai
                         assert(coeff != 0);
 
                         double bc_value;
-                        if constexpr (field_t::is_scalar)
+                        if constexpr (scalar_field<field_t>)
                         {
                             bc_value = bc->value(towards_out, cell, boundary_point);
                         }

@@ -1,4 +1,5 @@
 #pragma once
+#include "../../../field/concepts.hpp"
 #include "../cell_based/cell_based_scheme__lin_hom.hpp"
 #include "../cell_based/cell_based_scheme__nonlin.hpp"
 #include "diffusion_bc.hpp"
@@ -32,7 +33,7 @@ namespace samurai
             this->stencil()           = star_stencil<dim>();
             this->coefficients_func() = [](StencilCoeffs<cfg>& coeffs, double h)
             {
-                auto Identity = eye<field_value_type, n_comp, n_comp, Field::is_scalar>();
+                auto Identity = eye<field_value_type, n_comp, n_comp, scalar_field<Field>>();
                 for (unsigned int i = 0; i < cfg::stencil_size; ++i)
                 {
                     coeffs[i] = -Identity;
@@ -93,7 +94,7 @@ namespace samurai
             for (std::size_t i = 0; i < cfg::stencil_size; ++i)
             {
                 jac[i] = (i == cfg::center_index ? (cfg::stencil_size - 1.) : -1.)
-                       * eye<typename Field::value_type, Field::n_comp, Field::n_comp, Field::is_scalar>();
+                       * eye<typename Field::value_type, Field::n_comp, Field::n_comp, scalar_field<Field>>();
             }
             jac /= (h * h);
         };

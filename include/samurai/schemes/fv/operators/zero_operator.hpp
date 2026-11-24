@@ -1,4 +1,5 @@
 #pragma once
+#include "../../../field/concepts.hpp"
 #include "../cell_based/cell_based_scheme__lin_hom.hpp"
 
 namespace samurai
@@ -14,7 +15,7 @@ namespace samurai
 
         zero.coefficients_func() = [](StencilCoeffs<cfg>& sc, double)
         {
-            sc = zeros<field_value_type, output_field_t::n_comp, input_field_t::n_comp, input_field_t::is_scalar>();
+            sc = zeros<field_value_type, output_field_t::n_comp, input_field_t::n_comp, scalar_field<input_field_t>>();
         };
         zero.is_symmetric(true);
         return zero;

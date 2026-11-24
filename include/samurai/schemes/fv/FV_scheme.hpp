@@ -4,6 +4,7 @@
 #include "../../boundary.hpp"
 #include "../../concepts.hpp"
 #include "../../field.hpp"
+#include "../../field/concepts.hpp"
 #include "../../static_algorithm.hpp"
 #include "../../timers.hpp"
 #include "utils.hpp"
@@ -26,7 +27,7 @@ namespace samurai
     {
         static constexpr std::size_t n_comp = Field::n_comp;
         using field_value_type              = typename Field::value_type;
-        using coeffs_t                      = CollapsMatrix<field_value_type, output_n_comp, n_comp, Field::is_scalar>;
+        using coeffs_t                      = CollapsMatrix<field_value_type, output_n_comp, n_comp, scalar_field<Field>>;
 
         using stencil_coeffs_t = std::array<coeffs_t, bdry_stencil_size>;
         using rhs_coeffs_t     = coeffs_t;
@@ -248,7 +249,7 @@ namespace samurai
         {
             if constexpr (cfg::stencil_size == 1)
             {
-                if constexpr (field_t::is_scalar && output_field_t::is_scalar)
+                if constexpr (scalar_field<field_t> && scalar_field<output_field_t>)
                 {
                     return coeffs;
                 }
@@ -259,7 +260,7 @@ namespace samurai
             }
             else
             {
-                if constexpr (field_t::is_scalar && output_field_t::is_scalar)
+                if constexpr (scalar_field<field_t> && scalar_field<output_field_t>)
                 {
                     return coeffs[cell_number_in_stencil];
                 }
@@ -275,7 +276,7 @@ namespace samurai
                                                         [[maybe_unused]] size_type field_i,
                                                         [[maybe_unused]] size_type field_j) const
         {
-            if constexpr (field_t::is_scalar && output_field_t::is_scalar)
+            if constexpr (scalar_field<field_t> && scalar_field<output_field_t>)
             {
                 return coeffs[cell_number_in_stencil];
             }

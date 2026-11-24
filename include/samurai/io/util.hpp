@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "../field/concepts.hpp"
+
 namespace samurai
 {
     template <class Field, class SubMesh>
@@ -18,7 +20,7 @@ namespace samurai
             for_each_cell(submesh,
                           [&](auto cell)
                           {
-                              if constexpr (Field::is_scalar)
+                              if constexpr (scalar_field<Field>)
                               {
                                   data(index, 0) = field[cell];
                               }
@@ -48,7 +50,7 @@ namespace samurai
             for_each_cell(submesh,
                           [&](auto cell)
                           {
-                              if constexpr (Field::is_scalar)
+                              if constexpr (scalar_field<Field>)
                               {
                                   data[index++] = field[cell];
                               }

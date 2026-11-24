@@ -8,6 +8,8 @@
 
 #include <xtensor/containers/xadapt.hpp>
 
+#include "../field/concepts.hpp"
+
 namespace samurai
 {
     namespace detail
@@ -18,7 +20,7 @@ namespace samurai
         // would build a Cell object for every cell and dominate the cost. max is
         // order-independent, so the result is the same as with a per-cell loop.
         void set_inv_max_field(auto& inv_max_fields, const auto& field, std::size_t dec = 0)
-            requires(std::decay_t<decltype(field)>::is_scalar)
+            requires(scalar_field<decltype(field)>)
         {
             const auto* data = field.data();
             for_each_interval(field.mesh(),
@@ -33,7 +35,7 @@ namespace samurai
         }
 
         void set_inv_max_field(auto& inv_max_fields, const auto& field, std::size_t dec = 0)
-            requires(!std::decay_t<decltype(field)>::is_scalar)
+            requires(vector_field<decltype(field)>)
         {
             constexpr std::size_t nc = std::decay_t<decltype(field)>::n_comp;
             const auto* data         = field.data();

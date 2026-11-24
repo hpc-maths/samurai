@@ -44,7 +44,7 @@ namespace samurai
                 }
             });
 
-        if constexpr (std::decay_t<decltype(u)>::is_scalar)
+        if constexpr (scalar_field<decltype(u)>)
         {
             samurai::make_bc<samurai::Dirichlet<1>>(u, 0.);
         }

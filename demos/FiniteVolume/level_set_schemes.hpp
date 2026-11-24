@@ -20,7 +20,7 @@ template <class Field, class VelocityField>
     requires samurai::field_like<VelocityField>
 auto make_level_set_convection(VelocityField& u, const double& dt)
 {
-    static_assert(Field::is_scalar, "The level set must be a scalar field");
+    static_assert(samurai::scalar_field<Field>, "The level set must be a scalar field");
     static_assert(VelocityField::dim == Field::dim && VelocityField::n_comp == Field::dim);
 
     static constexpr std::size_t dim = Field::dim;
@@ -81,7 +81,7 @@ auto make_level_set_convection(VelocityField& u, const double& dt)
 template <class Field>
 auto make_level_set_reinitialization(const Field& phi_0)
 {
-    static_assert(Field::is_scalar, "The level set must be a scalar field");
+    static_assert(samurai::scalar_field<Field>, "The level set must be a scalar field");
 
     static constexpr std::size_t dim = Field::dim;
 

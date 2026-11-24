@@ -285,6 +285,21 @@ namespace samurai
                       });
     }
 
+    TEST(field, scalar_and_vector_field_concepts)
+    {
+        Box<double, 1> box{{0}, {1}};
+        auto mesh = mra::make_mesh(box, mesh_config<1>().min_level(2).max_level(2));
+        auto s    = make_scalar_field<double>("s", mesh);
+        auto v1   = make_vector_field<double, 1>("v1", mesh);
+        auto v3   = make_vector_field<double, 3>("v3", mesh);
+
+        static_assert(scalar_field<decltype(s)> && !vector_field<decltype(s)>);
+        static_assert(scalar_field<const decltype(s)&>);
+        static_assert(vector_field<decltype(v1)> && !scalar_field<decltype(v1)>);
+        static_assert(vector_field<decltype(v3)> && !scalar_field<decltype(v3)>);
+        static_assert(!scalar_field<double> && !vector_field<double>);
+    }
+
     // A VectorField has the same layout whatever its number of components, one included: an
     // interval view has shape (cells, components), and a component is read like a scalar field.
     template <class T>

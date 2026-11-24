@@ -3,6 +3,8 @@
 #include <type_traits>
 #include <xtensor/containers/xfixed.hpp>
 
+#include "../field/concepts.hpp"
+
 namespace samurai
 {
     namespace petsc
@@ -215,7 +217,7 @@ namespace samurai
             double* v_data;
             VecGetArray(v, &v_data);
 
-            if constexpr (Field::is_scalar)
+            if constexpr (scalar_field<Field>)
             {
                 v_data[0] = f[cell];
             }
@@ -251,7 +253,7 @@ namespace samurai
             const double* v_data;
             VecGetArrayRead(v, &v_data);
 
-            if constexpr (Field::is_scalar)
+            if constexpr (scalar_field<Field>)
             {
                 f[cell] = v_data[0];
             }

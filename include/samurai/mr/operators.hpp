@@ -9,6 +9,7 @@
 
 #include "../cell_flag.hpp"
 #include "../field.hpp"
+#include "../field/concepts.hpp"
 #include "../numeric/prediction.hpp"
 #include "../operators_base.hpp"
 #include "../utils.hpp"
@@ -271,7 +272,7 @@ namespace samurai
 
                 for (std::size_t ii = 0, i_f = 0; ii < i.size(); ++ii, i_f += 2)
                 {
-                    if constexpr (T2::is_scalar)
+                    if constexpr (scalar_field<T2>)
                     {
                         std::array<double, 4> d = {data[ind1 + i_f], data[ind1 + i_f + 1], data[ind2 + i_f], data[ind2 + i_f + 1]};
 
@@ -419,7 +420,7 @@ namespace samurai
 
                 for (std::size_t ii = 0, i_f = 0; ii < i.size(); ++ii, i_f += 2)
                 {
-                    if constexpr (T2::is_scalar)
+                    if constexpr (scalar_field<T2>)
                     {
                         std::array<double, 8> d = {data[ind1 + i_f],
                                                    data[ind1 + i_f + 1],

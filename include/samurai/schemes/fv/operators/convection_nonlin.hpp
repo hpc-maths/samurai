@@ -1,4 +1,5 @@
 #pragma once
+#include "../../../field/concepts.hpp"
 #include "flux_divergence.hpp"
 #include "weno_impl.hpp"
 
@@ -48,7 +49,7 @@ namespace samurai
 
                 auto f = [](auto u) -> FluxValue<cfg>
                 {
-                    if constexpr (Field::is_scalar)
+                    if constexpr (scalar_field<Field>)
                     {
                         return u * u;
                     }
@@ -61,7 +62,7 @@ namespace samurai
                 upwind[d].cons_flux_function = [f](FluxValue<cfg>& flux, const StencilData<cfg>& /*data*/, const StencilValues<cfg>& field)
                 {
                     field_value_t v;
-                    if constexpr (Field::is_scalar)
+                    if constexpr (scalar_field<Field>)
                     {
                         v = 0.5 * (field[left] + field[right]);
                     }
@@ -78,7 +79,7 @@ namespace samurai
                                                       const samurai::StencilValues<cfg>& field)
                 {
                     field_value_t v;
-                    if constexpr (Field::is_scalar)
+                    if constexpr (scalar_field<Field>)
                     {
                         v = 0.5 * (field[left] + field[right]);
                     }
@@ -87,7 +88,7 @@ namespace samurai
                         v = 0.5 * (field[left](d) + field[right](d));
                     }
 
-                    if constexpr (Field::is_scalar)
+                    if constexpr (scalar_field<Field>)
                     {
                         if (v >= 0)
                         {
@@ -184,7 +185,7 @@ namespace samurai
 
                 auto f = [](auto u) -> FluxValue<cfg>
                 {
-                    if constexpr (Field::is_scalar)
+                    if constexpr (scalar_field<Field>)
                     {
                         return u * u;
                     }
@@ -202,7 +203,7 @@ namespace samurai
                     static constexpr std::size_t right = 3;
 
                     field_value_t v;
-                    if constexpr (Field::is_scalar)
+                    if constexpr (scalar_field<Field>)
                     {
                         v = 0.5 * (u[left] + u[right]);
                     }
