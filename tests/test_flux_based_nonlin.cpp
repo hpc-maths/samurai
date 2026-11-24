@@ -696,7 +696,8 @@ namespace samurai
         }
     }
 
-    template <std::size_t stencil_size, std::size_t n_comp, std::size_t dim, int radius = 1>
+    // With vector_field = true, the field is a VectorField even for a single component.
+    template <std::size_t stencil_size, std::size_t n_comp, std::size_t dim, int radius = 1, bool vector_field = (n_comp > 1)>
     void check_predicted_stencil_values(bool periodic, std::size_t max_level)
     {
         FinerLevelFluxGuard guard;
@@ -712,7 +713,7 @@ namespace samurai
 
         auto make_field = [&]()
         {
-            if constexpr (n_comp == 1)
+            if constexpr (!vector_field)
             {
                 return make_scalar_field<double>("u", mesh);
             }
@@ -841,7 +842,7 @@ namespace samurai
                         {
                             const double expected = predicted_value(u, c, level, delta_l, coarse, child, std::make_index_sequence<dim - 1>{});
                             double value = 0;
-                            if constexpr (n_comp == 1)
+                            if constexpr (!vector_field)
                             {
                                 value = values[s];
                             }
@@ -898,5 +899,8 @@ namespace samurai
         }
         // A prediction stencil radius of 0 (with 4 cells or less, the coarse values are copied instead).
         check_predicted_stencil_values<6, 1, dim, 0>(false, max_level);
+        // A VectorField with a single component.
+        check_predicted_stencil_values<2, 1, dim, 1, true>(false, max_level);
+        check_predicted_stencil_values<4, 1, dim, 1, true>(true, max_level);
     }
 }
