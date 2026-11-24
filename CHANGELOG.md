@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.35.0](https://github.com/hpc-maths/samurai/compare/v0.34.0...v0.35.0) (2026-11-24)
+
+
+### Features
+
+* add SAMURAI_ALWAYS_INLINE to force inlining whatever the build options ([#817](https://github.com/hpc-maths/samurai/issues/817)) ([258042c](https://github.com/hpc-maths/samurai/commit/258042c8e7e9adb19ba24047ef9fdc4d2719d241))
+* **demos:** add 3D variants of the heat and linear convection demos ([#805](https://github.com/hpc-maths/samurai/issues/805)) ([b502ff1](https://github.com/hpc-maths/samurai/commit/b502ff19e451fff2f15c98345586bf3a47d981cc))
+
+
+### Bug Fixes
+
+* **fv:** visit every transverse child in the 3D finer-level flux ([#819](https://github.com/hpc-maths/samurai/issues/819)) ([eb6d111](https://github.com/hpc-maths/samurai/commit/eb6d111ba1189b4bb54deb76547629840944cd02))
+* **mpi:** add to the reference the children that a neighbour holds ([#803](https://github.com/hpc-maths/samurai/issues/803)) ([3222739](https://github.com/hpc-maths/samurai/commit/322273929afcbaa7187f9d2712d61fa38720853d))
+* **mpi:** exchange the edge and corner ghosts outside the domain ([#802](https://github.com/hpc-maths/samurai/issues/802)) ([d01f68c](https://github.com/hpc-maths/samurai/commit/d01f68c5fbc154e976f77c39471864a57e6546f5))
+* share the command-line options between translation units ([#824](https://github.com/hpc-maths/samurai/issues/824)) ([4a26a76](https://github.com/hpc-maths/samurai/commit/4a26a765752c4f5a6f3eb7963dc057e8d1806985))
+
+
+### Performance
+
+* **mesh:** store the rows of a LevelCellList in sorted vectors ([#810](https://github.com/hpc-maths/samurai/issues/810)) ([9271079](https://github.com/hpc-maths/samurai/commit/927107953bec9c94b5a838e71859e374a3b5f909))
+* **weno5:** compute vector fluxes one component at a time ([#815](https://github.com/hpc-maths/samurai/issues/815)) ([c36d6bb](https://github.com/hpc-maths/samurai/commit/c36d6bb1d12a2bac599a764f04bbd0c9296c6489))
+
+
+### CI/CD
+
+* adapt the CI to the Ubuntu 26.04 runner image ([#804](https://github.com/hpc-maths/samurai/issues/804)) ([9e9c859](https://github.com/hpc-maths/samurai/commit/9e9c85963f800883897cf57d3a3d0c090c477049))
+* **deps:** bump amannn/action-semantic-pull-request from 6.1.1 to 6.1.2 in the github-actions group ([#801](https://github.com/hpc-maths/samurai/issues/801)) ([dbb9099](https://github.com/hpc-maths/samurai/commit/dbb9099b2d339eaa187d0e42cab0c215b54e411a))
+* pin yaml below 0.2.6 next to petsc ([#826](https://github.com/hpc-maths/samurai/issues/826)) ([86f19b3](https://github.com/hpc-maths/samurai/commit/86f19b3505bd9e38fd1119a40e49cf594321c772))
+* **sonar:** analyse tests/ as test code ([#816](https://github.com/hpc-maths/samurai/issues/816)) ([4b3a090](https://github.com/hpc-maths/samurai/commit/4b3a0903d71dd67c3d477884d7c5faae69dbd6e9))
+
 ## [0.34.0](https://github.com/hpc-maths/samurai/compare/v0.33.0...v0.34.0) (2026-11-07)
 
 
