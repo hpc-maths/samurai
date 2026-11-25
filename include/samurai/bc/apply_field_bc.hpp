@@ -8,6 +8,7 @@
 #include "../static_dispatch.hpp"
 #include "polynomial_extrapolation.hpp"
 #include <algorithm>
+#include <numeric>
 
 #include <fmt/format.h>
 #include <stdexcept>
@@ -403,6 +404,137 @@ namespace samurai
                                                                     apply_bc_impl<Field, i>(*bc.get(), level, direction, field);
                                                                 });
         }
+    }
+
+    /**
+     * Apply @a bc at @a level on the prediction ghosts that touch the domain boundary in @a direction,
+     * once they have been predicted: their outer ghosts are then filled from their values, as the outer
+     * ghosts of a cell of that level.
+     *
+     * Without this step, these outer ghosts only hold what predict_bc gave them, a copy of the outer
+     * ghost of the parent (prediction of order 0), while the prediction ghost itself is predicted at the
+     * order of the mesh. The two then differ by O(h |grad u|): along the boundary when the solution varies
+     * along it, and across it because the ghost of the parent lies farther from the boundary. The details
+     * of the multiresolution and the fluxes computed on a finer level read these ghosts.
+     *
+     * Only the prediction ghosts whose whole B.C. stencil is in the reference mesh are filled.
+     */
+    /**
+     * The prediction ghosts of @a level that touch the domain boundary in @a direction, inside @a region, and whose
+     * stencil (the cells at @a offsets from them) is entirely in the reference mesh.
+     *
+     * The result is materialized in a LevelCellArray and the stencil is walked at run time, so that this code, which
+     * does not depend on the stencil size, is instantiated once per mesh type and not once per stencil size.
+     */
+    template <class Mesh, class Lca>
+    auto prediction_ghosts_on_boundary(const Mesh& mesh,
+                                       std::size_t level,
+                                       const DirectionVector<Mesh::dim>& direction,
+                                       const std::vector<DirectionVector<Mesh::dim>>& offsets,
+                                       const Lca& region)
+    {
+        using mesh_id_t = typename Mesh::mesh_id_t;
+
+        // The prediction ghosts of update_ghost_mr: the cells of the level that are neither leaves nor
+        // projection cells, and that have a parent.
+        auto prediction_ghosts = intersection(
+            difference(mesh[mesh_id_t::all_cells][level], union_(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::proj_cells][level])),
+            mesh.subdomain(level),
+            mesh[mesh_id_t::all_cells][level - 1]);
+        auto domain      = self(mesh.domain(level));
+        auto on_boundary = difference(domain, translate(domain, -direction));
+
+        using lca_t = LevelCellArray<Mesh::dim, typename Mesh::interval_t>;
+
+        // Narrow the origins one stencil cell at a time, materializing after each step.
+        return std::accumulate(
+            offsets.begin(),
+            offsets.end(),
+            lca_t(intersection(prediction_ghosts, on_boundary, region)),
+            [&](lca_t origins, const DirectionVector<Mesh::dim>& offset)
+            {
+                return lca_t(intersection(origins, translate(mesh[mesh_id_t::reference][level], DirectionVector<Mesh::dim>(-offset))));
+            });
+    }
+
+    template <class Field, std::size_t stencil_size>
+    void apply_bc_on_prediction_ghosts_impl(Bc<Field>& bc, std::size_t level, const DirectionVector<Field::dim>& direction, Field& field)
+    {
+        static constexpr std::size_t dim = Field::dim;
+
+        if constexpr (stencil_size >= 2)
+        {
+            auto& mesh = field.mesh();
+            if (level <= mesh.min_level() || !is_cartesian(direction))
+            {
+                return;
+            }
+            for (std::size_t i = 0; i < dim; ++i)
+            {
+                if (direction(i) != 0 && mesh.is_periodic(i))
+                {
+                    return;
+                }
+            }
+
+            auto& region            = bc.get_region();
+            auto& region_directions = region.first;
+            auto& region_lca        = region.second;
+            auto stencil            = convert_for_direction(bc.get_stencil(std::integral_constant<std::size_t, stencil_size>()), direction);
+            auto stencil_analyzer   = make_stencil_analyzer(stencil);
+
+            std::vector<DirectionVector<dim>> offsets;
+            offsets.reserve(stencil_size);
+            for (std::size_t k = 0; k < stencil_size; ++k)
+            {
+                offsets.emplace_back(xt::view(stencil, k));
+            }
+
+            for (std::size_t d = 0; d < region_directions.size(); ++d)
+            {
+                if (region_directions[d] != direction)
+                {
+                    continue;
+                }
+                auto bdry_ghosts = prediction_ghosts_on_boundary(mesh, level, direction, offsets, region_lca[d]);
+                if (bdry_ghosts.empty())
+                {
+                    continue;
+                }
+                auto subset = self(bdry_ghosts).on(level);
+                apply_bc_on_subset(bc, field, subset, stencil_analyzer, direction);
+            }
+        }
+    }
+
+    template <class Field>
+        requires field_like<Field>
+    void apply_field_bc_on_prediction_ghosts(std::size_t level, Field& field)
+    {
+        static constexpr std::size_t max_stencil_size_implemented_BC = Bc<Field>::max_stencil_size_implemented;
+
+        for (auto& bc : field.get_bc())
+        {
+            for_each_cartesian_direction<Field::dim>(
+                [&](const auto& direction)
+                {
+                    dispatch_static<1, max_stencil_size_implemented_BC>(
+                        static_cast<std::size_t>(bc->stencil_size()),
+                        [&](auto integral_constant_i)
+                        {
+                            static constexpr std::size_t i = decltype(integral_constant_i)::value;
+                            apply_bc_on_prediction_ghosts_impl<Field, i>(*bc.get(), level, direction, field);
+                        });
+                });
+        }
+    }
+
+    template <class Field, class... Fields>
+        requires(field_like<Field> && (field_like<Fields> && ...))
+    void apply_field_bc_on_prediction_ghosts(std::size_t level, Field& field, Fields&... other_fields)
+    {
+        apply_field_bc_on_prediction_ghosts(level, field);
+        (apply_field_bc_on_prediction_ghosts(level, other_fields), ...);
     }
 
     template <class Field>

@@ -1062,6 +1062,102 @@ namespace samurai
         run_neumann<3>(mesh, true);
     }
 
+    //-------------------------------------------------------------------------
+    // Outer ghosts of the prediction ghosts on an adapted mesh.
+    //
+    // A coarse leaf on the boundary next to finer leaves has prediction ghosts at
+    // the finer level, read by the details and by the fluxes computed on the
+    // finest level, and these prediction ghosts have outer ghosts. On a field
+    // linear in every direction the prediction of order 1 is exact, and so is
+    // Dirichlet<1> (ghost = 2 f(face) - cell) applied to the predicted values:
+    // after update_ghost_mr alone, every outer ghost of a prediction ghost on the
+    // boundary must hold f at its centre. A copy of the outer ghost of the parent
+    // (prediction of order 0) is off by O(h) along and across the boundary.
+    //
+    // Only the prediction ghosts whose prediction stencil stays away from the
+    // edges and corners of the domain are checked: the edge and corner ghosts
+    // are filled by reflection about the corner, which is not exact on a linear
+    // field, and the prediction near them inherits that error.
+    //-------------------------------------------------------------------------
+    template <std::size_t dim>
+    void run_outer_ghosts_of_prediction_ghosts()
+    {
+        auto mesh       = adapted_mesh<dim>(1);
+        using mesh_id_t = typename decltype(mesh)::mesh_id_t;
+
+        auto f = [](const auto& coords)
+        {
+            constexpr std::array<double, 3> slope = {0.5, -0.3, 0.2};
+            double p                              = 1.;
+            for (std::size_t d = 0; d < dim; ++d)
+            {
+                p += slope[d] * coords[d];
+            }
+            return p;
+        };
+
+        auto u = make_scalar_field<double>("u", mesh);
+        for_each_cell(mesh,
+                      [&](auto& cell)
+                      {
+                          u[cell] = f(cell.center());
+                      });
+        using cell_t   = typename decltype(u)::cell_t;
+        using coords_t = typename cell_t::coords_t;
+        make_bc<Dirichlet<1>>(u,
+                              [f](const auto&, const cell_t&, const coords_t& coords)
+                              {
+                                  return f(coords);
+                              });
+        update_ghost_mr(u);
+
+        std::size_t nb = 0;
+        double max_err = 0.;
+        for (std::size_t level = mesh.min_level() + 1; level <= mesh.max_level(); ++level)
+        {
+            for_each_cartesian_direction<dim>(
+                [&](const auto& direction)
+                {
+                    auto prediction_ghosts = difference(mesh[mesh_id_t::reference][level],
+                                                        union_(mesh[mesh_id_t::cells][level], mesh[mesh_id_t::proj_cells][level]));
+                    auto domain            = self(mesh.domain(level));
+                    auto on_boundary       = intersection(prediction_ghosts, difference(domain, translate(domain, -direction)));
+                    auto outer             = intersection(translate(on_boundary, direction), mesh[mesh_id_t::reference][level]);
+                    // the domain is the unit box: 2^level cells per direction
+                    const auto n_cells = static_cast<int>(std::size_t{1} << level);
+                    for_each_cell(mesh[mesh_id_t::reference],
+                                  outer,
+                                  [&](auto& cell)
+                                  {
+                                      for (std::size_t t = 0; t < dim; ++t)
+                                      {
+                                          // the parent and its neighbours along t stay inside the domain
+                                          if (direction[t] == 0 && (cell.indices[t] < 2 || cell.indices[t] >= n_cells - 2))
+                                          {
+                                              return;
+                                          }
+                                      }
+                                      ++nb;
+                                      max_err = std::max(max_err, std::abs(u[cell] - f(cell.center())));
+                                  });
+                });
+        }
+        nb      = test::global_sum(nb);
+        max_err = test::global_max(max_err);
+        EXPECT_GT(nb, 0u) << "dim=" << dim;
+        EXPECT_NEAR(max_err, 0., 1e-12) << "dim=" << dim;
+    }
+
+    TEST(bc_ghost_values, outer_ghosts_of_prediction_ghosts_2d)
+    {
+        run_outer_ghosts_of_prediction_ghosts<2>();
+    }
+
+    TEST(bc_ghost_values, outer_ghosts_of_prediction_ghosts_3d)
+    {
+        run_outer_ghosts_of_prediction_ghosts<3>();
+    }
+
     TEST(bc_ghost_values, dirichlet2_adapted_2d)
     {
         auto mesh = adapted_mesh<2>(2);
